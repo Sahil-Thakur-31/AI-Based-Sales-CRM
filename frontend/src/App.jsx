@@ -3,7 +3,7 @@ import Sidebar from "./components/sideBar";
 import Profile from './pages/profile';
 import Settings from './pages/Settings';
 
-const dummyUser = {
+const dummUser = {
     name: "Rahul Sharma",
     role: "admin" // try: "sales-person", "sales-manager"
 };
