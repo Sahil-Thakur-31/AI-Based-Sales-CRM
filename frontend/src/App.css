@@ -1,30 +1,5 @@
-:root {
-  --color-primary: #2563eb;
-  --color-secondary: #64748b;
-  --color-success: #22c55e;
-  --color-danger: #ef4444;
-  --color-background: #f9fafb;
+*{
+  margin: 0;
+  padding: 0;
+  overflow-y: hidden;
 }
-
-/* background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); */
-
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-button {
-  background-color: var(--color-primary);
-  color: var(--text-inverse);
-  border: none;
-}
-
-button:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.card {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-}
-
