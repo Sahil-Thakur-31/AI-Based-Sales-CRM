@@ -1,5 +1,5 @@
 import React from "react";
-import "./ExpenseDashboard.css";
+import "./Expense.css";
 
 const ExpenseDashboard = () => {
   const expenses = [
