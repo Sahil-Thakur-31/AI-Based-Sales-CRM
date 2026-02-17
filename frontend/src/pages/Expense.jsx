@@ -1,87 +1,97 @@
 import React from "react";
 import "./Expense.css";
 
-const ExpenseDashboard = () => {
-  const expenses = [
-    { id: 1, title: "Client Meeting", amount: 2500, status: "Approved" },
-    { id: 2, title: "Travel Expense", amount: 1200, status: "Pending" },
-    { id: 3, title: "Demo Setup", amount: 1800, status: "Approved" }
-  ];
-
-  const total = 12450;
-  const approved = 9200;
-  const pending = 3250;
-  const revenue = 580000;
-  const ratio = ((total / revenue) * 100).toFixed(2);
-
+const ExpensePage = () => {
   return (
-    <div className="container">
-
+    <div className="expense-container">
+      
       {/* Header */}
-      <div className="header">
-        <h1>Expense Management</h1>
-        <div className="profile">RS</div>
+      <div className="expense-header">
+        <h2>Expense Management</h2>
+        <div className="profile-box">
+          <span>Rahul Sharma</span>
+          <div className="avatar">RS</div>
+        </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="cards">
-        <div className="card">
+      {/* Summary Cards */}
+      <div className="summary-cards">
+        <div className="card monthly">
           <h4>This Month's Expenses</h4>
-          <h2>₹{total}</h2>
-          <p>8 Transactions</p>
+          <h2>₹12,450</h2>
+          <p>8 transactions</p>
         </div>
 
         <div className="card approved">
           <h4>Approved</h4>
-          <h2>₹{approved}</h2>
-          <p>6 Transactions</p>
+          <h2>₹9,200</h2>
+          <p>6 transactions</p>
         </div>
 
         <div className="card pending">
           <h4>Pending Approval</h4>
-          <h2>₹{pending}</h2>
-          <p>2 Transactions</p>
+          <h2>₹3,250</h2>
+          <p>2 transactions</p>
+        </div>
+
+        <div className="card ratio">
+          <h4>Expense/Revenue Ratio</h4>
+          <h2>2.15%</h2>
+          <p>Below target (3%)</p>
         </div>
       </div>
 
-      {/* Ratio Card */}
-      <div className="card ratio">
-        <h4>Expense / Revenue Ratio</h4>
-        <h2>{ratio}%</h2>
-        <p>Below target (3%)</p>
-      </div>
+      <div className="expense-body">
+        
+        {/* Left Side - Form */}
+        <div className="expense-form">
+          <h3>Add New Expense</h3>
 
-      {/* Recent Expenses Table */}
-      <div className="recent-expenses">
-        <h3>Recent Expenses</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Amount</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((exp) => (
-              <tr key={exp.id}>
-                <td>{exp.title}</td>
-                <td>₹{exp.amount}</td>
-                <td className={
-                  exp.status === "Approved"
-                    ? "status-approved"
-                    : "status-pending"
-                }>
-                  {exp.status}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <div className="ocr-box">
+            <p><strong>Quick OCR Upload</strong></p>
+            <p className="small-text">
+              Snap a photo of your receipt and AI will automatically fill the form!
+            </p>
+            <div className="btn-group">
+              <button className="btn primary">Capture Receipt</button>
+              <button className="btn secondary">Upload Image</button>
+            </div>
+          </div>
+
+          <label>Expense Category</label>
+          <select>
+            <option>Select category...</option>
+            <option>Client Meeting</option>
+            <option>Travel</option>
+            <option>Marketing</option>
+          </select>
+
+          <label>Amount (₹)</label>
+          <input type="number" placeholder="0.00" />
+
+          <label>Link to Deal (Optional)</label>
+          <select>
+            <option>Select deal...</option>
+          </select>
+
+          <label>Description</label>
+          <textarea placeholder="Brief description of expense..."></textarea>
+
+          <label>Upload Bill (Photo/PDF)</label>
+          <input type="file" />
+
+          <div className="form-buttons">
+            <button className="btn primary">Submit for Approval</button>
+            <button className="btn secondary">Clear</button>
+          </div>
+        </div>
+
+        {/* Right Side */}
+        
       </div>
 
     </div>
   );
 };
 
-export default ExpenseDashboard;
+export default ExpensePage;
