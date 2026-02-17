@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>AbhinavDCS CRM</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+/* ===== ROOT VARIABLES ===== */
+
+:root {
+
+    --sidebar-width: 270px;
+
+    --bg-main: #f1f5f9;
+    --bg-card: #ffffff;
+
+    --text-dark: #0f172a;
+    --text-light: rgba(255,255,255,0.9);
+
+    --border-light: #e2e8f0;
+
+    --radius: 12px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 6px 16px rgba(0,0,0,0.12);
+
+}
+
+/* ===== GLOBAL ===== */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+
+    margin: 0;
+    font-family: "Inter", sans-serif;
+    background: var(--bg-main);
+
+}
+
+.dashboard {
+
+    display: flex;
+    height: 100vh;
+
+}
+
+/* ===== SIDEBAR ===== */
+
+.sidebar {
+
+    width: var(--sidebar-width);
+
+    background: linear-gradient(
+        180deg,
+        #5B6FD8 0%,
+        #6A6BC8 35%,
+        #6F63B6 65%,
+        #6B4FA3 100%
+    );
+
+    padding: 28px 18px;
+
+    color: white;
+
+    display: flex;
+    flex-direction: column;
+
+}
+
+/* Logo section */
+
+.logo {
+
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 4px;
+
+}
+
+.logo-sub {
+
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 20px;
+
+}
+
+.sidebar-divider {
+
+    height: 1px;
+    background: rgba(255,255,255,0.2);
+    margin-bottom: 20px;
+
+}
+
+/* Navigation */
+
+.nav {
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+}
+
+.nav-item {
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 12px 16px;
+
+    border-radius: var(--radius);
+
+    cursor: pointer;
+
+    font-size: 15px;
+    font-weight: 500;
+
+    color: var(--text-light);
+
+    transition: all 0.25s ease;
+
+}
+
+.nav-item:hover {
+
+    background: rgba(255,255,255,0.12);
+
+}
+
+.nav-item.active {
+
+    background: rgba(255,255,255,0.20);
+    backdrop-filter: blur(6px);
+
+}
+
+/* ===== MAIN ===== */
+
+.main {
+
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+
+}
+
+/* Topbar */
+
+.topbar {
+
+    height: 64px;
+
+    background: white;
+
+    border-bottom: 1px solid var(--border-light);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 24px;
+
+}
+
+.title {
+
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-dark);
+
+}
+
+.profile {
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+}
+
+.avatar {
+
+    width: 38px;
+    height: 38px;
+
+    border-radius: 50%;
+
+    background: linear-gradient(135deg,#5B6FD8,#6B4FA3);
+
+    color: white;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-weight: 600;
+
+}
+
+/* Content */
+
+.content {
+
+    padding: 24px;
+
+}
+
+/* Cards */
+
+.cards {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+
+    gap: 20px;
+
+}
+
+.card {
+
+    background: var(--bg-card);
+
+    padding: 20px;
+
+    border-radius: var(--radius);
+
+    box-shadow: var(--shadow-sm);
+
+    transition: 0.25s;
+
+}
+
+.card:hover {
+
+    transform: translateY(-3px);
+
+    box-shadow: var(--shadow-md);
+
+}
+
+.card-label {
+
+    font-size: 14px;
+    color: #64748b;
+
+}
+
+.card-value {
+
+    font-size: 26px;
+    font-weight: 700;
+    margin-top: 6px;
+
+}
+
+/* Table */
+
+.table-container {
+
+    margin-top: 30px;
+
+    background: white;
+
+    border-radius: var(--radius);
+
+    box-shadow: var(--shadow-sm);
+
+    overflow: hidden;
+
+}
+
+table {
+
+    width: 100%;
+    border-collapse: collapse;
+
+}
+
+thead {
+
+    background: #f8fafc;
+
+}
+
+th, td {
+
+    padding: 14px 18px;
+    text-align: left;
+
+}
+
+th {
+
+    font-size: 13px;
+    color: #64748b;
+
+}
+
+tr {
+
+    border-top: 1px solid var(--border-light);
+
+}
+
+tr:hover {
+
+    background: #f8fafc;
+
+}
+
+/* Status badges */
+
+.badge {
+
+    padding: 4px 10px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+    font-weight: 600;
+
+}
+
+.badge.pending {
+
+    background: #fef3c7;
+    color: #92400e;
+
+}
+
+.badge.completed {
+
+    background: #dcfce7;
+    color: #166534;
+
+}
+
+/* Responsive */
+
+@media(max-width:900px){
+
+    .sidebar {
+        display:none;
+    }
+
+}
+
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+
+    <!-- SIDEBAR -->
+
+    <div class="sidebar">
+
+        <div class="logo">AbhinavDCS CRM</div>
+
+        <div class="logo-sub">AI-Powered Sales Platform</div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav">
+
+            <div class="nav-item active">📊 My Dashboard</div>
+            <div class="nav-item">⏰ Follow-ups</div>
+            <div class="nav-item">🎯 Leads</div>
+            <div class="nav-item">📈 Sales Forecasting</div>
+            <div class="nav-item">💰 Expenses</div>
+            <div class="nav-item">🤖 AI Lead Gen</div>
+            <div class="nav-item">🎪 Events & Expos</div>
+            <div class="nav-item">👥 Team Dashboard</div>
+            <div class="nav-item">📄 Reports</div>
+            <div class="nav-item">⚙️ Settings</div>
+
+        </div>
+
+    </div>
+
+    <!-- MAIN -->
+
+    <div class="main">
+
+        <div class="topbar">
+
+            <div class="title">Dashboard Overview</div>
+
+            <div class="profile">
+
+                <div>Admin</div>
+
+                <div class="avatar">A</div>
+
+            </div>
+
+        </div>
+
+        <div class="content">
+
+            <div class="cards">
+
+                <div class="card">
+                    <div class="card-label">Total Leads</div>
+                    <div class="card-value">1,284</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-label">Clients</div>
+                    <div class="card-value">842</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-label">Pending Followups</div>
+                    <div class="card-value">64</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-label">Revenue</div>
+                    <div class="card-value">₹12,45,000</div>
+                </div>
+
+            </div>
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Action</th>
+                            <th>Assigned</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        <tr>
+                            <td>Acme Corp</td>
+                            <td>Call</td>
+                            <td>Rahul Sharma</td>
+                            <td>18 Feb 2026</td>
+                            <td><span class="badge pending">Pending</span></td>
+                        </tr>
+
+                        <tr>
+                            <td>Tech Solutions</td>
+                            <td>Email</td>
+                            <td>Anita Singh</td>
+                            <td>19 Feb 2026</td>
+                            <td><span class="badge completed">Completed</span></td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>
