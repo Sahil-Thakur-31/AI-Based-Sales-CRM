@@ -6,10 +6,12 @@
 
     padding: 24px;
     background: #f1f5f9;
-    min-height: 100vh;
-    width: 100%;
+    height: 100%;
+
     font-family: "Inter", sans-serif;
+
     overflow-y: auto;
+
 }
 
 
@@ -72,6 +74,20 @@
 .settings-card {
 
     background: white;
+
+    border-radius: 12px;
+
+    padding: 22px;
+
+    margin-bottom: 20px;
+
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+
+}
+
+.settings-card1 {
+
+    background: rgb(244, 244, 244);
 
     border-radius: 12px;
 
@@ -204,7 +220,7 @@ input:checked + .slider:before {
 
 
 /* =========================
-   ADMIN SECTION
+   NOTIFICATION CHECKBOXES
 ========================= */
 
 .admin-section {
@@ -216,13 +232,167 @@ input:checked + .slider:before {
 .admin-section h4 {
 
     margin-bottom: 10px;
-
     font-size: 15px;
+    font-weight: 600;
+    color: #334155;
+
+}
+
+.admin-section label {
+
+    display: flex;
+    align-items: center;
+
+    font-size: 14px;
+
+    margin-bottom: 8px;
+
+    cursor: pointer;
+
+}
+
+.admin-section input[type="checkbox"] {
+
+    margin-right: 8px;
+
+    width: 16px;
+    height: 16px;
+
+    accent-color: #5B6FD8;
 
 }
 
 
-/* Input area */
+/* =========================
+   SELECT DROPDOWN
+========================= */
+
+.admin-section select {
+
+    width: 100%;
+
+    padding: 10px 12px;
+
+    border-radius: 8px;
+
+    border: 1px solid #cbd5e1;
+
+    background: white;
+
+    font-size: 14px;
+
+    cursor: pointer;
+
+}
+
+.admin-section select:focus {
+
+    outline: none;
+    border-color: #5B6FD8;
+
+}
+
+
+/* =========================
+   INTEGRATIONS SECTION
+========================= */
+
+.integration-row {
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 14px 16px;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 10px;
+
+    margin-bottom: 12px;
+
+    background: #f8fafc;
+
+    transition: 0.2s;
+
+}
+
+.integration-row:hover {
+
+    background: #f1f5f9;
+
+}
+
+
+.integration-title {
+
+    font-weight: 600;
+    font-size: 14px;
+    color: #0f172a;
+
+}
+
+.integration-subtitle {
+
+    font-size: 13px;
+    color: #64748b;
+
+}
+
+
+/* Connect button */
+
+.btn-connect {
+
+    border: none;
+
+    background: #e2e8f0;
+
+    color: #334155;
+
+    padding: 6px 14px;
+
+    border-radius: 20px;
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+
+}
+
+.btn-connect:hover {
+
+    background: #cbd5e1;
+
+}
+
+
+/* Connected button */
+
+.btn-connected {
+
+    border: none;
+
+    background: #bbf7d0;
+
+    color: #166534;
+
+    padding: 6px 14px;
+
+    border-radius: 20px;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+}
+
+
+/* =========================
+   ADMIN CRUD SECTION
+========================= */
 
 .admin-input {
 
@@ -251,9 +421,6 @@ input:checked + .slider:before {
     border-color: #5B6FD8;
 
 }
-
-
-/* Add button */
 
 .admin-input button {
 
@@ -287,9 +454,6 @@ input:checked + .slider:before {
 
 }
 
-
-/* List */
-
 .admin-section ul {
 
     list-style: none;
@@ -313,9 +477,6 @@ input:checked + .slider:before {
     margin-bottom: 6px;
 
 }
-
-
-/* Delete button */
 
 .admin-section li button {
 

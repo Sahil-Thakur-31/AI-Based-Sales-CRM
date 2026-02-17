@@ -1,5 +1,6 @@
 import './App.css'
 import Sidebar from "./components/sideBar";
+import Profile from './pages/profile';
 import Settings from './pages/Settings';
 
 const dummyUser = {
@@ -10,13 +11,12 @@ const dummyUser = {
 
 function App() {
   return (
-
-      <div className="app-root">
-        <Sidebar />
-        <div className="main-container">
-          <Settings user={dummyUser} />
+        <div className="app-root">
+          <Sidebar />
+          <div className="main-container">
+            <Profile user={dummyUser} />
+          </div>
         </div>
-      </div>
     );
 }
 
