@@ -1,92 +1,68 @@
 import React, { useEffect, useState } from "react";
 import "./Settings.css";
 
-/*
-=========================================================
-SETTINGS COMPONENT
-
-Supports:
-- admin
-- sales-manager
-- sales-person
-
-Backend switch:
-COMMENT dummy lines
-UNCOMMENT real API lines
-
-=========================================================
-*/
-
 export default function Settings({ user }) {
 
     const isAdmin = user.role === "admin";
 
 
-    /* =====================================================
-       STATE
-    ===================================================== */
+    /* =======================STATE========================= */
+
+    const [loading, setLoading] = useState(true);
 
     const [crmSettings, setCrmSettings] = useState(null);
+
+    const [notifications, setNotifications] = useState(null);
+
+    const [integrations, setIntegrations] = useState(null);
 
     const [roles, setRoles] = useState([]);
     const [products, setProducts] = useState([]);
     const [industries, setIndustries] = useState([]);
     const [sources, setSources] = useState([]);
 
-    const [loading, setLoading] = useState(true);
 
-
-    /* =====================================================
-       DUMMY DATA (FOR TESTING)
-       COMMENT THIS BLOCK WHEN USING REAL BACKEND
-    ===================================================== */
+    /* ====================DUMMY DATA======================== */
 
     const dummyCRMSettings = {
 
         smartFollowup: true,
         leadScoring: true,
-        predictiveAnalytics: false,
+        predictiveAnalytics: true
 
-        reminderMethods: {
-            inApp: true,
-            email: true,
-            whatsapp: true
-        },
+    };
 
+    const dummyNotifications = {
+
+        inApp: true,
+        email: true,
+        whatsapp: true,
         reminderFrequency: "30 minutes before"
 
     };
 
+    const dummyIntegrations = {
 
-    const dummyDropdownData = {
+        whatsapp: true,
+        gmail: true,
+        calendar: false
+
+    };
+
+    const dummyDropdowns = {
 
         roles: ["Admin", "Sales Manager", "Sales Person"],
 
-        products: [
-            "CRM Suite",
-            "ERP System",
-            "AI Automation"
-        ],
+        products: ["CRM Suite", "ERP System", "AI Platform"],
 
-        industries: [
-            "Information Technology",
-            "Finance",
-            "Healthcare"
-        ],
+        industries: ["IT", "Finance", "Healthcare"],
 
-        sources: [
-            "Website",
-            "Referral",
-            "Exhibition",
-            "Cold Call"
-        ]
+        sources: ["Website", "Referral", "Expo"]
 
     };
 
 
-    /* =====================================================
-       LOAD SETTINGS
-    ===================================================== */
+    /* =========================LOAD SETTINGS======================= */
 
     useEffect(() => {
 
@@ -102,33 +78,36 @@ export default function Settings({ user }) {
 
         try {
 
-            /* ==========================================
-               USE DUMMY DATA (CURRENTLY ACTIVE)
-               COMMENT THIS WHEN USING REAL BACKEND
-            ========================================== */
-
             setCrmSettings(dummyCRMSettings);
+
+            setNotifications(dummyNotifications);
+
+            setIntegrations(dummyIntegrations);
 
             if (isAdmin) {
 
-                setRoles(dummyDropdownData.roles);
-                setProducts(dummyDropdownData.products);
-                setIndustries(dummyDropdownData.industries);
-                setSources(dummyDropdownData.sources);
+                setRoles(dummyDropdowns.roles);
+                setProducts(dummyDropdowns.products);
+                setIndustries(dummyDropdowns.industries);
+                setSources(dummyDropdowns.sources);
 
             }
 
 
-
-            /* ==========================================
-               REAL BACKEND (UNCOMMENT WHEN READY)
-            ========================================== */
-
             /*
             const crmRes = await fetch("/api/crm-settings");
             const crmData = await crmRes.json();
-
             setCrmSettings(crmData);
+
+
+            const notifRes = await fetch("/api/notification-settings");
+            const notifData = await notifRes.json();
+            setNotifications(notifData);
+
+
+            const intRes = await fetch("/api/integrations");
+            const intData = await intRes.json();
+            setIntegrations(intData);
 
 
             if (isAdmin) {
@@ -144,11 +123,10 @@ export default function Settings({ user }) {
             }
             */
 
-
         }
         catch (err) {
 
-            console.error("Settings load error:", err);
+            console.error(err);
 
         }
         finally {
@@ -161,11 +139,9 @@ export default function Settings({ user }) {
 
 
 
-    /* =====================================================
-       UPDATE CRM SETTING
-    ===================================================== */
+    /* =========================CRM TOGGLE======================== */
 
-    function toggleCRMSetting(key) {
+    function toggleCRM(key) {
 
         const updated = {
 
@@ -176,23 +152,11 @@ export default function Settings({ user }) {
 
         setCrmSettings(updated);
 
-
-        /* ==========================================
-           REAL BACKEND UPDATE
-           UNCOMMENT WHEN READY
-        ========================================== */
-
         /*
         fetch("/api/crm-settings", {
-
             method: "PUT",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
+            headers: {"Content-Type":"application/json"},
             body: JSON.stringify(updated)
-
         });
         */
 
@@ -200,9 +164,70 @@ export default function Settings({ user }) {
 
 
 
-    /* =====================================================
-       ADMIN ADD ITEM
-    ===================================================== */
+    /* ====================NOTIFICATION TOGGLE======================= */
+
+    function toggleNotification(key) {
+
+        const updated = {
+
+            ...notifications,
+            [key]: !notifications[key]
+
+        };
+
+        setNotifications(updated);
+
+        /*
+        fetch("/api/notification-settings", {
+            method: "PUT",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(updated)
+        });
+        */
+
+    }
+
+
+
+    function changeReminderFrequency(value) {
+
+        const updated = {
+
+            ...notifications,
+            reminderFrequency: value
+
+        };
+
+        setNotifications(updated);
+
+    }
+
+
+
+    /* ======================INTEGRATION CONNECT========================== */
+
+    function toggleIntegration(key) {
+
+        const updated = {
+
+            ...integrations,
+            [key]: !integrations[key]
+
+        };
+
+        setIntegrations(updated);
+
+        /*
+        fetch(`/api/integrations/${key}`, {
+            method: "POST"
+        });
+        */
+
+    }
+
+
+
+    /* =======================ADMIN CRUD========================== */
 
     function addItem(type, value) {
 
@@ -219,28 +244,8 @@ export default function Settings({ user }) {
 
         map[type](prev => [...prev, value]);
 
-
-        /*
-        fetch(`/api/admin/${type}`, {
-
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({ name: value })
-
-        });
-        */
-
     }
 
-
-
-    /* =====================================================
-       ADMIN DELETE ITEM
-    ===================================================== */
 
     function deleteItem(type, value) {
 
@@ -257,31 +262,18 @@ export default function Settings({ user }) {
             prev.filter(item => item !== value)
         );
 
-
-        /*
-        fetch(`/api/admin/${type}/${value}`, {
-
-            method: "DELETE"
-
-        });
-        */
-
     }
 
 
 
-    /* =====================================================
-       LOADING STATE
-    ===================================================== */
+    /* ========================LOADING========================== */
 
-    if (loading || !crmSettings)
+    if (loading || !crmSettings || !notifications || !integrations)
         return <div className="settings-page">Loading...</div>;
 
 
 
-    /* =====================================================
-       UI
-    ===================================================== */
+    /* ==================UI==================== */
 
     return (
 
@@ -316,25 +308,106 @@ export default function Settings({ user }) {
                 <Toggle
                     title="Smart Follow-up Reminders"
                     value={crmSettings.smartFollowup}
-                    onChange={() =>
-                        toggleCRMSetting("smartFollowup")
-                    }
+                    onChange={()=>toggleCRM("smartFollowup")}
                 />
 
                 <Toggle
                     title="AI Lead Scoring"
                     value={crmSettings.leadScoring}
-                    onChange={() =>
-                        toggleCRMSetting("leadScoring")
-                    }
+                    onChange={()=>toggleCRM("leadScoring")}
                 />
 
                 <Toggle
                     title="Predictive Analytics"
                     value={crmSettings.predictiveAnalytics}
-                    onChange={() =>
-                        toggleCRMSetting("predictiveAnalytics")
-                    }
+                    onChange={()=>toggleCRM("predictiveAnalytics")}
+                />
+
+            </div>
+
+
+
+            {/* NOTIFICATIONS */}
+
+            <div className="settings-card">
+
+                <h3>Notifications</h3>
+
+                <div className="admin-section">
+
+                    <h4>Follow-up Reminder Method</h4>
+
+                    <Checkbox
+                        label="In-App"
+                        checked={notifications.inApp}
+                        onChange={()=>toggleNotification("inApp")}
+                    />
+
+                    <Checkbox
+                        label="Email"
+                        checked={notifications.email}
+                        onChange={()=>toggleNotification("email")}
+                    />
+
+                    <Checkbox
+                        label="WhatsApp"
+                        checked={notifications.whatsapp}
+                        onChange={()=>toggleNotification("whatsapp")}
+                    />
+
+                </div>
+
+
+                <div className="admin-section">
+
+                    <h4>Reminder Frequency</h4>
+
+                    <select
+                        value={notifications.reminderFrequency}
+                        onChange={(e)=>
+                            changeReminderFrequency(e.target.value)
+                        }
+                    >
+
+                        <option>5 minutes before</option>
+                        <option>15 minutes before</option>
+                        <option>30 minutes before</option>
+                        <option>1 hour before</option>
+                        <option>1 day before</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+
+            {/* INTEGRATIONS */}
+
+            <div className="settings-card">
+
+                <h3>Integrations</h3>
+
+                <IntegrationRow
+                    title="WhatsApp Business"
+                    subtitle="Send messages directly from CRM"
+                    connected={integrations.whatsapp}
+                    onClick={()=>toggleIntegration("whatsapp")}
+                />
+
+                <IntegrationRow
+                    title="Gmail"
+                    subtitle="Sync emails and track opens"
+                    connected={integrations.gmail}
+                    onClick={()=>toggleIntegration("gmail")}
+                />
+
+                <IntegrationRow
+                    title="Google Calendar"
+                    subtitle="Sync meetings and reminders"
+                    connected={integrations.calendar}
+                    onClick={()=>toggleIntegration("calendar")}
                 />
 
             </div>
@@ -349,33 +422,13 @@ export default function Settings({ user }) {
 
                     <h3>Admin Configuration</h3>
 
-                    <AdminSection
-                        title="Roles"
-                        items={roles}
-                        onAdd={(v)=>addItem("roles",v)}
-                        onDelete={(v)=>deleteItem("roles",v)}
-                    />
+                    <AdminSection title="Roles" items={roles} onAdd={(v)=>addItem("roles",v)} onDelete={(v)=>deleteItem("roles",v)} />
 
-                    <AdminSection
-                        title="Products"
-                        items={products}
-                        onAdd={(v)=>addItem("products",v)}
-                        onDelete={(v)=>deleteItem("products",v)}
-                    />
+                    <AdminSection title="Products" items={products} onAdd={(v)=>addItem("products",v)} onDelete={(v)=>deleteItem("products",v)} />
 
-                    <AdminSection
-                        title="Industries"
-                        items={industries}
-                        onAdd={(v)=>addItem("industries",v)}
-                        onDelete={(v)=>deleteItem("industries",v)}
-                    />
+                    <AdminSection title="Industries" items={industries} onAdd={(v)=>addItem("industries",v)} onDelete={(v)=>deleteItem("industries",v)} />
 
-                    <AdminSection
-                        title="Sources"
-                        items={sources}
-                        onAdd={(v)=>addItem("sources",v)}
-                        onDelete={(v)=>deleteItem("sources",v)}
-                    />
+                    <AdminSection title="Sources" items={sources} onAdd={(v)=>addItem("sources",v)} onDelete={(v)=>deleteItem("sources",v)} />
 
                 </div>
 
@@ -390,7 +443,7 @@ export default function Settings({ user }) {
 
 
 /* =====================================================
-   TOGGLE COMPONENT
+   SUB COMPONENTS
 ===================================================== */
 
 function Toggle({ title, value, onChange }) {
@@ -420,23 +473,73 @@ function Toggle({ title, value, onChange }) {
 }
 
 
+function Checkbox({ label, checked, onChange }) {
 
-/* =====================================================
-   ADMIN SECTION
-===================================================== */
+    return (
 
-function AdminSection({
-    title,
-    items,
-    onAdd,
-    onDelete
-}) {
+        <label style={{display:"block",marginBottom:"6px"}}>
+
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={onChange}
+                style={{marginRight:"6px"}}
+            />
+
+            {label}
+
+        </label>
+
+    );
+
+}
+
+
+function IntegrationRow({ title, subtitle, connected, onClick }) {
+
+    return (
+
+        <div className="integration-row">
+
+            <div>
+
+                <div className="integration-title">
+                    {title}
+                </div>
+
+                <div className="integration-subtitle">
+                    {subtitle}
+                </div>
+
+            </div>
+
+            <button
+                className={
+                    connected
+                    ? "btn-connected"
+                    : "btn-connect"
+                }
+                onClick={onClick}
+            >
+
+                {connected ? "Connected" : "Connect"}
+
+            </button>
+
+        </div>
+
+    );
+
+}
+
+
+function AdminSection({ title, items, onAdd, onDelete }) {
 
     const [input, setInput] = useState("");
 
     return (
 
-        <div className="admin-section">
+        <div className="admin-section settings-card1">
 
             <h4>{title}</h4>
 
@@ -449,10 +552,8 @@ function AdminSection({
                 />
 
                 <button onClick={()=>{
-
                     onAdd(input);
                     setInput("");
-
                 }}>
                     Add
                 </button>
@@ -467,9 +568,7 @@ function AdminSection({
 
                         {item}
 
-                        <button
-                            onClick={()=>onDelete(item)}
-                        >
+                        <button onClick={()=>onDelete(item)}>
                             Delete
                         </button>
 
