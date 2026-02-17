@@ -1,17 +1,13 @@
-import sidebar from "./components/Sidebar";
-import Dashboard from "./pages/dashboard";
 import './App.css'
+import Sidebar from "./components/sideBar";
 
+function App() {
 
-
-const App = () => {
   return (
     <>
-      <Sidebar />
-      <Dashboard />
       
     </>
-  );
-};
+  )
+}
 
-export default App;
+export default App
