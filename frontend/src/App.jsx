@@ -1,16 +1,18 @@
-
-
-import Expense from "./pages/Expense";
-
+import './App.css'
+import Sidebar from "./components/sideBar";
+import Profile from './pages/profile';
+import Settings from './pages/Settings';
 
 function App() {
   return (
-  
-
-    <Expense/>
-
-)
+        <div className="app-root">
+          <Sidebar />
+          <div className="main-container">
+            <Profile/>
+          </div>
+        </div>
+    );
 }
 
+export default App
 
-export default App;
