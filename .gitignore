@@ -24,5 +24,4 @@ dist/
 .DS_Store
 Thumbs.db
 
-/frontend/src/App.jsx
-
+frontend/src/App.jsx
