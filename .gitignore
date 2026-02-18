@@ -23,5 +23,3 @@ dist/
 # OS junk
 .DS_Store
 Thumbs.db
-
-frontend/src/App.jsx

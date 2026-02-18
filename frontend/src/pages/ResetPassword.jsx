@@ -18,8 +18,13 @@ function ResetPassword() {
     if (!password || !confirmPassword)
       return handleError("All fields required");
 
-    if (password.length < 6)
-      return handleError("Password must be 6+ characters");
+    const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+
+    if (!strongPassword.test(password)) {
+      return handleError(
+        "Password must be 8+ chars with uppercase, lowercase, number & special character"
+      );
+    }
 
     if (password !== confirmPassword)
       return handleError("Passwords do not match");
