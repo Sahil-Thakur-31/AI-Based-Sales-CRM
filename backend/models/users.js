@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 
 const usersSchema = new mongoose.Schema({
 
-
   name: {
     type: String,
     required: true
@@ -21,7 +20,7 @@ const usersSchema = new mongoose.Schema({
 
   role: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "role",   // FK → role collection
+    ref: "roles",   // FK → role collection
     required: true
   },
 
@@ -37,16 +36,6 @@ const usersSchema = new mongoose.Schema({
     type: Date
   },
 
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
-
   is_active: {
     type: Boolean,
     default: true
@@ -58,7 +47,11 @@ const usersSchema = new mongoose.Schema({
   }
 
 }, {
-  collection: "users"
+  collection: "users",
+  timestamps: {
+    createdAt: "createdAt",
+    updatedAt: "updatedAt"
+  }
 });
 
 module.exports = mongoose.model("users", usersSchema);
