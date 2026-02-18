@@ -1,0 +1,14 @@
+
+.app-root {
+    height: 97vh;
+    overflow-y: hidden;
+    display: flex;
+    margin: 0;
+}
+
+.main-container {
+    flex: 1;      
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+}
