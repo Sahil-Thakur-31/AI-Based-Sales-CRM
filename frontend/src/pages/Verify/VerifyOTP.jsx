@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { handleError, handleSuccess } from "../utils";
+import { handleError, handleSuccess } from "../../utils";
 
 function VerifyOTP() {
   const [otp, setOtp] = useState("");

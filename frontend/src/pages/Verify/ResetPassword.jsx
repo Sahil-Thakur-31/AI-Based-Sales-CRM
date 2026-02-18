@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { handleError, handleSuccess } from "../utils";
-import BackButton from "../components/BackButton";
+import { handleError, handleSuccess } from "../../utils";
+import BackButton from "../../components/BackButton";
 
 function ResetPassword() {
   const [password, setPassword] = useState("");

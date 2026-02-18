@@ -16,6 +16,15 @@ sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
 
+    // ✅ check if user exists
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        msg: "User not found"
+      });
+    }
+
     const otp = generateOTP();
 
     otpStore.set(email, {
@@ -28,7 +37,6 @@ sendOTP = async (req, res) => {
     res.json({ msg: "OTP sent successfully" });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ msg: "Failed to send OTP" });
   }
 };
@@ -72,10 +80,12 @@ const register = async(req,res) =>{
 
 const login = async(req,res)=>{
     try{
+      console.log('hello');
         const {email,password} = req.body;
         const usr = await User
   .findOne({ email })
   .populate('role');
+
 
         const errmsg = "Email or Password is  incorrect";
         if(!usr){

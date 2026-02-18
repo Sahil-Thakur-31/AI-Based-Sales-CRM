@@ -1,57 +1,55 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { handleError, handleSuccess } from "../utils";
-import BackButton from "../components/BackButton";
+import { handleError, handleSuccess } from "../../utils";
+import BackButton from "../../components/BackButton";
+import API from "../../api";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false); // <-- new state
 
+  
   const sendOTP = async (e) => {
     e.preventDefault();
-
-    if (!email)
+  
+    if (!email.trim()) {
       return handleError("Email required");
-
+    }
+  
+    // simple email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+    if (!emailRegex.test(email)) {
+      return handleError("Invalid email format");
+    }
+  
     if (loading) return;
-
+  
     setLoading(true);
-
-
+  
     try {
-      const response = await fetch(
-        "http://localhost:8080/auth/send-otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ email })
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setLoading(false);
-        return handleError(result.msg);
-      }
-
-      handleSuccess("OTP sent!");
-
-      // save email for next page
+      const response = await API.post("/auth/send-otp", { email });
+    
+      handleSuccess(response.data.msg || "OTP sent!");
+    
       localStorage.setItem("otpEmail", email);
-
+    
       setTimeout(() => navigate("/verify-otp"), 1000);
-
-    } catch {
-      handleError("Server error");
+    
+    } catch (err) {
+      console.error(err);
+    
+      handleError(
+        err.response?.data?.msg || "User not found"
+      );
+    
+    } finally {
       setLoading(false);
     }
-
   };
+
 
   return (
     <div className="container">

@@ -19,6 +19,7 @@ function AdminHome(){
     return(
         <div>
             <p>{loggedinUser}</p>
+            <a href='/manageUsers'>Users</a>
             <button type='submit' onClick={handleLogout}>Logout</button>
         </div>
     )
