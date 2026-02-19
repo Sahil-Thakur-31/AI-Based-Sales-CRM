@@ -4,6 +4,7 @@ import { ToastContainer } from "react-toastify";
 import { handleError, handleSuccess } from "../../utils";
 import BackButton from "../../components/BackButton";
 import API from "../../api";
+import "./verify.css"
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -52,25 +53,27 @@ function ForgotPassword() {
 
 
   return (
-    <div className="container">
-      <h1>Send OTP</h1>
+    <div className="login-wrapper">
+      <div className="container">
+        <h1>Send OTP</h1>
 
-      <form onSubmit={sendOTP}>
-        <label>Email</label>
+        <form onSubmit={sendOTP}>
+          <label>Email</label>
 
-        <input
-          type="email"
-          value={email}
-          placeholder="Enter email..."
-          onChange={(e) => setEmail(e.target.value)}
-        />
+          <input
+            type="email"
+            value={email}
+            placeholder="Enter email..."
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-        <button type="submit" disabled={loading}>
-          Send OTP
-        </button>
-      </form>
-    <BackButton />
-      <ToastContainer />
+          <button type="submit" disabled={loading}>
+            Send OTP
+          </button>
+        </form>
+      <BackButton />
+        <ToastContainer />
+      </div>
     </div>
   );
 }

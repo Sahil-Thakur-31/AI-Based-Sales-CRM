@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { handleError, handleSuccess } from "../../utils";
+import "./verify.css"
 
 function VerifyOTP() {
   const [otp, setOtp] = useState("");
@@ -48,24 +49,26 @@ function VerifyOTP() {
   };
 
   return (
-    <div className="container">
-      <h1>Verify OTP</h1>
+    <div className="login-wrapper">
+      <div className="container">
+        <h1>Verify OTP</h1>
 
-      <form onSubmit={verifyOTP}>
-        <label>OTP</label>
+        <form onSubmit={verifyOTP}>
+          <label>OTP</label>
 
-        <input
-          value={otp}
-          placeholder="Enter OTP..."
-          onChange={(e) => setOtp(e.target.value)}
-        />
+          <input
+            value={otp}
+            placeholder="Enter OTP..."
+            onChange={(e) => setOtp(e.target.value)}
+          />
 
-        <button type="submit" disabled={loading}>
-          Verify OTP
-        </button>
-      </form>
+          <button type="submit" disabled={loading}>
+            Verify OTP
+          </button>
+        </form>
 
-      <ToastContainer />
+        <ToastContainer />
+      </div>
     </div>
   );
 }

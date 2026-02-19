@@ -9,12 +9,7 @@ body {
     background-color: #f4f7f9; 
     color: #333;
     min-height: 100vh; 
-    
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    
-    line-height: 1.6;
+    margin: 0;
 }
 
 .container {
@@ -87,4 +82,12 @@ span {
     margin-top: 1rem;
     text-align: center;
     font-size: 0.9rem;
+}
+
+.login-wrapper {
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }

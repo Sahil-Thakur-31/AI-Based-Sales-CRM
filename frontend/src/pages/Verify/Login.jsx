@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify'; 
 import { handleError, handleSuccess } from '../../utils';
 import API from '../../api'
+import "./verify.css"
 
 function Login(){
     const [logininfo,setLogininfo] = useState({
@@ -85,24 +86,26 @@ function Login(){
 
     }
     return(
-        <div className='container'>
-            <h1>login</h1>
-            <form onSubmit={handleLogin}>
-                <div>
-                    <label>Email</label>
-                    <input type='email' name='email' onChange={handleChange} value={logininfo.email} placeholder='Enter Your Email...' />
-                </div>
-                <div>
-                    <label>Password</label>
-                    <input type='password' onChange={handleChange} name='password' value={logininfo.password} placeholder='Enter Your Password...'  />
-                </div>
-                <button type='Submit' disabled={loading}>login</button>
-                <span>
-                    <Link to='/forgot-password'> Forgot password</Link>
-                </span>
-            </form>
-            
-            <ToastContainer />
+        <div className="login-wrapper">
+            <div className='container'>
+                <h1>login</h1>
+                <form onSubmit={handleLogin}>
+                    <div>
+                        <label>Email</label>
+                        <input type='email' name='email' onChange={handleChange} value={logininfo.email} placeholder='Enter Your Email...' />
+                    </div>
+                    <div>
+                        <label>Password</label>
+                        <input type='password' onChange={handleChange} name='password' value={logininfo.password} placeholder='Enter Your Password...'  />
+                    </div>
+                    <button type='Submit' disabled={loading}>login</button>
+                    <span>
+                        <Link to='/forgot-password'> Forgot password</Link>
+                    </span>
+                </form>
+                
+                <ToastContainer />
+            </div>
         </div>
     )
 }

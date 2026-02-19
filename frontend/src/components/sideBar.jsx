@@ -1,19 +1,50 @@
 import "./sideBar.css";
-
-const menuItems = [
-  { name: "My Dashboard", icon: "📊", active: true },
-  { name: "Follow-ups", icon: "⏰" },
-  { name: "Leads", icon: "🎯" },
-  { name: "Sales Forecasting", icon: "📈" },
-  { name: "Expenses", icon: "💰" },
-  { name: "AI Lead Gen", icon: "🤖" },
-  { name: "Events & Expos", icon: "🎪" },
-  { name: "Team Dashboard", icon: "👥" },
-  { name: "Reports", icon: "📄" },
-  { name: "Settings", icon: "⚙️" },
-];
+import { useNavigate, useLocation } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 
 export default function Sidebar() {
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Decode user role from token
+  const token = localStorage.getItem("token");
+
+  let userRole = null;
+
+  if (token) {
+    const decoded = jwtDecode(token);
+    userRole = decoded.role;
+  }
+
+  // Dynamic dashboard path
+  const dashboardPath =
+    userRole === "Admin" ? "/adminhome" : "/managerhome";
+
+
+  const menuItems = [
+    { name: "My Dashboard", icon: "📊", path: dashboardPath },
+
+    { name: "Leads", icon: "🎯", path: "/leads" },
+    { name: "Clients", icon: "👤", path: "/clients" },
+    { name: "Deals", icon: "💼", path: "/deals" },
+    { name: "Quotations", icon: "🧾", path: "/quotations" },
+
+    { name: "Meetings", icon: "📅", path: "/meetings" },
+    { name: "Follow-ups", icon: "⏰", path: "/followups" },
+
+    { name: "Sales Forecasting", icon: "📈", path: "/sales-forecast" },
+    { name: "Expenses", icon: "💰", path: "/expenses" },
+
+    { name: "AI Lead Gen", icon: "🤖", path: "/ai-leads" },
+    { name: "Events & Expos", icon: "🎪", path: "/events" },
+
+    { name: "Team Dashboard", icon: "👥", path: "/team-dashboard" },
+    { name: "Reports", icon: "📄", path: "/reports" },
+    { name: "Settings", icon: "⚙️", path: "/settings" },
+  ];
+
+
   return (
     <div className="sidebar">
 
@@ -27,15 +58,24 @@ export default function Sidebar() {
       <div className="sidebar-divider"></div>
 
       <div className="sidebar-menu">
-        {menuItems.map((item, index) => (
-          <div
-            key={index}
-            className={`sidebar-item ${item.active ? "active" : ""}`}
-          >
-            <span className="sidebar-icon">{item.icon}</span>
-            <span className="sidebar-text">{item.name}</span>
-          </div>
-        ))}
+
+        {menuItems.map((item, index) => {
+
+          const isActive = location.pathname === item.path;
+
+          return (
+            <div
+              key={index}
+              className={`sidebar-item ${isActive ? "active" : ""}`}
+              onClick={() => navigate(item.path)}
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span className="sidebar-text">{item.name}</span>
+            </div>
+          );
+
+        })}
+
       </div>
 
     </div>

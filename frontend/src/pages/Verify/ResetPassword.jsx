@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { handleError, handleSuccess } from "../../utils";
 import BackButton from "../../components/BackButton";
+import "./verify.css"
 
 function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -71,33 +72,35 @@ function ResetPassword() {
   };
 
   return (
-    <div className="container">
-      <h1>Reset Password</h1>
+    <div className="login-wrapper">
+      <div className="container">
+        <h1>Reset Password</h1>
 
-      <form onSubmit={handleReset}>
-        <label>New Password</label>
-        <input
-          type="password"
-          placeholder="Enter new password..."
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <form onSubmit={handleReset}>
+          <label>New Password</label>
+          <input
+            type="password"
+            placeholder="Enter new password..."
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        <label>Confirm Password</label>
-        <input
-          type="password"
-          placeholder="Confirm password..."
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
+          <label>Confirm Password</label>
+          <input
+            type="password"
+            placeholder="Confirm password..."
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Resetting..." : "Reset Password"}
-        </button>
-      </form>
+          <button type="submit" disabled={loading}>
+            {loading ? "Resetting..." : "Reset Password"}
+          </button>
+        </form>
 
-      <BackButton />
-      <ToastContainer limit={1} />
+        <BackButton />
+        <ToastContainer limit={1} />
+      </div>
     </div>
   );
 }
