@@ -24,6 +24,7 @@ import Events from './pages/modules/Events.jsx';
 import TeamDashboard from './pages/modules/TeamDashboard.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
+import Profile from './pages/modules/Profile';
 
 import Products from './pages/modules/admin/Products.jsx';
 import Roles from './pages/modules/admin/Roles.jsx';
@@ -78,7 +79,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
 
           <Route path="/settings" element={<Settings />} />
-
+          <Route path="/profile" element={<Profile />} />
 
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>

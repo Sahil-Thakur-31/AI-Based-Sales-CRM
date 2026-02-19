@@ -3,6 +3,7 @@ const express = require('express')
 require('dotenv').config()
 const authRoute = require('./routes/authRoutes')
 const roleRoutes = require('./routes/roleRoutes')
+const userRoutes = require('./routes/userRoutes')
 
 require('./models/db')
 const bodyparser = require('body-parser')
@@ -17,6 +18,7 @@ app.use(cors());
 
 app.use('/auth',authRoute);
 app.use("/roles", roleRoutes);
+app.use("/users", userRoutes);
 
 
-myServer.listen(PORT,()=>console.log('Server started'));
+myServer.listen(PORT,()=>console.log('Server started on', PORT));

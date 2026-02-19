@@ -9,7 +9,7 @@ export const routeConfig = [
   { path: "/roles", title: "Roles" },
   { path: "/industry", title: "Industry" },
   { path: "/sources", title: "Sources" },
-  
+
   // Admin
   { path: "/manageusers", title: "Manage Users" },
   { path: "/user-form", title: "User Form" },
@@ -38,6 +38,7 @@ export const routeConfig = [
   { path: "/team-dashboard", title: "Team Dashboard" },
 
   // System
-  { path: "/settings", title: "Settings" }
+  { path: "/settings", title: "Settings" },
+  { path: "/profile", title: "My Profile" },
 
 ];
