@@ -25,6 +25,11 @@ import TeamDashboard from './pages/modules/TeamDashboard.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 
+import Products from './pages/modules/admin/Products.jsx';
+import Roles from './pages/modules/admin/Roles.jsx';
+import Industry from './pages/modules/admin/Industry.jsx';
+import Sources from './pages/modules/admin/Sources.jsx';
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -80,7 +85,10 @@ function App() {
 
             <Route path="/manageusers" element={<ManageUsers />} />
             <Route path="/user-form" element={<UserForm />} />
-
+            <Route path="/products" element={<Products />} />
+            <Route path="/roles" element={<Roles />} />
+            <Route path="/industry" element={<Industry />} />
+            <Route path="/sources" element={<Sources />} />
           </Route>
 
         </Route>
