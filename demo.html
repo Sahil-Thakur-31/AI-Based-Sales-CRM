@@ -561,6 +561,24 @@ body::before{
 .sp5{color:#b0dc30;}
 .sp6{color:#d0e840;}
 .sp7{color:var(--accent);}
+
+/* SEGMENTED BAR */
+.seg-bar{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:16px;overflow-x:auto;flex-wrap:nowrap;gap:2px;}
+.seg-btn{padding:6px 14px;border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;color:var(--muted);border:none;background:transparent;transition:all .15s;white-space:nowrap;}
+.seg-btn.active{background:var(--accent);color:#000;font-weight:700;}
+.seg-btn:hover:not(.active){color:var(--text);background:var(--card2);}
+/* QUOTE ITEM ROW */
+.quote-item-row{display:grid;grid-template-columns:2fr 60px 90px 60px 60px 80px 28px;gap:5px;align-items:center;margin-bottom:5px;}
+.quote-item-total{font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:var(--accent);text-align:center;padding:0 4px;}
+/* FILTER BAR */
+.filter-bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.filter-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+/* GREEN BTN */
+.btn-green{background:rgba(79,255,176,0.1);color:var(--success);border:1px solid rgba(79,255,176,0.2);}
+.btn-green:hover{background:rgba(79,255,176,0.2);}
+.btn-warning{background:rgba(255,193,74,0.1);color:var(--warning);border:1px solid rgba(255,193,74,0.2);}
+.btn-warning:hover{background:rgba(255,193,74,0.2);}
+
 </style>
 </head>
 <body>
@@ -674,10 +692,10 @@ const STATE = {
   ],
   users: [
     { id: 'u1', name: 'Rahul Kumar', role: 'admin', email: 'rahul@nexcrm.in', phone: '9876543210', joiningDate: '2022-01-15', is_active: true },
-    { id: 'u2', name: 'Anil Sharma', role: 'salesperson', email: 'anil@nexcrm.in', phone: '9876543211', joiningDate: '2022-03-01', is_active: true },
-    { id: 'u3', name: 'Priya Mehta', role: 'manager', email: 'priya@nexcrm.in', phone: '9876543212', joiningDate: '2022-06-15', is_active: true },
-    { id: 'u4', name: 'Karan Singh', role: 'salesperson', email: 'karan@nexcrm.in', phone: '9876543213', joiningDate: '2023-01-10', is_active: true },
-    { id: 'u5', name: 'Neha Roy', role: 'salesperson', email: 'neha@nexcrm.in', phone: '9876543214', joiningDate: '2023-06-01', is_active: true },
+    { id: 'u2', name: 'Anil Sharma', role: 'salesperson', email: 'anil@nexcrm.in', phone: '9876543211', managerId:'u3', joiningDate: '2022-03-01', is_active: true },
+    { id: 'u3', name: 'Priya Mehta', role: 'manager', email: 'priya@nexcrm.in', phone: '9876543212', managerId:null, joiningDate: '2022-06-15', is_active: true },
+    { id: 'u4', name: 'Karan Singh', role: 'salesperson', email: 'karan@nexcrm.in', phone: '9876543213', managerId:'u3', joiningDate: '2023-01-10', is_active: true },
+    { id: 'u5', name: 'Neha Roy', role: 'salesperson', email: 'neha@nexcrm.in', phone: '9876543214', managerId:'u3', joiningDate: '2023-06-01', is_active: true },
   ],
   clients: [
     { id: 'c1', name: 'TechNova Pvt Ltd', industry: 'i1', address: '12 MG Road, Bangalore', employees: 800, turnover: '₹50–200Cr', website: 'technova.in', source: 's1', dealCount: 3, gst: '29AABCT1234B1Z5', location: 'Bangalore', createdBy: 'u1', createdAt: '2024-01-10' },
@@ -720,10 +738,10 @@ const STATE = {
     { id: 'm4', title: 'SpiceJet Intro Call', type: 'online', assignedTo: 'u5', date: '2025-04-01', startTime: '10:00', duration: 30, status: 'upcoming', location: '', followupRequired: false },
   ],
   events: [
-    { id: 'ev1', name: 'BengaluruTech Summit', industry: 'i1', venue: 'BIEC, Bengaluru', startDate: '2025-04-05', endDate: '2025-04-07', regFee: 15000, attendees: 5000, aiScore: 94, status: 'upcoming', source: 's4', expectedROI: '₹40–60L' },
-    { id: 'ev2', name: 'India Logistics Expo', industry: 'i5', venue: 'BEC, Mumbai', startDate: '2025-04-12', endDate: '2025-04-14', regFee: 12000, attendees: 3500, aiScore: 88, status: 'upcoming', source: 's4', expectedROI: '₹25–40L' },
-    { id: 'ev3', name: 'FMCG India 2025', industry: 'i4', venue: 'Pragati Maidan, Delhi', startDate: '2025-03-28', endDate: '2025-03-30', regFee: 8000, attendees: 4000, aiScore: 72, status: 'upcoming', source: 's4', expectedROI: '₹15–25L' },
-    { id: 'ev4', name: 'Healthcare Innovation Summit', industry: 'i3', venue: 'Chennai Trade Centre', startDate: '2025-02-20', endDate: '2025-02-21', regFee: 10000, attendees: 2500, aiScore: 65, status: 'completed', source: 's4', expectedROI: '₹30L' },
+    { id: 'ev1', name: 'BengaluruTech Summit', industry: 'i1', venue: 'BIEC, Bengaluru', startDate: '2025-04-05', endDate: '2025-04-07', regFee: 15000, attendees: 5000, aiScore: 94, status: 'upcoming', source: 's4', expectedROI: '₹40–60L', registrations:[], interested:[] },
+    { id: 'ev2', name: 'India Logistics Expo', industry: 'i5', venue: 'BEC, Mumbai', startDate: '2025-04-12', endDate: '2025-04-14', regFee: 12000, attendees: 3500, aiScore: 88, status: 'upcoming', source: 's4', expectedROI: '₹25–40L', registrations:[], interested:[] },
+    { id: 'ev3', name: 'FMCG India 2025', industry: 'i4', venue: 'Pragati Maidan, Delhi', startDate: '2025-03-28', endDate: '2025-03-30', regFee: 8000, attendees: 4000, aiScore: 72, status: 'upcoming', source: 's4', expectedROI: '₹15–25L', registrations:[{userId:'u2',status:'approved'}], interested:[{userId:'u4',status:'pending'}] },
+    { id: 'ev4', name: 'Healthcare Innovation Summit', industry: 'i3', venue: 'Chennai Trade Centre', startDate: '2025-02-20', endDate: '2025-02-21', regFee: 10000, attendees: 2500, aiScore: 65, status: 'completed', source: 's4', expectedROI: '₹30L', registrations:[{userId:'u3',status:'approved'},{userId:'u4',status:'approved'}], interested:[] },
   ],
   expenses: [
     { id: 'ex1', userId: 'u2', type: 'lead', category: 'client_meeting', amount: 4200, gst: 756, total: 4956, date: '2025-03-15', description: 'Client lunch at TechNova', status: 'approved', approvedBy: 'u1', receipt: { vendor: 'The Lalit Hotel', amount: 4200, gst: 756 } },
@@ -808,6 +826,7 @@ const NAV_CONFIG = {
     ]},
     { section: 'Team', items: [
       { id: 'performance', label: 'Performance', icon: '⬗' },
+      { id: 'settings', label: 'Settings', icon: '⊙' },
     ]},
   ],
   salesperson: [
@@ -829,6 +848,9 @@ const NAV_CONFIG = {
     ]},
     { section: 'Finance', items: [
       { id: 'expenses', label: 'My Expenses', icon: '◌' },
+    ]},
+    { section: 'Account', items: [
+      { id: 'settings', label: 'Settings', icon: '⊙' },
     ]},
   ],
 };
@@ -903,6 +925,11 @@ function riskColor(r) { return r==='low'?'var(--success)':r==='medium'?'var(--wa
 function stageColor(s) { const m={P1:'#6a6acc',P2:'#5aaab0',P3:'#4ac8a0',P4:'#90cc50',P5:'#c0d840',P6:'#d8e830',P7:'var(--accent)'}; return m[s]||'var(--muted)'; }
 function stageBg(s) { const m={P1:'rgba(106,106,204,0.2)',P2:'rgba(90,170,176,0.2)',P3:'rgba(74,200,160,0.2)',P4:'rgba(144,204,80,0.2)',P5:'rgba(192,216,64,0.2)',P6:'rgba(216,232,48,0.2)',P7:'rgba(200,255,87,0.25)'}; return m[s]||'rgba(255,255,255,0.05)'; }
 function uid() { return 'id_'+Math.random().toString(36).slice(2,10); }
+function myTeamIds() {
+  if(currentRole==='admin') return STATE.users.map(u=>u.id);
+  if(currentRole==='manager') return STATE.users.filter(u=>u.managerId===currentUser.id||u.id===currentUser.id).map(u=>u.id);
+  return [currentUser.id];
+}
 function showToast(msg, type='success') {
   const icons = { success:'✓', error:'✕', info:'ℹ', warning:'⚠' };
   const colors = { success:'var(--success)', error:'var(--danger)', info:'var(--accent2)', warning:'var(--warning)' };
@@ -946,7 +973,7 @@ function renderPage(page) {
     performance: renderPerformance,
     settings: renderSettings,
   };
-  if(renderers[page]) { ca.innerHTML = renderers[page](); }
+  if(renderers[page]) { ca.innerHTML = renderers[page](); if(page==='settings'){setTimeout(()=>bindSettingToggles(),20);} }
   else { ca.innerHTML = `<div class="empty-state"><div class="empty-icon">🚧</div><div class="empty-text">Page under construction</div></div>`; }
   // Run post-render hooks
   if(page==='settings') bindSettingToggles();
@@ -1875,6 +1902,9 @@ function saveFollowup() {
 // MEETINGS
 // ============================
 function renderMeetings() {
+  let meetings = STATE.meetings;
+  if(currentRole==='salesperson') meetings = meetings.filter(m=>m.assignedTo===currentUser.id);
+  else if(currentRole==='manager') meetings = meetings.filter(m=>myTeamIds().includes(m.assignedTo));
   return `
 <div class="panel">
   <div class="panel-header">
@@ -1886,17 +1916,18 @@ function renderMeetings() {
     <table class="tbl">
       <thead><tr><th>Title</th><th>Type</th><th>Assigned</th><th>Date</th><th>Duration</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
-        ${STATE.meetings.map(m=>`<tr>
+        ${meetings.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No meetings found</td></tr>':''}
+        ${meetings.map(m=>`<tr>
           <td>${m.title}</td>
           <td>${m.type==='online'?'🌐 Online':'🏢 Physical'}</td>
           <td>${getUser(m.assignedTo).name}</td>
           <td>${fmtDate(m.date)} ${m.startTime}</td>
           <td>${m.duration} min</td>
           <td>${m.location||'—'}</td>
-          <td><span class="badge badge-${m.status==='scheduled'||m.status==='upcoming'?'open':'pending'}">${m.status}</span></td>
+          <td><span class="badge badge-open">${m.status}</span></td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm btn-ghost" onclick="viewMeeting('${m.id}')">View</button>
-            ${currentRole!=='salesperson'?`<button class="btn btn-sm btn-blue" onclick="openMeetingModal('${m.id}')">Edit</button>`:''}
+            ${(currentRole==='admin'||(currentRole==='manager'&&myTeamIds().includes(m.assignedTo))||(currentRole==='salesperson'&&m.assignedTo===currentUser.id))?`<button class="btn btn-sm btn-blue" onclick="openMeetingModal('${m.id}')">Edit</button>`:''}
             ${currentRole==='admin'?`<button class="btn btn-sm btn-danger" onclick="deleteMeeting('${m.id}')">Del</button>`:''}
           </td>
         </tr>`).join('')}
@@ -1922,13 +1953,17 @@ function viewMeeting(id) {
 }
 function openMeetingModal(id) {
   const m=id?STATE.meetings.find(x=>x.id===id):null;
+  // Role-based assignee restriction
+  let assignable = STATE.users;
+  if(currentRole==='manager') assignable = STATE.users.filter(u=>myTeamIds().includes(u.id));
+  if(currentRole==='salesperson') assignable = STATE.users.filter(u=>u.id===currentUser.id);
   const body=`
   <div class="form-group"><label class="form-label">Meeting Title</label><input class="form-input" id="mm_title" value="${m?m.title:''}"></div>
   <div class="form-row"><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="mm_type">
     ${['online','physical'].map(t=>`<option ${m&&m.type===t?'selected':''}>${t}</option>`).join('')}
   </select></div>
   <div class="form-group"><label class="form-label">Assigned To</label><select class="form-select" id="mm_assigned">
-    ${STATE.users.map(u=>`<option value="${u.id}" ${m&&m.assignedTo===u.id?'selected':''}>${u.name}</option>`).join('')}
+    ${assignable.map(u=>`<option value="${u.id}" ${m?m.assignedTo===u.id?'selected':'':u.id===currentUser.id?'selected':''}>${u.name}</option>`).join('')}
   </select></div></div>
   <div class="form-row"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="mm_date" type="date" value="${m?m.date:''}"></div>
   <div class="form-group"><label class="form-label">Start Time</label><input class="form-input" id="mm_time" type="time" value="${m?m.startTime:''}"></div></div>
@@ -1949,50 +1984,147 @@ function saveMeeting(id) {
 function deleteMeeting(id) { STATE.meetings=STATE.meetings.filter(m=>m.id!==id);renderPage('meetings');showToast('Meeting deleted','error'); }
 
 // ============================
-// EVENTS
+// EVENTS (Role-based)
 // ============================
 function renderEvents() {
+  if(currentRole==='admin') return renderEventsAdmin();
+  return renderEventsUser();
+}
+function renderEventsAdmin() {
+  function evRow(ev) {
+    var going = (ev.registrations||[]).filter(function(r){return r.status==='approved';}).length;
+    var pend = (ev.interested||[]).filter(function(r){return r.status==='pending';}).length;
+    var sc = ev.aiScore>=85?'var(--accent)':ev.aiScore>=70?'var(--accent2)':'var(--muted)';
+    var pendCell = pend
+      ? `<span class="badge badge-pending" style="cursor:pointer" onclick="viewEventPending('${ev.id}')">${pend} pending</span>`
+      : '<span style="font-size:10px;color:var(--muted)">None</span>';
+    return `<tr>
+      <td><div style="font-weight:500">${ev.name}</div><div style="font-size:10px;color:var(--muted)">${ev.venue}</div></td>
+      <td>${fmtDate(ev.startDate)}</td>
+      <td style="color:${sc}"><strong>${ev.aiScore}</strong></td>
+      <td><span class="badge badge-${ev.status==='upcoming'?'open':'won'}">${ev.status}</span></td>
+      <td><span class="badge badge-approved" style="cursor:pointer" onclick="viewEventAttendees('${ev.id}')">${going} attending</span></td>
+      <td>${pendCell}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-ghost" onclick="viewEventDetail('${ev.id}')">View</button>
+        <button class="btn btn-sm btn-blue" onclick="openEventModal('${ev.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEvent('${ev.id}')">Del</button>
+      </td>
+    </tr>`;
+  }
   return `
 <div class="panel">
   <div class="panel-header">
-    <div class="panel-title">Industry Events</div>
-    <div class="ai-chip">✦ AI Relevance Scored</div>
-    ${currentRole!=='salesperson'?`<button class="btn btn-accent btn-sm" onclick="openEventModal()" style="margin-left:auto">+ Add Event</button>`:''}
+    <div class="panel-title">Events &mdash; Admin View</div>
+    <div class="ai-chip">&#10022; AI Scored</div>
+    <button class="btn btn-accent btn-sm" onclick="openEventModal()" style="margin-left:auto">+ Add Event</button>
   </div>
   <div class="panel-body np scroll-x">
     <table class="tbl">
-      <thead><tr><th>Event</th><th>Industry</th><th>Venue</th><th>Dates</th><th>AI Score</th><th>Status</th><th>ROI Est.</th><th>Actions</th></tr></thead>
-      <tbody>
-        ${STATE.events.map(ev=>`<tr>
-          <td>${ev.name}</td>
-          <td>${getIndustry(ev.industry).name}</td>
-          <td>${ev.venue}</td>
-          <td>${fmtDate(ev.startDate)} – ${fmtDate(ev.endDate)}</td>
-          <td style="color:${ev.aiScore>=85?'var(--accent)':ev.aiScore>=70?'var(--accent2)':'var(--muted)'}"><strong>${ev.aiScore}</strong></td>
-          <td><span class="badge badge-${ev.status==='upcoming'?'open':'won'}">${ev.status}</span></td>
-          <td>${ev.expectedROI}</td>
-          <td style="white-space:nowrap">
-            <button class="btn btn-sm btn-ghost" onclick="viewEvent('${ev.id}')">View</button>
-            ${currentRole!=='salesperson'?`<button class="btn btn-sm btn-blue" onclick="openEventModal('${ev.id}')">Edit</button>`:''}
-            ${currentRole==='admin'?`<button class="btn btn-sm btn-danger" onclick="deleteEvent('${ev.id}')">Del</button>`:''}
-          </td>
-        </tr>`).join('')}
-      </tbody>
+      <thead><tr><th>Event</th><th>Dates</th><th>AI Score</th><th>Status</th><th>Going</th><th>Pending</th><th>Actions</th></tr></thead>
+      <tbody>${STATE.events.map(evRow).join('')}</tbody>
     </table>
   </div>
 </div>`;
 }
-function viewEvent(id) {
-  const ev=STATE.events.find(x=>x.id===id);
-  if(!ev) return;
-  openModal(`Event — ${ev.name}`,`
-  <div class="detail-grid">
-    <div class="detail-item"><div class="detail-key">Industry</div><div class="detail-val">${getIndustry(ev.industry).name}</div></div>
+
+function renderEventsUser() {
+  var isMgr = currentRole==='manager';
+  function evRow(ev) {
+    var myReg = (ev.registrations||[]).find(function(r){return r.userId===currentUser.id;});
+    var myInt = (ev.interested||[]).find(function(r){return r.userId===currentUser.id;});
+    var teamPend = (ev.interested||[]).filter(function(r){return r.status==='pending';}).length;
+    var sb = '<span style="font-size:10px;color:var(--muted)">Not marked</span>';
+    if(myReg) sb = myReg.status==='approved'
+      ? '<span class="badge badge-approved">&#10003; Approved</span>'
+      : '<span class="badge badge-pending">Pending Reg.</span>';
+    else if(myInt) {
+      if(myInt.status==='pending') sb = '<span class="badge badge-pending">Interest Sent</span>';
+      else if(myInt.status==='declined') sb = '<span class="badge badge-declined">Declined</span>';
+      else sb = '<span class="badge badge-approved">Approved</span>';
+    }
+    var canMark = ev.status==='upcoming' && !myReg && !myInt;
+    var sc = ev.aiScore>=85?'var(--accent)':ev.aiScore>=70?'var(--accent2)':'var(--muted)';
+    var actions = '';
+    if(canMark) actions += `<button class="btn btn-sm btn-blue" onclick="markInterest('${ev.id}')">&#9733; Interested</button> `;
+    if(isMgr && teamPend>0) actions += `<button class="btn btn-sm btn-warning" onclick="viewEventPending('${ev.id}')">Review ${teamPend}</button>`;
+    return `<tr>
+      <td><div style="font-weight:500">${ev.name}</div></td>
+      <td>${getIndustry(ev.industry).name}</td>
+      <td>${ev.venue}</td>
+      <td>${fmtDate(ev.startDate)}</td>
+      <td style="color:${sc}"><strong>${ev.aiScore}</strong></td>
+      <td>${ev.expectedROI}</td>
+      <td><span class="badge badge-${ev.status==='upcoming'?'open':'won'}">${ev.status}</span></td>
+      <td>${sb}</td>
+      <td style="white-space:nowrap">${actions}</td>
+    </tr>`;
+  }
+  return `
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">Industry Events</div>
+    <div class="ai-chip">&#10022; AI Scored</div>
+  </div>
+  <div class="panel-body np scroll-x">
+    <table class="tbl">
+      <thead><tr><th>Event</th><th>Industry</th><th>Venue</th><th>Dates</th><th>AI Score</th><th>ROI Est.</th><th>Status</th><th>My Status</th><th>Action</th></tr></thead>
+      <tbody>${STATE.events.map(evRow).join('')}</tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+function markInterest(evId) {
+  const ev=STATE.events.find(x=>x.id===evId);if(!ev)return;
+  if(!ev.interested)ev.interested=[];
+  if(ev.interested.find(r=>r.userId===currentUser.id)){showToast('Already marked interest','warning');return;}
+  ev.interested.push({userId:currentUser.id,status:'pending'});
+  renderPage('events');showToast('Interest marked! Awaiting manager approval.');
+}
+function viewEventAttendees(evId) {
+  const ev=STATE.events.find(x=>x.id===evId);if(!ev)return;
+  const going=(ev.registrations||[]).filter(r=>r.status==='approved');
+  openModal(`Attendees — ${ev.name}`,`
+  <div style="margin-bottom:12px"><span class="badge badge-approved">${going.length} confirmed attending</span></div>
+  <table class="tbl"><thead><tr><th>Name</th><th>Role</th></tr></thead><tbody>
+    ${going.map(r=>{const u=getUser(r.userId);return`<tr><td>${u.name}</td><td><span class="badge badge-open">${u.role}</span></td></tr>`;}).join('')}
+    ${going.length===0?'<tr><td colspan="2" style="text-align:center;color:var(--muted)">No approved attendees</td></tr>':''}
+  </tbody></table>`);
+}
+function viewEventPending(evId) {
+  const ev=STATE.events.find(x=>x.id===evId);if(!ev)return;
+  const pend=(ev.interested||[]).filter(r=>r.status==='pending');
+  openModal(`Pending Approvals — ${ev.name}`,`
+  <table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>
+    ${pend.map(r=>{const u=getUser(r.userId);return`<tr><td>${u.name}</td><td>${u.role}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm btn-green" onclick="approveEventInterest('${evId}','${r.userId}')">✓ Approve</button>
+      <button class="btn btn-sm btn-danger" onclick="declineEventInterest('${evId}','${r.userId}')">✕ Decline</button>
+    </td></tr>`;}).join('')}
+    ${pend.length===0?'<tr><td colspan="3" style="text-align:center;color:var(--muted)">No pending requests</td></tr>':''}
+  </tbody></table>`);
+}
+function approveEventInterest(evId,userId) {
+  const ev=STATE.events.find(x=>x.id===evId);if(!ev)return;
+  const req=(ev.interested||[]).find(r=>r.userId===userId);
+  if(req){req.status='approved';if(!ev.registrations)ev.registrations=[];ev.registrations.push({userId,status:'approved'});ev.interested=ev.interested.filter(r=>r.userId!==userId);}
+  closeModal();renderPage('events');showToast('Approved! User added to attendees.');
+}
+function declineEventInterest(evId,userId) {
+  const ev=STATE.events.find(x=>x.id===evId);if(!ev)return;
+  const req=(ev.interested||[]).find(r=>r.userId===userId);if(req)req.status='declined';
+  closeModal();renderPage('events');showToast('Request declined','warning');
+}
+function viewEventDetail(id) {
+  const ev=STATE.events.find(x=>x.id===id);if(!ev)return;
+  openModal(`Event — ${ev.name}`,`<div class="detail-grid">
     <div class="detail-item"><div class="detail-key">Venue</div><div class="detail-val">${ev.venue}</div></div>
+    <div class="detail-item"><div class="detail-key">Industry</div><div class="detail-val">${getIndustry(ev.industry).name}</div></div>
     <div class="detail-item"><div class="detail-key">Start Date</div><div class="detail-val">${fmtDate(ev.startDate)}</div></div>
     <div class="detail-item"><div class="detail-key">End Date</div><div class="detail-val">${fmtDate(ev.endDate)}</div></div>
     <div class="detail-item"><div class="detail-key">Reg. Fee</div><div class="detail-val">${fmtMoney(ev.regFee)}</div></div>
-    <div class="detail-item"><div class="detail-key">Attendees</div><div class="detail-val">${ev.attendees?.toLocaleString()}</div></div>
+    <div class="detail-item"><div class="detail-key">Expected Attendees</div><div class="detail-val">${(ev.attendees||0).toLocaleString()}</div></div>
     <div class="detail-item"><div class="detail-key">AI Score</div><div class="detail-val" style="color:var(--accent)">${ev.aiScore}/100</div></div>
     <div class="detail-item"><div class="detail-key">Expected ROI</div><div class="detail-val">${ev.expectedROI}</div></div>
   </div>`);
@@ -2016,252 +2148,410 @@ function openEventModal(id) {
   openModal(id?'Edit Event':'Add Event',body,footer);
 }
 function saveEvent(id) {
-  const data={ id:id||uid(), name:document.getElementById('evm_name').value, industry:document.getElementById('evm_ind').value, status:document.getElementById('evm_status').value, venue:document.getElementById('evm_venue').value, startDate:document.getElementById('evm_start').value, endDate:document.getElementById('evm_end').value, regFee:parseInt(document.getElementById('evm_fee').value)||0, expectedROI:document.getElementById('evm_roi').value, aiScore:Math.floor(Math.random()*30+65), attendees:1000, source:'s4' };
-  if(id){const i=STATE.events.findIndex(e=>e.id===id);if(i>=0)STATE.events[i]={...STATE.events[i],...data};showToast('Event updated');}
-  else{STATE.events.push(data);showToast('Event added');}
-  closeModal();renderPage('events');
+  const data={id:id||uid(),name:document.getElementById('evm_name').value,industry:document.getElementById('evm_ind').value,status:document.getElementById('evm_status').value,venue:document.getElementById('evm_venue').value,startDate:document.getElementById('evm_start').value,endDate:document.getElementById('evm_end').value,regFee:parseInt(document.getElementById('evm_fee').value)||0,expectedROI:document.getElementById('evm_roi').value,aiScore:Math.floor(Math.random()*30+65),attendees:1000,source:'s4',registrations:[],interested:[]};
+  if(id){const i=STATE.events.findIndex(e=>e.id===id);if(i>=0)STATE.events[i]={...STATE.events[i],...data};}else STATE.events.push(data);
+  closeModal();renderPage('events');showToast(id?'Event updated':'Event added');
 }
 function deleteEvent(id) { STATE.events=STATE.events.filter(e=>e.id!==id);renderPage('events');showToast('Event deleted','error'); }
 
 // ============================
-// EXPENSES
+// EXPENSES (Role-based)
 // ============================
 function renderExpenses() {
-  const total=STATE.expenses.reduce((a,e)=>a+e.total,0);
-  const approved=STATE.expenses.filter(e=>e.status==='approved');
-  const pending=STATE.expenses.filter(e=>e.status==='pending');
-  const byCat={};
-  STATE.expenses.forEach(e=>{ byCat[e.category]=(byCat[e.category]||0)+e.total; });
-  const maxCat=Math.max(...Object.values(byCat),1);
+  let exps = STATE.expenses;
+  if(currentRole==='salesperson') exps = exps.filter(e=>e.userId===currentUser.id);
+  else if(currentRole==='manager') exps = exps.filter(e=>myTeamIds().includes(e.userId));
+
+  const total = exps.reduce((a,e)=>a+e.total,0);
+  const approved = exps.filter(e=>e.status==='approved');
+  const pending = exps.filter(e=>e.status==='pending');
+  const byCat = {};
+  exps.forEach(e=>{ byCat[e.category]=(byCat[e.category]||0)+e.total; });
+  const maxCat = Math.max(...Object.values(byCat),1);
+
+  const filterBar = currentRole==='admin' ? `
+  <div class="filter-bar">
+    <span class="filter-label">Filter:</span>
+    <button class="btn btn-sm btn-accent" onclick="filterExpenses('all',this)">All Users</button>
+    ${STATE.users.filter(u=>u.role!=='admin').map(u=>`<button class="btn btn-sm btn-ghost" onclick="filterExpenses('${u.id}',this)">${u.name.split(' ')[0]}</button>`).join('')}
+  </div>` : currentRole==='manager' ? `
+  <div class="filter-bar">
+    <span class="filter-label">Filter:</span>
+    <button class="btn btn-sm btn-accent" onclick="filterExpenses('team',this)">My Team</button>
+    ${STATE.users.filter(u=>myTeamIds().includes(u.id)).map(u=>`<button class="btn btn-sm btn-ghost" onclick="filterExpenses('${u.id}',this)">${u.name.split(' ')[0]}</button>`).join('')}
+  </div>` : '';
 
   return `
-<div class="grid4" style="margin-bottom:18px">
-  <div class="kpi-card" style="--kc:var(--accent)">
-    <div class="kpi-label">Total Expenses</div>
-    <div class="kpi-value">${fmtMoney(total)}</div>
-    <div class="kpi-change kpi-up">Q1 2025</div>
-  </div>
-  <div class="kpi-card" style="--kc:var(--success)">
-    <div class="kpi-label">Approved</div>
-    <div class="kpi-value">${fmtMoney(approved.reduce((a,e)=>a+e.total,0))}</div>
-    <div class="kpi-change">${approved.length} expenses</div>
-  </div>
-  <div class="kpi-card" style="--kc:var(--warning)">
-    <div class="kpi-label">Pending</div>
-    <div class="kpi-value">${fmtMoney(pending.reduce((a,e)=>a+e.total,0))}</div>
-    <div class="kpi-change kpi-down">${pending.length} awaiting</div>
-  </div>
-  <div class="kpi-card" style="--kc:var(--accent3)">
-    <div class="kpi-label">Total GST</div>
-    <div class="kpi-value">${fmtMoney(STATE.expenses.reduce((a,e)=>a+e.gst,0))}</div>
-    <div class="kpi-change">Claimable</div>
-  </div>
+<div class="grid4" style="margin-bottom:16px">
+  <div class="kpi-card" style="--kc:var(--accent)"><div class="kpi-label">Total</div><div class="kpi-value">${fmtMoney(total)}</div><div class="kpi-change">Q1 2025</div></div>
+  <div class="kpi-card" style="--kc:var(--success)"><div class="kpi-label">Approved</div><div class="kpi-value">${fmtMoney(approved.reduce((a,e)=>a+e.total,0))}</div><div class="kpi-change">${approved.length} expenses</div></div>
+  <div class="kpi-card" style="--kc:var(--warning)"><div class="kpi-label">Pending</div><div class="kpi-value">${fmtMoney(pending.reduce((a,e)=>a+e.total,0))}</div><div class="kpi-change kpi-down">${pending.length} awaiting</div></div>
+  <div class="kpi-card" style="--kc:var(--accent3)"><div class="kpi-label">GST</div><div class="kpi-value">${fmtMoney(exps.reduce((a,e)=>a+e.gst,0))}</div><div class="kpi-change">Claimable</div></div>
 </div>
-
-<div class="grid2" style="margin-bottom:18px">
-  <div class="panel">
-    <div class="panel-header"><div class="panel-title">Expenses by Category</div></div>
-    <div class="panel-body">
-      ${Object.entries(byCat).map(([cat,val],i)=>{
-        const colors=['var(--accent)','var(--accent2)','var(--warning)','var(--accent3)','var(--accent4)'];
-        return `<div style="margin-bottom:10px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-            <span style="color:var(--text2)">${cat.replace('_',' ')}</span>
-            <span style="color:${colors[i%colors.length]}">${fmtMoney(val)}</span>
-          </div>
-          <div class="prog-track"><div class="prog-fill" style="width:${Math.round(val/maxCat*100)}%;background:${colors[i%colors.length]}"></div></div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>
-  <div class="panel">
-    <div class="panel-header"><div class="panel-title">Expenses by User</div></div>
-    <div class="panel-body">
-      ${STATE.users.slice(1).map(u=>{
-        const userExp=STATE.expenses.filter(e=>e.userId===u.id).reduce((a,e)=>a+e.total,0);
-        return `<div class="stat-row">
-          <span class="stat-name">${u.name}</span>
-          <div style="text-align:right">
-            <span class="stat-val">${fmtMoney(userExp)}</span>
-            <div class="prog-track" style="width:100px;margin-top:4px"><div class="prog-fill" style="width:${Math.round(userExp/total*100)}%"></div></div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>
+<div class="grid2" style="margin-bottom:16px">
+  <div class="panel"><div class="panel-header"><div class="panel-title">By Category</div></div><div class="panel-body">
+    ${Object.entries(byCat).map(([cat,val],i)=>{
+      const cols=['var(--accent)','var(--accent2)','var(--warning)','var(--accent3)','var(--accent4)'];
+      return `<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--text2)">${cat.replace('_',' ')}</span><span style="color:${cols[i%5]}">${fmtMoney(val)}</span></div><div class="prog-track"><div class="prog-fill" style="width:${Math.round(val/maxCat*100)}%;background:${cols[i%5]}"></div></div></div>`;
+    }).join('')}
+  </div></div>
+  <div class="panel"><div class="panel-header"><div class="panel-title">By User</div></div><div class="panel-body">
+    ${(currentRole==='salesperson'?[getUser(currentUser.id)]:STATE.users.filter(u=>currentRole==='admin'?u.role!=='admin':myTeamIds().includes(u.id))).map((u,i)=>{
+      const uAmt = exps.filter(e=>e.userId===u.id).reduce((a,e)=>a+e.total,0);
+      const pct = total?Math.round(uAmt/total*100):0;
+      const cols=['var(--accent)','var(--accent2)','var(--warning)','var(--accent3)'];
+      return `<div class="stat-row"><span class="stat-name">${u.name}</span><div style="text-align:right"><span class="stat-val">${fmtMoney(uAmt)}</span><div class="prog-track" style="width:90px;margin-top:3px"><div class="prog-fill" style="width:${pct}%;background:${cols[i%4]}"></div></div></div></div>`;
+    }).join('')}
+  </div></div>
 </div>
-
 <div class="panel">
   <div class="panel-header">
     <div class="panel-title">Expense Ledger</div>
-    <button class="btn btn-purple btn-sm" onclick="openOCRModal('expense')">📷 OCR Import</button>
+    ${filterBar}
+    <button class="btn btn-purple btn-sm" onclick="openOCRModal('expense')">📷 OCR</button>
     <button class="btn btn-accent btn-sm" onclick="openExpenseModal()">+ Log Expense</button>
   </div>
-  <div class="panel-body np scroll-x">
-    <table class="tbl">
-      <thead><tr><th>Category</th><th>User</th><th>Amount</th><th>GST</th><th>Total</th><th>Date</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>
-        ${STATE.expenses.map(e=>`<tr>
-          <td>${e.category.replace('_',' ')}</td>
-          <td>${getUser(e.userId).name}</td>
-          <td>${fmtMoney(e.amount)}</td>
-          <td>${fmtMoney(e.gst)}</td>
-          <td>${fmtMoney(e.total)}</td>
-          <td>${fmtDate(e.date)}</td>
-          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.description}</td>
-          <td><span class="badge badge-${e.status}">${e.status}</span></td>
-          <td style="white-space:nowrap">
-            <button class="btn btn-sm btn-ghost" onclick="viewExpense('${e.id}')">View</button>
-            ${currentRole==='admin'&&e.status==='pending'?`<button class="btn btn-sm btn-accent" onclick="approveExpense('${e.id}')">✓ Approve</button>`:''}
-            ${currentRole==='admin'?`<button class="btn btn-sm btn-danger" onclick="deleteExpense('${e.id}')">Del</button>`:''}
-          </td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-  </div>
+  <div class="panel-body np scroll-x" id="expTableWrap">${renderExpenseTable(exps)}</div>
 </div>`;
 }
+function renderExpenseTable(exps) {
+  if(!exps.length) return `<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">No expenses found</div></div>`;
+  return `<table class="tbl"><thead><tr><th>Category</th><th>User</th><th>Amount</th><th>GST</th><th>Total</th><th>Date</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+    ${exps.map(e=>`<tr>
+      <td>${e.category.replace('_',' ')}</td>
+      <td>${getUser(e.userId).name}</td>
+      <td>${fmtMoney(e.amount)}</td>
+      <td>${fmtMoney(e.gst)}</td>
+      <td>${fmtMoney(e.total)}</td>
+      <td>${fmtDate(e.date)}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.description}">${e.description}</td>
+      <td><span class="badge badge-${e.status==='approved'?'approved':e.status==='pending'?'pending':'lost'}">${e.status}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-ghost" onclick="viewExpense('${e.id}')">View</button>
+        ${(currentRole==='admin'||(currentRole==='manager'&&myTeamIds().includes(e.userId)))&&e.status==='pending'?`<button class="btn btn-sm btn-green" onclick="approveExpense('${e.id}')">✓ Approve</button>`:''}
+        ${currentRole==='admin'?`<button class="btn btn-sm btn-danger" onclick="deleteExpense('${e.id}')">Del</button>`:''}
+      </td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+function filterExpenses(filter, el) {
+  document.querySelectorAll('.filter-bar .btn').forEach(b=>{b.className='btn btn-sm btn-ghost';});
+  el.className='btn btn-sm btn-accent';
+  let exps = STATE.expenses;
+  if(filter==='all') exps = STATE.expenses;
+  else if(filter==='team') exps = STATE.expenses.filter(e=>myTeamIds().includes(e.userId));
+  else exps = STATE.expenses.filter(e=>e.userId===filter);
+  document.getElementById('expTableWrap').innerHTML = renderExpenseTable(exps);
+}
 function viewExpense(id) {
-  const e=STATE.expenses.find(x=>x.id===id);
-  if(!e) return;
-  openModal(`Expense — ${e.category}`,`
-  <div class="detail-grid">
-    <div class="detail-item"><div class="detail-key">Category</div><div class="detail-val">${e.category}</div></div>
+  const e=STATE.expenses.find(x=>x.id===id);if(!e)return;
+  openModal(`Expense — ${e.category}`,`<div class="detail-grid">
+    <div class="detail-item"><div class="detail-key">Category</div><div class="detail-val">${e.category.replace('_',' ')}</div></div>
     <div class="detail-item"><div class="detail-key">User</div><div class="detail-val">${getUser(e.userId).name}</div></div>
     <div class="detail-item"><div class="detail-key">Amount</div><div class="detail-val">${fmtMoney(e.amount)}</div></div>
     <div class="detail-item"><div class="detail-key">GST</div><div class="detail-val">${fmtMoney(e.gst)}</div></div>
     <div class="detail-item"><div class="detail-key">Total</div><div class="detail-val" style="color:var(--accent)">${fmtMoney(e.total)}</div></div>
     <div class="detail-item"><div class="detail-key">Date</div><div class="detail-val">${fmtDate(e.date)}</div></div>
     <div class="detail-item"><div class="detail-key">Status</div><div class="detail-val"><span class="badge badge-${e.status}">${e.status}</span></div></div>
-    <div class="detail-item"><div class="detail-key">Receipt Vendor</div><div class="detail-val">${e.receipt?.vendor||'—'}</div></div>
-  </div>
-  <div style="margin-top:12px"><div class="detail-key">Description</div><div style="font-size:12px;margin-top:4px">${e.description}</div></div>`);
+    <div class="detail-item"><div class="detail-key">Vendor</div><div class="detail-val">${e.receipt?.vendor||'—'}</div></div>
+    ${e.approvedBy?`<div class="detail-item"><div class="detail-key">Approved By</div><div class="detail-val">${getUser(e.approvedBy).name}</div></div>`:''}
+  </div><div style="margin-top:12px"><div class="detail-key">Description</div><div style="font-size:12px;margin-top:4px">${e.description}</div></div>`);
 }
 function openExpenseModal() {
-  const body=`
+  openModal('Log Expense',`
   <div class="form-row"><div class="form-group"><label class="form-label">Category</label><select class="form-select" id="exm_cat">
-    ${['travel','client_meeting','demo','marketing','event'].map(c=>`<option>${c}</option>`).join('')}
+    ${['travel','client_meeting','demo','marketing','event','other'].map(c=>`<option>${c}</option>`).join('')}
   </select></div>
   <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="exm_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div></div>
-  <div class="form-row"><div class="form-group"><label class="form-label">Amount (₹)</label><input class="form-input" id="exm_amount" type="number" oninput="calcExpGst()"></div>
-  <div class="form-group"><label class="form-label">GST (₹)</label><input class="form-input" id="exm_gst" type="number" readonly></div></div>
-  <div class="form-group"><label class="form-label">Total (₹)</label><input class="form-input" id="exm_total" type="number" readonly></div>
-  <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="exm_desc" rows="2"></textarea></div>`;
-  const footer=`<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveExpense()">💾 Log Expense</button>`;
-  openModal('Log Expense',body,footer);
+  <div class="form-row"><div class="form-group"><label class="form-label">Amount (₹)</label><input class="form-input" id="exm_amt" type="number" placeholder="0" oninput="autoCalcGst()"></div>
+  <div class="form-group"><label class="form-label">GST (auto 18%)</label><input class="form-input" id="exm_gst" readonly placeholder="0"></div></div>
+  <div class="form-group"><label class="form-label">Total (₹)</label><input class="form-input" id="exm_total" readonly placeholder="0"></div>
+  <div class="form-group"><label class="form-label">Vendor / Description</label><textarea class="form-textarea" id="exm_desc" rows="2" placeholder="e.g. Client lunch at Taj Hotel, Mumbai"></textarea></div>`,
+  `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveExpense()">💾 Log Expense</button>`);
 }
-function calcExpGst() {
-  const amt=parseFloat(document.getElementById('exm_amount').value)||0;
-  const gst=Math.round(amt*0.18);
-  document.getElementById('exm_gst').value=gst;
-  document.getElementById('exm_total').value=amt+gst;
+function autoCalcGst() {
+  const amt = parseFloat(document.getElementById('exm_amt').value)||0;
+  const gst = Math.round(amt*0.18);
+  document.getElementById('exm_gst').value = gst;
+  document.getElementById('exm_total').value = amt+gst;
 }
 function saveExpense() {
-  const amt=parseInt(document.getElementById('exm_amount').value)||0;
+  const amt=parseInt(document.getElementById('exm_amt').value)||0;
   const gst=Math.round(amt*0.18);
-  STATE.expenses.push({ id:uid(), userId:STATE.users[0].id, type:'deal', category:document.getElementById('exm_cat').value, amount:amt, gst:gst, total:amt+gst, date:document.getElementById('exm_date').value, description:document.getElementById('exm_desc').value, status:'pending', approvedBy:null, receipt:{} });
-  closeModal();renderPage('expenses');showToast('Expense logged');
+  STATE.expenses.push({id:uid(),userId:currentUser.id,type:'deal',category:document.getElementById('exm_cat').value,amount:amt,gst,total:amt+gst,date:document.getElementById('exm_date').value,description:document.getElementById('exm_desc').value,status:'pending',approvedBy:null,receipt:{vendor:''}});
+  closeModal();renderPage('expenses');showToast('Expense logged — pending approval');
 }
 function approveExpense(id) {
   const e=STATE.expenses.find(x=>x.id===id);
-  if(e){e.status='approved';e.approvedBy='u1';}
-  renderPage('expenses');showToast('Expense approved');
+  if(e){e.status='approved';e.approvedBy=currentUser.id;}
+  renderPage('expenses');showToast('Expense approved ✓');
 }
-function deleteExpense(id) { STATE.expenses=STATE.expenses.filter(e=>e.id!==id);renderPage('expenses');showToast('Expense deleted','error'); }
+function deleteExpense(id) { STATE.expenses=STATE.expenses.filter(e=>e.id!==id);renderPage('expenses');showToast('Deleted','error'); }
 
 // ============================
-// QUOTATIONS
+// QUOTATIONS (product items + per-deal/lead counter)
 // ============================
+// Initialize counters from existing data
+STATE.dealQuoteCounters = {};
+STATE.leadQuoteCounters = {};
+STATE.quotations.forEach(q=>{
+  if(q.dealId){
+    const n=parseInt((q.quoteNumber||'').split('-').pop())||0;
+    STATE.dealQuoteCounters[q.dealId]=Math.max(STATE.dealQuoteCounters[q.dealId]||0,n);
+  } else if(q.leadId){
+    const n=parseInt((q.quoteNumber||'').split('-').pop())||0;
+    STATE.leadQuoteCounters[q.leadId]=Math.max(STATE.leadQuoteCounters[q.leadId]||0,n);
+  }
+});
+
+function nextQuoteNumber(dealId, leadId) {
+  if(dealId) {
+    STATE.dealQuoteCounters[dealId]=(STATE.dealQuoteCounters[dealId]||0)+1;
+    return 'QT-D'+dealId.replace(/\D/g,'').padStart(3,'0')+'-'+String(STATE.dealQuoteCounters[dealId]).padStart(3,'0');
+  }
+  if(leadId) {
+    STATE.leadQuoteCounters[leadId]=(STATE.leadQuoteCounters[leadId]||0)+1;
+    return 'QT-L'+leadId.replace(/\D/g,'').padStart(3,'0')+'-'+String(STATE.leadQuoteCounters[leadId]).padStart(3,'0');
+  }
+  return 'QT-'+Date.now();
+}
+
+let _quoteItems = [];
+
 function renderQuotations() {
+  let quotes = STATE.quotations;
+  if(currentRole==='salesperson') quotes = quotes.filter(q=>q.assignedTo===currentUser.id);
+  const statusColors = {draft:'var(--muted)',sent:'var(--accent2)',viewed:'var(--accent4)',negotiation:'var(--warning)',approved:'var(--success)',rejected:'var(--danger)',expired:'var(--muted)'};
   return `
 <div class="panel">
   <div class="panel-header">
     <div class="panel-title">Quotations</div>
-    <button class="btn btn-accent btn-sm" onclick="openQuoteModal()">+ New Quote</button>
+    <div class="ai-chip">✦ Auto-numbered</div>
+    <button class="btn btn-accent btn-sm" onclick="openQuoteModal()" style="margin-left:auto">+ New Quote</button>
   </div>
   <div class="panel-body np scroll-x">
     <table class="tbl">
-      <thead><tr><th>Quote #</th><th>Client</th><th>Deal</th><th>Subtotal</th><th>Tax</th><th>Discount</th><th>Grand Total</th><th>Valid Until</th><th>Status</th><th>Ver.</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Quote #</th><th>Ref</th><th>Client</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Disc.</th><th>Grand Total</th><th>Valid Until</th><th>Status</th><th>Ver.</th><th>Actions</th></tr></thead>
       <tbody>
-        ${STATE.quotations.map(q=>`<tr>
-          <td style="font-weight:500">${q.quoteNumber}</td>
-          <td>${q.clientName}</td>
-          <td>${STATE.deals.find(d=>d.id===q.dealId)?.stage||'—'}</td>
-          <td>${fmtMoney(q.subtotal)}</td>
-          <td>${fmtMoney(q.tax)}</td>
-          <td>${q.discount?fmtMoney(q.discount):'—'}</td>
-          <td style="color:var(--accent)">${fmtMoney(q.grandTotal)}</td>
-          <td>${fmtDate(q.validUntil)}</td>
-          <td><span class="badge badge-${q.status==='approved'?'won':q.status==='rejected'?'lost':q.status==='sent'||q.status==='viewed'?'open':'pending'}">${q.status}</span></td>
-          <td>v${q.version}</td>
-          <td style="white-space:nowrap">
-            <button class="btn btn-sm btn-ghost" onclick="viewQuote('${q.id}')">View</button>
-            ${currentRole!=='salesperson'?`<button class="btn btn-sm btn-blue" onclick="openQuoteModal('${q.id}')">Edit</button>`:''}
-            ${currentRole==='admin'?`<button class="btn btn-sm btn-danger" onclick="deleteQuote('${q.id}')">Del</button>`:''}
-          </td>
-        </tr>`).join('')}
+        ${quotes.map(q=>{
+          const refDeal = q.dealId?STATE.deals.find(d=>d.id===q.dealId):null;
+          const refLead = q.leadId?STATE.leads.find(l=>l.id===q.leadId):null;
+          const ref = refDeal?`<span class="stage-pill" style="background:rgba(200,255,87,0.1);color:var(--accent)">${refDeal.stage}</span>`:refLead?`<span class="badge badge-new">Lead</span>`:'—';
+          return `<tr>
+            <td style="font-weight:600;color:var(--accent);white-space:nowrap;font-size:11px">${q.quoteNumber}</td>
+            <td>${ref}</td>
+            <td>${q.clientName}</td>
+            <td style="color:var(--muted)">${(q.items||[]).length} items</td>
+            <td>${fmtMoney(q.subtotal)}</td>
+            <td style="color:var(--muted)">${fmtMoney(q.taxAmount)}</td>
+            <td style="color:var(--muted)">${q.discountAmount?'- '+fmtMoney(q.discountAmount):'—'}</td>
+            <td style="color:var(--accent);font-weight:600">${fmtMoney(q.grandTotal)}</td>
+            <td>${fmtDate(q.validUntil)}</td>
+            <td><span class="badge" style="color:${statusColors[q.status]||'var(--muted)'};background:${statusColors[q.status]||'var(--muted)'}22">${q.status}</span></td>
+            <td style="color:var(--muted)">v${q.version}</td>
+            <td style="white-space:nowrap">
+              <button class="btn btn-sm btn-ghost" onclick="viewQuote('${q.id}')">View</button>
+              <button class="btn btn-sm btn-blue" onclick="openQuoteModal('${q.id}')">Edit</button>
+              ${currentRole==='admin'?`<button class="btn btn-sm btn-danger" onclick="deleteQuote('${q.id}')">Del</button>`:''}
+            </td>
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>
   </div>
 </div>`;
 }
+
 function viewQuote(id) {
-  const q=STATE.quotations.find(x=>x.id===id);
-  if(!q) return;
+  const q=STATE.quotations.find(x=>x.id===id);if(!q)return;
+  const refDeal=q.dealId?STATE.deals.find(d=>d.id===q.dealId):null;
+  const refLead=q.leadId?STATE.leads.find(l=>l.id===q.leadId):null;
   openModal(`Quotation — ${q.quoteNumber}`,`
-  <div class="detail-grid">
+  <div class="detail-section"><div class="detail-section-title">Quote Details</div><div class="detail-grid">
+    <div class="detail-item"><div class="detail-key">Quote #</div><div class="detail-val" style="color:var(--accent);font-size:13px;font-weight:700">${q.quoteNumber}</div></div>
+    <div class="detail-item"><div class="detail-key">Version</div><div class="detail-val">v${q.version}</div></div>
     <div class="detail-item"><div class="detail-key">Client</div><div class="detail-val">${q.clientName}</div></div>
+    <div class="detail-item"><div class="detail-key">Status</div><div class="detail-val"><span class="badge badge-pending">${q.status}</span></div></div>
     <div class="detail-item"><div class="detail-key">Quote Date</div><div class="detail-val">${fmtDate(q.quoteDate)}</div></div>
     <div class="detail-item"><div class="detail-key">Valid Until</div><div class="detail-val">${fmtDate(q.validUntil)}</div></div>
-    <div class="detail-item"><div class="detail-key">Status</div><div class="detail-val"><span class="badge badge-open">${q.status}</span></div></div>
-    <div class="detail-item"><div class="detail-key">Subtotal</div><div class="detail-val">${fmtMoney(q.subtotal)}</div></div>
-    <div class="detail-item"><div class="detail-key">Tax</div><div class="detail-val">${fmtMoney(q.tax)}</div></div>
-    <div class="detail-item"><div class="detail-key">Discount</div><div class="detail-val">${fmtMoney(q.discount)}</div></div>
-    <div class="detail-item"><div class="detail-key">Grand Total</div><div class="detail-val" style="color:var(--accent);font-size:16px">${fmtMoney(q.grandTotal)}</div></div>
+    ${refDeal?`<div class="detail-item"><div class="detail-key">Deal</div><div class="detail-val">${refDeal.clientName} (${refDeal.stage})</div></div>`:''}
+    ${refLead?`<div class="detail-item"><div class="detail-key">Lead</div><div class="detail-val">${refLead.company}</div></div>`:''}
+  </div></div>
+  <div class="detail-section"><div class="detail-section-title">Line Items</div>
+    <table class="tbl"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Discount%</th><th>Tax%</th><th>Net Total</th></tr></thead><tbody>
+      ${(q.items||[]).map(it=>{const p=getProduct(it.productId);return `<tr><td>${p.name}</td><td>${it.qty}</td><td>${fmtMoney(it.unitPrice)}</td><td>${it.discountPct||0}%</td><td>${it.taxPct}%</td><td style="color:var(--accent)">${fmtMoney(it.net)}</td></tr>`;}).join('')}
+    </tbody></table>
   </div>
-  <div style="display:flex;gap:8px;margin-top:14px">
-    <button class="btn btn-ghost btn-sm" onclick="showToast('PDF downloading...','info')">📥 Download PDF</button>
-    <button class="btn btn-ghost btn-sm" onclick="showToast('Quote sent via email','success')">📧 Send to Client</button>
-  </div>`);
+  <div style="background:var(--bg3);border-radius:8px;padding:14px">
+    <div class="stat-row"><span class="stat-name">Subtotal</span><span>${fmtMoney(q.subtotal)}</span></div>
+    <div class="stat-row"><span class="stat-name">Tax Amount</span><span>${fmtMoney(q.taxAmount)}</span></div>
+    <div class="stat-row"><span class="stat-name">Discount</span><span>- ${fmtMoney(q.discountAmount||0)}</span></div>
+    <div class="stat-row" style="border:none;padding-top:10px"><span style="font-weight:700;font-size:13px">Grand Total</span><span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--accent)">${fmtMoney(q.grandTotal)}</span></div>
+  </div>
+  ${q.notes?`<div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:6px;font-size:11px;color:var(--text2)">📝 ${q.notes}</div>`:''}
+  <div style="display:flex;gap:8px;margin-top:13px">
+    <button class="btn btn-ghost btn-sm" onclick="showToast('Downloading PDF...','info')">📥 PDF</button>
+    <button class="btn btn-ghost btn-sm" onclick="showToast('Email sent to client','success')">📧 Send Email</button>
+  </div>
+  `,'','lg');
 }
+
 function openQuoteModal(id) {
-  const q=id?STATE.quotations.find(x=>x.id===id):null;
-  const body=`
-  <div class="form-row"><div class="form-group"><label class="form-label">Deal</label><select class="form-select" id="qm_deal">
-    ${STATE.deals.map(d=>`<option value="${d.id}" ${q&&q.dealId===d.id?'selected':''}>${d.clientName} (${d.stage})</option>`).join('')}
-  </select></div>
-  <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="qm_status">
-    ${['draft','sent','viewed','negotiation','approved','rejected','expired'].map(s=>`<option ${q&&q.status===s?'selected':''}>${s}</option>`).join('')}
-  </select></div></div>
+  const q = id?STATE.quotations.find(x=>x.id===id):null;
+  _quoteItems = q?JSON.parse(JSON.stringify(q.items||[])):[{productId:STATE.products[0].id,qty:1,discountPct:0,taxPct:STATE.products[0].taxPercent||18,unitPrice:STATE.products[0].price,subtotal:STATE.products[0].price,tax:Math.round(STATE.products[0].price*0.18),net:STATE.products[0].price+Math.round(STATE.products[0].price*0.18)}];
+
+  const dealOpts = '<option value="">— None —</option>'+STATE.deals.map(d=>`<option value="${d.id}"${q&&q.dealId===d.id?' selected':''}>${d.clientName} (${d.stage})</option>`).join('');
+  const leadOpts = '<option value="">— None —</option>'+STATE.leads.filter(l=>!l.convertedToDeal).map(l=>`<option value="${l.id}"${q&&q.leadId===l.id?' selected':''}>${l.company}</option>`).join('');
+
+  const body = `
+  <div class="form-row"><div class="form-group"><label class="form-label">Link to Deal</label><select class="form-select" id="qm_deal" onchange="qmSyncClient()">${dealOpts}</select></div>
+  <div class="form-group"><label class="form-label">Link to Lead</label><select class="form-select" id="qm_lead" onchange="qmSyncClientLead()">${leadOpts}</select></div></div>
+  <div class="form-group"><label class="form-label">Client Name</label><input class="form-input" id="qm_client" value="${q?q.clientName:''}" placeholder="Auto-filled from deal/lead"></div>
   <div class="form-row"><div class="form-group"><label class="form-label">Quote Date</label><input class="form-input" id="qm_date" type="date" value="${q?q.quoteDate:new Date().toISOString().slice(0,10)}"></div>
   <div class="form-group"><label class="form-label">Valid Until</label><input class="form-input" id="qm_valid" type="date" value="${q?q.validUntil:''}"></div></div>
-  <div class="form-row3"><div class="form-group"><label class="form-label">Subtotal (₹)</label><input class="form-input" id="qm_sub" type="number" value="${q?q.subtotal:0}" oninput="calcQuote()"></div>
-  <div class="form-group"><label class="form-label">Tax (₹)</label><input class="form-input" id="qm_tax" type="number" value="${q?q.tax:0}" readonly></div>
-  <div class="form-group"><label class="form-label">Discount (₹)</label><input class="form-input" id="qm_disc" type="number" value="${q?q.discount:0}" oninput="calcQuote()"></div></div>
-  <div class="form-group"><label class="form-label">Grand Total (₹)</label><input class="form-input" id="qm_total" type="number" value="${q?q.grandTotal:0}" readonly></div>
-  <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="qm_notes" rows="2"></textarea></div>`;
-  const footer=`<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveQuote('${id||''}')">💾 ${id?'Update':'Create'} Quote</button>`;
-  openModal(id?'Edit Quotation':'New Quotation',body,footer);
+  <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="qm_stat">
+    ${['draft','sent','viewed','negotiation','approved','rejected','expired'].map(s=>`<option${q&&q.status===s?' selected':''}>${s}</option>`).join('')}
+  </select></div>
+
+  <div style="border:1px solid var(--border);border-radius:8px;padding:13px;margin-bottom:13px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600">Line Items</div>
+      <button class="btn btn-sm btn-blue" type="button" onclick="addQuoteItem()">+ Add Product</button>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 60px 90px 60px 60px 80px 28px;gap:5px;margin-bottom:4px">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;padding:0 4px">Product</div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;text-align:center">Qty</div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;text-align:center">Unit ₹</div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;text-align:center">Disc%</div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;text-align:center">Tax%</div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;text-align:center">Net Total</div>
+      <div></div>
+    </div>
+    <div id="quoteItemsList">${buildQuoteItemRows()}</div>
+  </div>
+
+  <div style="background:var(--bg3);border-radius:8px;padding:13px">
+    <div class="stat-row"><span class="stat-name">Subtotal</span><span id="qs_sub" style="font-weight:600">₹0</span></div>
+    <div class="stat-row"><span class="stat-name">Tax</span><span id="qs_tax">₹0</span></div>
+    <div class="stat-row"><span class="stat-name">Discount (₹)</span>
+      <span><input class="form-input" id="qm_disc" type="number" value="${q?q.discountAmount||0:0}" style="width:110px;display:inline" oninput="recalcQuoteTotals()"></span>
+    </div>
+    <div class="stat-row" style="border:none;padding-top:8px">
+      <span style="font-weight:700">Grand Total</span>
+      <span id="qs_total" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--accent)">₹0</span>
+    </div>
+  </div>
+  <div class="form-group" style="margin-top:13px"><label class="form-label">Notes</label><textarea class="form-textarea" id="qm_notes" rows="2">${q?q.notes||'':''}</textarea></div>`;
+
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveQuote('${id||''}')">💾 ${id?'Update Quote':'Create Quote'}</button>`;
+  openModal(id?'Edit Quotation':'New Quotation', body, footer, 'lg');
+  recalcQuoteTotals();
 }
-function calcQuote() {
-  const sub=parseFloat(document.getElementById('qm_sub').value)||0;
-  const disc=parseFloat(document.getElementById('qm_disc').value)||0;
-  const tax=Math.round((sub-disc)*0.18);
-  document.getElementById('qm_tax').value=tax;
-  document.getElementById('qm_total').value=sub+tax-disc;
+
+function qmSyncClient() {
+  const dealId = document.getElementById('qm_deal').value;
+  if(!dealId) return;
+  document.getElementById('qm_lead').value = '';
+  const d = STATE.deals.find(x=>x.id===dealId);
+  if(d) document.getElementById('qm_client').value = d.clientName;
+}
+function qmSyncClientLead() {
+  const leadId = document.getElementById('qm_lead').value;
+  if(!leadId) return;
+  document.getElementById('qm_deal').value = '';
+  const l = STATE.leads.find(x=>x.id===leadId);
+  if(l) document.getElementById('qm_client').value = l.company;
+}
+
+function buildQuoteItemRows() {
+  return _quoteItems.map((it,i)=>`
+  <div class="quote-item-row" id="qir_${i}">
+    <select class="form-select" style="font-size:11px" onchange="qiProductSel(${i},this)">
+      ${STATE.products.map(p=>`<option value="${p.id}"${it.productId===p.id?' selected':''}>${p.name}</option>`).join('')}
+    </select>
+    <input class="form-input" type="number" min="1" value="${it.qty}" style="text-align:center" oninput="qiField(${i},'qty',this.value)">
+    <input class="form-input" type="number" value="${it.unitPrice}" style="text-align:right" oninput="qiField(${i},'unitPrice',this.value)">
+    <input class="form-input" type="number" value="${it.discountPct||0}" min="0" max="100" style="text-align:center" oninput="qiField(${i},'discountPct',this.value)">
+    <input class="form-input" type="number" value="${it.taxPct}" min="0" max="100" style="text-align:center" oninput="qiField(${i},'taxPct',this.value)">
+    <div class="quote-item-total" id="qit_${i}">${fmtMoney(it.net||0)}</div>
+    <button class="btn btn-sm btn-danger" style="padding:3px 7px" onclick="removeQI(${i})">✕</button>
+  </div>`).join('');
+}
+function addQuoteItem() {
+  const p = STATE.products[0];
+  const sub = p.price, tax = Math.round(p.price*(p.taxPercent||18)/100);
+  _quoteItems.push({productId:p.id,qty:1,discountPct:0,taxPct:p.taxPercent||18,unitPrice:p.price,subtotal:sub,tax,net:sub+tax});
+  document.getElementById('quoteItemsList').innerHTML = buildQuoteItemRows();
+  recalcQuoteTotals();
+}
+function removeQI(i) {
+  _quoteItems.splice(i,1);
+  document.getElementById('quoteItemsList').innerHTML = buildQuoteItemRows();
+  recalcQuoteTotals();
+}
+function qiProductSel(i, sel) {
+  const p = getProduct(sel.value);
+  _quoteItems[i].productId = sel.value;
+  _quoteItems[i].unitPrice = p.price;
+  _quoteItems[i].taxPct = p.taxPercent||18;
+  calcQIRow(i);
+  document.getElementById('quoteItemsList').innerHTML = buildQuoteItemRows();
+  recalcQuoteTotals();
+}
+function qiField(i, field, val) {
+  _quoteItems[i][field] = parseFloat(val)||0;
+  calcQIRow(i);
+  const el = document.getElementById('qit_'+i);
+  if(el) el.textContent = fmtMoney(_quoteItems[i].net||0);
+  recalcQuoteTotals();
+}
+function calcQIRow(i) {
+  const it = _quoteItems[i];
+  const base = (it.unitPrice||0)*(it.qty||1);
+  const disc = base*((it.discountPct||0)/100);
+  const sub = base - disc;
+  const tax = sub*((it.taxPct||0)/100);
+  it.subtotal = sub; it.tax = tax; it.net = sub+tax;
+}
+function recalcQuoteTotals() {
+  _quoteItems.forEach((_,i)=>calcQIRow(i));
+  const sub = _quoteItems.reduce((a,it)=>a+(it.subtotal||0),0);
+  const tax = _quoteItems.reduce((a,it)=>a+(it.tax||0),0);
+  const disc = parseFloat(document.getElementById('qm_disc')?.value)||0;
+  const total = sub+tax-disc;
+  const el_s=document.getElementById('qs_sub'), el_t=document.getElementById('qs_tax'), el_g=document.getElementById('qs_total');
+  if(el_s) el_s.textContent = fmtMoney(sub);
+  if(el_t) el_t.textContent = fmtMoney(tax);
+  if(el_g) el_g.textContent = fmtMoney(total);
 }
 function saveQuote(id) {
-  const dealId=document.getElementById('qm_deal').value;
-  const deal=STATE.deals.find(d=>d.id===dealId);
-  const sub=parseInt(document.getElementById('qm_sub').value)||0;
-  const disc=parseInt(document.getElementById('qm_disc').value)||0;
-  const tax=Math.round((sub-disc)*0.18);
-  const data={ id:id||uid(), quoteNumber:id?STATE.quotations.find(q=>q.id===id)?.quoteNumber:`QT-2025-00${STATE.quotations.length+1}`, dealId, clientId:deal?.client||'', clientName:deal?.clientName||'', createdBy:STATE.users[0].id, assignedTo:deal?.assignedTo||'', quoteDate:document.getElementById('qm_date').value, validUntil:document.getElementById('qm_valid').value, subtotal:sub, tax, discount:disc, grandTotal:sub+tax-disc, status:document.getElementById('qm_status').value, version:id?((STATE.quotations.find(q=>q.id===id)?.version||1)+1):1 };
-  if(id){const i=STATE.quotations.findIndex(q=>q.id===id);if(i>=0)STATE.quotations[i]={...STATE.quotations[i],...data};showToast('Quotation updated');}
-  else{STATE.quotations.push(data);showToast('Quotation created');}
-  closeModal();renderPage('quotations');
+  const dealId = document.getElementById('qm_deal').value||null;
+  const leadId = document.getElementById('qm_lead').value||null;
+  _quoteItems.forEach((_,i)=>calcQIRow(i));
+  const sub = _quoteItems.reduce((a,it)=>a+(it.subtotal||0),0);
+  const tax = _quoteItems.reduce((a,it)=>a+(it.tax||0),0);
+  const disc = parseFloat(document.getElementById('qm_disc').value)||0;
+  const gt = sub+tax-disc;
+  const clientName = document.getElementById('qm_client').value;
+  const existQ = id?STATE.quotations.find(q=>q.id===id):null;
+  const qNum = id?existQ.quoteNumber:nextQuoteNumber(dealId,leadId);
+  const data = {
+    id:id||uid(), quoteNumber:qNum, dealId, leadId, clientId:'', clientName,
+    createdBy:currentUser.id, assignedTo:currentUser.id,
+    quoteDate:document.getElementById('qm_date').value,
+    validUntil:document.getElementById('qm_valid').value,
+    items:JSON.parse(JSON.stringify(_quoteItems)),
+    subtotal:sub, taxAmount:tax, discountAmount:disc, grandTotal:gt,
+    status:document.getElementById('qm_stat').value,
+    version:id?(existQ.version||1)+1:1,
+    notes:document.getElementById('qm_notes').value
+  };
+  if(id){const i=STATE.quotations.findIndex(q=>q.id===id);if(i>=0)STATE.quotations[i]={...STATE.quotations[i],...data};}
+  else STATE.quotations.push(data);
+  closeModal();renderPage('quotations');showToast(id?'Quotation updated':'Quotation created');
 }
-function deleteQuote(id) { STATE.quotations=STATE.quotations.filter(q=>q.id!==id);renderPage('quotations');showToast('Quotation deleted','error'); }
+function deleteQuote(id) { STATE.quotations=STATE.quotations.filter(q=>q.id!==id);renderPage('quotations');showToast('Deleted','error'); }
+function getProduct(id) { return STATE.products.find(p=>p.id===id)||{name:'Unknown',price:0,taxPercent:18}; }
 
 // ============================
 // REPORTS
@@ -2306,40 +2596,192 @@ function generateReport() {
 }
 
 // ============================
-// PERFORMANCE
+// PERFORMANCE (Role-based)
 // ============================
+const PERF_DATA = [
+  {uid:'u2',name:'Anil Sharma',closed:7,rev:2140000,win:82,fu:91,pip:3800000,bonus:62000},
+  {uid:'u3',name:'Priya Mehta',closed:5,rev:1890000,win:75,fu:78,pip:2900000,bonus:54000},
+  {uid:'u4',name:'Karan Singh',closed:4,rev:1420000,win:62,fu:72,pip:2200000,bonus:28000},
+  {uid:'u5',name:'Neha Roy',closed:2,rev:980000,win:48,fu:61,pip:1100000,bonus:0},
+];
+
 function renderPerformance() {
+  let visible = PERF_DATA;
+  if(currentRole==='salesperson') visible = PERF_DATA.filter(p=>p.uid===currentUser.id);
+  else if(currentRole==='manager') visible = PERF_DATA.filter(p=>myTeamIds().includes(p.uid));
+
+  const filterUI = currentRole==='admin' ? `
+  <div class="filter-bar" style="margin-bottom:14px">
+    <span class="filter-label">View:</span>
+    <button class="btn btn-sm btn-accent" id="pf_all" onclick="filterPerf('all',this)">Overall</button>
+    ${STATE.users.filter(u=>u.role!=='admin').map(u=>`<button class="btn btn-sm btn-ghost" onclick="filterPerf('${u.id}',this)">${u.name.split(' ')[0]}</button>`).join('')}
+  </div>` : currentRole==='manager' ? `
+  <div class="filter-bar" style="margin-bottom:14px">
+    <span class="filter-label">View:</span>
+    <button class="btn btn-sm btn-accent" onclick="filterPerf('team',this)">My Team</button>
+    ${PERF_DATA.filter(p=>myTeamIds().includes(p.uid)).map(p=>`<button class="btn btn-sm btn-ghost" onclick="filterPerf('${p.uid}',this)">${p.name.split(' ')[0]}</button>`).join('')}
+  </div>` : `<div style="font-size:11px;color:var(--muted);margin-bottom:14px">📊 Your personal performance — Q1 2025</div>`;
+
+  const totRev = visible.reduce((a,p)=>a+p.rev,0);
+  const avgWin = visible.length?Math.round(visible.reduce((a,p)=>a+p.win,0)/visible.length):0;
+  const totBonus = visible.reduce((a,p)=>a+p.bonus,0);
+
   return `
-<div class="grid4" style="margin-bottom:18px">
-  ${[{l:'Deals Closed',v:'18',c:'↑ vs target 15',kc:'var(--accent)'},{l:'Win Rate',v:'68%',c:'↑ 5% QoQ',kc:'var(--accent2)'},{l:'Revenue',v:'₹64.3L',c:'↑ 14.3%',kc:'var(--warning)'},{l:'Avg Deal Value',v:'₹2.68L',c:'↑ ₹0.3L',kc:'var(--accent4)'}].map(k=>`
-  <div class="kpi-card" style="--kc:${k.kc}">
-    <div class="kpi-label">${k.l}</div>
-    <div class="kpi-value">${k.v}</div>
-    <div class="kpi-change kpi-up">${k.c}</div>
-  </div>`).join('')}
+${filterUI}
+<div class="grid4" style="margin-bottom:16px">
+  <div class="kpi-card" style="--kc:var(--accent)"><div class="kpi-label">Total Revenue</div><div class="kpi-value">${fmtMoney(totRev)}</div><div class="kpi-change kpi-up">↑ 14.3%</div></div>
+  <div class="kpi-card" style="--kc:var(--accent2)"><div class="kpi-label">Deals Closed</div><div class="kpi-value">${visible.reduce((a,p)=>a+p.closed,0)}</div><div class="kpi-change kpi-up">↑ vs target</div></div>
+  <div class="kpi-card" style="--kc:var(--warning)"><div class="kpi-label">Avg Win Rate</div><div class="kpi-value">${avgWin}%</div><div class="kpi-change kpi-up">↑ 5% QoQ</div></div>
+  <div class="kpi-card" style="--kc:var(--accent4)"><div class="kpi-label">Bonus Earned</div><div class="kpi-value">${fmtMoney(totBonus)}</div><div class="kpi-change">Q1 2025</div></div>
 </div>
 <div class="panel">
+  <div class="panel-header"><div class="panel-title">Performance Breakdown</div></div>
+  <div class="panel-body np scroll-x" id="perfTableWrap">${buildPerfTable(visible)}</div>
+</div>`;
+}
+function buildPerfTable(data) {
+  if(!data.length) return '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No data</div></div>';
+  return `<table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Deals Closed</th><th>Revenue</th><th>Win Rate</th><th>Followup Rate</th><th>Pipeline</th><th>Bonus</th></tr></thead><tbody>
+    ${data.map(p=>{
+      const u = getUser(p.uid);
+      return `<tr>
+        <td><div style="font-weight:500">${p.name}</div></td>
+        <td><span class="badge badge-${u.role==='manager'?'open':'new'}">${u.role}</span></td>
+        <td>${p.closed}</td>
+        <td>${fmtMoney(p.rev)}</td>
+        <td style="color:${p.win>=75?'var(--success)':p.win>=60?'var(--warning)':'var(--danger)'}">${p.win}%<div class="prog-track" style="width:70px;margin-top:3px"><div class="prog-fill" style="width:${p.win}%;background:${p.win>=75?'var(--success)':p.win>=60?'var(--warning)':'var(--danger)'}"></div></div></td>
+        <td style="color:${p.fu>=80?'var(--success)':p.fu>=65?'var(--warning)':'var(--danger)'}">${p.fu}%</td>
+        <td>${fmtMoney(p.pip)}</td>
+        <td style="color:${p.bonus>0?'var(--accent)':'var(--muted)'};font-weight:${p.bonus>0?'700':'400'}">${p.bonus>0?fmtMoney(p.bonus):'—'}</td>
+      </tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+function filterPerf(filter, el) {
+  document.querySelectorAll('.filter-bar .btn').forEach(b=>b.className='btn btn-sm btn-ghost');
+  el.className='btn btn-sm btn-accent';
+  let data = PERF_DATA;
+  if(filter==='all') data = PERF_DATA;
+  else if(filter==='team') data = PERF_DATA.filter(p=>myTeamIds().includes(p.uid));
+  else data = PERF_DATA.filter(p=>p.uid===filter);
+  document.getElementById('perfTableWrap').innerHTML = buildPerfTable(data);
+}
+
+// ============================
+// SETTINGS (Tabbed: CRM for all, CRUD for admin only)
+// ============================
+let _settingTab = 'crm';
+
+function renderSettings() {
+  const isAdmin = currentRole==='admin';
+  const tabs = isAdmin ? ['crm','roles','industries','sources','products','users'] : ['crm'];
+  const tabLabels = {crm:'⚙ CRM & Integrations',roles:'Roles',industries:'Industries',sources:'Sources',products:'Products',users:'Users'};
+  return `
+<div class="seg-bar" id="settingsSegBar">
+  ${tabs.map(t=>`<button class="seg-btn${t==='crm'?' active':''}" onclick="switchSettingTab('${t}',this)">${tabLabels[t]}</button>`).join('')}
+</div>
+<div id="settingContent">${renderSettingTabContent('crm')}</div>`;
+}
+
+function switchSettingTab(tab, el) {
+  document.querySelectorAll('#settingsSegBar .seg-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  _settingTab = tab;
+  document.getElementById('settingContent').innerHTML = renderSettingTabContent(tab);
+  if(tab==='crm') bindSettingToggles();
+}
+
+function renderSettingTabContent(tab) {
+  if(tab==='crm') return renderCRMSettingsTab();
+  if(tab==='roles') return renderCRUDTable('roles','Role',['Name:name','Description:description','Color:color']);
+  if(tab==='industries') return renderCRUDTable('industries','Industry',['Name:name','Code:code','Description:description']);
+  if(tab==='sources') return renderCRUDTable('sources','Source',['Name:name','Auto-fetch:isAutoFetch']);
+  if(tab==='products') return renderCRUDTable('products','Product',['Name:name','Category:category','Price:price','Tax%:taxPercent']);
+  if(tab==='users') return renderUsersTable();
+  return '';
+}
+
+function renderCRMSettingsTab() {
+  const s = STATE.crmSettings;
+  const rows = [
+    ['Smart Follow-up Reminders','smartFollowup','AI'],
+    ['AI Lead Scoring','aiLeadScoring','AI'],
+    ['Predictive Analytics','predictiveAnalytics','AI'],
+    ['In-App Reminders','reminderInApp','Notifications'],
+    ['Email Reminders','reminderEmail','Notifications'],
+    ['WhatsApp Reminders','reminderWhatsapp','Notifications'],
+    ['Gmail Integration','gmailConnected','Integrations'],
+    ['Google Calendar','calendarConnected','Integrations'],
+    ['WhatsApp Business','whatsappConnected','Integrations'],
+  ];
+  return `
+<div class="grid2">
+  <div class="panel"><div class="panel-header"><div class="panel-title">Features & Integrations</div><div class="panel-meta">Available to all users</div></div>
+  <div class="panel-body" id="crmToggleBody">
+    ${rows.map(([label,key,grp])=>`
+    <div class="toggle-wrap">
+      <div><span class="toggle-label">${label}</span><div style="font-size:9px;color:var(--muted);margin-top:1px">${grp}</div></div>
+      <div class="toggle${s[key]?' on':''}" data-key="${key}"></div>
+    </div>`).join('')}
+  </div></div>
+  <div class="panel"><div class="panel-header"><div class="panel-title">Reminder Timing</div></div><div class="panel-body">
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Send reminders before due time</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px" id="rtBtns">
+      ${['15min','30min','1hr','2hr','1day'].map(t=>`<button class="btn btn-sm ${s.reminderTiming===t?'btn-accent':'btn-ghost'}" onclick="setReminderTiming('${t}',this)">${t}</button>`).join('')}
+    </div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="panel-title" style="font-size:12px;margin-bottom:10px">Integration Status</div>
+      ${[['Gmail','gmailConnected','📧'],['Google Calendar','calendarConnected','📅'],['WhatsApp','whatsappConnected','💬']].map(([n,k,ic])=>`
+      <div class="stat-row"><span class="stat-name">${ic} ${n}</span><span style="color:${s[k]?'var(--success)':'var(--muted)'};">${s[k]?'✓ Connected':'Not Connected'}</span></div>`).join('')}
+    </div>
+  </div></div>
+</div>`;
+}
+
+function bindSettingToggles() {
+  document.querySelectorAll('.toggle').forEach(t=>{
+    t.onclick = function() {
+      const key = this.dataset.key;
+      STATE.crmSettings[key] = !STATE.crmSettings[key];
+      this.classList.toggle('on');
+      showToast(`${key} ${STATE.crmSettings[key]?'enabled':'disabled'}`);
+    };
+  });
+}
+
+function setReminderTiming(t, el) {
+  STATE.crmSettings.reminderTiming = t;
+  document.querySelectorAll('#rtBtns .btn').forEach(b=>b.className='btn btn-sm btn-ghost');
+  el.className='btn btn-sm btn-accent';
+  showToast(`Reminder timing: ${t} before due`);
+}
+
+// CRUD TABLE
+function renderCRUDTable(type, singular, colDefs) {
+  const cols = colDefs.map(c=>c.split(':'));
+  const renderVal = (item, field) => {
+    if(field==='color') return `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${item[field]};margin-right:5px;vertical-align:middle"></span>${item[field]}`;
+    if(field==='isAutoFetch') return item[field]?'<span class="badge badge-approved">Yes</span>':'<span class="badge badge-declined">No</span>';
+    if(field==='price') return fmtMoney(item[field]||0);
+    if(field==='taxPercent') return (item[field]||0)+'%';
+    return item[field]||'—';
+  };
+  return `
+<div class="panel">
   <div class="panel-header">
-    <div class="panel-title">User Performance Breakdown</div>
-    <div class="panel-meta">Q1 2025</div>
+    <div class="panel-title">${singular}s</div>
+    <button class="btn btn-accent btn-sm" onclick="openCRUDModal('${type}','${singular}')">+ Add ${singular}</button>
   </div>
   <div class="panel-body np scroll-x">
     <table class="tbl">
-      <thead><tr><th>Salesperson</th><th>Deals Closed</th><th>Revenue</th><th>Win Rate</th><th>Followup Rate</th><th>Pipeline Value</th><th>Bonus</th></tr></thead>
-      <tbody>
-        ${[
-          {name:'Anil Sharma',closed:7,rev:2140000,win:82,fu:91,pip:3800000,bonus:62000},
-          {name:'Priya Mehta',closed:5,rev:1890000,win:75,fu:78,pip:2900000,bonus:54000},
-          {name:'Karan Singh',closed:4,rev:1420000,win:62,fu:72,pip:2200000,bonus:28000},
-          {name:'Neha Roy',closed:2,rev:980000,win:48,fu:61,pip:1100000,bonus:0},
-        ].map(u=>`<tr>
-          <td>${u.name}</td>
-          <td>${u.closed}</td>
-          <td>${fmtMoney(u.rev)}</td>
-          <td style="color:${u.win>=75?'var(--success)':u.win>=60?'var(--warning)':'var(--danger)'}">${u.win}%</td>
-          <td style="color:${u.fu>=80?'var(--success)':u.fu>=65?'var(--warning)':'var(--danger)'}">${u.fu}%</td>
-          <td>${fmtMoney(u.pip)}</td>
-          <td style="color:${u.bonus>0?'var(--accent)':'var(--muted)'}">${u.bonus>0?fmtMoney(u.bonus):'—'}</td>
+      <thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}<th>Actions</th></tr></thead>
+      <tbody id="crud_tbody_${type}">
+        ${STATE[type].map(item=>`<tr>
+          ${cols.map(c=>`<td>${renderVal(item,c[1])}</td>`).join('')}
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-blue" onclick="openCRUDEditModal('${type}','${singular}','${item.id}')">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="confirmDeleteCRUD('${type}','${item.id}','${singular}')">Del</button>
+          </td>
         </tr>`).join('')}
       </tbody>
     </table>
@@ -2347,237 +2789,149 @@ function renderPerformance() {
 </div>`;
 }
 
-// ============================
-// SETTINGS (Admin CRUD)
-// ============================
-function renderSettings() {
-  if(currentRole !== 'admin') {
-    return `<div class="empty-state"><div class="empty-icon">🔒</div><div class="empty-text">Settings are only accessible to Admins</div></div>`;
+function openCRUDModal(type, singular, id) {
+  const item = id?STATE[type].find(x=>x.id===id):null;
+  let body = '';
+  if(type==='roles') {
+    body = `
+    <div class="form-group"><label class="form-label">Role Name</label><input class="form-input" id="crud_name" value="${item?item.name:''}"></div>
+    <div class="form-group"><label class="form-label">Description</label><input class="form-input" id="crud_desc" value="${item?item.description||'':''}"></div>
+    <div class="form-group"><label class="form-label">Color</label><input class="form-input" id="crud_color" type="color" value="${item?item.color:'#c8ff57'}" style="height:38px;padding:3px 6px"></div>`;
+  } else if(type==='industries') {
+    body = `
+    <div class="form-row"><div class="form-group"><label class="form-label">Name</label><input class="form-input" id="crud_name" value="${item?item.name:''}"></div>
+    <div class="form-group"><label class="form-label">Code</label><input class="form-input" id="crud_code" value="${item?item.code||'':''}" maxlength="8" placeholder="e.g. IT"></div></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="crud_desc" rows="2">${item?item.description||'':''}</textarea></div>`;
+  } else if(type==='sources') {
+    body = `
+    <div class="form-group"><label class="form-label">Source Name</label><input class="form-input" id="crud_name" value="${item?item.name:''}"></div>
+    <div class="form-group"><label class="form-label">Supports Auto-fetch (AI Lead Discovery)?</label>
+    <select class="form-select" id="crud_auto">
+      <option value="true"${item&&item.isAutoFetch?' selected':''}>Yes — can be searched automatically</option>
+      <option value="false"${item&&!item.isAutoFetch?' selected':''}>No — manual source only</option>
+    </select></div>`;
+  } else if(type==='products') {
+    body = `
+    <div class="form-row"><div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="crud_name" value="${item?item.name:''}"></div>
+    <div class="form-group"><label class="form-label">Category</label>
+    <select class="form-select" id="crud_cat">${['Software','Service','Support','Hardware','Consulting'].map(c=>`<option${item&&item.category===c?' selected':''}>${c}</option>`).join('')}</select></div></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Price (₹)</label><input class="form-input" id="crud_price" type="number" value="${item?item.price||0:0}"></div>
+    <div class="form-group"><label class="form-label">Tax Percent (%)</label><input class="form-input" id="crud_tax" type="number" value="${item?item.taxPercent||18:18}" min="0" max="100"></div></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="crud_desc" rows="2">${item?item.description||'':''}</textarea></div>`;
   }
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveCRUDItem('${type}','${singular}','${id||''}')">💾 ${id?'Update':'Add'} ${singular}</button>`;
+  openModal(`${id?'Edit':'Add'} ${singular}`, body, footer, 'sm');
+}
+
+function openCRUDEditModal(type, singular, id) { openCRUDModal(type, singular, id); }
+
+function saveCRUDItem(type, singular, id) {
+  const nameEl = document.getElementById('crud_name');
+  if(!nameEl||!nameEl.value.trim()){showToast('Name is required','warning');return;}
+  const base = {id:id||uid(), name:nameEl.value.trim()};
+  if(type==='roles'){base.description=document.getElementById('crud_desc')?.value||'';base.color=document.getElementById('crud_color')?.value||'#c8ff57';}
+  if(type==='industries'){base.code=document.getElementById('crud_code')?.value||'';base.description=document.getElementById('crud_desc')?.value||'';}
+  if(type==='sources'){base.isAutoFetch=document.getElementById('crud_auto')?.value==='true';}
+  if(type==='products'){base.category=document.getElementById('crud_cat')?.value||'Software';base.price=parseInt(document.getElementById('crud_price')?.value)||0;base.taxPercent=parseInt(document.getElementById('crud_tax')?.value)||18;base.description=document.getElementById('crud_desc')?.value||'';}
+  if(id){const i=STATE[type].findIndex(x=>x.id===id);if(i>=0)STATE[type][i]={...STATE[type][i],...base};}
+  else STATE[type].push(base);
+  closeModal();
+  const tbody = document.getElementById('crud_tbody_'+type);
+  if(tbody) {
+    const colMap = {roles:['Name:name','Description:description','Color:color'],industries:['Name:name','Code:code','Description:description'],sources:['Name:name','Auto-fetch:isAutoFetch'],products:['Name:name','Category:category','Price:price','Tax%:taxPercent']};
+    document.getElementById('settingContent').innerHTML = renderCRUDTable(type, singular, colMap[type]||['Name:name']);
+  }
+  showToast(`${singular} ${id?'updated':'added'}!`);
+}
+
+function confirmDeleteCRUD(type, id, singular) {
+  openModal('Confirm Delete',`<div style="text-align:center;padding:8px"><div style="font-size:32px;margin-bottom:10px">🗑</div><div style="font-size:13px;color:var(--text2)">Delete this ${singular||'item'} permanently?</div><div style="font-size:11px;color:var(--muted);margin-top:5px">This action cannot be undone</div></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="deleteCRUDItem('${type}','${id}','${singular||'Item'}')">🗑 Delete</button>`,'sm');
+}
+
+function deleteCRUDItem(type, id, singular) {
+  STATE[type] = STATE[type].filter(x=>x.id!==id);
+  closeModal();
+  const colMap = {roles:['Name:name','Description:description','Color:color'],industries:['Name:name','Code:code','Description:description'],sources:['Name:name','Auto-fetch:isAutoFetch'],products:['Name:name','Category:category','Price:price','Tax%:taxPercent']};
+  document.getElementById('settingContent').innerHTML = renderCRUDTable(type, singular||'Item', colMap[type]||['Name:name']);
+  showToast('Deleted','error');
+}
+
+// USERS TABLE
+function renderUsersTable() {
   return `
-<div class="grid2" style="margin-bottom:18px">
-  <!-- ROLES CRUD -->
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Roles</div>
-      <button class="btn btn-accent btn-sm" onclick="openCRUDModal('role')">+ Add Role</button>
-    </div>
-    <div class="panel-body">
-      <div class="crud-list" id="rolesList">${renderCRUDList('roles')}</div>
-    </div>
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">Users</div>
+    <button class="btn btn-accent btn-sm" onclick="openUserModal()">+ Add User</button>
   </div>
-  <!-- INDUSTRIES CRUD -->
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Industries</div>
-      <button class="btn btn-accent btn-sm" onclick="openCRUDModal('industry')">+ Add Industry</button>
-    </div>
-    <div class="panel-body">
-      <div class="crud-list" id="industriesList">${renderCRUDList('industries')}</div>
-    </div>
-  </div>
-</div>
-
-<div class="grid2" style="margin-bottom:18px">
-  <!-- SOURCES CRUD -->
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Lead Sources</div>
-      <button class="btn btn-accent btn-sm" onclick="openCRUDModal('source')">+ Add Source</button>
-    </div>
-    <div class="panel-body">
-      <div class="crud-list" id="sourcesList">${renderCRUDList('sources')}</div>
-    </div>
-  </div>
-  <!-- PRODUCTS CRUD -->
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Products</div>
-      <button class="btn btn-accent btn-sm" onclick="openCRUDModal('product')">+ Add Product</button>
-    </div>
-    <div class="panel-body">
-      <div class="crud-list" id="productsList">${renderCRUDList('products')}</div>
-    </div>
-  </div>
-</div>
-
-<div class="grid2">
-  <!-- CRM SETTINGS -->
-  <div class="panel">
-    <div class="panel-header"><div class="panel-title">CRM Integrations & Settings</div></div>
-    <div class="panel-body">
-      ${[
-        ['Smart Follow-up Reminders','smartFollowup'],
-        ['AI Lead Scoring','aiLeadScoring'],
-        ['Predictive Analytics','predictiveAnalytics'],
-        ['In-App Reminders','reminderInApp'],
-        ['Email Reminders','reminderEmail'],
-        ['WhatsApp Reminders','reminderWhatsapp'],
-        ['Gmail Connected','gmailConnected'],
-        ['Google Calendar','calendarConnected'],
-        ['WhatsApp Business','whatsappConnected'],
-      ].map(([label,key])=>`
-      <div class="toggle-wrap">
-        <span class="toggle-label">${label}</span>
-        <div class="toggle ${STATE.crmSettings[key]?'on':''}" data-key="${key}" onclick="toggleSetting(this)"></div>
-      </div>`).join('')}
-    </div>
-  </div>
-
-  <!-- USERS -->
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Users</div>
-      <button class="btn btn-accent btn-sm" onclick="openUserModal()">+ Add User</button>
-    </div>
-    <div class="panel-body np">
-      <table class="tbl">
-        <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="usersTable">
-          ${renderUsersTable()}
-        </tbody>
-      </table>
-    </div>
+  <div class="panel-body np scroll-x">
+    <table class="tbl">
+      <thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th><th>Manager</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="usersTableBody">${buildUsersRows()}</tbody>
+    </table>
   </div>
 </div>`;
 }
 
-function renderCRUDList(type) {
-  const items = STATE[type];
-  if(!items||!items.length) return '<div style="color:var(--muted);font-size:11px;text-align:center;padding:10px">No items</div>';
-  return items.map(item=>{
-    const name = item.name;
-    const meta = type==='roles'?item.description:type==='industries'?item.code:type==='sources'?`Auto-fetch: ${item.isAutoFetch?'Yes':'No'}`:type==='products'?`${item.category} · ${fmtMoney(item.price)}`:'';
-    const color = item.color||'var(--muted)';
-    return `<div class="crud-item">
-      ${type==='roles'?`<div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>`:''}
-      <div class="crud-item-name">${name}</div>
-      <div class="crud-item-meta">${meta}</div>
-      <button class="btn btn-sm btn-blue" onclick="openCRUDEditModal('${type}','${item.id}')">Edit</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteCRUDItem('${type}','${item.id}')">Del</button>
-    </div>`;
-  }).join('');
-}
-function renderUsersTable() {
+function buildUsersRows() {
   return STATE.users.map(u=>`<tr>
-    <td>${u.name}</td>
-    <td><span class="badge badge-${u.role==='admin'?'won':u.role==='manager'?'open':'pending'}">${u.role}</span></td>
-    <td><span style="color:${u.is_active?'var(--success)':'var(--muted)'}">${u.is_active?'Active':'Inactive'}</span></td>
+    <td><div style="font-weight:500">${u.name}</div></td>
+    <td><span class="badge badge-${u.role==='admin'?'won':u.role==='manager'?'open':'new'}">${u.role}</span></td>
+    <td style="color:var(--muted);font-size:11px">${u.email}</td>
+    <td style="color:var(--muted)">${u.phone||'—'}</td>
+    <td>${u.managerId?getUser(u.managerId).name:'—'}</td>
+    <td style="color:var(--muted)">${fmtDate(u.joiningDate)}</td>
+    <td><span style="color:${u.is_active?'var(--success)':'var(--muted)'}">${u.is_active?'● Active':'○ Inactive'}</span></td>
     <td style="white-space:nowrap">
       <button class="btn btn-sm btn-blue" onclick="openUserModal('${u.id}')">Edit</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">Del</button>
+      <button class="btn btn-sm btn-danger" onclick="confirmDeleteUser('${u.id}')">Del</button>
     </td>
   </tr>`).join('');
 }
 
-function bindSettingToggles() {
-  document.querySelectorAll('.toggle').forEach(t=>{
-    t.addEventListener('click',function(){
-      const key=this.dataset.key;
-      STATE.crmSettings[key]=!STATE.crmSettings[key];
-      this.classList.toggle('on');
-      showToast(`${key} ${STATE.crmSettings[key]?'enabled':'disabled'}`);
-    });
-  });
-}
-function toggleSetting(el) {/* handled by bindSettingToggles */}
-
-function openCRUDModal(type) {
-  const titles={role:'Role',industry:'Industry',source:'Lead Source',product:'Product'};
-  const body = type==='role'?`
-    <div class="form-group"><label class="form-label">Role Name</label><input class="form-input" id="crud_name" placeholder="e.g. Regional Manager"></div>
-    <div class="form-group"><label class="form-label">Description</label><input class="form-input" id="crud_desc" placeholder="Brief description"></div>
-    <div class="form-group"><label class="form-label">Color</label><input class="form-input" id="crud_color" type="color" value="#c8ff57"></div>
-  `:type==='industry'?`
-    <div class="form-group"><label class="form-label">Industry Name</label><input class="form-input" id="crud_name" placeholder="e.g. Fintech"></div>
-    <div class="form-group"><label class="form-label">Code</label><input class="form-input" id="crud_code" placeholder="e.g. FIN"></div>
-    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="crud_desc" rows="2"></textarea></div>
-  `:type==='source'?`
-    <div class="form-group"><label class="form-label">Source Name</label><input class="form-input" id="crud_name" placeholder="e.g. Twitter"></div>
-    <div class="form-group"><label class="form-label">Auto-fetch Supported</label><select class="form-select" id="crud_auto">
-      <option value="true">Yes</option><option value="false">No</option>
-    </select></div>
-  `:`
-    <div class="form-row"><div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="crud_name" placeholder="e.g. Premium Suite"></div>
-    <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="crud_cat">
-      ${['Software','Service','Support','Hardware'].map(c=>`<option>${c}</option>`).join('')}
-    </select></div></div>
-    <div class="form-row"><div class="form-group"><label class="form-label">Price (₹)</label><input class="form-input" id="crud_price" type="number"></div>
-    <div class="form-group"><label class="form-label">Tax (%)</label><input class="form-input" id="crud_tax" type="number" value="18"></div></div>
-    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="crud_desc" rows="2"></textarea></div>
-  `;
-  const footer=`<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveCRUDItem('${type}','')">💾 Add ${titles[type]}</button>`;
-  openModal(`Add ${titles[type]}`,body,footer);
-}
-function openCRUDEditModal(type,id) {
-  const map={roles:'role',industries:'industry',sources:'source',products:'product'};
-  openCRUDModal(map[type]);
-  // Pre-fill
-  const items = STATE[type];
-  const item = items.find(x=>x.id===id);
-  if(!item) return;
-  setTimeout(()=>{
-    if(document.getElementById('crud_name')) document.getElementById('crud_name').value=item.name||'';
-    if(document.getElementById('crud_desc')) document.getElementById('crud_desc').value=item.description||'';
-    if(document.getElementById('crud_code')) document.getElementById('crud_code').value=item.code||'';
-    if(document.getElementById('crud_color')) document.getElementById('crud_color').value=item.color||'#c8ff57';
-    if(document.getElementById('crud_price')) document.getElementById('crud_price').value=item.price||0;
-    if(document.getElementById('crud_tax')) document.getElementById('crud_tax').value=item.taxPercent||18;
-    if(document.getElementById('crud_cat')) document.getElementById('crud_cat').value=item.category||'Software';
-    if(document.getElementById('crud_auto')) document.getElementById('crud_auto').value=item.isAutoFetch?'true':'false';
-    // Update footer button
-    document.querySelector('.modal-footer .btn-accent').onclick = ()=>saveCRUDItem(map[type],id);
-    document.querySelector('.modal-footer .btn-accent').textContent = '💾 Update';
-    document.getElementById('modalTitle').textContent = 'Edit '+type.slice(0,-1);
-  }, 50);
-}
-function saveCRUDItem(type,id) {
-  const stateKey={role:'roles',industry:'industries',source:'sources',product:'products'}[type];
-  const nameEl=document.getElementById('crud_name');
-  if(!nameEl||!nameEl.value.trim()) { showToast('Name is required','warning'); return; }
-  const data={id:id||uid(), name:nameEl.value.trim()};
-  if(type==='role'){data.description=document.getElementById('crud_desc')?.value||'';data.color=document.getElementById('crud_color')?.value||'#c8ff57';}
-  if(type==='industry'){data.code=document.getElementById('crud_code')?.value||'';data.description=document.getElementById('crud_desc')?.value||'';}
-  if(type==='source'){data.isAutoFetch=document.getElementById('crud_auto')?.value==='true';}
-  if(type==='product'){data.category=document.getElementById('crud_cat')?.value||'Software';data.price=parseInt(document.getElementById('crud_price')?.value)||0;data.taxPercent=parseInt(document.getElementById('crud_tax')?.value)||18;data.description=document.getElementById('crud_desc')?.value||'';}
-  if(id){const i=STATE[stateKey].findIndex(x=>x.id===id);if(i>=0)STATE[stateKey][i]={...STATE[stateKey][i],...data};}
-  else{STATE[stateKey].push(data);}
-  closeModal();renderPage('settings');showToast(`${type.charAt(0).toUpperCase()+type.slice(1)} saved`);
-}
-function deleteCRUDItem(type,id) {
-  STATE[type]=STATE[type].filter(x=>x.id!==id);
-  const listId={roles:'rolesList',industries:'industriesList',sources:'sourcesList',products:'productsList'}[type];
-  if(listId) document.getElementById(listId).innerHTML=renderCRUDList(type);
-  showToast('Item deleted','error');
-}
 function openUserModal(id) {
-  const u=id?STATE.users.find(x=>x.id===id):null;
-  const body=`
+  const u = id?STATE.users.find(x=>x.id===id):null;
+  const mgrOpts = '<option value="">— None —</option>'+STATE.users.filter(x=>x.role==='manager'||x.role==='admin').map(m=>`<option value="${m.id}"${u&&u.managerId===m.id?' selected':''}>${m.name}</option>`).join('');
+  const body = `
   <div class="form-row"><div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="um_name" value="${u?u.name:''}"></div>
   <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="um_email" type="email" value="${u?u.email:''}"></div></div>
-  <div class="form-row"><div class="form-group"><label class="form-label">Role</label><select class="form-select" id="um_role">
-    ${STATE.roles.map(r=>`<option value="${r.name.toLowerCase()}" ${u&&u.role===r.name.toLowerCase()?'selected':''}>${r.name}</option>`).join('')}
-  </select></div>
-  <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="um_phone" value="${u?u.phone:''}"></div></div>
-  <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="um_active">
-    <option value="true" ${u&&u.is_active?'selected':''}>Active</option>
-    <option value="false" ${u&&!u.is_active?'selected':''}>Inactive</option>
+  <div class="form-row"><div class="form-group"><label class="form-label">Role</label>
+  <select class="form-select" id="um_role">${STATE.roles.map(r=>`<option value="${r.name.toLowerCase()}"${u&&u.role===r.name.toLowerCase()?' selected':''}>${r.name}</option>`).join('')}</select></div>
+  <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="um_phone" value="${u?u.phone||'':''}"></div></div>
+  <div class="form-group"><label class="form-label">Reports To (Manager)</label><select class="form-select" id="um_mgr">${mgrOpts}</select></div>
+  <div class="form-group"><label class="form-label">Status</label>
+  <select class="form-select" id="um_active">
+    <option value="true"${u&&u.is_active?' selected':''}>Active</option>
+    <option value="false"${u&&!u.is_active?' selected':''}>Inactive</option>
   </select></div>`;
-  const footer=`<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveUser('${id||''}')">💾 ${id?'Update':'Add'} User</button>`;
-  openModal(id?'Edit User':'Add User',body,footer);
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="saveUser('${id||''}')">💾 ${id?'Update':'Add'} User</button>`;
+  openModal(id?'Edit User':'Add User', body, footer);
 }
+
 function saveUser(id) {
-  const data={id:id||uid(), name:document.getElementById('um_name').value, email:document.getElementById('um_email').value, role:document.getElementById('um_role').value, phone:document.getElementById('um_phone').value, is_active:document.getElementById('um_active').value==='true', joiningDate:new Date().toISOString().slice(0,10) };
-  if(id){const i=STATE.users.findIndex(u=>u.id===id);if(i>=0)STATE.users[i]={...STATE.users[i],...data};showToast('User updated');}
-  else{STATE.users.push(data);showToast('User created');}
-  closeModal();renderPage('settings');
+  const data = {id:id||uid(),name:document.getElementById('um_name').value,email:document.getElementById('um_email').value,role:document.getElementById('um_role').value,phone:document.getElementById('um_phone').value,managerId:document.getElementById('um_mgr').value||null,is_active:document.getElementById('um_active').value==='true',joiningDate:id?(STATE.users.find(u=>u.id===id)?.joiningDate||new Date().toISOString().slice(0,10)):new Date().toISOString().slice(0,10)};
+  if(id){const i=STATE.users.findIndex(u=>u.id===id);if(i>=0)STATE.users[i]={...STATE.users[i],...data};}
+  else STATE.users.push(data);
+  closeModal();
+  const tbody = document.getElementById('usersTableBody');
+  if(tbody) tbody.innerHTML = buildUsersRows();
+  showToast(id?'User updated':'User added');
 }
+
+function confirmDeleteUser(id) {
+  openModal('Confirm Delete',`<div style="text-align:center;padding:8px"><div style="font-size:32px;margin-bottom:10px">🗑</div><div style="font-size:13px;color:var(--text2)">Delete this user permanently?</div></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="deleteUser('${id}')">🗑 Delete</button>`,'sm');
+}
+
 function deleteUser(id) {
-  if(STATE.users.length<=1){showToast('Cannot delete last user','error');return;}
-  STATE.users=STATE.users.filter(u=>u.id!==id);
-  document.getElementById('usersTable').innerHTML=renderUsersTable();
+  STATE.users = STATE.users.filter(u=>u.id!==id);
+  closeModal();
+  const tbody = document.getElementById('usersTableBody');
+  if(tbody) tbody.innerHTML = buildUsersRows();
   showToast('User deleted','error');
 }
+
 
 // ========== KEYBOARD SHORTCUT ==========
 document.addEventListener('keydown',e=>{
