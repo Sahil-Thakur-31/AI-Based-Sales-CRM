@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-import './App.css'
-import Sidebar from "./components/sideBar";
-import Dashboard from "./pages/Dashboard";
-=======
 import { Navigate, Route, Routes } from 'react-router-dom';
 import './App.css';
 
@@ -11,10 +6,10 @@ import ForgotPassword from './pages/Verify/ForgotPassword';
 import VerifyOTP from './pages/Verify/VerifyOTP';
 import ResetPassword from './pages/Verify/ResetPassword';
 
-import AdminHome from './pages/Admin/AdminHome';
+import AdminHome from './pages/AdminHome';
 import ManagerHome from './pages/ManagerHome';
-import ManageUsers from './pages/Admin/ManageUsers';
-import UserForm from './pages/Admin/UserForm';
+import ManageUsers from './pages/modules/admin/ManageUsers';
+import UserForm from './pages/modules/admin/UserForm';
 
 import Leads from './pages/modules/Leads.jsx';
 import Clients from './pages/modules/Clients.jsx';
@@ -38,32 +33,9 @@ import Sources from './pages/modules/admin/Sources.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
->>>>>>> f64418250e868264979133c4695e76d103a8af45
 
 function App() {
   return (
-<<<<<<< HEAD
-    <>
-      <div className="app-layout">
-
-               <Sidebar />
-
-
-           <div className="main-content">
-                <Dashboard />
-           </div>
-
-        </div>
-
-      
-    </>
-  )
-}
-
-export default App
-
-
-=======
     <div className="App">
 
       <Routes>
@@ -129,4 +101,3 @@ export default App
 }
 
 export default App;
->>>>>>> f64418250e868264979133c4695e76d103a8af45
