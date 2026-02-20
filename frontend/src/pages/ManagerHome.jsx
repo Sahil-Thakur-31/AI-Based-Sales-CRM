@@ -90,8 +90,6 @@ function Dashboard() {
   return (
     <div className="dashboard container-fluid">
 
-      <Topbar />
-
       {/* STATS ROW */}
       <div className="row g-4 mt-2">
         {dashboardData.stats.map((stat, i) => (
