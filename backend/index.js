@@ -19,6 +19,7 @@ app.use(cors());
 app.use('/auth',authRoute);
 app.use("/roles", roleRoutes);
 app.use("/users", userRoutes);
+app.use("/uploads", express.static("uploads"));
 
 
 myServer.listen(PORT,()=>console.log('Server started on', PORT));

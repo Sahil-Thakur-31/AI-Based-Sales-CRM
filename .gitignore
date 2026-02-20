@@ -25,3 +25,5 @@ dist/
 Thumbs.db
 
 frontend\src\App.jsx
+backend/package-lock.json
+frontend/package-lock.json

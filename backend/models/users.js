@@ -4,13 +4,16 @@ const usersSchema = new mongoose.Schema({
 
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
 
   email: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    lowercase: true,
+    trim: true
   },
 
   passwordHash: {
@@ -20,21 +23,43 @@ const usersSchema = new mongoose.Schema({
 
   role: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "roles",   // FK → role collection
+    ref: "roles",
     required: true
   },
 
   phone: {
-    type: String
+    type: String,
+    trim: true
   },
 
   photoUrl: {
-    type: String
+    type: String,
+    trim: true
   },
 
   joiningDate: {
     type: Date
   },
+
+  /* NEW FIELDS */
+
+  address: {
+    type: String,
+    trim: true,
+    maxlength: 500
+  },
+
+  dateOfBirth: {
+    type: Date
+  },
+
+  gender: {
+    type: String,
+    enum: ["Male", "Female", "Others"],
+    trim: true
+  },
+
+  /* SYSTEM FLAGS */
 
   is_active: {
     type: Boolean,
@@ -47,11 +72,14 @@ const usersSchema = new mongoose.Schema({
   }
 
 }, {
+
   collection: "users",
+
   timestamps: {
     createdAt: "createdAt",
     updatedAt: "updatedAt"
   }
+
 });
 
 module.exports = mongoose.model("users", usersSchema);

@@ -6,10 +6,10 @@ import ForgotPassword from './pages/Verify/ForgotPassword';
 import VerifyOTP from './pages/Verify/VerifyOTP';
 import ResetPassword from './pages/Verify/ResetPassword';
 
-import AdminHome from './pages/AdminHome';
+import AdminHome from './pages/AdminHome.jsx';
 import ManagerHome from './pages/ManagerHome';
-import ManageUsers from './pages/modules/admin/ManageUsers';
-import UserForm from './pages/modules/admin/UserForm';
+import ManageUsers from './pages/modules/adminsetting/ManageUsers.jsx';
+import UserForm from './pages/modules/adminsetting/UserForm.jsx';
 
 import Leads from './pages/modules/Leads.jsx';
 import Clients from './pages/modules/Clients.jsx';
@@ -26,10 +26,10 @@ import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
 
-import Products from './pages/modules/admin/Products.jsx';
-import Roles from './pages/modules/admin/Roles.jsx';
-import Industry from './pages/modules/admin/Industry.jsx';
-import Sources from './pages/modules/admin/Sources.jsx';
+import Products from './pages/modules/adminsetting/Products.jsx';
+import Roles from './pages/modules/adminsetting/Roles.jsx';
+import Industry from './pages/modules/adminsetting/Industry.jsx';
+import Sources from './pages/modules/adminsetting/Sources.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";

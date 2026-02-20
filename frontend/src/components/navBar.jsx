@@ -1,12 +1,16 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { routeConfig } from "../config/routeConfig";
+import API from "../api";
+import Logout from "./Logout";
 import "./navBar.css";
 
-function Navbar({ user }) {
+function Navbar() {
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [user, setUser] = useState(null);
 
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -15,38 +19,64 @@ function Navbar({ user }) {
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-  const token = localStorage.getItem("token");
+  /* timers */
+  const profileMenuTimer = useRef(null);
+  const adminMenuTimer = useRef(null);
+  const notificationTimer = useRef(null);
 
 
-  const handleLogout = () => {
+  /* Fetch user */
+  useEffect(() => {
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("Name");
-    localStorage.removeItem("RoleName");
+    fetchUser();
 
-    navigate("/login", { replace: true });
+  }, []);
+
+
+  const fetchUser = async () => {
+
+    try {
+
+      const res = await API.get("/users/me");
+
+      setUser(res.data);
+
+    }
+    catch (err) {
+
+      console.error("Navbar user fetch failed:", err);
+
+    }
 
   };
 
 
+  /* Resolve photo URL safely */
+  const resolvePhotoUrl = (photoUrl) => {
+
+    if (!photoUrl) return null;
+
+    if (photoUrl.startsWith("blob:"))
+      return photoUrl;
+
+    if (photoUrl.startsWith("http"))
+      return photoUrl;
+
+    return `${API.defaults.baseURL.replace(/\/$/, "")}${photoUrl}`;
+
+  };
+
+
+  /* Fetch notifications */
   const fetchNotifications = async () => {
 
     try {
 
       setLoadingNotifications(true);
 
-      const res = await fetch(
-        "http://localhost:8080/api/notifications",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      const res = await API.get("/api/notifications");
 
-      const data = await res.json();
-
-      setNotifications(data);
+      setNotifications(res.data);
 
     }
     catch (err) {
@@ -71,22 +101,24 @@ function Navbar({ user }) {
   }, [showNotifications]);
 
 
+  /* Module title */
   const moduleName = useMemo(() => {
 
-    const currentRoute = routeConfig.find(
-      route => location.pathname.startsWith(route.path)
+    const route = routeConfig.find(
+      r => location.pathname.startsWith(r.path)
     );
 
-    return currentRoute ? currentRoute.title : "Dashboard";
+    return route ? route.title : "Dashboard";
 
   }, [location.pathname]);
 
 
+  /* Initials fallback */
   const getInitials = (name) => {
 
     if (!name) return "?";
 
-    const parts = name.split(" ");
+    const parts = name.trim().split(" ");
 
     if (parts.length === 1)
       return parts[0][0].toUpperCase();
@@ -99,143 +131,241 @@ function Navbar({ user }) {
   };
 
 
+  /* PROFILE hover handlers */
+  const handleProfileEnter = () => {
+
+    if (profileMenuTimer.current)
+      clearTimeout(profileMenuTimer.current);
+
+    setShowProfileMenu(true);
+
+  };
+
+  const handleProfileLeave = () => {
+
+    profileMenuTimer.current = setTimeout(() => {
+
+      setShowProfileMenu(false);
+
+    }, 700);
+
+  };
+
+
+  /* ADMIN hover handlers */
+  const handleAdminEnter = () => {
+
+    if (adminMenuTimer.current)
+      clearTimeout(adminMenuTimer.current);
+
+    setShowAdminMenu(true);
+
+  };
+
+  const handleAdminLeave = () => {
+
+    adminMenuTimer.current = setTimeout(() => {
+
+      setShowAdminMenu(false);
+
+    }, 700);
+
+  };
+
+
+  /* NOTIFICATION hover handlers */
+  const handleNotificationEnter = () => {
+
+    if (notificationTimer.current)
+      clearTimeout(notificationTimer.current);
+
+    setShowNotifications(true);
+
+  };
+
+  const handleNotificationLeave = () => {
+
+    notificationTimer.current = setTimeout(() => {
+
+      setShowNotifications(false);
+
+    }, 700);
+
+  };
+
+
+  if (!user)
+    return null;
+
+
   return (
 
     <div className="navbar">
 
+
+      {/* LEFT */}
       <div className="navbar-left">
-        <h2 className="module-title">{moduleName}</h2>
+
+        <h2 className="module-title">
+          {moduleName}
+        </h2>
+
       </div>
 
 
+      {/* RIGHT */}
       <div className="navbar-right">
 
 
-        {/* Admin menu */}
-        {user?.role === "Admin" && (
+        {/* ADMIN MENU */}
+        {user.role?.name === "Admin" && (
 
           <div
             className="admin-menu-container"
-            onMouseEnter={() => setShowAdminMenu(true)}
-            onMouseLeave={() => setShowAdminMenu(false)}
+            onMouseEnter={handleAdminEnter}
+            onMouseLeave={handleAdminLeave}
           >
 
-            <button className="nav-icon-btn">⚙️</button>
+            <button className="nav-icon-btn">
+              ⚙️
+            </button>
 
-            {showAdminMenu && (
+            <div className={`admin-dropdown ${showAdminMenu ? "visible" : "hidden"}`}>
 
-              <div className="admin-dropdown">
-
-                <div onClick={() => navigate("/products")}>Products</div>
-                <div onClick={() => navigate("/roles")}>Roles</div>
-                <div onClick={() => navigate("/manageusers")}>Users</div>
-                <div onClick={() => navigate("/industry")}>Industry</div>
-                <div onClick={() => navigate("/sources")}>Sources</div>
-
+              <div onClick={() => navigate("/products")}>
+                Products
               </div>
 
-            )}
+              <div onClick={() => navigate("/roles")}>
+                Roles
+              </div>
+
+              <div onClick={() => navigate("/manageusers")}>
+                Users
+              </div>
+
+              <div onClick={() => navigate("/industry")}>
+                Industry
+              </div>
+
+              <div onClick={() => navigate("/sources")}>
+                Sources
+              </div>
+
+            </div>
 
           </div>
 
         )}
 
 
-        {/* Notifications */}
+        {/* NOTIFICATIONS */}
         <div
           className="notification-container"
-          onMouseEnter={() => setShowNotifications(true)}
-          onMouseLeave={() => setShowNotifications(false)}
+          onMouseEnter={handleNotificationEnter}
+          onMouseLeave={handleNotificationLeave}
         >
 
-          <button className="nav-icon-btn">🔔</button>
+          <button className="nav-icon-btn">
+            🔔
+          </button>
 
-          {showNotifications && (
+          <div className={`notification-dropdown ${showNotifications ? "visible" : "hidden"}`}>
 
-            <div className="notification-dropdown">
-
-              <div className="notification-header">
-                Notifications
-              </div>
-
-              {loadingNotifications
-                ? <div className="notification-empty">Loading...</div>
-                : notifications.length === 0
-                  ? <div className="notification-empty">No notifications</div>
-                  : notifications.map(n => (
-
-                    <div key={n._id} className="notification-item">
-
-                      <div className="notification-title">
-                        {n.title}
-                      </div>
-
-                      <div className="notification-message">
-                        {n.message}
-                      </div>
-
-                      <div className="notification-time">
-                        {new Date(n.createdAt).toLocaleString()}
-                      </div>
-
-                    </div>
-
-                  ))
-              }
-
+            <div className="notification-header">
+              Notifications
             </div>
 
-          )}
+            {loadingNotifications ? (
+
+              <div className="notification-empty">
+                Loading...
+              </div>
+
+            ) : notifications.length === 0 ? (
+
+              <div className="notification-empty">
+                No notifications
+              </div>
+
+            ) : (
+
+              notifications.map(n => (
+
+                <div key={n._id} className="notification-item">
+
+                  <div className="notification-title">
+                    {n.title}
+                  </div>
+
+                  <div className="notification-message">
+                    {n.message}
+                  </div>
+
+                  <div className="notification-time">
+                    {new Date(n.createdAt).toLocaleString()}
+                  </div>
+
+                </div>
+
+              ))
+
+            )}
+
+          </div>
 
         </div>
 
 
-        {/* Profile menu */}
+        {/* PROFILE MENU */}
         <div
           className="profile-menu-container"
-          onMouseEnter={() => setShowProfileMenu(true)}
-          onMouseLeave={() => setShowProfileMenu(false)}
+          onMouseEnter={handleProfileEnter}
+          onMouseLeave={handleProfileLeave}
         >
 
           <div className="profile-section">
 
             <div className="profile-info">
 
-              <span className="profile-name" title={user?.name}>
-                {user?.name || "Unknown User"}
+              <span className="profile-name">
+                {user.name}
               </span>
 
               <span className="profile-role">
-                {user?.role}
+                {user.role?.name}
               </span>
 
             </div>
 
-            {user?.avatar
-              ? <img src={user.avatar} className="profile-avatar"/>
-              : <div className="profile-avatar">
-                  {getInitials(user?.name)}
-                </div>
-            }
+            {user.photoUrl ? (
+
+              <img
+                src={resolvePhotoUrl(user.photoUrl)}
+                className="profile-avatar"
+                alt="avatar"
+              />
+
+            ) : (
+
+              <div className="profile-avatar">
+                {getInitials(user.name)}
+              </div>
+
+            )}
 
           </div>
 
 
-          {showProfileMenu && (
+          <div className={`profile-dropdown ${showProfileMenu ? "visible" : "hidden"}`}>
 
-            <div className="profile-dropdown">
-
-              <div onClick={() => navigate("/profile")}>
-                My Profile
-              </div>
-
-              <div onClick={handleLogout}>
-                Logout
-              </div>
-
+            <div onClick={() => navigate("/profile")}>
+              My Profile
             </div>
 
-          )}
+            <Logout className="profile-dropdown-item" />
+
+          </div>
 
         </div>
 

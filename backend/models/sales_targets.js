@@ -36,7 +36,7 @@ const salesTargetsSchema = new mongoose.Schema({
   },
 
   w: {
-    type: Object   // generic object as given
+    type: Object  
   },
 
   created_at: {

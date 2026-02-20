@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
-export default function Logout({ children, className }) {
+function Logout({ children, className }) {
 
   const navigate = useNavigate();
 
@@ -16,13 +16,16 @@ export default function Logout({ children, className }) {
 
   return (
 
-    <button
+    <div
       onClick={handleLogout}
       className={className}
+      style={{ cursor: "pointer" }}
     >
       {children || "Logout"}
-    </button>
+    </div>
 
   );
 
 }
+
+export default Logout;
