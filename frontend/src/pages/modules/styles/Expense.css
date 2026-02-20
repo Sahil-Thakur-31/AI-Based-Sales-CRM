@@ -1,23 +1,3 @@
-html, body {
-  height: 100%;
-  overflow-y: auto;
-}
-
-.dashboard {
-  padding: 30px;
-
-  /* make this section scrollable */
-  height: 97vh;       /* same as app-root */
-  overflow-y: auto;
-}
-
-
-body {
-  margin: 0;
-  font-family: "Segoe UI", sans-serif;
-  background: #f4f6f9;
-}
-
 .dashboard {
   padding: 30px;
 }
