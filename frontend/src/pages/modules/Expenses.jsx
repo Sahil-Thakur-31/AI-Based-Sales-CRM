@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "./styles/AdminExpense.css";
+import "./styles/Expense.css";
 
 const usersList = [
   "All Users",
