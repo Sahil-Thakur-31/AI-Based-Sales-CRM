@@ -1,4 +1,4 @@
-.dashboard {
+.ManagerDashboard .dashboard {
   flex: 1;
   overflow-y: auto;
   min-height: 100vh;
@@ -7,7 +7,7 @@
 
 /* PANEL STYLE */
 
-.panel {
+.ManagerDashboard .panel {
   background: #ffffff;
   border-radius: 14px;
   padding: 20px;
@@ -15,13 +15,13 @@
   transition: 0.3s ease;
 }
 
-.panel:hover {
+.ManagerDashboard .panel:hover {
   transform: translateY(-2px);
 }
 
 /* FOLLOWUPS */
 
-.follow-item {
+.ManagerDashboard .follow-item {
   display: flex;
   justify-content: space-between;
   padding: 14px;
@@ -31,21 +31,21 @@
   border-left: 4px solid transparent;
 }
 
-.follow-item.red { border-color: #ef4444; }
-.follow-item.orange { border-color: #f97316; }
-.follow-item.blue { border-color: #6366f1; }
+.ManagerDashboard .follow-item.red { border-color: #ef4444; }
+.ManagerDashboard .follow-item.orange { border-color: #f97316; }
+.ManagerDashboard .follow-item.blue { border-color: #6366f1; }
 
-.follow-item p {
+.ManagerDashboard .follow-item p {
   margin: 4px 0 0;
   font-size: 14px;
   color: #475569;
 }
 
-.follow-item .right {
+.ManagerDashboard .follow-item .right {
   text-align: right;
 }
 
-.badge {
+.ManagerDashboard .badge {
   display: inline-block;
   margin-top: 6px;
   background: #6366f1;
@@ -57,27 +57,27 @@
 
 /* PIPELINE */
 
-.pipeline-value {
+.ManagerDashboard .pipeline-value {
   font-size: 34px;
   font-weight: 700;
   color: #6366f1;
   margin: 10px 0;
 }
 
-.pipeline-grid {
+.ManagerDashboard .pipeline-grid {
   margin-top: 14px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.pipeline-grid div {
+.ManagerDashboard .pipeline-grid div {
   background: #f8fafc;
   padding: 10px;
   border-radius: 10px;
 }
 
-.pipeline-grid small {
+.ManagerDashboard .pipeline-grid small {
   display: block;
   color: #64748b;
   font-size: 12px;
@@ -85,36 +85,36 @@
 
 /* INSIGHTS */
 
-.insights-card .insight {
+.ManagerDashboard .insights-card .insight {
   padding: 12px;
   border-radius: 12px;
   margin-top: 12px;
   font-size: 14px;
 }
 
-.insight p {
+.ManagerDashboard .insight p {
   margin: 6px 0 0;
   color: #475569;
 }
 
-.insight.purple { background: #eef2ff; }
-.insight.red { background: #fef2f2; }
-.insight.green { background: #ecfdf5; }
+.ManagerDashboard .insight.purple { background: #eef2ff; }
+.ManagerDashboard .insight.red { background: #fef2f2; }
+.ManagerDashboard .insight.green { background: #ecfdf5; }
 
 /* MOBILE IMPROVEMENTS */
 
 @media (max-width: 768px) {
 
-  .pipeline-grid {
+  .ManagerDashboard .pipeline-grid {
     grid-template-columns: 1fr;
   }
 
-  .follow-item {
+  .ManagerDashboard .follow-item {
     flex-direction: column;
     gap: 8px;
   }
 
-  .follow-item .right {
+  .ManagerDashboard .follow-item .right {
     text-align: left;
   }
 }

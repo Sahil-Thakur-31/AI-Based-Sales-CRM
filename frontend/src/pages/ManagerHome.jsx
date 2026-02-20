@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import MeetingsEventsPanel from '../components/MeetingsEventsPanel';
 import StatCard from '../components/StatCard';
-import '../styles/dashboard.css';
+import '../styles/managerDashboard.css';
 
 function Dashboard() {
 
@@ -88,76 +88,78 @@ function Dashboard() {
   if (!dashboardData) return <p>Loading...</p>;
 
   return (
-    <div className="dashboard container-fluid">
+    <div className="ManagerDashboard">
+      <div className="dashboard container-fluid">
 
-      {/* STATS ROW */}
-      <div className="row g-4 mt-2">
-        {dashboardData.stats.map((stat, i) => (
-          <div key={i} className="col-12 col-sm-6 col-lg-3">
-            <StatCard {...stat} />
-          </div>
-        ))}
-      </div>
-
-      {/* MEETINGS PANEL */}
-      <div className="row mt-4">
-        <div className="col-12">
-          <div className="panel">
-            <MeetingsEventsPanel />
-          </div>
-        </div>
-      </div>
-
-      {/* BOTTOM SECTION */}
-      <div className="row mt-4">
-
-        {/* LEFT */}
-        <div className="col-12 col-lg-8">
-              <div className="panel">
-  <h3>🔥 Priority Follow-ups Today</h3>
-
-  {dashboardData.followups.map((item) => (
-    <div key={item.id} className="follow-item">
-      <div>
-        <strong>{item.company}</strong>
-        <p>{item.message}</p>
-      </div>
-      <div className="text-end">
-        <small>{item.time}</small>
-        <div>{item.priority}</div>
-      </div>
-    </div>
-  ))}
-
-</div>
-
+        {/* STATS ROW */}
+        <div className="row g-4 mt-2">
+          {dashboardData.stats.map((stat, i) => (
+            <div key={i} className="col-12 col-sm-6 col-lg-3">
+              <StatCard {...stat} />
+            </div>
+          ))}
         </div>
 
-        {/* RIGHT */}
-        <div className="col-12 col-lg-4">
-          <div className="panel mb-4">
-            <h3>📊 Pipeline Value</h3>
-            <div className="pipeline-value">
-              {dashboardData.pipelineValue}
+        {/* MEETINGS PANEL */}
+        <div className="row mt-4">
+          <div className="col-12">
+            <div className="panel">
+              <MeetingsEventsPanel />
             </div>
           </div>
+        </div>
 
-          <div className="panel">
-            <h3>📈 AI Insights</h3>
+        {/* BOTTOM SECTION */}
+        <div className="row mt-4">
 
-            {dashboardData.insights.map((insight) => (
-               <div key={insight.id}       className="insight">
-              <strong>{insight.type}</strong>
-             <p>{insight.message}</p>
-             </div>
-           ))}
+          {/* LEFT */}
+          <div className="col-12 col-lg-8">
+                <div className="panel">
+    <h3>🔥 Priority Follow-ups Today</h3>
 
-           </div>
+    {dashboardData.followups.map((item) => (
+      <div key={item.id} className="follow-item">
+        <div>
+          <strong>{item.company}</strong>
+          <p>{item.message}</p>
+        </div>
+        <div className="text-end">
+          <small>{item.time}</small>
+          <div>{item.priority}</div>
+        </div>
+      </div>
+    ))}
+
+  </div>
+
+          </div>
+
+          {/* RIGHT */}
+          <div className="col-12 col-lg-4">
+            <div className="panel mb-4">
+              <h3>📊 Pipeline Value</h3>
+              <div className="pipeline-value">
+                {dashboardData.pipelineValue}
+              </div>
+            </div>
+
+            <div className="panel">
+              <h3>📈 AI Insights</h3>
+
+              {dashboardData.insights.map((insight) => (
+                <div key={insight.id}       className="insight">
+                <strong>{insight.type}</strong>
+              <p>{insight.message}</p>
+              </div>
+            ))}
+
+            </div>
+
+          </div>
 
         </div>
 
       </div>
-
     </div>
   );
 }
