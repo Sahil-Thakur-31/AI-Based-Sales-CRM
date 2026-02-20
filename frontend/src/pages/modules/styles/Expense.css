@@ -1,5 +1,8 @@
 .dashboard {
-  padding: 30px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 100vh;
+  background: #1749ab;
 }
 
 /* Cards */
