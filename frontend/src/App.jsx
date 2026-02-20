@@ -6,7 +6,7 @@ import ForgotPassword from './pages/Verify/ForgotPassword';
 import VerifyOTP from './pages/Verify/VerifyOTP';
 import ResetPassword from './pages/Verify/ResetPassword';
 
-import AdminHome from './pages/AdminHome';
+import AdminHome from './pages/AdminHome.jsx';
 import ManagerHome from './pages/ManagerHome';
 import ManageUsers from './pages/modules/admin/ManageUsers';
 import UserForm from './pages/modules/admin/UserForm';
