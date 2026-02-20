@@ -1,8 +1,5 @@
 .expenses .dashboard {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 100vh;
-  background: #1749ab;
+  padding: 30px;
 }
 
 /* Cards */
