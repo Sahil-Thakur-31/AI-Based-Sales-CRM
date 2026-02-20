@@ -1,12 +1,16 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
 import { routeConfig } from "../config/routeConfig";
+import API from "../api";
+import Logout from "./Logout";
 import "./navBar.css";
 
-function Navbar({ user }) {
+function Navbar() {
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [user, setUser] = useState(null);
 
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -15,38 +19,59 @@ function Navbar({ user }) {
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-  const token = localStorage.getItem("token");
+
+  /* Fetch user directly */
+  useEffect(() => {
+
+    fetchUser();
+
+  }, []);
 
 
-  const handleLogout = () => {
+  const fetchUser = async () => {
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("Name");
-    localStorage.removeItem("RoleName");
+    try {
 
-    navigate("/login", { replace: true });
+      const res = await API.get("/users/me");
+
+      setUser(res.data);
+
+    }
+    catch (err) {
+
+      console.error("Navbar user fetch failed:", err);
+
+    }
 
   };
 
 
+  /* Resolve photo URL */
+  const resolvePhotoUrl = (photoUrl) => {
+
+    if (!photoUrl) return null;
+
+    if (photoUrl.startsWith("blob:"))
+      return photoUrl;
+
+    if (photoUrl.startsWith("http"))
+      return photoUrl;
+
+    return `${API.defaults.baseURL.replace(/\/$/, "")}${photoUrl}`;
+
+  };
+
+
+  /* Fetch notifications */
   const fetchNotifications = async () => {
 
     try {
 
       setLoadingNotifications(true);
 
-      const res = await fetch(
-        "http://localhost:8080/api/notifications",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      const res = await API.get("/api/notifications");
 
-      const data = await res.json();
-
-      setNotifications(data);
+      setNotifications(res.data);
 
     }
     catch (err) {
@@ -71,22 +96,24 @@ function Navbar({ user }) {
   }, [showNotifications]);
 
 
+  /* Module title */
   const moduleName = useMemo(() => {
 
-    const currentRoute = routeConfig.find(
-      route => location.pathname.startsWith(route.path)
+    const route = routeConfig.find(
+      r => location.pathname.startsWith(r.path)
     );
 
-    return currentRoute ? currentRoute.title : "Dashboard";
+    return route ? route.title : "Dashboard";
 
   }, [location.pathname]);
 
 
+  /* Initials fallback */
   const getInitials = (name) => {
 
     if (!name) return "?";
 
-    const parts = name.split(" ");
+    const parts = name.trim().split(" ");
 
     if (parts.length === 1)
       return parts[0][0].toUpperCase();
@@ -99,12 +126,20 @@ function Navbar({ user }) {
   };
 
 
+  if (!user)
+    return null;
+
+
   return (
 
     <div className="navbar">
 
       <div className="navbar-left">
-        <h2 className="module-title">{moduleName}</h2>
+
+        <h2 className="module-title">
+          {moduleName}
+        </h2>
+
       </div>
 
 
@@ -112,7 +147,7 @@ function Navbar({ user }) {
 
 
         {/* Admin menu */}
-        {user?.role === "Admin" && (
+        {user.role?.name === "Admin" && (
 
           <div
             className="admin-menu-container"
@@ -120,17 +155,33 @@ function Navbar({ user }) {
             onMouseLeave={() => setShowAdminMenu(false)}
           >
 
-            <button className="nav-icon-btn">⚙️</button>
+            <button className="nav-icon-btn">
+              ⚙️
+            </button>
 
             {showAdminMenu && (
 
               <div className="admin-dropdown">
 
-                <div onClick={() => navigate("/products")}>Products</div>
-                <div onClick={() => navigate("/roles")}>Roles</div>
-                <div onClick={() => navigate("/manageusers")}>Users</div>
-                <div onClick={() => navigate("/industry")}>Industry</div>
-                <div onClick={() => navigate("/sources")}>Sources</div>
+                <div onClick={() => navigate("/products")}>
+                  Products
+                </div>
+
+                <div onClick={() => navigate("/roles")}>
+                  Roles
+                </div>
+
+                <div onClick={() => navigate("/manageusers")}>
+                  Users
+                </div>
+
+                <div onClick={() => navigate("/industry")}>
+                  Industry
+                </div>
+
+                <div onClick={() => navigate("/sources")}>
+                  Sources
+                </div>
 
               </div>
 
@@ -148,7 +199,9 @@ function Navbar({ user }) {
           onMouseLeave={() => setShowNotifications(false)}
         >
 
-          <button className="nav-icon-btn">🔔</button>
+          <button className="nav-icon-btn">
+            🔔
+          </button>
 
           {showNotifications && (
 
@@ -190,7 +243,7 @@ function Navbar({ user }) {
         </div>
 
 
-        {/* Profile menu */}
+        {/* Profile */}
         <div
           className="profile-menu-container"
           onMouseEnter={() => setShowProfileMenu(true)}
@@ -201,22 +254,32 @@ function Navbar({ user }) {
 
             <div className="profile-info">
 
-              <span className="profile-name" title={user?.name}>
-                {user?.name || "Unknown User"}
+              <span className="profile-name">
+                {user.name}
               </span>
 
               <span className="profile-role">
-                {user?.role}
+                {user.role?.name}
               </span>
 
             </div>
 
-            {user?.avatar
-              ? <img src={user.avatar} className="profile-avatar"/>
-              : <div className="profile-avatar">
-                  {getInitials(user?.name)}
-                </div>
-            }
+
+            {user.photoUrl ? (
+
+              <img
+                src={resolvePhotoUrl(user.photoUrl)}
+                className="profile-avatar"
+                alt="avatar"
+              />
+
+            ) : (
+
+              <div className="profile-avatar">
+                {getInitials(user.name)}
+              </div>
+
+            )}
 
           </div>
 
@@ -229,9 +292,7 @@ function Navbar({ user }) {
                 My Profile
               </div>
 
-              <div onClick={handleLogout}>
-                Logout
-              </div>
+              <Logout />
 
             </div>
 

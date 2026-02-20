@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
-import API from '../../api'
-import "./styles/profile.css"
+import { useEffect, useState, useRef } from "react";
+import API from "../../api";
+import "./styles/profile.css";
 
 export default function Profile() {
 
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef();
 
 
   useEffect(() => {
@@ -23,34 +26,63 @@ export default function Profile() {
       setUser(res.data);
 
     }
-    catch (error) {
-
-      console.error(
-        "Profile fetch failed:",
-        error.response?.data || error.message
-      );
-
-    }
     finally {
-
       setLoading(false);
-
     }
 
   };
 
+  const resolvePhotoUrl = (photoUrl) => {
 
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith("blob:"))
+      return photoUrl;
+    if (photoUrl.startsWith("http"))
+      return photoUrl;
+    return `${API.defaults.baseURL.replace(/\/$/, "")}${photoUrl}`;
+  };
+
+  /* IMAGE SELECT */
+  const handleImageSelect = (e) => {
+
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    setSelectedFile(file);
+
+    // Preview immediately
+    const previewUrl = URL.createObjectURL(file);
+
+    setUser({
+      ...user,
+      photoUrl: previewUrl
+    });
+
+  };
+
+
+  /* UPDATE PROFILE */
   const updateProfile = async () => {
 
     try {
 
+      const formData = new FormData();
+
+      formData.append("email", user.email);
+      formData.append("phone", user.phone);
+      formData.append("address", user.address);
+
+      if (selectedFile)
+        formData.append("photo", selectedFile);
+
       const res = await API.put(
-        "/api/users/me",
+        "/users/me",
+        formData,
         {
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          photoUrl: user.photoUrl
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
         }
       );
 
@@ -58,13 +90,12 @@ export default function Profile() {
 
       setEditing(false);
 
-    }
-    catch (error) {
+      setSelectedFile(null);
 
-      console.error(
-        "Profile update failed:",
-        error.response?.data || error.message
-      );
+    }
+    catch (err) {
+
+      console.error(err);
 
     }
 
@@ -72,93 +103,191 @@ export default function Profile() {
 
 
   if (loading)
-    return <div style={{ padding: 24 }}>Loading profile...</div>;
+    return <div className="profile-loading">Loading...</div>;
 
-  if (!user)
-    return <div style={{ padding: 24 }}>Profile not found</div>;
 
-return (
-  <div className="profile-page">
-    <div className="profile-card">
-      {/* Header with avatar, name, and role */}
-      <div className="profile-header">
-        <img
-          src={user.photoUrl || "/default-avatar.png"}
-          alt="profile"
-          className="profile-avatar"
-        />
-        <div className="profile-name">{user.name}</div>
-        <div className="profile-role">{user.role?.name}</div>
-      </div>
+  return (
 
-      {/* Editable form fields */}
-      <div className="profile-form">
-        <div className="profile-field">
-          <label>Name</label>
-          <input
-            value={user.name || ""}
-            disabled={!editing}
-            onChange={(e) =>
-              setUser({ ...user, name: e.target.value })
+    <div className="profile-container">
+
+      <div className="profile-card">
+
+
+        {/* LEFT SIDE */}
+
+        <div className="profile-left">
+
+
+          <div
+            className={`profile-avatar-large ${editing ? "editable" : ""}`}
+            onClick={() =>
+              editing && fileInputRef.current.click()
             }
-          />
-        </div>
-
-        <div className="profile-field">
-          <label>Email</label>
-          <input
-            value={user.email || ""}
-            disabled={!editing}
-            onChange={(e) =>
-              setUser({ ...user, email: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="profile-field">
-          <label>Phone</label>
-          <input
-            value={user.phone || ""}
-            disabled={!editing}
-            onChange={(e) =>
-              setUser({ ...user, phone: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="profile-field">
-          <label>Joining Date</label>
-          <input
-            value={
-              user.joiningDate
-                ? new Date(user.joiningDate).toLocaleDateString()
-                : ""
-            }
-            disabled
-          />
-        </div>
-      </div>
-
-      {/* Action buttons */}
-      <div className="profile-actions">
-        {!editing ? (
-          <button
-            className="profile-button"
-            onClick={() => setEditing(true)}
           >
-            Edit Profile
-          </button>
-        ) : (
-          <button
-            className="profile-button"
-            onClick={updateProfile}
-          >
-            Save Changes
-          </button>
-        )}
+
+            {user.photoUrl
+              ? <img src={resolvePhotoUrl(user.photoUrl)} alt="avatar"/>
+              : user.name?.charAt(0).toUpperCase()
+            }
+
+          </div>
+
+
+          {/* hidden input */}
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleImageSelect}
+            style={{ display: "none" }}
+          />
+
+
+          <div className="profile-name-large">
+            {user.name}
+          </div>
+
+          <div className="profile-role-large">
+            {user.role?.name}
+          </div>
+
+
+          <div className="profile-meta">
+
+            <div className="profile-meta-row">
+              <span>DOB</span>
+              <span>
+                {user.dateOfBirth
+                  ? new Date(user.dateOfBirth).toLocaleDateString()
+                  : "—"}
+              </span>
+            </div>
+
+            <div className="profile-meta-row">
+              <span>Gender</span>
+              <span>{user.gender || "—"}</span>
+            </div>
+
+            <div className="profile-meta-row">
+              <span>Joined</span>
+              <span>
+                {new Date(user.joiningDate).toLocaleDateString()}
+              </span>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* RIGHT SIDE unchanged */}
+
+        <div className="profile-right">
+
+          <div className="profile-section-title">
+            Contact Information
+          </div>
+
+          <div className="profile-grid">
+
+            <div className="profile-field">
+
+              <label>Email</label>
+
+              <input
+                value={user.email || ""}
+                disabled={!editing}
+                onChange={e =>
+                  setUser({
+                    ...user,
+                    email: e.target.value
+                  })
+                }
+              />
+
+            </div>
+
+
+            <div className="profile-field">
+
+              <label>Phone</label>
+
+              <input
+                value={user.phone || ""}
+                disabled={!editing}
+                onChange={e =>
+                  setUser({
+                    ...user,
+                    phone: e.target.value
+                  })
+                }
+              />
+
+            </div>
+
+
+            <div className="profile-field full-width">
+
+              <label>Address</label>
+
+              <textarea
+                value={user.address || ""}
+                disabled={!editing}
+                onChange={e =>
+                  setUser({
+                    ...user,
+                    address: e.target.value
+                  })
+                }
+              />
+
+            </div>
+
+          </div>
+
+
+          <div className="profile-actions">
+
+            {!editing ? (
+
+              <button
+                className="btn-primary"
+                onClick={() => setEditing(true)}
+              >
+                Edit Profile
+              </button>
+
+            ) : (
+
+              <>
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setEditing(false);
+                    fetchProfile();
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  className="btn-primary"
+                  onClick={updateProfile}
+                >
+                  Save Changes
+                </button>
+              </>
+
+            )}
+
+          </div>
+
+        </div>
+
       </div>
+
     </div>
-  </div>
-);
+
+  );
 
 }
