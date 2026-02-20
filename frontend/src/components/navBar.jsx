@@ -10,43 +10,48 @@ function Navbar({ user }) {
 
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-
   const token = localStorage.getItem("token");
 
 
-  // Fetch notifications from backend
+  const handleLogout = () => {
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("Name");
+    localStorage.removeItem("RoleName");
+
+    navigate("/login", { replace: true });
+
+  };
+
+
   const fetchNotifications = async () => {
 
     try {
 
       setLoadingNotifications(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/notifications",
+      const res = await fetch(
+        "http://localhost:8080/api/notifications",
         {
-          method: "GET",
           headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`
           }
         }
       );
 
-      if (!response.ok)
-        throw new Error("Failed to fetch notifications");
-
-      const data = await response.json();
+      const data = await res.json();
 
       setNotifications(data);
 
     }
-    catch (error) {
+    catch (err) {
 
-      console.error("Notification fetch error:", error);
+      console.error(err);
 
     }
     finally {
@@ -58,7 +63,6 @@ function Navbar({ user }) {
   };
 
 
-  // Fetch only when dropdown opens
   useEffect(() => {
 
     if (showNotifications)
@@ -82,17 +86,21 @@ function Navbar({ user }) {
 
     if (!name) return "?";
 
-    const parts = name.trim().split(" ");
+    const parts = name.split(" ");
 
     if (parts.length === 1)
       return parts[0][0].toUpperCase();
 
-    return parts[0][0].toUpperCase() +
-           parts[parts.length - 1][0].toUpperCase();
+    return (
+      parts[0][0] +
+      parts[parts.length - 1][0]
+    ).toUpperCase();
+
   };
 
 
   return (
+
     <div className="navbar">
 
       <div className="navbar-left">
@@ -103,25 +111,33 @@ function Navbar({ user }) {
       <div className="navbar-right">
 
 
-        {/* Admin menu unchanged */}
+        {/* Admin menu */}
         {user?.role === "Admin" && (
+
           <div
             className="admin-menu-container"
             onMouseEnter={() => setShowAdminMenu(true)}
             onMouseLeave={() => setShowAdminMenu(false)}
           >
+
             <button className="nav-icon-btn">⚙️</button>
 
             {showAdminMenu && (
+
               <div className="admin-dropdown">
+
                 <div onClick={() => navigate("/products")}>Products</div>
                 <div onClick={() => navigate("/roles")}>Roles</div>
                 <div onClick={() => navigate("/manageusers")}>Users</div>
                 <div onClick={() => navigate("/industry")}>Industry</div>
                 <div onClick={() => navigate("/sources")}>Sources</div>
+
               </div>
+
             )}
+
           </div>
+
         )}
 
 
@@ -132,96 +148,104 @@ function Navbar({ user }) {
           onMouseLeave={() => setShowNotifications(false)}
         >
 
-          <button className="nav-icon-btn">
-            🔔
-          </button>
-
+          <button className="nav-icon-btn">🔔</button>
 
           {showNotifications && (
+
             <div className="notification-dropdown">
 
               <div className="notification-header">
                 Notifications
               </div>
 
+              {loadingNotifications
+                ? <div className="notification-empty">Loading...</div>
+                : notifications.length === 0
+                  ? <div className="notification-empty">No notifications</div>
+                  : notifications.map(n => (
 
-              {loadingNotifications ? (
+                    <div key={n._id} className="notification-item">
 
-                <div className="notification-empty">
-                  Loading...
-                </div>
+                      <div className="notification-title">
+                        {n.title}
+                      </div>
 
-              ) : notifications.length === 0 ? (
+                      <div className="notification-message">
+                        {n.message}
+                      </div>
 
-                <div className="notification-empty">
-                  No notifications
-                </div>
+                      <div className="notification-time">
+                        {new Date(n.createdAt).toLocaleString()}
+                      </div>
 
-              ) : (
-
-                notifications.map(notification => (
-
-                  <div
-                    key={notification._id}
-                    className="notification-item"
-                  >
-
-                    <div className="notification-title">
-                      {notification.title}
                     </div>
 
-                    <div className="notification-message">
-                      {notification.message}
-                    </div>
-
-                    <div className="notification-time">
-                      {new Date(notification.createdAt)
-                        .toLocaleString()}
-                    </div>
-
-                  </div>
-
-                ))
-
-              )}
+                  ))
+              }
 
             </div>
+
           )}
 
         </div>
 
 
-        {/* Profile unchanged */}
+        {/* Profile menu */}
         <div
-          className="profile-section"
-          onClick={() => navigate("/profile")}
+          className="profile-menu-container"
+          onMouseEnter={() => setShowProfileMenu(true)}
+          onMouseLeave={() => setShowProfileMenu(false)}
         >
 
-          <div className="profile-info">
+          <div className="profile-section">
 
-            <span className="profile-name">
-              {user?.name || "Unknown User"}
-            </span>
+            <div className="profile-info">
 
-            <span className="profile-role">
-              {user?.role}
-            </span>
+              <span className="profile-name" title={user?.name}>
+                {user?.name || "Unknown User"}
+              </span>
+
+              <span className="profile-role">
+                {user?.role}
+              </span>
+
+            </div>
+
+            {user?.avatar
+              ? <img src={user.avatar} className="profile-avatar"/>
+              : <div className="profile-avatar">
+                  {getInitials(user?.name)}
+                </div>
+            }
 
           </div>
 
-          {user?.avatar
-            ? <img src={user.avatar} className="profile-avatar" />
-            : <div className="profile-avatar">
-                {getInitials(user?.name)}
+
+          {showProfileMenu && (
+
+            <div className="profile-dropdown">
+
+              <div onClick={() => navigate("/profile")}>
+                My Profile
               </div>
-          }
+
+              <div onClick={handleLogout}>
+                Logout
+              </div>
+
+            </div>
+
+          )}
 
         </div>
+
 
       </div>
 
     </div>
+
   );
+
 }
 
 export default Navbar;

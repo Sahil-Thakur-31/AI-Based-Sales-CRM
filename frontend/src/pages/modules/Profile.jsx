@@ -77,131 +77,88 @@ export default function Profile() {
   if (!user)
     return <div style={{ padding: 24 }}>Profile not found</div>;
 
-
-  return (
-
-    <div style={{ padding: 24 }}>
-
-      <h2>My Profile</h2>
-
-
-      {/* Avatar */}
-      <img
-        src={user.photoUrl || "/default-avatar.png"}
-        alt="profile"
-        style={{
-          width: 120,
-          height: 120,
-          borderRadius: "50%",
-          objectFit: "cover"
-        }}
-      />
-
-
-      {/* Name */}
-      <div>
-
-        <label>Name</label>
-
-        <input
-          value={user.name || ""}
-          disabled={!editing}
-          onChange={e =>
-            setUser({
-              ...user,
-              name: e.target.value
-            })
-          }
+return (
+  <div className="profile-page">
+    <div className="profile-card">
+      {/* Header with avatar, name, and role */}
+      <div className="profile-header">
+        <img
+          src={user.photoUrl || "/default-avatar.png"}
+          alt="profile"
+          className="profile-avatar"
         />
-
+        <div className="profile-name">{user.name}</div>
+        <div className="profile-role">{user.role?.name}</div>
       </div>
 
+      {/* Editable form fields */}
+      <div className="profile-form">
+        <div className="profile-field">
+          <label>Name</label>
+          <input
+            value={user.name || ""}
+            disabled={!editing}
+            onChange={(e) =>
+              setUser({ ...user, name: e.target.value })
+            }
+          />
+        </div>
 
-      {/* Email */}
-      <div>
+        <div className="profile-field">
+          <label>Email</label>
+          <input
+            value={user.email || ""}
+            disabled={!editing}
+            onChange={(e) =>
+              setUser({ ...user, email: e.target.value })
+            }
+          />
+        </div>
 
-        <label>Email</label>
+        <div className="profile-field">
+          <label>Phone</label>
+          <input
+            value={user.phone || ""}
+            disabled={!editing}
+            onChange={(e) =>
+              setUser({ ...user, phone: e.target.value })
+            }
+          />
+        </div>
 
-        <input
-          value={user.email || ""}
-          disabled={!editing}
-          onChange={e =>
-            setUser({
-              ...user,
-              email: e.target.value
-            })
-          }
-        />
-
+        <div className="profile-field">
+          <label>Joining Date</label>
+          <input
+            value={
+              user.joiningDate
+                ? new Date(user.joiningDate).toLocaleDateString()
+                : ""
+            }
+            disabled
+          />
+        </div>
       </div>
 
-
-      {/* Phone */}
-      <div>
-
-        <label>Phone</label>
-
-        <input
-          value={user.phone || ""}
-          disabled={!editing}
-          onChange={e =>
-            setUser({
-              ...user,
-              phone: e.target.value
-            })
-          }
-        />
-
+      {/* Action buttons */}
+      <div className="profile-actions">
+        {!editing ? (
+          <button
+            className="profile-button"
+            onClick={() => setEditing(true)}
+          >
+            Edit Profile
+          </button>
+        ) : (
+          <button
+            className="profile-button"
+            onClick={updateProfile}
+          >
+            Save Changes
+          </button>
+        )}
       </div>
-
-
-      {/* Role (read-only) */}
-      <div>
-
-        <label>Role</label>
-
-        <input
-          value={user.role?.name || ""}
-          disabled
-        />
-
-      </div>
-
-
-      {/* Joining Date (read-only) */}
-      <div>
-
-        <label>Joining Date</label>
-
-        <input
-          value={
-            user.joiningDate
-              ? new Date(user.joiningDate).toLocaleDateString()
-              : ""
-          }
-          disabled
-        />
-
-      </div>
-
-
-      {/* Buttons */}
-      {!editing ? (
-
-        <button onClick={() => setEditing(true)}>
-          Edit Profile
-        </button>
-
-      ) : (
-
-        <button onClick={updateProfile}>
-          Save Changes
-        </button>
-
-      )}
-
     </div>
-
-  );
+  </div>
+);
 
 }
