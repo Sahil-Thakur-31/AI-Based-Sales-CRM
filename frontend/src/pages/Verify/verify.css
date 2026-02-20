@@ -1,0 +1,93 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    background-color: #f4f7f9; 
+    color: #333;
+    min-height: 100vh; 
+    margin: 0;
+}
+
+.container {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 500px; /* Limits width on desktop */
+}
+
+h1 {
+    margin-bottom: 1.5rem;
+    text-align: center;
+    color: #2c3e50;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+form div {
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+
+input {
+    width: 350px;
+    padding: 0.75rem;
+    border:none;
+    outline: none;
+    border-bottom: 2px solid black;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+::placeholder{
+  font-family: cursive;
+  font-size: small;
+}
+
+input:focus {
+    outline: none;
+    border-color: #e24a87; /* Blue focus ring */
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #e24a87;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #357abd;
+}
+
+span {
+    display: block;
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.login-wrapper {
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}

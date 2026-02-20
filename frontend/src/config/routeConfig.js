@@ -1,0 +1,44 @@
+export const routeConfig = [
+
+  // Dashboard
+  { path: "/adminhome", title: "Admin Dashboard" },
+  { path: "/managerhome", title: "Manager Dashboard" },
+
+  // Admin Config Modules
+  { path: "/products", title: "Products" },
+  { path: "/roles", title: "Roles" },
+  { path: "/industry", title: "Industry" },
+  { path: "/sources", title: "Sources" },
+
+  // Admin
+  { path: "/manageusers", title: "Manage Users" },
+  { path: "/user-form", title: "User Form" },
+
+  // CRM
+  { path: "/leads", title: "Leads" },
+  { path: "/clients", title: "Clients" },
+  { path: "/deals", title: "Deals" },
+  { path: "/quotations", title: "Quotations" },
+
+  { path: "/meetings", title: "Meetings" },
+  { path: "/followups", title: "Follow-ups" },
+
+  // Finance
+  { path: "/sales-forecast", title: "Sales Forecasting" },
+  { path: "/expenses", title: "Expenses" },
+
+  // AI
+  { path: "/ai-leads", title: "AI Lead Generation" },
+
+  // Analytics
+  { path: "/events", title: "Events & Expos" },
+  { path: "/reports", title: "Reports" },
+
+  // Team
+  { path: "/team-dashboard", title: "Team Dashboard" },
+
+  // System
+  { path: "/settings", title: "Settings" },
+  { path: "/profile", title: "My Profile" },
+
+];

@@ -2,11 +2,23 @@ const http = require('http')
 const express = require('express')
 require('dotenv').config()
 const authRoute = require('./routes/authRoutes')
+const roleRoutes = require('./routes/roleRoutes')
+const userRoutes = require('./routes/userRoutes')
+
+require('./models/db')
+const bodyparser = require('body-parser')
+const cors = require('cors')
 
 const app = express()
 const myServer = http.createServer(app);
 PORT = process.env.PORT || 8080;
 
-app.use('/auth',authRoute);
+app.use(bodyparser.json());
+app.use(cors());
 
-myServer.listen(PORT,()=>console.log('Server started'));
+app.use('/auth',authRoute);
+app.use("/roles", roleRoutes);
+app.use("/users", userRoutes);
+
+
+myServer.listen(PORT,()=>console.log('Server started on', PORT));

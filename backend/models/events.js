@@ -154,8 +154,7 @@ const eventSchema = new mongoose.Schema(
 
   },
   {
-    timestamps: true,
-    versionKey: false
+    timestamps: true
   }
 );
 
