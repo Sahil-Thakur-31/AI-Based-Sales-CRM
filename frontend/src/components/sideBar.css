@@ -1,6 +1,7 @@
 .sidebar {
 
     width: 270px;
+    min-width: 270px;   /* ADD THIS by*/
     height: 100vh;
 
     background: linear-gradient(
