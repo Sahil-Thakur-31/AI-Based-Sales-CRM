@@ -56,8 +56,12 @@ function App() {
         }>
 
           {/* Dashboard routes */}
-          <Route path="/adminhome" element={<AdminHome />} />
-          <Route path="/managerhome" element={<ManagerHome />} />
+          <Route path="/adminhome" element={<ProtectedRoute allowedRoles={["Admin"]}>
+            <AdminHome />
+          </ProtectedRoute>} />
+          <Route path="/managerhome" element={<ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <ManagerHome />
+          </ProtectedRoute>} />
 
 
           {/* CRM Core routes */}
