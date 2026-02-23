@@ -86,17 +86,59 @@ function App() {
           <Route path="/profile" element={<Profile />} />
 
           {/* Admin-only routes */}
-          <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
+          <Route
+  path="/manageusers"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <ManageUsers />
+    </ProtectedRoute>
+  }
+/>
 
-            <Route path="/manageusers" element={<ProtectedRoute allowedRoles={["Admin", "Manager"]}>
-            <ManageUsers />
-          </ProtectedRoute>} />
-            <Route path="/user-form" element={<UserForm />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/roles" element={<Roles />} />
-            <Route path="/industry" element={<Industry />} />
-            <Route path="/sources" element={<Sources />} />
-          </Route>
+<Route
+  path="/user-form/:id?"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <UserForm />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/products"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Products />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/roles"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Roles />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/industry"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Industry />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/sources"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Sources />
+    </ProtectedRoute>
+  }
+/>
 
         </Route>
 
