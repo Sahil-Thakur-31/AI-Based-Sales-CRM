@@ -1,9 +1,18 @@
-import React from 'react'
+import AdminCrud from "../../../components/AdminCrud";
 
-const Roles = () => {
+export default function Roles(){
+
   return (
-    <div>Roles</div>
-  )
-}
 
-export default Roles
+    <AdminCrud
+      title="Roles"
+      endpoint="/roles"
+      columns={[
+        { field:"name", label:"Role Name" },
+        { field:"description", label:"Description" }
+      ]}
+    />
+
+  );
+
+}
