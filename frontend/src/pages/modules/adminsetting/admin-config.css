@@ -1,0 +1,102 @@
+.admin-config-page {
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+}
+
+.admin-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.admin-config-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.admin-config-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-config-actions select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.admin-config-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-config-table th {
+  background: #f4f6fa;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-config-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-config-table tr:hover {
+  background: #f9fbff;
+}
+
+.admin-config-empty {
+  text-align: center;
+  padding: 40px;
+  color: #888;
+}
+
+.admin-config-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #5b6fd8;
+  color: white;
+  cursor: pointer;
+}
+
+.admin-config-btn-danger {
+  background: #ef4444;
+}
+
+.admin-config-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-config-modal-content {
+  background: white;
+  padding: 22px;
+  border-radius: 10px;
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-config-modal-content input,
+.admin-config-modal-content textarea {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.admin-config-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

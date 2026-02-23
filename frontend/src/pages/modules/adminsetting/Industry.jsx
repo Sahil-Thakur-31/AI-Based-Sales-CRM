@@ -1,9 +1,18 @@
-import React from 'react'
+import AdminCrud from "../../../components/AdminCrud";
 
-const Industry = () => {
+export default function Industry(){
+
   return (
-    <div>Industry</div>
-  )
-}
 
-export default Industry
+    <AdminCrud
+      title="Industry"
+      endpoint="/industry"
+      columns={[
+        { field:"name", label:"Industry Name" },
+        { field:"description", label:"Description" }
+      ]}
+    />
+
+  );
+
+}
