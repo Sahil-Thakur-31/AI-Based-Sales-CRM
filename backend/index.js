@@ -4,6 +4,7 @@ require('dotenv').config()
 const authRoute = require('./routes/authRoutes')
 const roleRoutes = require('./routes/roleRoutes')
 const userRoutes = require('./routes/userRoutes')
+const crmSettingsRoutes = require("./routes/crmSettingsRoutes");
 
 require('./models/db')
 const bodyparser = require('body-parser')
@@ -20,6 +21,6 @@ app.use('/auth',authRoute);
 app.use("/roles", roleRoutes);
 app.use("/users", userRoutes);
 app.use("/uploads", express.static("uploads"));
-
+app.use("/crm-settings", crmSettingsRoutes);
 
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
