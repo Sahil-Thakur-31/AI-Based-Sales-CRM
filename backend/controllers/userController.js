@@ -16,6 +16,54 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const softDeleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      {
+        is_deleted: true,
+        is_active: false
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    res.json({ msg: "User deleted successfully" });
+
+  } catch (err) {
+    res.status(500).json({ msg: "Delete failed" });
+  }
+};
+
+const activateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      {
+        is_deleted: false,
+        is_active: true
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    res.json({ msg: "User activated successfully" });
+
+  } catch (err) {
+    res.status(500).json({ msg: "Activation failed" });
+  }
+};
+
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -122,5 +170,7 @@ module.exports = {
   updateProfile,
   getAllUsers,
   updateUser,
-  getSingleUser
+  getSingleUser,
+  softDeleteUser,
+  activateUser
 };

@@ -3,7 +3,13 @@ const router = express.Router();
 
 const authenticate = require("../middlewares/auth");
 const upload = require("../config/multer");
-const { getProfile, updateProfile, getAllUsers ,updateUser,getSingleUser} = require("../controllers/userController");
+const { getProfile, 
+    updateProfile, 
+    getAllUsers ,
+    updateUser,
+    getSingleUser,
+    softDeleteUser,
+    activateUser } = require("../controllers/userController");
 
 
 /* UPDATE PROFILE */
@@ -14,6 +20,7 @@ router.get("/", authenticate, getAllUsers);
 router.get("/me", authenticate, getProfile);
 router.put("/:id", authenticate, updateUser);
 router.get("/:id", authenticate, getSingleUser);
-
+router.put("/delete/:id", authenticate, softDeleteUser);
+router.put("/activate/:id", authenticate, activateUser);
 
 module.exports = router;
