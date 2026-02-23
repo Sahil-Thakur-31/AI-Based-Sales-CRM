@@ -88,7 +88,9 @@ function App() {
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
 
-            <Route path="/manageusers" element={<ManageUsers />} />
+            <Route path="/manageusers" element={<ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <ManageUsers />
+          </ProtectedRoute>} />
             <Route path="/user-form" element={<UserForm />} />
             <Route path="/products" element={<Products />} />
             <Route path="/roles" element={<Roles />} />
