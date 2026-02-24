@@ -26,7 +26,7 @@ app.use("/users", userRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/crm-settings", crmSettingsRoutes);
 app.use("/products", productRoutes);
-app.use("/api/notifications", notificationRoutes);
+app.use("/notifications", notificationRoutes);
 app.use("/roles", rolesRoutes);
 app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
