@@ -72,8 +72,8 @@ const approvalSchema = new mongoose.Schema(
 const expenseSchema = new mongoose.Schema(
   {
     expenseNo: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Counter",
+      type: Number,
+      
       required: true,
       unique: true,
       index: true
@@ -81,7 +81,7 @@ const expenseSchema = new mongoose.Schema(
 
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "users",
       required: true,
       index: true
     },

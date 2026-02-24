@@ -12,6 +12,9 @@ exports.createExpense = async (req, res) => {
 
     res.status(201).json(expense);
   } catch (err) {
+    console.log("ERROR MESSAGE:", err.message);  
+    console.log("FULL ERROR:", err); 
+    
     res.status(400).json({ message: err.message });
   }
 };

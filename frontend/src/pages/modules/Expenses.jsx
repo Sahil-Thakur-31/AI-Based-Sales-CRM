@@ -14,6 +14,7 @@ const ExpenseDashboard = () => {
 
   const [expenses, setExpenses] = useState([]);
   const [usersList, setUsersList] = useState(["All Users"]);
+  const [currentUser, setCurrentUser] = useState(null); // 👈 NEW
 
   const [formData, setFormData] = useState({
     category: "Travel",
@@ -24,11 +25,17 @@ const ExpenseDashboard = () => {
     description: "",
   });
 
-  /* ================= FETCH EXPENSES ================= */
-  useEffect(() => {
-    fetchExpenses();
-  }, []);
+  /* ================= FETCH CURRENT USER ================= */
+  const fetchCurrentUser = async () => {
+    try {
+      const { data } = await API.get("/users/me");
+      setCurrentUser(data);
+    } catch (err) {
+      console.error("Fetch current user error:", err);
+    }
+  };
 
+  /* ================= FETCH EXPENSES ================= */
   const fetchExpenses = async () => {
     try {
       const { data } = await API.get("/api/expenses");
@@ -46,16 +53,28 @@ const ExpenseDashboard = () => {
       }));
 
       setExpenses(formatted);
-
-      const uniqueUsers = [
-        "All Users",
-        ...new Set(formatted.map((e) => e.user)),
-      ];
-      setUsersList(uniqueUsers);
     } catch (err) {
       console.error(err);
     }
   };
+
+  /* ================= FETCH USERS ================= */
+  const fetchUsers = async () => {
+    try {
+      const { data } = await API.get("/users");
+
+      const users = ["All Users", ...data.map((user) => user.name)];
+      setUsersList(users);
+    } catch (err) {
+      console.error("Users fetch error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentUser();  // 👈 fetch user first
+    fetchExpenses();
+    fetchUsers();
+  }, []);
 
   /* ================= FILTER USERS ================= */
   const filteredUsers = usersList.filter((user) =>
@@ -78,8 +97,7 @@ const ExpenseDashboard = () => {
   const categorySummary = categories.map((cat) => {
     const total = filteredExpenses
       .filter(
-        (e) =>
-          e.category === cat.toLowerCase().replace(" ", "_")
+        (e) => e.category === cat.toLowerCase().replace(" ", "_")
       )
       .reduce((sum, e) => sum + e.total, 0);
 
@@ -117,31 +135,27 @@ const ExpenseDashboard = () => {
 
   /* ================= CREATE ================= */
   const handleAddExpense = async () => {
+    if (!currentUser) {
+      alert("User not loaded yet");
+      return;
+    }
+
     if (!formData.amount || !formData.date) {
       alert("Fill required fields");
       return;
     }
 
     const payload = {
-      userId: localStorage.getItem("userId"),
-      referenceId: localStorage.getItem("userId"),
+      userId: currentUser._id,
+      referenceId: currentUser._id,
       referenceType: "Lead",
-      category: formData.category
-        .toLowerCase()
-        .replace(" ", "_"),
+      category: formData.category.toLowerCase().replace(" ", "_"),
       amount: Number(formData.amount),
       gstAmount: Number(formData.gst),
       totalAmount: Number(formData.total),
       expenseDate: formData.date,
       receipt: {
         fileUrl: "dummy-url",
-        ocrConfidence: 90,
-        extractedData: {
-          vendor: formData.description,
-          date: formData.date,
-          amount: formData.amount,
-          gst: formData.gst,
-        },
       },
       description: formData.description,
     };
