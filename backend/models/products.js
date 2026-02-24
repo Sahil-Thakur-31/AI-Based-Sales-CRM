@@ -40,10 +40,10 @@ const productsSchema = new mongoose.Schema({
     ref: "users"
   },
 
-  isDeleted: {
+  is_deleted: {
     type: Boolean,
     default: false
-  }
+  },
 
 }, {
   timestamps: true,

@@ -4,7 +4,7 @@ const getNextCounter = async (name) => {
   const counter = await Counter.findOneAndUpdate(
     { name },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   );
 
   return counter.seq;

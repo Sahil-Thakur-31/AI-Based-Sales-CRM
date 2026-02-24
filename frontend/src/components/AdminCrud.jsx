@@ -20,12 +20,14 @@ export default function AdminCrud({
     fetchData();
   }, []);
 
-
   async function fetchData() {
     try {
       const res = await API.get(endpoint);
+      console.log("Fetched:", res.data);
       setData(res.data || []);
-    }catch {
+    }
+    catch (err) {
+      console.error("FETCH FAILED:", err);
       setData([]);
     }
   }
@@ -45,23 +47,33 @@ export default function AdminCrud({
   }
 
   async function save() {
-    if (editingId)
-      await API.put(`${endpoint}/${editingId}`, form);
-    else
-      await API.post(endpoint, form);
-
-    setFormVisible(false);
-    fetchData();
+    try {
+      console.log("Saving:", form);
+      let res;
+      if (editingId)
+        res = await API.put(`${endpoint}/${editingId}`, form);
+      else
+        res = await API.post(endpoint, form);
+      console.log("Save response:", res.data);
+      setFormVisible(false);
+      fetchData();
+    }catch (err) {
+      console.error("SAVE FAILED:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Save failed");
+    }
   }
 
   async function deleteOne(id) {
-
     if (!window.confirm("Delete item?")) return;
-
-    await API.put(`${endpoint}/delete/${id}`);
-
-    fetchData();
-
+    try {
+      console.log("Deleting:", id);
+      const res = await API.put(`${endpoint}/delete/${id}`);
+      console.log("Delete response:", res.data);
+      fetchData();
+    } catch (err) {
+      console.error("DELETE FAILED:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Delete failed");
+    }
   }
 
   async function deleteSelected() {

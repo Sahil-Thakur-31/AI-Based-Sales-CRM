@@ -26,7 +26,7 @@ const eventBudgetSchema = new mongoose.Schema(
       min: 0
     },
 
-    isDeleted: {
+    is_deleted: {
       type: Boolean,
       default: false,
       index: true

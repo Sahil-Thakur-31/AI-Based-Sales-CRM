@@ -56,7 +56,7 @@ const dealsSchema = new mongoose.Schema(
       type: Boolean,
     },
 
-    isDeleted: {
+    is_deleted: {
       type: Boolean,
     },
 

@@ -146,7 +146,7 @@ const eventSchema = new mongoose.Schema(
       }
     ],
 
-    isDeleted: {
+    is_deleted: {
       type: Boolean,
       default: false,
       index: true
