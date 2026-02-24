@@ -18,12 +18,6 @@ const productsSchema = new mongoose.Schema({
     default: ""
   },
 
-  product_code: {
-    type: String,
-    required: true,
-    unique: true
-  },
-
   price: {
     type: Number,
     required: true,

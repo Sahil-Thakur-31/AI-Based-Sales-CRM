@@ -45,8 +45,6 @@ exports.createProduct = async (req, res) => {
 
       category: req.body.category,
 
-      product_code: req.body.product_code,
-
       price: req.body.price,
 
       taxPercent: req.body.taxPercent,
