@@ -3,120 +3,71 @@ import API from "../api";
 import "../pages/modules/adminsetting/admin-config.css";
 
 export default function AdminCrud({
-
   title,
   endpoint,
   columns
-
 }) {
-
   const [data, setData] = useState([]);
-
   const [selected, setSelected] = useState([]);
-
   const [formVisible, setFormVisible] = useState(false);
-
   const [editingId, setEditingId] = useState(null);
-
   const [form, setForm] = useState({});
-
   const [filter, setFilter] = useState("");
-
   const [sortField, setSortField] = useState("");
-
   const [sortOrder, setSortOrder] = useState("asc");
 
-
   useEffect(() => {
-
     fetchData();
-
   }, []);
 
 
   async function fetchData() {
-
     try {
-
       const res = await API.get(endpoint);
-
       setData(res.data || []);
-
-    }
-    catch {
-
+    }catch {
       setData([]);
-
     }
-
   }
-
 
   function openAddForm() {
-
     setEditingId(null);
-
     const empty = {};
-
     columns.forEach(col => empty[col.field] = "");
-
     setForm(empty);
-
     setFormVisible(true);
-
   }
-
 
   function openEditForm(item) {
-
     setEditingId(item._id);
-
     setForm(item);
-
     setFormVisible(true);
-
   }
 
-
   async function save() {
-
     if (editingId)
       await API.put(`${endpoint}/${editingId}`, form);
     else
       await API.post(endpoint, form);
 
     setFormVisible(false);
-
     fetchData();
-
   }
-
 
   async function deleteOne(id) {
-
     if (!window.confirm("Delete item?")) return;
-
     await API.delete(`${endpoint}/${id}`);
-
     fetchData();
-
   }
 
-
   async function deleteSelected() {
-
     if (!window.confirm("Delete selected items?")) return;
-
     await Promise.all(
       selected.map(id => API.delete(`${endpoint}/${id}`))
     );
-
     setSelected([]);
-
     fetchData();
-
   }
-
 
   function toggleSelect(id) {
 
@@ -203,6 +154,7 @@ export default function AdminCrud({
 
           <input
             placeholder="Search..."
+            className="search"
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
@@ -344,22 +296,49 @@ export default function AdminCrud({
             </h3>
 
 
-            {columns.map(col => (
+            {columns.map(col => {
 
-              <input
-                key={col.field}
-                placeholder={col.label}
-                value={form[col.field] || ""}
-                onChange={e =>
-                  setForm({
-                    ...form,
-                    [col.field]: e.target.value
-                  })
-                }
-              />
+              if (col.type === "select") {
 
-            ))}
+                return (
+                  <select
+                    key={col.field}
+                    value={form[col.field] || ""}
+                    onChange={e =>
+                      setForm({
+                        ...form,
+                        [col.field]: e.target.value
+                      })
+                    }
+                  >
+                    <option value="">Select {col.label}</option>
 
+                    {col.options?.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+
+                  </select>
+                );
+
+              }
+
+              return (
+                <input
+                  key={col.field}
+                  placeholder={col.label}
+                  value={form[col.field] || ""}
+                  onChange={e =>
+                    setForm({
+                      ...form,
+                      [col.field]: e.target.value
+                    })
+                  }
+                />
+              );
+
+            })}
 
             <div className="admin-config-modal-actions">
 

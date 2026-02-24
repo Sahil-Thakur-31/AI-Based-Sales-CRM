@@ -5,10 +5,10 @@ export default function Industry(){
   return (
 
     <AdminCrud
-      title="Industry"
-      endpoint="/industry"
+      title="Industries"
+      endpoint="/industries"
       columns={[
-        { field:"name", label:"Industry Name" },
+        { field:"name", label:"Industry" },
         { field:"description", label:"Description" }
       ]}
     />

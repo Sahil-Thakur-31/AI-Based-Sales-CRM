@@ -1,19 +1,54 @@
 const User = require("../models/users");
+const bcrypt = require("bcrypt");
 
 /* GET ALL USERS */
 const getAllUsers = async (req, res) => {
+
   try {
-    console.log('users');
-    const users = await User.find({})
-      .populate("role", "name")
-      .select("name email role is_active createdAt");
 
-    res.status(200).json(users);
+    const users = await User.find({
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch users" });
+      is_deleted: { $ne: true }
+
+    })
+    .populate("role", "name")
+    .sort({ createdAt: -1 });
+
+
+
+    const formatted = users.map(user => ({
+
+      _id: user._id,
+
+      name: user.name,
+
+      email: user.email,
+
+      role: user.role?.name || "",
+
+      is_active: user.is_active,
+
+      createdAt: user.createdAt
+
+    }));
+
+
+
+    res.json(formatted);
+
   }
+  catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+
+      message: "Failed to fetch users"
+
+    });
+
+  }
+
 };
 
 const softDeleteUser = async (req, res) => {
@@ -165,6 +200,62 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const createUser = async (req, res) => {
+
+  try {
+
+    const { name, email, role } = req.body;
+
+    if (!name || !email || !role)
+      return res.status(400).json({
+        message: "Name, email and role are required"
+      });
+
+    const exists = await User.findOne({ email });
+
+    if (exists)
+      return res.status(400).json({
+        message: "Email already exists"
+      });
+
+    const defaultPassword = "adcs@1234";
+
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+    const user = await User.create({
+
+      name,
+      email,
+      role,
+
+      passwordHash,
+
+      mustChangePassword: true,
+
+      joiningDate: new Date(),
+
+      createdAt: new Date(),
+
+      is_active: true,
+      is_deleted: false
+
+    });
+
+    res.status(201).json(user);
+
+  }
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: "Failed to create user"
+    });
+
+  }
+
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -172,5 +263,6 @@ module.exports = {
   updateUser,
   getSingleUser,
   softDeleteUser,
-  activateUser
+  activateUser,
+  createUser
 };

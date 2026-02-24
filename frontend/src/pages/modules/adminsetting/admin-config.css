@@ -4,6 +4,12 @@
   border-radius: 12px;
 }
 
+.admin-config-page select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
 .admin-config-header {
   display: flex;
   justify-content: space-between;

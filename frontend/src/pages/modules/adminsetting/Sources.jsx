@@ -9,7 +9,7 @@ export default function Sources(){
       endpoint="/sources"
       columns={[
         { field:"name", label:"Source Name" },
-        { field:"description", label:"Description" }
+        { field:"url", label:"URL" }
       ]}
     />
 
