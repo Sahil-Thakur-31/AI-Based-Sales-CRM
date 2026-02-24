@@ -74,7 +74,7 @@ function Navbar() {
 
       setLoadingNotifications(true);
 
-      const res = await API.get("/api/notifications");
+      const res = await API.get("/notifications");
 
       setNotifications(res.data);
 
