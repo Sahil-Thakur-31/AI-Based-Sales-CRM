@@ -1,9 +1,21 @@
-import React from 'react'
+import AdminCrud from "../../../components/AdminCrud";
 
-const Products = () => {
+export default function Products(){
+
   return (
-    <div>Products</div>
-  )
-}
 
-export default Products
+    <AdminCrud
+      title="Products"
+      endpoint="/products"
+      columns={[
+        { field:"name", label:"Name" },
+        { field:"product_code", label:"Code" },
+        { field:"category", label:"Category" },
+        { field:"price", label:"Price" },
+        { field:"taxPercent", label:"Tax %" }
+      ]}
+    />
+
+  );
+
+}

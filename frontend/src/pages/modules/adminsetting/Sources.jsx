@@ -1,9 +1,18 @@
-import React from 'react'
+import AdminCrud from "../../../components/AdminCrud";
 
-const Sources = () => {
+export default function Sources(){
+
   return (
-    <div>Sources</div>
-  )
-}
 
-export default Sources
+    <AdminCrud
+      title="Sources"
+      endpoint="/sources"
+      columns={[
+        { field:"name", label:"Source Name" },
+        { field:"url", label:"URL" }
+      ]}
+    />
+
+  );
+
+}

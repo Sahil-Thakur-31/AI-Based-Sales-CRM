@@ -6,8 +6,8 @@ const sourcesSchema = new mongoose.Schema({
     type: String
   },
 
-  isAutoFetchSupported: {
-    type: Boolean
+  url: {
+    type: String
   },
 
   createdAt: {

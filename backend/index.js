@@ -2,12 +2,17 @@ const http = require('http')
 const express = require('express')
 require('dotenv').config()
 const authRoute = require('./routes/authRoutes')
-const roleRoutes = require('./routes/roleRoutes')
 const userRoutes = require('./routes/userRoutes')
+const crmSettingsRoutes = require("./routes/crmSettingsRoutes");
+const productRoutes = require("./routes/productRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const rolesRoutes = require("./routes/roleRoutes");
+const sourcesRoutes = require("./routes/sourcesRoutes");
+const industriesRoutes = require("./routes/industriesRoutes");
 
-require('./models/db')
-const bodyparser = require('body-parser')
-const cors = require('cors')
+require('./config/db');
+const bodyparser = require('body-parser');
+const cors = require('cors');
 
 const app = express()
 const myServer = http.createServer(app);
@@ -17,7 +22,6 @@ app.use(bodyparser.json());
 app.use(cors());
 
 app.use('/auth',authRoute);
-app.use("/roles", roleRoutes);
 app.use("/users", userRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/expenses", require("./routes/expenseRoutes"));
