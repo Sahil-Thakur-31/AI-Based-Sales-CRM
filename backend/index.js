@@ -20,6 +20,7 @@ app.use('/auth',authRoute);
 app.use("/roles", roleRoutes);
 app.use("/users", userRoutes);
 app.use("/uploads", express.static("uploads"));
+app.use("/api/expenses", require("./routes/expenseRoutes"));
 
 
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
