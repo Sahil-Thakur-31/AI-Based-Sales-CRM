@@ -24,7 +24,10 @@ app.use(cors());
 app.use('/auth',authRoute);
 app.use("/users", userRoutes);
 app.use("/uploads", express.static("uploads"));
-app.use("/api/expenses", require("./routes/expenseRoutes"));
-
-
+app.use("/crm-settings", crmSettingsRoutes);
+app.use("/products", productRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/roles", rolesRoutes);
+app.use("/sources", sourcesRoutes);
+app.use("/industries", industriesRoutes);
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
