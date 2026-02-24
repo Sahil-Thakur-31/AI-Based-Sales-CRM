@@ -79,7 +79,7 @@ exports.updateMySettings = async (req, res) => {
       },
 
       {
-        new: true,
+        returnDocument: "after",
         upsert: true
       }
 

@@ -20,12 +20,14 @@ export default function AdminCrud({
     fetchData();
   }, []);
 
-
   async function fetchData() {
     try {
       const res = await API.get(endpoint);
+      console.log("Fetched:", res.data);
       setData(res.data || []);
-    }catch {
+    }
+    catch (err) {
+      console.error("FETCH FAILED:", err);
       setData([]);
     }
   }
@@ -45,28 +47,49 @@ export default function AdminCrud({
   }
 
   async function save() {
-    if (editingId)
-      await API.put(`${endpoint}/${editingId}`, form);
-    else
-      await API.post(endpoint, form);
-
-    setFormVisible(false);
-    fetchData();
+    try {
+      console.log("Saving:", form);
+      let res;
+      if (editingId)
+        res = await API.put(`${endpoint}/${editingId}`, form);
+      else
+        res = await API.post(endpoint, form);
+      console.log("Save response:", res.data);
+      setFormVisible(false);
+      fetchData();
+    }catch (err) {
+      console.error("SAVE FAILED:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Save failed");
+    }
   }
 
   async function deleteOne(id) {
     if (!window.confirm("Delete item?")) return;
-    await API.delete(`${endpoint}/${id}`);
-    fetchData();
+    try {
+      console.log("Deleting:", id);
+      const res = await API.put(`${endpoint}/delete/${id}`);
+      console.log("Delete response:", res.data);
+      fetchData();
+    } catch (err) {
+      console.error("DELETE FAILED:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Delete failed");
+    }
   }
 
   async function deleteSelected() {
+
     if (!window.confirm("Delete selected items?")) return;
+
     await Promise.all(
-      selected.map(id => API.delete(`${endpoint}/${id}`))
+      selected.map(id =>
+        API.put(`${endpoint}/delete/${id}`)
+      )
     );
+
     setSelected([]);
+
     fetchData();
+
   }
 
   function toggleSelect(id) {
@@ -154,7 +177,6 @@ export default function AdminCrud({
 
           <input
             placeholder="Search..."
-            className="search"
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
@@ -311,12 +333,20 @@ export default function AdminCrud({
                       })
                     }
                   >
-                    <option value="">Select {col.label}</option>
+
+                    <option value="">
+                      Select {col.label}
+                    </option>
 
                     {col.options?.map(opt => (
-                      <option key={opt.value} value={opt.value}>
+
+                      <option
+                        key={opt.value}
+                        value={opt.value}
+                      >
                         {opt.label}
                       </option>
+
                     ))}
 
                   </select>

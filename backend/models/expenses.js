@@ -160,7 +160,7 @@ const expenseSchema = new mongoose.Schema(
       maxlength: 1000
     },
 
-    isDeleted: {
+    is_deleted: {
       type: Boolean,
       default: false,
       index: true

@@ -103,7 +103,7 @@ const meetingsSchema = new mongoose.Schema({
     type: Date
   },
 
-  isDeleted: {
+  is_deleted: {
     type: Boolean
   },
 

@@ -118,7 +118,7 @@ const quotationSchema = new mongoose.Schema({
     default: true
   },
 
-  isDeleted: {
+  is_deleted: {
     type: Boolean,
     default: false
   }

@@ -67,7 +67,7 @@ const reportSchema = new mongoose.Schema(
       index: true
     },
 
-    isDeleted: {
+    is_deleted: {
       type: Boolean,
       default: false,
       index: true

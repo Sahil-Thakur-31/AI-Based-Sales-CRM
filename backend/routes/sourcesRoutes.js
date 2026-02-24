@@ -5,12 +5,14 @@ const {
   getSources,
   createSource,
   updateSource,
-  deleteSource
+  deleteSource,
+  activateSource
 } = require("../controllers/sourcesController");
 
 router.get("/", auth, getSources);
 router.post("/", auth, createSource);
 router.put("/:id", auth, updateSource);
-router.delete("/:id", auth, deleteSource);
+router.put("/delete/:id", auth, deleteSource);
+router.put("/activate/:id", auth, activateSource);
 
 module.exports = router;

@@ -21,7 +21,7 @@ exports.createExpense = async (req, res) => {
 
 exports.getExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({ isDeleted: false })
+    const expenses = await Expense.find({ is_deleted: false })
       .populate("userId", "name email")
       .sort({ expenseDate: -1 });
 
@@ -34,7 +34,7 @@ exports.getExpenses = async (req, res) => {
 exports.deleteExpense = async (req, res) => {
   try {
     await Expense.findByIdAndUpdate(req.params.id, {
-      isDeleted: true,
+      is_deleted: true,
     });
 
     res.json({ message: "Deleted successfully" });

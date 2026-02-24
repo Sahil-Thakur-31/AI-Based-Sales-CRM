@@ -9,7 +9,6 @@ import ResetPassword from './pages/Verify/ResetPassword';
 import AdminHome from './pages/AdminHome.jsx';
 import ManagerHome from './pages/ManagerHome';
 import ManageUsers from './pages/modules/adminsetting/ManageUsers.jsx';
-import UserForm from './pages/modules/adminsetting/UserForm.jsx';
 
 import Leads from './pages/modules/Leads.jsx';
 import Clients from './pages/modules/Clients.jsx';
@@ -91,15 +90,6 @@ function App() {
   element={
     <ProtectedRoute allowedRoles={["Admin"]}>
       <ManageUsers />
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/user-form/:id?"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <UserForm />
     </ProtectedRoute>
   }
 />
