@@ -11,6 +11,6 @@ const {
 router.get("/", auth, getSources);
 router.post("/", auth, createSource);
 router.put("/:id", auth, updateSource);
-router.delete("/:id", auth, deleteSource);
+router.put("/delete/:id", auth, deleteSource);
 
 module.exports = router;

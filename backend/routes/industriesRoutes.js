@@ -11,6 +11,6 @@ const {
 router.get("/", auth, getIndustries);
 router.post("/", auth, createIndustry);
 router.put("/:id", auth, updateIndustry);
-router.delete("/:id", auth, deleteIndustry);
+router.put("/delete/:id", auth, deleteIndustry);
 
 module.exports = router;

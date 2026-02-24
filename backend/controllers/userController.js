@@ -203,41 +203,34 @@ const updateProfile = async (req, res) => {
 const createUser = async (req, res) => {
 
   try {
+    console.log("CREATE USER BODY:", req.body);
 
     const { name, email, role } = req.body;
 
     if (!name || !email || !role)
       return res.status(400).json({
-        message: "Name, email and role are required"
+        message: "Name, email, role required"
       });
 
     const exists = await User.findOne({ email });
 
     if (exists)
       return res.status(400).json({
-        message: "Email already exists"
+        message: "Email exists"
       });
 
-    const defaultPassword = "adcs@1234";
-
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+    const passwordHash = await bcrypt.hash("adcs@1234", 10);
 
     const user = await User.create({
 
       name,
       email,
       role,
-
       passwordHash,
 
       mustChangePassword: true,
 
-      joiningDate: new Date(),
-
-      createdAt: new Date(),
-
-      is_active: true,
-      is_deleted: false
+      joiningDate: new Date()
 
     });
 
@@ -249,7 +242,7 @@ const createUser = async (req, res) => {
     console.error(err);
 
     res.status(500).json({
-      message: "Failed to create user"
+      message: err.message
     });
 
   }

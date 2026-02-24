@@ -11,6 +11,6 @@ const {
 router.get("/", auth, getRoles);
 router.post("/", auth, createRole);
 router.put("/:id", auth, updateRole);
-router.delete("/:id", auth, deleteRole);
+router.put("/delete/:id", auth, deleteRole);
 
 module.exports = router;

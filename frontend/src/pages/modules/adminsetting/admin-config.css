@@ -28,6 +28,14 @@
   align-items: center;
 }
 
+.admin-config-actions input {
+  border-radius: 15px;
+  padding: 5px 25px;
+  font-weight: 600;
+  font-size: 17px;
+  border: 1px solid #ddd;
+}
+
 .admin-config-actions select {
   padding: 6px 10px;
   border-radius: 6px;
@@ -63,12 +71,14 @@
 }
 
 .admin-config-btn {
-  padding: 6px 12px;
+  padding: 6px 25px;
   border-radius: 6px;
   border: none;
   background: #5b6fd8;
   color: white;
   cursor: pointer;
+  font-weight: 600;
+
 }
 
 .admin-config-btn-danger {
@@ -106,3 +116,4 @@
   justify-content: flex-end;
   gap: 10px;
 }
+

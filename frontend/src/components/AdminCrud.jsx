@@ -55,18 +55,29 @@ export default function AdminCrud({
   }
 
   async function deleteOne(id) {
+
     if (!window.confirm("Delete item?")) return;
-    await API.delete(`${endpoint}/${id}`);
+
+    await API.put(`${endpoint}/delete/${id}`);
+
     fetchData();
+
   }
 
   async function deleteSelected() {
+
     if (!window.confirm("Delete selected items?")) return;
+
     await Promise.all(
-      selected.map(id => API.delete(`${endpoint}/${id}`))
+      selected.map(id =>
+        API.put(`${endpoint}/delete/${id}`)
+      )
     );
+
     setSelected([]);
+
     fetchData();
+
   }
 
   function toggleSelect(id) {
@@ -154,7 +165,6 @@ export default function AdminCrud({
 
           <input
             placeholder="Search..."
-            className="search"
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
@@ -311,12 +321,20 @@ export default function AdminCrud({
                       })
                     }
                   >
-                    <option value="">Select {col.label}</option>
+
+                    <option value="">
+                      Select {col.label}
+                    </option>
 
                     {col.options?.map(opt => (
-                      <option key={opt.value} value={opt.value}>
+
+                      <option
+                        key={opt.value}
+                        value={opt.value}
+                      >
                         {opt.label}
                       </option>
+
                     ))}
 
                   </select>

@@ -11,8 +11,15 @@ export default function ManageUsers() {
   }, []);
 
   async function fetchRoles() {
-    const res = await API.get("/roles");
-    setRoles(res.data);
+
+    try {
+      const res = await API.get("/roles");
+      setRoles(res.data);
+    }
+    catch (err) {
+      console.error(err);
+    }
+
   }
 
   return (
