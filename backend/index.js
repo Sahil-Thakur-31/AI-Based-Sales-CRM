@@ -9,7 +9,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const rolesRoutes = require("./routes/roleRoutes");
 const sourcesRoutes = require("./routes/sourcesRoutes");
 const industriesRoutes = require("./routes/industriesRoutes");
-
+const expenseRoutes = require("./routes/expenseRoutes");
 require('./config/db');
 const bodyparser = require('body-parser');
 const cors = require('cors');
@@ -30,4 +30,5 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/roles", rolesRoutes);
 app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
+app.use("/api/expenses", expenseRoutes);
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
