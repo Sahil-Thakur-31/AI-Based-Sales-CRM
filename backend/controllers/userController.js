@@ -1,5 +1,37 @@
 const User = require("../models/users");
+const Role = require("../models/roles");
+const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+
+const resolveRoleId = async (roleValue) => {
+
+  if (!roleValue) {
+    return null;
+  }
+
+  if (mongoose.Types.ObjectId.isValid(roleValue)) {
+
+    const roleDoc = await Role.findOne({
+      _id: roleValue,
+      is_deleted: false
+    })
+    .select("_id")
+    .lean();
+
+    return roleDoc ? roleDoc._id : null;
+
+  }
+
+  const roleDoc = await Role.findOne({
+    name: roleValue,
+    is_deleted: false
+  })
+  .select("_id")
+  .lean();
+
+  return roleDoc ? roleDoc._id : null;
+
+};
 
 
 /* GET ALL USERS (exclude deleted) */
@@ -22,7 +54,9 @@ const getAllUsers = async (req, res) => {
 
       email: user.email,
 
-      role: user.role?.name || "",
+      role: user.role?._id ? String(user.role._id) : "",
+
+      roleName: user.role?.name || "",
 
       is_active: user.is_active,
 
@@ -147,6 +181,24 @@ const updateUser = async (req, res) => {
   try {
 
     const { id } = req.params;
+    const roleId = await resolveRoleId(req.body.role);
+
+    if (!roleId) {
+      return res.status(400).json({
+        message: "Invalid role"
+      });
+    }
+
+    const updatePayload = {
+      name: req.body.name,
+      email: req.body.email,
+      role: roleId,
+      updatedAt: new Date()
+    };
+
+    if (req.body.joiningDate || req.body.joinDate) {
+      updatePayload.joiningDate = req.body.joiningDate || req.body.joinDate;
+    }
 
     const updated = await User.findOneAndUpdate(
 
@@ -155,13 +207,7 @@ const updateUser = async (req, res) => {
         is_deleted: { $ne: true }
       },
 
-      {
-        name: req.body.name,
-        email: req.body.email,
-        role: req.body.role,
-        joiningDate: req.body.joinDate,
-        updatedAt: new Date()
-      },
+      updatePayload,
 
       { returnDocument: "after" }
 
@@ -334,6 +380,14 @@ const createUser = async (req, res) => {
       return res.status(400).json({
         message: "Name, email, role required"
       });
+
+    const roleId = await resolveRoleId(role);
+
+    if (!roleId)
+      return res.status(400).json({
+        message: "Invalid role"
+      });
+
     const exists = await User.findOne({
       email,
       is_deleted: { $ne: true }
@@ -348,7 +402,7 @@ const createUser = async (req, res) => {
     const user = await User.create({
       name,
       email,
-      role,
+      role: roleId,
       passwordHash,
       joiningDate: new Date(),
       is_deleted: false,

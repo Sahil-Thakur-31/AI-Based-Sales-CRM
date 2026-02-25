@@ -36,7 +36,8 @@ export default function ManageUsers() {
           options: roles.map(r => ({
             label: r.name,
             value: r._id
-          }))
+          })),
+          render: (item) => item.roleName || "—"
         }
       ]}
     />
