@@ -14,9 +14,17 @@ require('./config/db');
 const bodyparser = require('body-parser');
 const cors = require('cors');
 
-const app = express()
+// ✅ admin dashboard
+const adminDashboardRoutes = require("./routes/adminDashboard.admin.routes");
+
+require("./models/db");
+const bodyparser = require("body-parser");
+const cors = require("cors");
+
+const app = express();
 const myServer = http.createServer(app);
-PORT = process.env.PORT || 8080;
+
+const PORT = process.env.PORT || 8080;
 
 app.use(bodyparser.json());
 app.use(cors());
