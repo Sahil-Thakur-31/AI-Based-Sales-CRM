@@ -48,6 +48,13 @@ const crmSettingsSchema = new mongoose.Schema({
     type: String,
     enum: ["15min", "30min", "1hr", "custom"],
     default: "30min"
+  },
+
+  customReminderOffsetMinutes: {
+    type: Number,
+    min: 0,
+    max: 1439,
+    default: 30
   }
 
 }, {

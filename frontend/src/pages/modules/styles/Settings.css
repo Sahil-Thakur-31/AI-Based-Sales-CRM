@@ -331,3 +331,77 @@
   border-radius: 50%;
 
 }
+
+
+.custom-timing-panel{
+
+  margin-top: 14px;
+
+  padding: 14px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  background: #f8fafc;
+
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  column-gap: 12px;
+
+  row-gap: 12px;
+
+}
+
+
+.custom-timing-title{
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  grid-column: 1 / -1;
+
+}
+
+
+.custom-slider-row{
+
+  margin-bottom: 0;
+
+}
+
+
+.custom-slider-header{
+
+  display: flex;
+
+  justify-content: space-between;
+
+  font-size: 13px;
+
+  margin-bottom: 6px;
+
+}
+
+
+.custom-slider{
+
+  width: 100%;
+
+  accent-color: #6366f1;
+
+}
+
+
+.custom-timing-preview{
+
+  font-size: 12px;
+
+  color: #475569;
+
+  grid-column: 1 / -1;
+
+}
