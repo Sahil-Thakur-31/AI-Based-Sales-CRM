@@ -6,13 +6,13 @@ const industriesSchema = new mongoose.Schema({
     type: String
   },
 
-  code: {
-    type: String,
-    unique: true
-  },
-
   description: {
     type: String
+  },
+
+  is_deleted: {
+    type: Boolean,
+    default: false
   },
 
   createdAt: {

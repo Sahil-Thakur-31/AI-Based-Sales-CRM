@@ -3,27 +3,30 @@ const mongoose = require("mongoose");
 const productsSchema = new mongoose.Schema({
 
   name: {
-    type: String
+    type: String,
+    required: true,
+    trim: true
   },
 
   description: {
-    type: String
+    type: String,
+    default: ""
   },
 
   category: {
-    type: String
-  },
-
-  product_code: {
-    type: String
+    type: String,
+    default: ""
   },
 
   price: {
-    type: Number
+    type: Number,
+    required: true,
+    default: 0
   },
 
   taxPercent: {
-    type: Number
+    type: Number,
+    default: 0
   },
 
   createdBy: {
@@ -31,18 +34,14 @@ const productsSchema = new mongoose.Schema({
     ref: "users"
   },
 
-  createdAt: {
-    type: Date
+  is_deleted: {
+    type: Boolean,
+    default: false
   },
 
-  updatedAt: {
-    type: Date
-  },
-
-  isDeleted: {
-    type: Boolean
-  }
-
+}, {
+  timestamps: true,
+  collection: "products"
 });
 
 module.exports = mongoose.model("products", productsSchema);

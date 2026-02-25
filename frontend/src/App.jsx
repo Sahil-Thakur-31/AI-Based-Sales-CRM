@@ -9,7 +9,6 @@ import ResetPassword from './pages/Verify/ResetPassword';
 import AdminHome from './pages/AdminHome.jsx';
 import ManagerHome from './pages/ManagerHome';
 import ManageUsers from './pages/modules/adminsetting/ManageUsers.jsx';
-import UserForm from './pages/modules/adminsetting/UserForm.jsx';
 
 import Leads from './pages/modules/Leads.jsx';
 import Clients from './pages/modules/Clients.jsx';
@@ -58,8 +57,12 @@ function App() {
         }>
 
           {/* Dashboard routes */}
-          <Route path="/adminhome" element={<AdminHome />} />
-          <Route path="/managerhome" element={<ManagerHome />} />
+          <Route path="/adminhome" element={<ProtectedRoute allowedRoles={["Admin"]}>
+            <AdminHome />
+          </ProtectedRoute>} />
+          <Route path="/managerhome" element={<ProtectedRoute allowedRoles={["Manager"]}>
+            <ManagerHome />
+          </ProtectedRoute>} />
 
 
           {/* CRM Core routes */}
@@ -84,15 +87,50 @@ function App() {
           <Route path="/profile" element={<Profile />} />
 
           {/* Admin-only routes */}
-          <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
+          <Route
+  path="/manageusers"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <ManageUsers />
+    </ProtectedRoute>
+  }
+/>
 
-            <Route path="/manageusers" element={<ManageUsers />} />
-            <Route path="/user-form" element={<UserForm />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/roles" element={<Roles />} />
-            <Route path="/industry" element={<Industry />} />
-            <Route path="/sources" element={<Sources />} />
-          </Route>
+<Route
+  path="/products"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Products />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/roles"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Roles />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/industry"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Industry />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/sources"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Sources />
+    </ProtectedRoute>
+  }
+/>
 
         </Route>
 

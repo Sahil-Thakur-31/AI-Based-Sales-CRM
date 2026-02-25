@@ -1,69 +1,45 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import AdminCrud from "../../../components/AdminCrud";
 import API from "../../../api";
 
-function ManageUsers() {
-  const [users, setUsers] = useState([]);
-  const navigate = useNavigate();
+export default function ManageUsers() {
 
-  const fetchUsers = async () => {
-    try {
-      const res = await API.get("/users");
-      setUsers(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const [roles, setRoles] = useState([]);
 
   useEffect(() => {
-    fetchUsers();
+    fetchRoles();
   }, []);
 
+  async function fetchRoles() {
+
+    try {
+      const res = await API.get("/roles");
+      setRoles(res.data);
+    }
+    catch (err) {
+      console.error(err);
+    }
+
+  }
+
   return (
-    <div className="container">
-
-      <h2>User Management</h2>
-
-      <button
-        onClick={() => navigate("/user-form")}
-      >
-        Add User
-      </button>
-
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {users.map((u, i) => (
-            <tr key={u._id}>
-              <td>{i + 1}</td>
-              <td>{u.name}</td>
-              <td>{u.email}</td>
-              <td>{u.role?.name}</td>
-              <td>
-                <button
-                  onClick={() =>
-                    navigate(`/user-form/${u._id}`)
-                  }
-                >
-                  Edit
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-
-      </table>
-    </div>
+    <AdminCrud
+      title="Users"
+      endpoint="/users"
+      columns={[
+        { field: "name", label: "Name" },
+        { field: "email", label: "Email" },
+        {
+          field: "role",
+          label: "Role",
+          type: "select",
+          options: roles.map(r => ({
+            label: r.name,
+            value: r._id
+          }))
+        }
+      ]}
+    />
   );
-}
 
-export default ManageUsers;
+}

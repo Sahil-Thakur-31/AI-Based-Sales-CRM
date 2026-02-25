@@ -74,7 +74,7 @@ function Navbar() {
 
       setLoadingNotifications(true);
 
-      const res = await API.get("/api/notifications");
+      const res = await API.get("/notifications");
 
       setNotifications(res.data);
 
@@ -147,7 +147,7 @@ function Navbar() {
 
       setShowProfileMenu(false);
 
-    }, 700);
+    }, 200);
 
   };
 
@@ -168,7 +168,7 @@ function Navbar() {
 
       setShowAdminMenu(false);
 
-    }, 700);
+    }, 200);
 
   };
 
@@ -189,7 +189,7 @@ function Navbar() {
 
       setShowNotifications(false);
 
-    }, 700);
+    }, 200);
 
   };
 

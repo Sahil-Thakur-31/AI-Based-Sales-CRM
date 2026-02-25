@@ -1,13 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+import API from "../../api";
 import "./styles/Expense.css";
 
-const usersList = [
-  "All Users",
-  "Anil Sharma",
-  "Priya Mehta",
-  "Karan Singh",
-  "Neha Roy",
-];
+const categories = ["Travel", "Client Meeting", "Event", "Marketing"];
 
 const ExpenseDashboard = () => {
   const [selectedUser, setSelectedUser] = useState("All Users");
@@ -16,289 +12,486 @@ const ExpenseDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
 
+  const [expenses, setExpenses] = useState([]);
+  const [usersList, setUsersList] = useState(["All Users"]);
+  const [currentUser, setCurrentUser] = useState(null); // 👈 NEW
+
+  const [formData, setFormData] = useState({
+    category: "Travel",
+    date: "",
+    amount: "",
+    gst: "",
+    total: "",
+    description: "",
+  });
+
+  /* ================= FETCH CURRENT USER ================= */
+  const fetchCurrentUser = async () => {
+    try {
+      const { data } = await API.get("/users/me");
+      setCurrentUser(data);
+    } catch (err) {
+      console.error("Fetch current user error:", err);
+    }
+  };
+
+  /* ================= FETCH EXPENSES ================= */
+  const fetchExpenses = async () => {
+    try {
+      const { data } = await API.get("/api/expenses");
+
+      const formatted = data.map((exp) => ({
+        id: exp._id,
+        category: exp.category,
+        user: exp.userId?.name || "Unknown",
+        amount: exp.amount,
+        gst: exp.gstAmount,
+        total: exp.totalAmount,
+        date: exp.expenseDate?.split("T")[0],
+        status: exp.approval?.status || "pending",
+        description: exp.description,
+      }));
+
+      setExpenses(formatted);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /* ================= FETCH USERS ================= */
+  const fetchUsers = async () => {
+    try {
+      const { data } = await API.get("/users");
+
+      const users = ["All Users", ...data.map((user) => user.name)];
+      setUsersList(users);
+    } catch (err) {
+      console.error("Users fetch error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentUser();  // 👈 fetch user first
+    fetchExpenses();
+    fetchUsers();
+  }, []);
+
+  /* ================= FILTER USERS ================= */
   const filteredUsers = usersList.filter((user) =>
-    user.toLowerCase().includes(search.toLowerCase()),
+    user.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredExpenses =
+    selectedUser === "All Users"
+      ? expenses
+      : expenses.filter((exp) => exp.user === selectedUser);
+
+  /* ================= SUMMARY ================= */
+  const totalAmount = filteredExpenses.reduce((sum, e) => sum + e.total, 0);
+  const totalGST = filteredExpenses.reduce((sum, e) => sum + e.gst, 0);
+
+  const approved = filteredExpenses.filter((e) => e.status === "approved");
+  const pending = filteredExpenses.filter((e) => e.status === "pending");
+
+  /* ================= CATEGORY SUMMARY ================= */
+  const categorySummary = categories.map((cat) => {
+    const total = filteredExpenses
+      .filter(
+        (e) => e.category === cat.toLowerCase().replace(" ", "_")
+      )
+      .reduce((sum, e) => sum + e.total, 0);
+
+    return { category: cat, total };
+  });
+
+  const maxCategory = Math.max(...categorySummary.map((c) => c.total), 1);
+
+  /* ================= USER SUMMARY ================= */
+  const userSummary = usersList
+    .filter((u) => u !== "All Users")
+    .map((user) => {
+      const total = filteredExpenses
+        .filter((e) => e.user === user)
+        .reduce((sum, e) => sum + e.total, 0);
+
+      return { user, total };
+    });
+
+  const maxUser = Math.max(...userSummary.map((u) => u.total), 1);
+
+  /* ================= FORM ================= */
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    let updated = { ...formData, [name]: value };
+
+    if (name === "amount") {
+      const gst = (value * 18) / 100;
+      updated.gst = gst;
+      updated.total = Number(value) + gst;
+    }
+
+    setFormData(updated);
+  };
+
+  /* ================= CREATE ================= */
+  const handleAddExpense = async () => {
+    if (!currentUser) {
+      alert("User not loaded yet");
+      return;
+    }
+
+    if (!formData.amount || !formData.date) {
+      alert("Fill required fields");
+      return;
+    }
+
+    const payload = {
+      userId: currentUser._id,
+      referenceId: currentUser._id,
+      referenceType: "Lead",
+      category: formData.category.toLowerCase().replace(" ", "_"),
+      amount: Number(formData.amount),
+      gstAmount: Number(formData.gst),
+      totalAmount: Number(formData.total),
+      expenseDate: formData.date,
+      receipt: {
+        fileUrl: "dummy-url",
+      },
+      description: formData.description,
+    };
+
+    try {
+      await API.post("/api/expenses", payload);
+      fetchExpenses();
+      setShowLogModal(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /* ================= DELETE ================= */
+  const handleDelete = async (id) => {
+    try {
+      await API.delete(`/api/expenses/${id}`);
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleView = (expense) => {
+    alert(JSON.stringify(expense, null, 2));
+  };
+
   return (
-    <div className="expenses">
-      <div className="dashboard">
-        {/* ================= TOP SECTION (UNCHANGED) ================= */}
-        <div className="cards">
-          <div className="card green">
-            <h4>Total</h4>
-            <h2>₹1.0L</h2>
-            <p>Q1 2025</p>
-          </div>
+    <div className="expense-dashboard">
 
-          <div className="card blue">
-            <h4>Approved</h4>
-            <h2>₹80K</h2>
-            <p>4 expenses</p>
-          </div>
-
-          <div className="card orange">
-            <h4>Pending</h4>
-            <h2>₹24K</h2>
-            <p>2 awaiting</p>
-          </div>
-
-          <div className="card pink">
-            <h4>GST</h4>
-            <h2>₹16K</h2>
-            <p>Claimable</p>
-          </div>
+      {/* ================= CARDS ================= */}
+      <div className="expense-cards">
+        <div className="expense-card green">
+          <h4>Total</h4>
+          <h2>₹{totalAmount}</h2>
+          <p>Filtered View</p>
         </div>
 
-        {/* ================= MIDDLE SECTION (UNCHANGED) ================= */}
-        <div className="middle-section">
-          <div className="box">
-            <h3>By Category</h3>
-
-            <div className="progress-item">
-              <span>Client Meeting</span>
-              <span>₹9K</span>
-            </div>
-            <div className="progress">
-              <div style={{ width: "25%" }} className="bar green"></div>
-            </div>
-
-            <div className="progress-item">
-              <span>Travel</span>
-              <span>₹15K</span>
-            </div>
-            <div className="progress">
-              <div style={{ width: "40%" }} className="bar blue"></div>
-            </div>
-
-            <div className="progress-item">
-              <span>Event</span>
-              <span>₹41K</span>
-            </div>
-            <div className="progress">
-              <div style={{ width: "70%" }} className="bar orange"></div>
-            </div>
-
-            <div className="progress-item">
-              <span>Marketing</span>
-              <span>₹30K</span>
-            </div>
-            <div className="progress">
-              <div style={{ width: "60%" }} className="bar purple"></div>
-            </div>
-          </div>
-
-          <div className="box">
-            <h3>By User</h3>
-
-            <div className="user-row">
-              <span>Anil Sharma</span>
-              <span>₹34K</span>
-            </div>
-            <div className="progress">
-              <div style={{ width: "50%" }} className="bar green"></div>
-            </div>
-
-            <div className="user-row">
-              <span>Priya Mehta</span>
-              <span>₹15K</span>
-            </div>
-            <div className="progress">
-              <div style={{ width: "30%" }} className="bar blue"></div>
-            </div>
-
-            <div className="user-row">
-              <span>Karan Singh</span>
-              <span>₹46K</span>
-            </div>
-            <div className="progress">
-              <div style={{ width: "75%" }} className="bar orange"></div>
-            </div>
-          </div>
+        <div className="expense-card blue">
+          <h4>Approved</h4>
+          <h2>₹{approved.reduce((s, e) => s + e.total, 0)}</h2>
+          <p>{approved.length} expenses</p>
         </div>
 
-        {/* ================= EXPENSE LEDGER ================= */}
-        <div className="ledger">
-          <div className="ledger-header">
-            <h3>Expense Ledger</h3>
+        <div className="expense-card orange">
+          <h4>Pending</h4>
+          <h2>₹{pending.reduce((s, e) => s + e.total, 0)}</h2>
+          <p>{pending.length} awaiting</p>
+        </div>
 
-            <div className="ledger-actions">
-              {/* Dropdown */}
-              <div className="dropdown">
+        <div className="expense-card pink">
+          <h4>GST</h4>
+          <h2>₹{totalGST}</h2>
+          <p>Claimable</p>
+        </div>
+      </div>
+
+      {/* ================= MIDDLE SECTION ================= */}
+      <div className="expense-middle-section">
+        <div className="expense-box">
+          <h3>By Category</h3>
+          {categorySummary.map((item, i) => (
+            <div key={i}>
+              <div className="expense-progress-item">
+                <span>{item.category}</span>
+                <span>₹{item.total}</span>
+              </div>
+              <div className="expense-progress">
                 <div
-                  className="dropdown-selected"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                >
-                  {selectedUser} ▼
-                </div>
+                  className="expense-bar green"
+                  style={{
+                    width: `${(item.total / maxCategory) * 100}%`,
+                  }}
+                ></div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-                {showDropdown && (
-                  <div className="dropdown-menu">
-                    <input
-                      type="text"
-                      placeholder="Search user..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
+        <div className="expense-box">
+          <h3>By User</h3>
+          {userSummary.map((item, i) => (
+            <div key={i}>
+              <div className="expense-user-row">
+                <span>{item.user}</span>
+                <span>₹{item.total}</span>
+              </div>
+              <div className="expense-progress">
+                <div
+                  className="expense-bar blue"
+                  style={{
+                    width: `${(item.total / maxUser) * 100}%`,
+                  }}
+                ></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-                    {filteredUsers.map((user, i) => (
-                      <div
-                        key={i}
-                        className="dropdown-item"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowDropdown(false);
-                        }}
-                      >
-                        {user}
-                      </div>
-                    ))}
-                  </div>
-                )}
+      {/* ================= LEDGER ================= */}
+      <div className="expense-ledger">
+        <div className="expense-ledger-header">
+          <h3>Expense Ledger</h3>
+
+          <div className="expense-ledger-actions">
+            <div className="expense-dropdown">
+              <div
+                className="expense-dropdown-selected"
+                onClick={() => setShowDropdown(!showDropdown)}
+              >
+                {selectedUser} ▼
               </div>
 
-              <button className="ocr-btn" onClick={() => setShowModal(true)}>
-                OCR
-              </button>
-
-              <button className="log-btn" onClick={() => setShowLogModal(true)}>
-                + Log Expense
-              </button>
+              {showDropdown && (
+                <div className="expense-dropdown-menu">
+                  <input
+                    type="text"
+                    placeholder="Search user..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {filteredUsers.map((user, i) => (
+                    <div
+                      key={i}
+                      className="expense-dropdown-item"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      {user}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <button
+              className="expense-ocr-btn"
+              onClick={() => setShowModal(true)}
+            >
+              OCR
+            </button>
+
+            <button
+              className="expense-log-btn"
+              onClick={() => setShowLogModal(true)}
+            >
+              + Log Expense
+            </button>
           </div>
-
-          {/* TABLE (UNCHANGED) */}
-          <table>
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>User</th>
-                <th>Amount</th>
-                <th>GST</th>
-                <th>Total</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td>Client Meeting</td>
-                <td>Anil Sharma</td>
-                <td>₹4K</td>
-                <td>₹756</td>
-                <td>₹5K</td>
-                <td>15 Mar 2025</td>
-                <td>
-                  <span className="approved">Approved</span>
-                </td>
-                <td>
-                  <button className="view">View</button>
-                  <button className="delete">Delete</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </div>
 
-        {/* ================= OCR MODAL ================= */}
-        {showModal && (
-          <div className="modal-overlay">
-            <div className="modal large-modal">
-              <div className="modal-header">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>User</th>
+              <th>Amount</th>
+              <th>GST</th>
+              <th>Total</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredExpenses.map((exp) => (
+              <tr key={exp.id}>
+                <td>{exp.category}</td>
+                <td>{exp.user}</td>
+                <td>₹{exp.amount}</td>
+                <td>₹{exp.gst}</td>
+                <td>₹{exp.total}</td>
+                <td>{exp.date}</td>
+                <td>
+                  <span
+                    className={
+                      exp.status === "approved"
+                        ? "expense-approved"
+                        : "expense-pending"
+                    }
+                  >
+                    {exp.status}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    className="expense-view"
+                    onClick={() => handleView(exp)}
+                  >
+                    View
+                  </button>
+                  <button
+                    className="expense-delete"
+                    onClick={() => handleDelete(exp.id)}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ================= OCR MODAL ================= */}
+      {showModal &&
+        ReactDOM.createPortal(
+          <div className="expense-modal-overlay">
+            <div className="expense-modal expense-large-modal">
+              <div className="expense-modal-header">
                 <h3>OCR Expense Import</h3>
-                <span className="close-btn" onClick={() => setShowModal(false)}>
+                <span
+                  className="expense-close-btn"
+                  onClick={() => setShowModal(false)}
+                >
                   ✖
                 </span>
               </div>
 
-              <div className="upload-box">
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  onChange={(e) => console.log(e.target.files[0])}
-                />
-
+              <div className="expense-upload-box">
+                <input type="file" />
                 <p>Drop file or click to upload</p>
                 <span>Supports: JPG, PNG, PDF</span>
 
-                <div className="ai-section">
-                  <button className="ai-btn">+ AI OCR Processing</button>
+                <div className="expense-ai-section">
+                  <button className="expense-ai-btn">
+                    + AI OCR Processing
+                  </button>
                 </div>
               </div>
-
-              <div className="modal-footer">
-                <button onClick={() => setShowModal(false)}>Cancel</button>
-              </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
-  {/* ================= Add Log Expense ================= */}
-        {showLogModal && (
-          <div className="modal-overlay">
-            <div className="modal log-modal">
-              <div className="modal-header">
+      {/* ================= LOG MODAL ================= */}
+      {showLogModal &&
+        ReactDOM.createPortal(
+          <div className="expense-modal-overlay">
+            <div className="expense-modal expense-log-modal">
+              <div className="expense-modal-header">
                 <h3>Log Expense</h3>
                 <span
-                  className="close-btn"
+                  className="expense-close-btn"
                   onClick={() => setShowLogModal(false)}
                 >
                   ✖
                 </span>
               </div>
 
-              <div className="form-grid">
-                <div className="form-group">
+              <div className="expense-form-grid">
+                <div className="expense-form-group">
                   <label>Category</label>
-                  <select>
-                    <option>Travel</option>
-                    <option>Client Meeting</option>
-                    <option>Event</option>
-                    <option>Marketing</option>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                  >
+                    {categories.map((c, i) => (
+                      <option key={i}>{c}</option>
+                    ))}
                   </select>
                 </div>
 
-                <div className="form-group">
+                <div className="expense-form-group">
                   <label>Date</label>
-                  <input type="date" />
+                  <input
+                    type="date"
+                    name="date"
+                    value={formData.date}
+                    onChange={handleChange}
+                  />
                 </div>
 
-                <div className="form-group">
-                  <label>Amount (₹)</label>
-                  <input type="number" placeholder="0" />
+                <div className="expense-form-group">
+                  <label>Amount</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleChange}
+                  />
                 </div>
 
-                <div className="form-group">
-                  <label>GST (Auto 18%)</label>
-                  <input type="number" placeholder="0" />
+                <div className="expense-form-group">
+                  <label>GST</label>
+                  <input
+                    type="number"
+                    name="gst"
+                    value={formData.gst}
+                    readOnly
+                  />
                 </div>
 
-                <div className="form-group full-width">
-                  <label>Total (₹)</label>
-                  <input type="number" placeholder="0" />
+                <div className="expense-form-group expense-full-width">
+                  <label>Total</label>
+                  <input
+                    type="number"
+                    name="total"
+                    value={formData.total}
+                    readOnly
+                  />
                 </div>
 
-                <div className="form-group full-width">
-                  <label>Vendor / Description</label>
-                  <textarea placeholder="e.g. Client lunch at Taj Hotel, Mumbai"></textarea>
+                <div className="expense-form-group expense-full-width">
+                  <label>Description</label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                  />
                 </div>
               </div>
 
-              <div className="modal-footer">
+              <div className="expense-modal-footer">
                 <button
-                  className="cancel-btn"
+                  className="expense-cancel-btn"
                   onClick={() => setShowLogModal(false)}
                 >
                   Cancel
                 </button>
-                <button className="submit-btn">💾 Log Expense</button>
+                <button
+                  className="expense-submit-btn"
+                  onClick={handleAddExpense}
+                >
+                  💾 Log Expense
+                </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
-      </div>
+
     </div>
   );
 };
