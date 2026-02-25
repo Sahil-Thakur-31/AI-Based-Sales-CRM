@@ -1,25 +1,31 @@
-const http = require('http')
-const express = require('express')
-require('dotenv').config()
-const authRoute = require('./routes/authRoutes')
-const roleRoutes = require('./routes/roleRoutes')
-const userRoutes = require('./routes/userRoutes')
+const http = require("http");
+const express = require("express");
+require("dotenv").config();
 
-require('./models/db')
-const bodyparser = require('body-parser')
-const cors = require('cors')
+const authRoute = require("./routes/authRoutes");
+const roleRoutes = require("./routes/roleRoutes");
+const userRoutes = require("./routes/userRoutes");
 
-const app = express()
+// ✅ admin dashboard
+const adminDashboardRoutes = require("./routes/adminDashboard.admin.routes");
+
+require("./models/db");
+const bodyparser = require("body-parser");
+const cors = require("cors");
+
+const app = express();
 const myServer = http.createServer(app);
-PORT = process.env.PORT || 8080;
+
+const PORT = process.env.PORT || 8080;
 
 app.use(bodyparser.json());
 app.use(cors());
 
-app.use('/auth',authRoute);
+app.use("/auth", authRoute);
 app.use("/roles", roleRoutes);
 app.use("/users", userRoutes);
 app.use("/uploads", express.static("uploads"));
 
+app.use("/api/admin/dashboard", adminDashboardRoutes);
 
-myServer.listen(PORT,()=>console.log('Server started on', PORT));
+myServer.listen(PORT, () => console.log("Server started on", PORT));
