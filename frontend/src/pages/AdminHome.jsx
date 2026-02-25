@@ -1,5 +1,7 @@
+// AdminHome.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API from "../api";
 import {
   CCard,
   CCardBody,
@@ -19,9 +21,7 @@ import {
 } from "@coreui/react";
 import "../styles/AdminHome.css";
 
-const API_URL = "http://localhost:8080";
-
-// ✅ Switch this to false when backend is ready
+// ✅ Switch this to true only if you want mock data
 const USE_MOCK = false;
 
 /* ---------- helpers ---------- */
@@ -67,32 +67,12 @@ function StagePill({ stage }) {
 }
 
 async function apiGet(path, params = {}, signal) {
-  const url = new URL(`${API_URL}${path}`);
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
-  });
-
-  const token = localStorage.getItem("token");
-
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(t || `Request failed: ${res.status}`);
-  }
-  return res.json();
+  const res = await API.get(path, { params, signal });
+  return res.data;
 }
 
 /* ---------------- MOCK (range-aware) ---------------- */
 function getMockDashboard(range = "month") {
-  // small variations just to show filter is applied
   const mult = range === "week" ? 0.35 : range === "quarter" ? 2.4 : 1;
 
   const summary = {
@@ -103,7 +83,8 @@ function getMockDashboard(range = "month") {
     winRatePct: range === "week" ? 28 : range === "quarter" ? 41 : 33,
     winRateDeltaPct: range === "week" ? 2 : range === "quarter" ? 7 : 5,
     pipelineValue: Math.round(16700000 * mult),
-    pipelineDeltaPct: range === "week" ? -0.8 : range === "quarter" ? 4.1 : -2.1,
+    pipelineDeltaPct:
+      range === "week" ? -0.8 : range === "quarter" ? 4.1 : -2.1,
     openLeads: range === "week" ? 3 : range === "quarter" ? 11 : 5,
     openLeadsFromAI: range === "week" ? 1 : range === "quarter" ? 4 : 2,
   };
@@ -194,30 +175,34 @@ function getMockDashboard(range = "month") {
   return { summary, pipeline, teamPerformance, followups, recentDeals };
 }
 
-/* ---------------- BACKEND (single place) ----------------
-   Expected endpoints (example):
-   GET /api/admin/dashboard/summary?range=week|month|quarter
-   GET /api/admin/dashboard/pipeline?range=...
-   GET /api/admin/dashboard/team-performance?range=...
-   GET /api/admin/dashboard/followups?range=...
-   GET /api/admin/dashboard/recent-deals?range=...
----------------------------------------------------------- */
+/* ---------------- BACKEND ---------------- */
 async function fetchDashboard(range, signal) {
-  // ✅ When backend is ready, keep USE_MOCK=false and this will run.
   const [sum, pipe, team, fu, deals] = await Promise.all([
     apiGet("/api/admin/dashboard/summary", { range }, signal),
     apiGet("/api/admin/dashboard/pipeline", { range }, signal),
     apiGet("/api/admin/dashboard/team-performance", { range }, signal),
-    apiGet("/api/admin/dashboard/followups", { range }, signal), // ✅ now also uses selected range
+    apiGet("/api/admin/dashboard/followups", { range }, signal),
     apiGet("/api/admin/dashboard/recent-deals", { range }, signal),
   ]);
 
-  return { summary: sum, pipeline: pipe, teamPerformance: team, followups: fu, recentDeals: deals };
+  return {
+    summary: sum,
+    pipeline: pipe,
+    teamPerformance: team,
+    followups: fu,
+    recentDeals: deals,
+  };
 }
 
 export default function AdminHome() {
   const [range, setRange] = useState("month");
+
+  // first load skeleton
   const [loading, setLoading] = useState(true);
+
+  // ✅ NEW: refresh overlay (prevents layout jump)
+  const [refreshing, setRefreshing] = useState(false);
+
   const [error, setError] = useState("");
 
   const [summary, setSummary] = useState({
@@ -249,7 +234,16 @@ export default function AdminHome() {
     const controller = new AbortController();
 
     async function load() {
-      setLoading(true);
+      // if already have data, do overlay refresh instead of skeleton
+      const hasData =
+        pipeline.length > 0 ||
+        teamPerf.length > 0 ||
+        followups.length > 0 ||
+        recentDeals.length > 0;
+
+      if (!hasData) setLoading(true);
+      else setRefreshing(true);
+
       setError("");
 
       try {
@@ -260,52 +254,59 @@ export default function AdminHome() {
           setTeamPerf(mock.teamPerformance);
           setFollowups(mock.followups);
           setRecentDeals(mock.recentDeals);
-          setLoading(false);
-          return;
+        } else {
+          const data = await fetchDashboard(range, controller.signal);
+          setSummary(data.summary);
+          setPipeline(data.pipeline);
+          setTeamPerf(data.teamPerformance);
+          setFollowups(data.followups);
+          setRecentDeals(data.recentDeals);
         }
-
-        const data = await fetchDashboard(range, controller.signal);
-        setSummary(data.summary);
-        setPipeline(data.pipeline);
-        setTeamPerf(data.teamPerformance);
-        setFollowups(data.followups);
-        setRecentDeals(data.recentDeals);
-        setLoading(false);
       } catch (e) {
-        // Ignore abort errors
         if (e?.name === "AbortError") return;
         setError(e?.message || "Failed to load dashboard");
+      } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     }
 
     load();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
   const kpis = [
     {
       title: "Revenue (Won)",
       value: formatINR(summary.revenueWon),
-      sub: `${summary.revenueDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(summary.revenueDeltaPct)}% vs last ${range}`,
+      sub: `${summary.revenueDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
+        summary.revenueDeltaPct
+      )}% vs last ${range}`,
       accent: "green",
     },
     {
       title: "Active Deals",
       value: String(summary.activeDeals),
-      sub: `${summary.activeDealsDelta >= 0 ? "↑" : "↓"} ${Math.abs(summary.activeDealsDelta)} this ${range}`,
+      sub: `${summary.activeDealsDelta >= 0 ? "↑" : "↓"} ${Math.abs(
+        summary.activeDealsDelta
+      )} this ${range}`,
       accent: "blue",
     },
     {
       title: "Win Rate",
       value: `${summary.winRatePct}%`,
-      sub: `${summary.winRateDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(summary.winRateDeltaPct)}% this ${range}`,
+      sub: `${summary.winRateDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
+        summary.winRateDeltaPct
+      )}% this ${range}`,
       accent: "cyan",
     },
     {
       title: "Pipeline Value",
       value: formatINR(summary.pipelineValue),
-      sub: `${summary.pipelineDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(summary.pipelineDeltaPct)}% vs target`,
+      sub: `${summary.pipelineDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
+        summary.pipelineDeltaPct
+      )}% vs target`,
       accent: "purple",
     },
     {
@@ -320,12 +321,20 @@ export default function AdminHome() {
     <div className="adminHome">
       <div className="adminHome__bg" />
 
+      {/* ✅ NEW: overlay refresh spinner (no layout jump) */}
+      {refreshing && (
+        <div className="refreshOverlay">
+          <CSpinner color="primary" />
+        </div>
+      )}
+
       {/* Top Bar */}
       <div className="topBar">
         <div className="topActions">
           <CFormSelect
             className="select"
             value={range}
+            disabled={refreshing}
             onChange={(e) => setRange(e.target.value)}
           >
             <option value="week">This Week</option>
@@ -343,7 +352,7 @@ export default function AdminHome() {
         </CAlert>
       )}
 
-      {/* Loading Skeleton */}
+      {/* Loading Skeleton (only on first load) */}
       {loading ? (
         <div className="skeletonGrid">
           {[...Array(5)].map((_, i) => (
@@ -381,11 +390,15 @@ export default function AdminHome() {
                 </div>
                 <span className="panel__meta">{range.toUpperCase()}</span>
               </CCardHeader>
+
               <CCardBody>
                 {/* Stage chips */}
                 <div className="stageStrip">
                   {pipeline.map((p, idx) => (
-                    <div key={p.code} className={cx("stageChip", `stageChip--${idx + 1}`)}>
+                    <div
+                      key={p.code}
+                      className={cx("stageChip", `stageChip--${idx + 1}`)}
+                    >
                       <div className="stageChip__code">{p.code}</div>
                       <div className="stageChip__count">{p.count}</div>
                     </div>
@@ -396,7 +409,9 @@ export default function AdminHome() {
                 <div className="bars">
                   {pipeline.map((p) => {
                     const width =
-                      totalDeals === 0 ? 0 : Math.round(((p.count || 0) / totalDeals) * 100);
+                      totalDeals === 0
+                        ? 0
+                        : Math.round(((p.count || 0) / totalDeals) * 100);
                     const fill = Math.max(width, (p.count || 0) > 0 ? 12 : 0);
 
                     return (
@@ -406,7 +421,12 @@ export default function AdminHome() {
                         </div>
 
                         <div className="barRow__mid">
-                          <CProgress value={fill} className="barTrack" color="primary" thin />
+                          <CProgress
+                            value={fill}
+                            className="barTrack"
+                            color="primary"
+                            thin
+                          />
                         </div>
 
                         <div className="barRow__right">
@@ -453,25 +473,26 @@ export default function AdminHome() {
               {/* Follow-ups */}
               <CCard className="panel">
                 <CCardHeader className="panel__header">
-                        <div className="panel__titleRow panel__titleRow--space">
-                          <div className="panel__titleRow">
-                            <span className="panel__title">Upcoming Follow-ups</span>
-                            <AiBadge tone="priority">AI Priority</AiBadge>
-                          </div>
+                  <div className="panel__titleRow panel__titleRow--space">
+                    <div className="panel__titleRow">
+                      <span className="panel__title">Upcoming Follow-ups</span>
+                      <AiBadge tone="priority">AI Priority</AiBadge>
+                    </div>
 
-                          <CButton
-                            color="primary"
-                            size="sm"
-                            className="btnNeon"
-                            onClick={() => navigate(`/admin/followups?range=${range}`)}
-                          >
-                            View All
-                          </CButton>
-                        </div>
-                  </CCardHeader>
+                    <CButton
+                      color="primary"
+                      size="sm"
+                      className="btnNeon"
+                      onClick={() => navigate(`/followups`)}
+                    >
+                      View All
+                    </CButton>
+                  </div>
+                </CCardHeader>
+
                 <CCardBody>
                   <div className="followList">
-                    {followups.slice(0,2).map((f) => (
+                    {followups.slice(0, 2).map((f) => (
                       <div key={f.id} className="followItem">
                         <div className="followIcon">{f.icon}</div>
 
@@ -503,14 +524,6 @@ export default function AdminHome() {
                       </div>
                     ))}
                   </div>
-
-                  {/* <CButton
-                    color="primary"
-                    className="btnGhost btnCenter mt-2"
-                    onClick={() => navigate(`/admin/followups?range=${range}`)}
-                  >
-                    View All
-                  </CButton> */}
                 </CCardBody>
               </CCard>
             </div>
@@ -518,7 +531,6 @@ export default function AdminHome() {
             {/* Recent Deals Table */}
             <CCard className="panel panel--deals">
               <CCardHeader className="panel__header">
-                {/* ✅ View All button aligned right */}
                 <div className="panel__titleRow panel__titleRow--space">
                   <span className="panel__title">Recent Deals</span>
 
@@ -526,7 +538,7 @@ export default function AdminHome() {
                     color="primary"
                     size="sm"
                     className="btnNeon"
-                    onClick={() => navigate(`/admin/deals?range=${range}`)}
+                    onClick={() => navigate(`/deals`)}
                   >
                     View All
                   </CButton>
@@ -548,15 +560,21 @@ export default function AdminHome() {
                   <CTableBody>
                     {recentDeals.map((d) => (
                       <CTableRow key={d.id}>
-                        <CTableDataCell className="tbl__client">{d.client}</CTableDataCell>
+                        <CTableDataCell className="tbl__client">
+                          {d.client}
+                        </CTableDataCell>
                         <CTableDataCell>
                           <StagePill stage={d.stage} />
                         </CTableDataCell>
-                        <CTableDataCell className="tbl__value">{formatINR(d.value)}</CTableDataCell>
+                        <CTableDataCell className="tbl__value">
+                          {formatINR(d.value)}
+                        </CTableDataCell>
                         <CTableDataCell>
                           <Risk level={d.risk} />
                         </CTableDataCell>
-                        <CTableDataCell className="muted">{d.closeDate}</CTableDataCell>
+                        <CTableDataCell className="muted">
+                          {d.closeDate}
+                        </CTableDataCell>
                       </CTableRow>
                     ))}
                   </CTableBody>
