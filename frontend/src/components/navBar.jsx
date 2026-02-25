@@ -246,6 +246,10 @@ function Navbar() {
                 Products
               </div>
 
+              <div onClick={() => navigate("/taxes")}>
+                Taxes
+              </div>
+
               <div onClick={() => navigate("/roles")}>
                 Roles
               </div>

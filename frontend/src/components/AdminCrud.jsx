@@ -274,7 +274,9 @@ export default function AdminCrud({
               {columns.map(col => (
 
                 <td key={col.field}>
-                  {item[col.field]}
+                  {col.render
+                    ? col.render(item)
+                    : item[col.field]}
                 </td>
 
               ))}
