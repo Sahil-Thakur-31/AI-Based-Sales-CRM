@@ -1,5 +1,6 @@
 const http = require('http')
 const express = require('express')
+const path = require("path");
 require('dotenv').config()
 const authRoute = require('./routes/authRoutes')
 const userRoutes = require('./routes/userRoutes')
@@ -29,7 +30,7 @@ app.use(cors());
 
 app.use('/auth',authRoute);
 app.use("/users", userRoutes);
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/crm-settings", crmSettingsRoutes);
 app.use("/products", productRoutes);
 app.use("/notifications", notificationRoutes);
