@@ -17,7 +17,7 @@ const taxRoutes = require("./routes/taxRoutes");
 require('./config/db');
 const bodyparser = require('body-parser');
 const cors = require('cors');
-const adminDashboardRoutes = require("./routes/adminDashboard.admin.routes");
+const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 
 const app = express();
 const myServer = http.createServer(app);
