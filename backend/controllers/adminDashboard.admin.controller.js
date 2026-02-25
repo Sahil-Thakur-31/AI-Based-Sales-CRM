@@ -1,7 +1,7 @@
 //Purpose: Controller layer for API endpoints (calls the service functions).
 
 
-const svc = require("../services/adminDashboard.admin.service");
+const svc = require("../services/adminDashboardService");
 
 exports.summary = async (req, res) => {
   const range = req.query.range || "month";

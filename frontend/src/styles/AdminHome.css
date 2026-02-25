@@ -42,10 +42,7 @@
 .adminHome__bg {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(900px 420px at 15% 10%, rgba(109,94,252,0.10), transparent 60%),
-    radial-gradient(900px 420px at 85% 5%, rgba(59,130,246,0.10), transparent 60%),
-    radial-gradient(900px 520px at 70% 90%, rgba(236,72,153,0.06), transparent 65%);
+ 
   pointer-events: none;
   border-radius: 20px !important;
 }
