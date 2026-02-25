@@ -1,13 +1,13 @@
 const Counter = require("../models/counter");
 
-const getNextCounter = async (name) => {
+const getNextCounter = async (counterType) => {
   const counter = await Counter.findOneAndUpdate(
-    { name },
-    { $inc: { seq: 1 } },
+    { counterType: counterType.toUpperCase() }, // match your schema
+    { $inc: { value: 1 } },                     // increment correct field
     { new: true, upsert: true }
   );
 
-  return counter.seq;
+  return counter.value; // return updated number
 };
 
 module.exports = getNextCounter;

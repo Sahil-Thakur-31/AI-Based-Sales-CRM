@@ -24,7 +24,7 @@ const followupHistorySchema = new mongoose.Schema(
       maxlength: 2000
     },
 
-    isDeleted: {
+    is_deleted: {
       type: Boolean,
       default: false,
       index: true

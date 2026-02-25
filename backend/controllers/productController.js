@@ -1,16 +1,15 @@
 const Product = require("../models/products");
 
 
-
 /*
-GET ALL PRODUCTS
+GET ALL PRODUCTS (exclude deleted)
 */
 exports.getProducts = async (req, res) => {
 
   try {
 
     const products = await Product.find({
-      isDeleted: false
+      is_deleted: false
     })
     .sort({ createdAt: -1 });
 
@@ -18,6 +17,8 @@ exports.getProducts = async (req, res) => {
 
   }
   catch (err) {
+
+    console.error(err);
 
     res.status(500).json({
       message: "Failed to fetch products"
@@ -39,19 +40,31 @@ exports.createProduct = async (req, res) => {
     const product = await Product.create({
 
       name: req.body.name,
+
       description: req.body.description,
+
       category: req.body.category,
-      product_code: req.body.product_code,
+
       price: req.body.price,
+
       taxPercent: req.body.taxPercent,
-      createdBy: req.user._id
+
+      createdBy: req.user._id,
+
+      createdAt: new Date(),
+
+      updatedAt: new Date(),
+
+      is_deleted: false
 
     });
 
-    res.json(product);
+    res.status(201).json(product);
 
   }
   catch (err) {
+
+    console.error(err);
 
     res.status(500).json({
       message: err.message
@@ -64,26 +77,44 @@ exports.createProduct = async (req, res) => {
 
 
 /*
-UPDATE PRODUCT
+UPDATE PRODUCT (only if not deleted)
 */
 exports.updateProduct = async (req, res) => {
 
   try {
 
-    const product = await Product.findByIdAndUpdate(
+    const product = await Product.findOneAndUpdate(
 
-      req.params.id,
+      {
+        _id: req.params.id,
+        is_deleted: false
+      },
 
-      req.body,
+      {
+        ...req.body,
+        updatedAt: new Date()
+      },
 
-      { new: true }
+      {
+        returnDocument: "after"
+      }
 
     );
+
+    if (!product) {
+
+      return res.status(404).json({
+        message: "Product not found or already deleted"
+      });
+
+    }
 
     res.json(product);
 
   }
   catch (err) {
+
+    console.error(err);
 
     res.status(500).json({
       message: "Update failed"
@@ -96,29 +127,95 @@ exports.updateProduct = async (req, res) => {
 
 
 /*
-DELETE PRODUCT (soft delete)
+SOFT DELETE PRODUCT
 */
 exports.deleteProduct = async (req, res) => {
 
   try {
 
-    await Product.findByIdAndUpdate(
+    const product = await Product.findByIdAndUpdate(
 
       req.params.id,
 
-      { isDeleted: true }
+      {
+        is_deleted: true,
+        updatedAt: new Date()
+      },
+
+      {
+        returnDocument: "after"
+      }
 
     );
 
+    if (!product) {
+
+      return res.status(404).json({
+        message: "Product not found"
+      });
+
+    }
+
     res.json({
-      message: "Product deleted"
+      message: "Product deleted successfully"
     });
 
   }
   catch (err) {
 
+    console.error(err);
+
     res.status(500).json({
       message: "Delete failed"
+    });
+
+  }
+
+};
+
+
+
+/*
+RESTORE PRODUCT (optional but highly recommended)
+*/
+exports.restoreProduct = async (req, res) => {
+
+  try {
+
+    const product = await Product.findByIdAndUpdate(
+
+      req.params.id,
+
+      {
+        is_deleted: false,
+        updatedAt: new Date()
+      },
+
+      {
+        returnDocument: "after"
+      }
+
+    );
+
+    if (!product) {
+
+      return res.status(404).json({
+        message: "Product not found"
+      });
+
+    }
+
+    res.json({
+      message: "Product restored successfully"
+    });
+
+  }
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: "Restore failed"
     });
 
   }

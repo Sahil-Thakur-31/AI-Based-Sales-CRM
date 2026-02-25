@@ -5,12 +5,14 @@ const {
   getIndustries,
   createIndustry,
   updateIndustry,
-  deleteIndustry
+  deleteIndustry,
+  activateIndustry
 } = require("../controllers/industriesController");
 
 router.get("/", auth, getIndustries);
 router.post("/", auth, createIndustry);
 router.put("/:id", auth, updateIndustry);
 router.put("/delete/:id", auth, deleteIndustry);
+router.put("/activate/:id", auth, activateIndustry);
 
 module.exports = router;

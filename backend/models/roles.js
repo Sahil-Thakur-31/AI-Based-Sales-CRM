@@ -10,6 +10,11 @@ const rolesSchema = new mongoose.Schema({
     type: String
   },
 
+  is_deleted: {
+    type: Boolean,
+    default: false
+  },
+
   createdAt: {
     type: Date
   },

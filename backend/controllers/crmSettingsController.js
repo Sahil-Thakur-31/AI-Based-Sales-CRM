@@ -75,11 +75,14 @@ exports.updateMySettings = async (req, res) => {
           req.body.reminderMethodWhatsApp,
 
         reminderTiming:
-          req.body.reminderTiming
+          req.body.reminderTiming,
+
+        customReminderOffsetMinutes:
+          req.body.customReminderOffsetMinutes
       },
 
       {
-        new: true,
+        returnDocument: "after",
         upsert: true
       }
 
