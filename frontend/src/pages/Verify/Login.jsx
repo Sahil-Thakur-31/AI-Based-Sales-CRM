@@ -41,7 +41,7 @@ function Login(){
         
         // strong password validation
         const strongPassword =
-            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+            /^(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
         
         if (!strongPassword.test(password)) {
             return handleError(
