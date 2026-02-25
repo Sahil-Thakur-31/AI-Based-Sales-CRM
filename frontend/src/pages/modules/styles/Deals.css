@@ -1,18 +1,8 @@
-.deals-page {
-  padding: 24px;
-}
-
 .deals-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-bottom: 16px;
-}
-
-.deals-header h2 {
-  margin: 0;
-  font-size: 22px;
-  color: #1f2937;
 }
 
 .deals-header-actions {

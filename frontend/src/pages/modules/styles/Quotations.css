@@ -1,35 +1,8 @@
-.quotes-page,
-.quote-form-page {
-  padding: 24px;
-}
-
 .quotes-toolbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-bottom: 14px;
-}
-
-.quotes-heading-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.quotes-heading {
-  margin: 0;
-  color: #1f2937;
-  font-size: 22px;
-}
-
-.quotes-badge {
-  border: 1px solid #d1fae5;
-  background: #ecfdf5;
-  color: #065f46;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .quotes-new-btn {
@@ -335,7 +308,13 @@
 }
 
 .quote-summary-discount input {
-  width: 150px;
+  width: 75px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #111827;
+  outline: none;
 }
 
 .quote-summary-total {

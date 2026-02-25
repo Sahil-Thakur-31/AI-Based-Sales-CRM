@@ -95,15 +95,6 @@ export default function Quotations() {
 
       <div className="quotes-toolbar">
 
-        <div className="quotes-heading-wrap">
-          <h2 className="quotes-heading">
-            Quotations
-          </h2>
-          <span className="quotes-badge">
-            Auto-numbered
-          </span>
-        </div>
-
         <button
           className="quotes-new-btn"
           onClick={() => navigate("/quotations/new")}

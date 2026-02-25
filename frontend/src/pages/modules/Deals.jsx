@@ -67,8 +67,6 @@ export default function Deals() {
 
       <div className="deals-header">
 
-        <h2>Deals</h2>
-
         <div className="deals-header-actions">
 
           <input
