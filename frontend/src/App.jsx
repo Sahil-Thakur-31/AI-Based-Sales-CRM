@@ -11,6 +11,8 @@ import ManagerHome from './pages/ManagerHome';
 import ManageUsers from './pages/modules/adminsetting/ManageUsers.jsx';
 
 import Leads from './pages/modules/Leads.jsx';
+import LeadFormPage from './pages/modules/LeadFormPage.jsx'
+
 import Clients from './pages/modules/Clients.jsx';
 import Deals from './pages/modules/Deals.jsx';
 import Quotations from './pages/modules/Quotations.jsx';
@@ -67,6 +69,8 @@ function App() {
 
           {/* CRM Core routes */}
           <Route path="/leads" element={<Leads />} />
+          <Route path="/leads/new" element={<LeadFormPage />} />
+          <Route path="/leads/:id" element={<LeadFormPage />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/deals" element={<Deals />} />
           <Route path="/quotations" element={<Quotations />} />
