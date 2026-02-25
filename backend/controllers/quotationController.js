@@ -6,6 +6,15 @@ const Product = require("../models/products");
 const Tax = require("../models/taxes");
 
 const MAX_PERCENT = 100;
+const QUOTATION_STATUSES = [
+  "draft",
+  "sent",
+  "viewed",
+  "negotiation",
+  "approved",
+  "rejected",
+  "expired"
+];
 
 function parseNumber(value, fallback = 0) {
 
@@ -153,7 +162,6 @@ exports.createQuotation = async (req, res) => {
       dealId,
       quoteDate,
       validUntil,
-      status,
       notes,
       discountAmount,
       currency,
@@ -325,7 +333,7 @@ exports.createQuotation = async (req, res) => {
       discountAmount: round2(normalizedDiscountAmount),
       grandTotal,
       currency: currency || "INR",
-      status: status || "draft",
+      status: "draft",
       version,
       notes: notes || "",
       isActive: true,
@@ -352,6 +360,70 @@ exports.createQuotation = async (req, res) => {
     console.error(err);
     res.status(500).json({
       message: "Failed to create quotation"
+    });
+
+  }
+
+};
+
+exports.updateQuotationStatus = async (req, res) => {
+
+  try {
+
+    const nextStatus = String(req.body?.status || "")
+      .trim()
+      .toLowerCase();
+
+    if (!nextStatus || !QUOTATION_STATUSES.includes(nextStatus)) {
+      return res.status(400).json({
+        message: "Invalid quotation status"
+      });
+    }
+
+    const updatePayload = {
+      status: nextStatus
+    };
+
+    if (nextStatus === "approved") {
+      updatePayload.approvedBy = req.user?._id || null;
+      updatePayload.approvedAt = new Date();
+    } else {
+      updatePayload.approvedBy = null;
+      updatePayload.approvedAt = null;
+    }
+
+    const quotation = await Quotation.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        is_deleted: false
+      },
+      {
+        $set: updatePayload
+      },
+      {
+        new: true
+      }
+    )
+    .select("_id status version updatedAt");
+
+    if (!quotation) {
+      return res.status(404).json({
+        message: "Quotation not found"
+      });
+    }
+
+    res.json({
+      _id: quotation._id,
+      status: quotation.status,
+      version: quotation.version,
+      updatedAt: quotation.updatedAt
+    });
+
+  } catch (err) {
+
+    console.error(err);
+    res.status(500).json({
+      message: "Failed to update quotation status"
     });
 
   }

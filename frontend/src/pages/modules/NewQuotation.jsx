@@ -52,7 +52,6 @@ export default function NewQuotation() {
     dealId: "",
     quoteDate: todayAsInputDate(),
     validUntil: "",
-    status: "draft",
     discountAmount: 0,
     notes: ""
   });
@@ -242,7 +241,6 @@ export default function NewQuotation() {
         dealId: form.dealId,
         quoteDate: form.quoteDate,
         validUntil: form.validUntil || null,
-        status: form.status,
         discountAmount: totals.discountAmount,
         notes: form.notes,
         items: validItems.map((item) => ({
@@ -340,22 +338,6 @@ export default function NewQuotation() {
               value={form.validUntil}
               onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
             />
-          </div>
-
-          <div className="quote-field quote-field-full">
-            <label>Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              <option value="draft">draft</option>
-              <option value="sent">sent</option>
-              <option value="viewed">viewed</option>
-              <option value="negotiation">negotiation</option>
-              <option value="approved">approved</option>
-              <option value="rejected">rejected</option>
-              <option value="expired">expired</option>
-            </select>
           </div>
 
         </div>

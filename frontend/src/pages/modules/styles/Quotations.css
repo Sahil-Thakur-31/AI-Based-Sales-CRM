@@ -86,6 +86,24 @@
   text-transform: capitalize;
 }
 
+.quote-status-select {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: #ffffff;
+  cursor: pointer;
+  outline: none;
+}
+
+.quote-status-select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .quote-status.draft {
   background: #e2e8f0;
   color: #334155;
@@ -115,6 +133,43 @@
 .quote-status.expired {
   background: #fee2e2;
   color: #b91c1c;
+}
+
+.quote-status-select.draft {
+  border-color: #cbd5e1;
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.quote-status-select.sent {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.quote-status-select.viewed {
+  border-color: #c4b5fd;
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.quote-status-select.negotiation {
+  border-color: #fcd34d;
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.quote-status-select.approved {
+  border-color: #86efac;
+  color: #166534;
+  background: #dcfce7;
+}
+
+.quote-status-select.rejected,
+.quote-status-select.expired {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fee2e2;
 }
 
 .quote-actions {

@@ -13,6 +13,16 @@ const STATUS_CLASS = {
   expired: "expired"
 };
 
+const QUOTATION_STATUSES = [
+  "draft",
+  "sent",
+  "viewed",
+  "negotiation",
+  "approved",
+  "rejected",
+  "expired"
+];
+
 function formatCurrency(value) {
 
   return new Intl.NumberFormat("en-IN", {
@@ -43,6 +53,7 @@ export default function Quotations() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [statusUpdatingId, setStatusUpdatingId] = useState("");
 
   useEffect(() => {
     loadQuotations();
@@ -85,6 +96,39 @@ export default function Quotations() {
 
       console.error(err);
       alert("Failed to delete quotation");
+
+    }
+
+  };
+
+  const updateQuotationStatus = async (quotationId, nextStatus, currentStatus) => {
+
+    if (!quotationId || !nextStatus || nextStatus === currentStatus) return;
+
+    try {
+
+      setStatusUpdatingId(quotationId);
+
+      const res = await API.put(`/quotations/${quotationId}/status`, {
+        status: nextStatus
+      });
+
+      const updatedStatus = res.data?.status || nextStatus;
+
+      setQuotations((prev) => prev.map((quote) => (
+        quote._id === quotationId
+          ? { ...quote, status: updatedStatus }
+          : quote
+      )));
+
+    } catch (err) {
+
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to update quotation status");
+
+    } finally {
+
+      setStatusUpdatingId("");
 
     }
 
@@ -195,9 +239,18 @@ export default function Quotations() {
                     <td>{formatDate(quote.validUntil)}</td>
 
                     <td>
-                      <span className={`quote-status ${STATUS_CLASS[quote.status] || "draft"}`}>
-                        {quote.status}
-                      </span>
+                      <select
+                        className={`quote-status-select ${STATUS_CLASS[quote.status] || "draft"}`}
+                        value={quote.status || "draft"}
+                        disabled={statusUpdatingId === quote._id}
+                        onChange={(e) => updateQuotationStatus(quote._id, e.target.value, quote.status)}
+                      >
+                        {QUOTATION_STATUSES.map((statusOption) => (
+                          <option key={statusOption} value={statusOption}>
+                            {statusOption}
+                          </option>
+                        ))}
+                      </select>
                     </td>
 
                     <td>

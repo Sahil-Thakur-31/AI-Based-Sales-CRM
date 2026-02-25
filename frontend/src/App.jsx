@@ -15,6 +15,8 @@ import LeadFormPage from './pages/modules/LeadFormPage.jsx'
 
 import Clients from './pages/modules/Clients.jsx';
 import Deals from './pages/modules/Deals.jsx';
+import DealDetails from './pages/modules/DealDetails.jsx';
+import ClientDetails from './pages/modules/ClientDetails.jsx';
 import Quotations from './pages/modules/Quotations.jsx';
 import NewQuotation from './pages/modules/NewQuotation.jsx';
 import Meetings from './pages/modules/Meetings.jsx';
@@ -74,7 +76,9 @@ function App() {
           <Route path="/leads/new" element={<LeadFormPage />} />
           <Route path="/leads/:id" element={<LeadFormPage />} />
           <Route path="/clients" element={<Clients />} />
+          <Route path="/clients/:id" element={<ClientDetails />} />
           <Route path="/deals" element={<Deals />} />
+          <Route path="/deals/:id" element={<DealDetails />} />
           <Route path="/quotations" element={<Quotations />} />
           <Route path="/quotations/new" element={<NewQuotation />} />
 

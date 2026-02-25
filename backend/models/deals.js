@@ -4,7 +4,7 @@ const dealsSchema = new mongoose.Schema(
   {
     client_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Client",
+      ref: "client",
     },
 
     clientName: {
@@ -14,12 +14,12 @@ const dealsSchema = new mongoose.Schema(
 
     client_contact_Id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ClientContact",
+      ref: "client_contact",
     },
 
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "users",
     },
 
     stage: {
@@ -54,20 +54,22 @@ const dealsSchema = new mongoose.Schema(
 
     lead_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Lead",
+      ref: "Leads",
     },
 
     isActive: {
       type: Boolean,
+      default: true
     },
 
     is_deleted: {
       type: Boolean,
+      default: false
     },
 
     assignedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "users",
     },
   },
   {

@@ -11,6 +11,7 @@ const sourcesRoutes = require("./routes/sourcesRoutes");
 const industriesRoutes = require("./routes/industriesRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const dealsRoutes = require("./routes/dealsRoutes");
+const clientRoutes = require("./routes/clientRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const taxRoutes = require("./routes/taxRoutes");
 
@@ -38,6 +39,7 @@ app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/deals", dealsRoutes);
+app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
