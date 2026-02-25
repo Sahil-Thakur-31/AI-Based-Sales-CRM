@@ -12,7 +12,7 @@ function BackButton() {
         cursor: "pointer"
       }}
     >
-      ← Back
+      ← Back 
     </a>
   );
 }

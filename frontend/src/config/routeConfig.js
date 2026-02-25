@@ -16,6 +16,8 @@ export const routeConfig = [
 
   // CRM
   { path: "/leads", title: "Leads" },
+  { path: "/leads/new", title: "Add Lead" },
+  { path: "/leads/:id", title: "Lead Details", dynamic: true },
   { path: "/clients", title: "Clients" },
   { path: "/deals", title: "Deals" },
   { path: "/quotations", title: "Quotations" },

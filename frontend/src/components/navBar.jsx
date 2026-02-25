@@ -104,14 +104,24 @@ function Navbar() {
   /* Module title */
   const moduleName = useMemo(() => {
 
-    const route = routeConfig.find(
-      r => location.pathname.startsWith(r.path)
-    );
+  const currentPath = location.pathname;
 
-    return route ? route.title : "Dashboard";
+  const sortedRoutes = [...routeConfig].sort(
+    (a, b) => b.path.length - a.path.length
+  );
 
-  }, [location.pathname]);
+  const route = sortedRoutes.find(r => {
+    if (r.dynamic) {
+      const base = r.path.replace("/:id", "");
+      return currentPath.startsWith(base);
+    }
 
+    return currentPath === r.path;
+  });
+
+  return route?.title || "Dashboard";
+
+}, [location.pathname]);
 
   /* Initials fallback */
   const getInitials = (name) => {
