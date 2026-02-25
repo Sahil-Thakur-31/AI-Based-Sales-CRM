@@ -6,6 +6,7 @@ export const routeConfig = [
 
   // Admin Config Modules
   { path: "/products", title: "Products" },
+  { path: "/taxes", title: "Taxes" },
   { path: "/roles", title: "Roles" },
   { path: "/industry", title: "Industry" },
   { path: "/sources", title: "Sources" },
@@ -21,6 +22,7 @@ export const routeConfig = [
   { path: "/clients", title: "Clients" },
   { path: "/deals", title: "Deals" },
   { path: "/quotations", title: "Quotations" },
+  { path: "/quotations/new", title: "New Quotation" },
 
   { path: "/meetings", title: "Meetings" },
   { path: "/followups", title: "Follow-ups" },

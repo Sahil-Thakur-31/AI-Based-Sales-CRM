@@ -3,8 +3,7 @@ const mongoose = require("mongoose");
 const quotationSchema = new mongoose.Schema({
 
   quoteNumber: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "counter",
+    type: String,
     required: true
   },
 

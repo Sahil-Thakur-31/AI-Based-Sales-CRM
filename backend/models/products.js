@@ -29,6 +29,12 @@ const productsSchema = new mongoose.Schema({
     default: 0
   },
 
+  taxId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "taxes",
+    default: null
+  },
+
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "users"

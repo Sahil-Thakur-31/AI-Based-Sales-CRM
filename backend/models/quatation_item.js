@@ -20,6 +20,12 @@ const quotationItemSchema = new mongoose.Schema({
     min: 1
   },
 
+  unitPrice: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+
   discountPercent: {
     type: Number,
     default: 0,
@@ -32,6 +38,12 @@ const quotationItemSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100
+  },
+
+  taxId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "taxes",
+    default: null
   },
 
   subtotal: {
