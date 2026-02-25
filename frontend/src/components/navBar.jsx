@@ -18,6 +18,7 @@ function Navbar() {
 
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [refreshingApp, setRefreshingApp] = useState(false);
 
   /* timers */
   const profileMenuTimer = useRef(null);
@@ -140,6 +141,15 @@ function Navbar() {
 
   };
 
+  const handleGlobalRefresh = () => {
+
+    if (refreshingApp) return;
+
+    setRefreshingApp(true);
+    window.location.reload();
+
+  };
+
 
   /* PROFILE hover handlers */
   const handleProfileEnter = () => {
@@ -157,7 +167,7 @@ function Navbar() {
 
       setShowProfileMenu(false);
 
-    }, 200);
+    }, 60);
 
   };
 
@@ -178,7 +188,7 @@ function Navbar() {
 
       setShowAdminMenu(false);
 
-    }, 200);
+    }, 60);
 
   };
 
@@ -199,7 +209,7 @@ function Navbar() {
 
       setShowNotifications(false);
 
-    }, 200);
+    }, 60);
 
   };
 
@@ -225,6 +235,15 @@ function Navbar() {
 
       {/* RIGHT */}
       <div className="navbar-right">
+
+        <button
+          className={`nav-refresh-btn ${refreshingApp ? "refreshing" : ""}`}
+          onClick={handleGlobalRefresh}
+          title="Refresh all data"
+          disabled={refreshingApp}
+        >
+          {refreshingApp ? "Refreshing..." : "Refresh"}
+        </button>
 
 
         {/* ADMIN MENU */}

@@ -77,7 +77,10 @@ body {
   flex-wrap: wrap;
 }
 
-.filters input,
+.filters .leads-search-input {
+  min-width: 240px;
+}
+
 .filters select {
   padding: 8px 14px;
   border-radius: 10px;
@@ -87,7 +90,6 @@ body {
   transition: 0.2s;
 }
 
-.filters input:focus,
 .filters select:focus {
   border-color: #6366f1;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import "./styles/Quotations.css";
@@ -42,6 +42,7 @@ export default function Quotations() {
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     loadQuotations();
@@ -89,6 +90,21 @@ export default function Quotations() {
 
   };
 
+  const filteredQuotations = useMemo(() => {
+
+    const term = query.trim().toLowerCase();
+    if (!term) return quotations;
+
+    return quotations.filter((quote) =>
+      String(quote.quoteNumber || "").toLowerCase().includes(term) ||
+      String(quote.refCode || "").toLowerCase().includes(term) ||
+      String(quote.clientName || "").toLowerCase().includes(term) ||
+      String(quote.status || "").toLowerCase().includes(term) ||
+      `v${quote.version || ""}`.toLowerCase().includes(term)
+    );
+
+  }, [quotations, query]);
+
   return (
 
     <div className="quotes-page">
@@ -102,6 +118,14 @@ export default function Quotations() {
           + New Quote
         </button>
 
+        <input
+          className="app-search-input quotes-search-input"
+          type="text"
+          placeholder="Search quotations..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+
       </div>
 
       <div className="quotes-table-shell">
@@ -113,6 +137,10 @@ export default function Quotations() {
         ) : quotations.length === 0 ? (
           <div className="quotes-empty">
             No quotations yet. Create your first quote.
+          </div>
+        ) : filteredQuotations.length === 0 ? (
+          <div className="quotes-empty">
+            No quotations match your search.
           </div>
         ) : (
           <div className="quotes-table-scroll">
@@ -137,7 +165,7 @@ export default function Quotations() {
               </thead>
 
               <tbody>
-                {quotations.map((quote) => (
+                {filteredQuotations.map((quote) => (
                   <tr key={quote._id}>
 
                     <td className="quote-number">

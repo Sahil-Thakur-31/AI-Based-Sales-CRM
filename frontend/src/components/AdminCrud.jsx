@@ -170,12 +170,10 @@ export default function AdminCrud({
     <div className="admin-config-page">
 
       <div className="admin-config-header">
-
-        <h2>{title}</h2>
-
         <div className="admin-config-actions">
 
           <input
+            className="app-search-input admin-search-input"
             placeholder="Search..."
             value={filter}
             onChange={e => setFilter(e.target.value)}

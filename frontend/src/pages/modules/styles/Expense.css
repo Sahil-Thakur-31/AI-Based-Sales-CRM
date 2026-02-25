@@ -173,12 +173,9 @@ button {
   z-index: 10;
 }
 
-.expense-dropdown-menu input {
+.expense-dropdown-menu .expense-dropdown-search {
   width: 100%;
-  padding: 6px;
   margin-bottom: 6px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
 }
 
 .expense-dropdown-item {

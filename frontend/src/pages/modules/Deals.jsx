@@ -70,15 +70,12 @@ export default function Deals() {
         <div className="deals-header-actions">
 
           <input
+            className="app-search-input deals-search-input"
             type="text"
             placeholder="Search deals..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-
-          <button onClick={loadDeals}>
-            Refresh
-          </button>
 
         </div>
 

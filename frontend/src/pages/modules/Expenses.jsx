@@ -273,6 +273,7 @@ const ExpenseDashboard = () => {
               {showDropdown && (
                 <div className="expense-dropdown-menu">
                   <input
+                    className="app-search-input expense-dropdown-search"
                     type="text"
                     placeholder="Search user..."
                     value={search}
