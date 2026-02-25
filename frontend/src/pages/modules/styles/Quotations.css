@@ -249,6 +249,10 @@
   grid-column: 1 / -1;
 }
 
+.quote-notes-field {
+  margin: 18px 24px 0;
+}
+
 .quote-line-items-card {
   margin: 18px 24px 0;
   border: 1px solid #e5e7eb;

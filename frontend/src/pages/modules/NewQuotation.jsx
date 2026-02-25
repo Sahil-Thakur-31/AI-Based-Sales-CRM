@@ -427,7 +427,7 @@ export default function NewQuotation() {
 
         </div>
 
-        <div className="quote-field quote-field-full">
+        <div className="quote-field quote-field-full quote-notes-field">
           <label>Notes</label>
           <textarea
             rows={4}
