@@ -13,8 +13,6 @@ const expenseRoutes = require("./routes/expenseRoutes");
 require('./config/db');
 const bodyparser = require('body-parser');
 const cors = require('cors');
-
-// ✅ admin dashboard
 const adminDashboardRoutes = require("./routes/adminDashboard.admin.routes");
 
 require("./models/db");
@@ -39,4 +37,5 @@ app.use("/roles", rolesRoutes);
 app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
