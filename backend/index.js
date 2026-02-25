@@ -10,14 +10,11 @@ const rolesRoutes = require("./routes/roleRoutes");
 const sourcesRoutes = require("./routes/sourcesRoutes");
 const industriesRoutes = require("./routes/industriesRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
+
 require('./config/db');
 const bodyparser = require('body-parser');
 const cors = require('cors');
 const adminDashboardRoutes = require("./routes/adminDashboard.admin.routes");
-
-require("./models/db");
-const bodyparser = require("body-parser");
-const cors = require("cors");
 
 const app = express();
 const myServer = http.createServer(app);
