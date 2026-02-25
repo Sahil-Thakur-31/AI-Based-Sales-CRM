@@ -7,6 +7,11 @@ const dealsSchema = new mongoose.Schema(
       ref: "Client",
     },
 
+    clientName: {
+      type: String,
+      trim: true,
+    },
+
     client_contact_Id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ClientContact",

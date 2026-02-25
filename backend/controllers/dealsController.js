@@ -9,7 +9,7 @@ exports.getDeals = async (req, res) => {
       is_deleted: { $ne: true }
     })
     .sort({ createdAt: -1 })
-    .select("client_id stage status dealValue");
+    .select("client_id clientName stage status dealValue");
 
     const clientIds = [
       ...new Set(
@@ -32,8 +32,8 @@ exports.getDeals = async (req, res) => {
     const response = deals.map((deal) => {
 
       const clientName = deal.client_id
-        ? (clientMap.get(String(deal.client_id)) || "Unknown Client")
-        : "Unlinked Deal";
+        ? (clientMap.get(String(deal.client_id)) || deal.clientName || "Unknown Client")
+        : (deal.clientName || "Unlinked Deal");
 
       return {
         _id: deal._id,
