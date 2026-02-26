@@ -263,6 +263,138 @@ async function syncLeadFollowupsFromHistory(lead, history = []) {
   }
 }
 
+exports.searchCompany = async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q || q.length < 2) return res.json([]);
+
+    const regex = new RegExp(escapeRegExp(q), "i");
+
+    // Search in leads (non-deleted)
+    const matchingLeads = await Leads.find({
+      company_name: regex,
+      $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
+    })
+      .sort({ updated_at: -1 })
+      .limit(10)
+      .lean();
+
+    // Search in clients
+    const matchingClients = await Client.find({
+      name: regex,
+      is_deleted: { $ne: true },
+    })
+      .limit(10)
+      .lean();
+
+    // Deduplicate by company name (case insensitive)
+    const seen = new Set();
+    const results = [];
+
+    for (const lead of matchingLeads) {
+      const key = (lead.company_name || "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      let location = null;
+      if (lead.location) {
+        location = await Location.findById(lead.location).lean();
+      }
+
+      // Get lead contacts
+      const leadContacts = await LeadContacts.find({ lead_id: lead._id })
+        .sort({ is_primary: -1, created_at: 1 })
+        .lean();
+
+      results.push({
+        _id: lead._id,
+        type: "lead",
+        company_name: lead.company_name || "",
+        industry: lead.industry || "",
+        employee_count: lead.employee_count || "",
+        turnover_range: lead.turnover_range || "",
+        Address: lead.Address || "",
+        website: lead.website || "",
+        source: lead.source || "",
+        deal_value_estimate: lead.deal_value_estimate || "",
+        lead_temperature: lead.lead_temperature || "cold",
+        assigned_to: lead.assigned_to || "",
+        country: location?.country || "",
+        State: location?.State || "",
+        city: location?.city || "",
+        zone: location?.zone || "",
+        contacts: leadContacts.map((c) => ({
+          name: c.name || "",
+          designation: c.designation || "",
+          phone: c.phone || "",
+          email: c.email || "",
+          linkedin: c.linkedin || "",
+          address: c.address || "",
+          is_primary: Boolean(c.is_primary),
+        })),
+      });
+    }
+
+    for (const client of matchingClients) {
+      const key = (client.name || "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // Resolve location
+      let location = null;
+      if (client.location) {
+        location = await Location.findById(client.location).lean();
+      }
+
+      // Resolve industry name from ObjectId
+      let industryName = "";
+      if (client.industry) {
+        const ind = await Industry.findById(client.industry).select("name").lean();
+        industryName = ind?.name || "";
+      }
+
+      // Get client contacts
+      const clientContacts = await ClientContact.find({
+        client_id: String(client._id),
+        is_active: true,
+      }).lean();
+
+      results.push({
+        _id: client._id,
+        type: "client",
+        company_name: client.name || "",
+        industry: industryName,
+        employee_count: client.employeeCount || "",
+        turnover_range: client.turnoverRange || "",
+        Address: client.Address || "",
+        website: client.website || "",
+        source: client.source || "",
+        deal_value_estimate: "",
+        lead_temperature: "cold",
+        assigned_to: "",
+        country: location?.country || "",
+        State: location?.State || "",
+        city: location?.city || "",
+        zone: location?.zone || "",
+        contacts: clientContacts.map((c) => ({
+          name: c.name || "",
+          designation: c.designation || "",
+          phone: c.phone || "",
+          email: c.email || "",
+          linkedin: c.linkedin || "",
+          address: "",
+          is_primary: true,
+        })),
+      });
+    }
+
+    res.json(results.slice(0, 10));
+  } catch (err) {
+    console.error("searchCompany error", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.getLeads = async (req, res) => {
   try {
     await normalizeLegacyLeadFlagsOnce();

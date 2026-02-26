@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
 import BackButton from "../../components/BackButton";
@@ -28,6 +28,10 @@ function LeadFormPage() {
     onConfirm: null,
   });
   const [dealDeleteReason, setDealDeleteReason] = useState("");
+  const [companySuggestions, setCompanySuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const companySearchTimer = useRef(null);
+  const suggestionsRef = useRef(null);
 
   useEffect(() => {
     setEditMode(shouldStartInEditMode);
@@ -556,7 +560,86 @@ function LeadFormPage() {
 
       {/* ================= COMPANY INFO ================= */}
       <div className="lead-form">
-        <Field label="Company Name" name="company_name" value={lead.company_name} onChange={handleLeadChange} editMode={editMode} />
+        <div className="field company-autocomplete-field">
+          <label>Company Name</label>
+          {editMode ? (
+            <div className="company-autocomplete-wrapper" ref={suggestionsRef}>
+              <input
+                type="text"
+                name="company_name"
+                value={lead.company_name || ""}
+                autoComplete="off"
+                onChange={(e) => {
+                  handleLeadChange(e);
+                  if (isNew) {
+                    const val = e.target.value.trim();
+                    if (companySearchTimer.current) clearTimeout(companySearchTimer.current);
+                    if (val.length < 2) {
+                      setCompanySuggestions([]);
+                      setShowSuggestions(false);
+                      return;
+                    }
+                    companySearchTimer.current = setTimeout(async () => {
+                      try {
+                        const { data } = await API.get("/leads/search-company", { params: { q: val } });
+                        setCompanySuggestions(Array.isArray(data) ? data : []);
+                        setShowSuggestions(true);
+                      } catch (err) {
+                        console.error("company search error", err);
+                      }
+                    }, 300);
+                  }
+                }}
+                onFocus={() => {
+                  if (companySuggestions.length > 0) setShowSuggestions(true);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowSuggestions(false), 200);
+                }}
+              />
+              {showSuggestions && companySuggestions.length > 0 && (
+                <ul className="company-suggestions">
+                  {companySuggestions.map((s) => (
+                    <li
+                      key={s._id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setLead((prev) => ({
+                          ...prev,
+                          company_name: s.company_name,
+                          industry: s.industry || prev.industry,
+                          employee_count: s.employee_count || prev.employee_count,
+                          turnover_range: s.turnover_range || prev.turnover_range,
+                          Address: s.Address || prev.Address,
+                          website: s.website || prev.website,
+                          source: s.source || prev.source,
+                          deal_value_estimate: s.deal_value_estimate || prev.deal_value_estimate,
+                          lead_temperature: s.lead_temperature || prev.lead_temperature,
+                          assigned_to: s.assigned_to || prev.assigned_to,
+                          country: s.country || prev.country,
+                          State: s.State || prev.State,
+                          city: s.city || prev.city,
+                          zone: s.zone || prev.zone,
+                          is_existing_company: true,
+                        }));
+                        setCompanySuggestions([]);
+                        setShowSuggestions(false);
+                        if (Array.isArray(s.contacts) && s.contacts.length > 0) {
+                          setContacts(s.contacts);
+                        }
+                      }}
+                    >
+                      <span className="suggestion-name">{s.company_name}</span>
+                      <span className="suggestion-type">{s.type === "client" ? "Client" : "Lead"}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <p>{lead.company_name || "-"}</p>
+          )}
+        </div>
         <div className="field">
           <label>Industry</label>
           {editMode ? (

@@ -319,6 +319,7 @@ td {
   from {
     transform: translateX(100%);
   }
+
   to {
     transform: translateX(0);
   }
@@ -380,17 +381,21 @@ td {
   .leads-container {
     padding: 16px;
   }
+
   .btn {
     padding: 10px 14px;
     font-size: 14px;
   }
+
   .leads-header h2 {
     font-size: 24px;
   }
+
   .company-cell,
   .contact-name {
     font-size: 16px;
   }
+
   .contact-subtext,
   .ai-chip {
     font-size: 13px;
@@ -418,7 +423,8 @@ td {
 }
 
 .lead-page {
-  padding: 0 24px 24px;   /* 🔥 small top padding */
+  padding: 0 24px 24px;
+  /* 🔥 small top padding */
   background: #f6f8fc;
 }
 
@@ -659,4 +665,61 @@ td {
   background: #2563eb;
   border-color: #2563eb;
   color: #ffffff;
+}
+
+/* ================= COMPANY AUTOCOMPLETE ================= */
+
+.company-autocomplete-wrapper {
+  position: relative;
+}
+
+.company-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.company-suggestions li {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #1f2937;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.15s;
+}
+
+.company-suggestions li:last-child {
+  border-bottom: none;
+}
+
+.company-suggestions li:hover {
+  background: #eff6ff;
+}
+
+.suggestion-name {
+  font-weight: 600;
+}
+
+.suggestion-type {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #4338ca;
 }
