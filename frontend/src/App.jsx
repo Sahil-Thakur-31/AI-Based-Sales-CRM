@@ -16,6 +16,8 @@ import LeadFormPage from './pages/modules/LeadFormPage.jsx'
 import Clients from './pages/modules/Clients.jsx';
 import Deals from './pages/modules/Deals.jsx';
 import Quotations from './pages/modules/Quotations.jsx';
+import NewQuotation from './pages/modules/NewQuotation.jsx';
+import QuotationDetails from './pages/modules/QuotationDetails.jsx';
 import Meetings from './pages/modules/Meetings.jsx';
 import FollowUps from './pages/modules/FollowUps.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
@@ -31,6 +33,7 @@ import Products from './pages/modules/adminsetting/Products.jsx';
 import Roles from './pages/modules/adminsetting/Roles.jsx';
 import Industry from './pages/modules/adminsetting/Industry.jsx';
 import Sources from './pages/modules/adminsetting/Sources.jsx';
+import Taxes from './pages/modules/adminsetting/Taxes.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -74,6 +77,8 @@ function App() {
           <Route path="/clients" element={<Clients />} />
           <Route path="/deals" element={<Deals />} />
           <Route path="/quotations" element={<Quotations />} />
+          <Route path="/quotations/new" element={<NewQuotation />} />
+          <Route path="/quotations/:id" element={<QuotationDetails />} />
 
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/followups" element={<FollowUps />} />
@@ -132,6 +137,15 @@ function App() {
   element={
     <ProtectedRoute allowedRoles={["Admin"]}>
       <Sources />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/taxes"
+  element={
+    <ProtectedRoute allowedRoles={["Admin"]}>
+      <Taxes />
     </ProtectedRoute>
   }
 />

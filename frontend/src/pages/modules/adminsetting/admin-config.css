@@ -4,6 +4,17 @@
   border-radius: 12px;
 }
 
+.admin-config-actions input{
+    padding: 11px 16px;
+    border-radius: 10px;
+    border: 1px solid #cfd6e4;
+    font-size: 14px;
+    outline: none;
+    transition: 0.2s;
+    min-width: 190px;
+    background: #ffffff;
+}
+
 .admin-config-page select {
   padding: 6px 10px;
   border-radius: 6px;
