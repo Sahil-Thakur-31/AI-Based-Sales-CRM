@@ -67,6 +67,17 @@ const dealsSchema = new mongoose.Schema(
       default: false
     },
 
+    deleted_reason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    deleted_at: {
+      type: Date,
+      default: null,
+    },
+
     assignedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",

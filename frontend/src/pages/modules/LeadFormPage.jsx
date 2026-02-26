@@ -12,6 +12,7 @@ function LeadFormPage() {
   const searchParams = new URLSearchParams(location.search);
   const deletedView = searchParams.get("deleted") === "true";
   const dealView = searchParams.get("view") === "deal";
+  const dealIdFromQuery = searchParams.get("dealId") || "";
   const shouldStartInEditMode =
     !deletedView && (isNew || searchParams.get("edit") === "true");
   const [editMode, setEditMode] = useState(shouldStartInEditMode);
@@ -25,6 +26,7 @@ function LeadFormPage() {
     variant: "info",
     onConfirm: null,
   });
+  const [dealDeleteReason, setDealDeleteReason] = useState("");
 
   useEffect(() => {
     setEditMode(shouldStartInEditMode);
@@ -47,6 +49,7 @@ function LeadFormPage() {
     status: "new",
     next_action: "",
     next_action_date: "",
+    assigned_to: "",
     converted_to_deal: false,
     is_existing_company: false,
     contact_history: [],
@@ -56,6 +59,7 @@ function LeadFormPage() {
   const [sources, setSources] = useState([]);
   const [locations, setLocations] = useState([]);
   const [industries, setIndustries] = useState([]);
+  const [users, setUsers] = useState([]);
 
   /* ================= CONTACTS ================= */
   const [contacts, setContacts] = useState([
@@ -84,6 +88,8 @@ function LeadFormPage() {
         const loadedLead = data.lead || data;
         setLead({
           ...loadedLead,
+          assigned_to: loadedLead?.assigned_to?._id || loadedLead?.assigned_to || "",
+          source: loadedLead?.source?._id || loadedLead?.source || "",
           contact_history: Array.isArray(loadedLead.contact_history)
             ? loadedLead.contact_history
             : [],
@@ -100,10 +106,11 @@ function LeadFormPage() {
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
-      const [sourcesRes, locationsRes, industriesRes] = await Promise.allSettled([
+      const [sourcesRes, locationsRes, industriesRes, usersRes] = await Promise.allSettled([
         API.get("/sources"),
         API.get("/location"),
         API.get("/industries"),
+        API.get("/users"),
       ]);
 
       if (sourcesRes.status === "fulfilled") {
@@ -126,6 +133,12 @@ function LeadFormPage() {
         );
       } else {
         console.error("industries load error", industriesRes.reason);
+      }
+
+      if (usersRes.status === "fulfilled") {
+        setUsers(Array.isArray(usersRes.value.data) ? usersRes.value.data : []);
+      } else {
+        console.error("users load error", usersRes.reason);
       }
     };
 
@@ -308,6 +321,7 @@ function LeadFormPage() {
   };
 
   const closePopup = () => {
+    setDealDeleteReason("");
     setPopup((prev) => ({ ...prev, open: false, onConfirm: null }));
   };
 
@@ -328,11 +342,16 @@ function LeadFormPage() {
     title,
     message,
     onConfirm,
-    { confirmLabel = "Confirm", cancelLabel = "Cancel", variant = "warning" } = {}
+    {
+      confirmLabel = "Confirm",
+      cancelLabel = "Cancel",
+      variant = "warning",
+      mode = "confirm",
+    } = {}
   ) => {
     setPopup({
       open: true,
-      mode: "confirm",
+      mode,
       title,
       message,
       confirmLabel,
@@ -344,9 +363,10 @@ function LeadFormPage() {
 
   const handlePopupConfirm = async () => {
     const action = popup.onConfirm;
+    const inputReason = dealDeleteReason;
     closePopup();
     if (typeof action === "function") {
-      await action();
+      await action(inputReason);
     }
   };
 
@@ -370,6 +390,41 @@ function LeadFormPage() {
         }
       },
       { confirmLabel: "Delete", variant: "danger" }
+    );
+  };
+
+  const handleDeleteDeal = async () => {
+    if (!dealId) {
+      showAlert("Delete Failed", "Deal ID is missing.", "error");
+      return;
+    }
+
+    setDealDeleteReason("");
+
+    showConfirm(
+      "Delete Deal",
+      "Please provide a reason before deleting this deal.",
+      async (enteredReason) => {
+        const reason = String(enteredReason || "").trim();
+        if (!reason) {
+          showAlert("Reason Required", "Please provide a reason to delete deal.", "warning");
+          return;
+        }
+        try {
+          await API.delete(`/deals/${dealId}`, {
+            data: { reason },
+          });
+          navigate("/deals");
+        } catch (err) {
+          console.error("delete deal error", err);
+          showAlert(
+            "Delete Failed",
+            err.response?.data?.message || "Failed to delete deal",
+            "error"
+          );
+        }
+      },
+      { confirmLabel: "Delete", variant: "danger", mode: "input-confirm" }
     );
   };
 
@@ -419,30 +474,13 @@ function LeadFormPage() {
   };
 
   const followUps = Array.isArray(lead.contact_history) ? lead.contact_history : [];
+  const dealId = dealIdFromQuery || lead?.converted_deal_id || "";
   const isConvertedLead = Boolean(lead.converted_to_deal || lead.converted_deal_id);
-  const pendingFollowUps = followUps
-    .map((entry, index) => ({ entry, index }))
-    .filter(({ entry }) => !entry?.is_completed)
-    .sort((a, b) => {
-      const aDate = a.entry?.next_action_date ? new Date(a.entry.next_action_date) : null;
-      const bDate = b.entry?.next_action_date ? new Date(b.entry.next_action_date) : null;
-      const aHasDate = aDate && !Number.isNaN(aDate.getTime());
-      const bHasDate = bDate && !Number.isNaN(bDate.getTime());
-
-      if (aHasDate && bHasDate) return aDate - bDate;
-      if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
-
-      return new Date(b.entry?.contacted_at || 0) - new Date(a.entry?.contacted_at || 0);
-    });
-
-  const completedFollowUps = followUps
-    .map((entry, index) => ({ entry, index }))
-    .filter(({ entry }) => entry?.is_completed)
-    .sort(
-      (a, b) =>
-        new Date(b.entry?.completed_at || b.entry?.contacted_at || 0) -
-        new Date(a.entry?.completed_at || a.entry?.contacted_at || 0)
-    );
+  const historyRows = [...followUps].sort(
+    (a, b) =>
+      new Date(b?.completed_at || b?.contacted_at || 0) -
+      new Date(a?.completed_at || a?.contacted_at || 0)
+  );
 
   return (
     <div className="lead-page">
@@ -560,136 +598,46 @@ function LeadFormPage() {
             <p>{sources.find((s) => s._id === lead.source)?.name || "-"}</p>
           )}
         </div>
-      </div>
 
-      <div className="contacts-section">
-        <h3 className="contacts-title">Follow-up Details</h3>
-
-        {pendingFollowUps.length === 0 && (
-          <p>No pending follow-ups.</p>
-        )}
-
-        {pendingFollowUps.map(({ entry, index }) => (
-            <div key={index} className="contact-card">
-              <div className="contact-title">
-                Follow-up #{index + 1}
-                {editMode && (
-                  <button
-                    className="remove-contact-btn"
-                    onClick={() => removeHistoryEntry(index)}
-                  >
-                    X
-                  </button>
-                )}
-              </div>
-
-              <div className="contact-grid">
-                <div className="field">
-                  <label>Date & Time</label>
-                  {editMode ? (
-                    <input
-                      type="datetime-local"
-                      value={
-                        asDateTimeInputValue(entry.contacted_at)
-                      }
-                      onChange={(e) =>
-                        handleHistoryChange(index, "contacted_at", e.target.value)
-                      }
-                    />
-                  ) : (
-                    <p>
-                      {entry.contacted_at
-                        ? new Date(entry.contacted_at).toLocaleString("en-IN")
-                        : "-"}
-                    </p>
-                  )}
-                </div>
-
-                <div className="field">
-                  <label>Mode</label>
-                  {editMode ? (
-                    <select
-                      value={entry.mode || "call"}
-                      onChange={(e) =>
-                        handleHistoryChange(index, "mode", e.target.value)
-                      }
-                    >
-                      <option value="call">Call</option>
-                      <option value="email">Email</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="meeting">Meeting</option>
-                      <option value="demo">Demo</option>
-                      <option value="other">Other</option>
-                    </select>
-                  ) : (
-                    <p>{entry.mode || "-"}</p>
-                  )}
-                </div>
-
-                <InputField
-                  label="Reply / Outcome"
-                  name="reply"
-                  value={entry.reply}
-                  onChange={(e) =>
-                    handleHistoryChange(index, "reply", e.target.value)
-                  }
-                  editMode={editMode}
-                />
-                <InputField
-                  label="Notes"
-                  name="notes"
-                  value={entry.notes}
-                  onChange={(e) =>
-                    handleHistoryChange(index, "notes", e.target.value)
-                  }
-                  editMode={editMode}
-                />
-                <div className="field">
-                  <label>Status</label>
-                  {editMode ? (
-                    <label className="followup-done-toggle">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(entry.is_completed)}
-                        onChange={(e) =>
-                          handleFollowUpCompleted(index, e.target.checked)
-                        }
-                      />
-                      Mark Done
-                    </label>
-                  ) : (
-                    <p>Pending</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-        {editMode && (
-          <div className="add-contact-wrapper">
-            <button className="add-contact-btn" onClick={addHistoryEntry}>
-              + Add Next Task
-            </button>
-          </div>
-        )}
+        <div className="field">
+          <label>Assign Lead To</label>
+          {editMode ? (
+            <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
+              <option value="">Select User</option>
+              {users.map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
+          )}
+        </div>
       </div>
 
       <div className="contacts-section">
         <h3 className="contacts-title">Follow-up History</h3>
-        {completedFollowUps.length === 0 && <p>No completed follow-ups yet.</p>}
-        {completedFollowUps.map(({ entry }, idx) => (
+        {historyRows.length === 0 && <p>No follow-up history yet.</p>}
+        {historyRows.map((entry, idx) => (
           <div key={`done-${idx}`} className="contact-card">
             <div className="contact-title">
-              Completed Follow-up #{idx + 1}
+              {`Follow-up #${idx + 1}`}
             </div>
             <div className="contact-grid">
               <div className="field">
-                <label>Completed At</label>
+                <label>Date</label>
                 <p>
-                  {entry.completed_at
-                    ? new Date(entry.completed_at).toLocaleString("en-IN")
+                  {(entry.contacted_at || entry.completed_at)
+                    ? new Date(
+                        entry.contacted_at || entry.completed_at
+                      ).toLocaleString("en-IN")
                     : "-"}
                 </p>
+              </div>
+              <div className="field">
+                <label>Status</label>
+                <p>{entry.is_completed ? "Completed" : "Pending"}</p>
               </div>
               <div className="field">
                 <label>Reply / Outcome</label>
@@ -756,13 +704,24 @@ function LeadFormPage() {
               <button className="edit-btn" onClick={() => setEditMode(true)}>
                 Edit
               </button>
+              {dealView && dealId && (
+                <button
+                  className="convert-btn"
+                  onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
+                >
+                  Create Quote
+                </button>
+              )}
               {!dealView && !isConvertedLead && (
                 <button className="convert-btn" onClick={handleConvertToDeal}>
                   Convert to Deal
                 </button>
               )}
-              <button className="soft-delete-btn" onClick={handleSoftDelete}>
-                Delete
+              <button
+                className="soft-delete-btn"
+                onClick={dealView ? handleDeleteDeal : handleSoftDelete}
+              >
+                {dealView ? "Delete Deal" : "Delete"}
               </button>
             </>
           )
@@ -774,8 +733,17 @@ function LeadFormPage() {
           <div className={`crm-popup-card ${popup.variant}`}>
             <h3>{popup.title}</h3>
             <p>{popup.message}</p>
+            {popup.mode === "input-confirm" && (
+              <input
+                className="crm-popup-input"
+                type="text"
+                placeholder="Enter delete reason"
+                value={dealDeleteReason}
+                onChange={(e) => setDealDeleteReason(e.target.value)}
+              />
+            )}
             <div className="crm-popup-actions">
-              {popup.mode === "confirm" && (
+              {(popup.mode === "confirm" || popup.mode === "input-confirm") && (
                 <button className="crm-popup-cancel" onClick={closePopup}>
                   {popup.cancelLabel}
                 </button>

@@ -252,12 +252,14 @@ td {
 /* ================= VIEW BUTTON ================= */
 
 .view-btn {
-  padding: 8px 20px;
+  padding: 6px 12px;
   background-color: #2563eb;
   color: #ffffff;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s;
@@ -266,6 +268,30 @@ td {
 .view-btn:hover {
   background-color: #1d4ed8;
   color: #ffffff;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.quote-btn {
+  background-color: #ffffff;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+}
+
+.quote-btn:hover {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.quote-btn:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  cursor: not-allowed;
 }
 
 /* ================= OVERLAY PANEL ================= */
@@ -563,4 +589,13 @@ td {
   border-radius: 10px;
   border: 1px solid #d1d5db;
   background: white;
+}
+
+.crm-popup-input {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
 }

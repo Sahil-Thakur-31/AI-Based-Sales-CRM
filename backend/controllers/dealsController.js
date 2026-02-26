@@ -131,3 +131,28 @@ exports.updateDeal = async (req, res) => {
     res.status(500).json({ message: "Failed to update deal" });
   }
 };
+
+exports.deleteDeal = async (req, res) => {
+  try {
+    const reason = String(req.body?.reason || "").trim();
+    if (!reason) {
+      return res.status(400).json({ message: "Delete reason is required" });
+    }
+
+    const deal = await Deal.findById(req.params.id);
+    if (!deal || deal.is_deleted) {
+      return res.status(404).json({ message: "Deal not found" });
+    }
+
+    deal.is_deleted = true;
+    deal.deleted_reason = reason;
+    deal.deleted_at = new Date();
+    deal.isActive = false;
+
+    await deal.save();
+    return res.json({ message: "Deal deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Failed to delete deal" });
+  }
+};

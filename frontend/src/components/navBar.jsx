@@ -106,6 +106,11 @@ function Navbar() {
   const moduleName = useMemo(() => {
 
   const currentPath = location.pathname;
+  const query = new URLSearchParams(location.search);
+
+  if (currentPath.startsWith("/leads/") && currentPath !== "/leads/new") {
+    return query.get("view") === "deal" ? "Deal Details" : "Lead Details";
+  }
 
   const sortedRoutes = [...routeConfig].sort(
     (a, b) => b.path.length - a.path.length
@@ -122,7 +127,7 @@ function Navbar() {
 
   return route?.title || "Dashboard";
 
-}, [location.pathname]);
+}, [location.pathname, location.search]);
 
   /* Initials fallback */
   const getInitials = (name) => {

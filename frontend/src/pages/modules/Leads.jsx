@@ -149,7 +149,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
         <div className="filters">
           <input
             type="text"
-            placeholder="Search leads..."
+            placeholder={viewMode === "deals" ? "Search deals..." : "Search leads..."}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -210,16 +210,34 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   <td>{formatDate(row.last_contact_date)}</td>
                   <td>{row.next_action || "-"}</td>
                   <td>
-                    <button
-                      className="view-btn"
-                      onClick={() => {
-                        const leadId = row._id || row.lead_id;
-                        if (!leadId) return;
-                        navigate(`/leads/${leadId}`);
-                      }}
-                    >
-                      View More
-                    </button>
+                    <div className="row-actions">
+                      <button
+                        className="view-btn"
+                        onClick={() => {
+                          const leadId = viewMode === "deals" ? row.lead_id : row._id || row.lead_id;
+                          if (!leadId) return;
+                          if (viewMode === "deals") {
+                            navigate(`/leads/${leadId}?view=deal&dealId=${row._id}`);
+                            return;
+                          }
+                          navigate(`/leads/${leadId}`);
+                        }}
+                      >
+                        View More
+                      </button>
+                      {viewMode === "deals" && (
+                        <button
+                          className="view-btn quote-btn"
+                          disabled={!row._id}
+                          onClick={() => {
+                            if (!row._id) return;
+                            navigate(`/quotations/new?dealId=${row._id}`);
+                          }}
+                        >
+                          Create Quote
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
