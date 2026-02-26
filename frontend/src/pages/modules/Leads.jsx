@@ -16,6 +16,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [search, setSearch] = useState("");
   const [industryFilter, setIndustryFilter] = useState("All");
   const [temperatureFilter, setTemperatureFilter] = useState("All");
+  const [industryOptions, setIndustryOptions] = useState([]);
 
   useEffect(() => {
     setViewMode(defaultView === "deals" ? "deals" : "leads");
@@ -23,15 +24,23 @@ function LeadsDashboard({ defaultView = "leads" }) {
 
   useEffect(() => {
     const load = async () => {
-      const [leadsRes, dealsRes, deletedRes] = await Promise.allSettled([
+      const [leadsRes, dealsRes, deletedRes, industriesRes] = await Promise.allSettled([
         API.get("/leads"),
         API.get("/deals"),
         API.get("/leads", { params: { deleted_only: true, limit: 10 } }),
+        API.get("/industries"),
       ]);
 
       if (leadsRes.status === "fulfilled") setLeads(Array.isArray(leadsRes.value.data) ? leadsRes.value.data : []);
       if (dealsRes.status === "fulfilled") setDeals(Array.isArray(dealsRes.value.data) ? dealsRes.value.data : []);
       if (deletedRes.status === "fulfilled") setDeletedLeads(Array.isArray(deletedRes.value.data) ? deletedRes.value.data : []);
+      if (industriesRes.status === "fulfilled") {
+        setIndustryOptions(
+          (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
+            .map((item) => item?.name)
+            .filter(Boolean)
+        );
+      }
 
       setLoadingLeads(false);
       setLoadingDeals(false);
@@ -77,17 +86,38 @@ function LeadsDashboard({ defaultView = "leads" }) {
 
   const sourceRows = viewMode === "deals" ? deals : leads;
   const loading = viewMode === "deals" ? loadingDeals : loadingLeads;
-  const industries = useMemo(
-    () => ["All", ...new Set(sourceRows.map((r) => r.industry).filter(Boolean))],
-    [sourceRows]
-  );
+  const industries = useMemo(() => {
+    const fromRows = sourceRows.map((r) => r.industry).filter(Boolean);
+    const base = industryOptions.length ? industryOptions : fromRows;
+    return ["All", ...new Set(base)];
+  }, [sourceRows, industryOptions]);
 
   const filteredRows = useMemo(() => {
     return sourceRows.filter((row) => {
       const q = search.trim().toLowerCase();
       const company = (row.company_name || "").toLowerCase();
       const contact = (row.primary_contact?.name || "").toLowerCase();
-      const matchesSearch = !q || company.includes(q) || contact.includes(q);
+      const industry = (row.industry || "").toLowerCase();
+      const valueText = String(row.deal_value_estimate ?? "").toLowerCase();
+      const formattedValue = formatCurrency(row.deal_value_estimate).toLowerCase();
+      const aiScore = String(row.ai_score ?? "").toLowerCase();
+      const aiLabel = getTemperatureLabel(getTemperature(row)).toLowerCase();
+      const lastContactText = String(row.last_contact_date || "").toLowerCase();
+      const formattedLastContact = formatDate(row.last_contact_date).toLowerCase();
+      const nextAction = (row.next_action || "").toLowerCase();
+
+      const matchesSearch =
+        !q ||
+        company.includes(q) ||
+        contact.includes(q) ||
+        industry.includes(q) ||
+        valueText.includes(q) ||
+        formattedValue.includes(q) ||
+        aiScore.includes(q) ||
+        aiLabel.includes(q) ||
+        lastContactText.includes(q) ||
+        formattedLastContact.includes(q) ||
+        nextAction.includes(q);
       const matchesIndustry = industryFilter === "All" || row.industry === industryFilter;
       const matchesTemp = temperatureFilter === "All" || getTemperature(row) === temperatureFilter;
       return matchesSearch && matchesIndustry && matchesTemp;
@@ -107,18 +137,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
             <span className="action-icon">➕</span>
             Add Lead Manually
           </button>
-          <button className={`btn ${temperatureFilter === "hot" ? "active" : ""}`} type="button" onClick={() => setTemperatureFilter((p) => (p === "hot" ? "All" : "hot"))}>
-            <span className="action-icon">🔥</span>
-            Hot Leads
-          </button>
-          <button className={`btn ${temperatureFilter === "warm" ? "active" : ""}`} type="button" onClick={() => setTemperatureFilter((p) => (p === "warm" ? "All" : "warm"))}>
-            <span className="action-icon">🌡️</span>
-            Warm Leads
-          </button>
-          <button className={`btn ${temperatureFilter === "cold" ? "active" : ""}`} type="button" onClick={() => setTemperatureFilter((p) => (p === "cold" ? "All" : "cold"))}>
-            <span className="action-icon">❄️</span>
-            Cold Leads
-          </button>
           <button className="btn" type="button" onClick={() => navigate("")}>
             <span className="action-icon">📥</span>
             Import CSV
@@ -136,13 +154,26 @@ function LeadsDashboard({ defaultView = "leads" }) {
             onChange={(e) => setSearch(e.target.value)}
           />
 
+
+          <select
+            value={temperatureFilter}
+            onChange={(e) => setTemperatureFilter(e.target.value)}
+          >
+            <option value="All">All Temperatures</option>
+            <option value="hot">Hot</option>
+            <option value="warm">Warm</option>
+            <option value="cold">Cold</option>
+          </select>
+
           <select
             value={industryFilter}
             onChange={(e) => setIndustryFilter(e.target.value)}
           >
-            <option value="All">All Industries</option>
-            <option value="Solar">Solar</option>
-            <option value="Manufacturing">Manufacturing</option>
+            {industries.map((industry) => (
+              <option key={industry} value={industry}>
+                {industry === "All" ? "All Industries" : industry}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -179,7 +210,14 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   <td>{formatDate(row.last_contact_date)}</td>
                   <td>{row.next_action || "-"}</td>
                   <td>
-                    <button className="view-btn" onClick={() => viewMode === "deals" ? navigate(`/leads/${row.lead_id || row._id}?view=deal&dealId=${row._id}`) : navigate(`/leads/${row._id}`)}>
+                    <button
+                      className="view-btn"
+                      onClick={() => {
+                        const leadId = row._id || row.lead_id;
+                        if (!leadId) return;
+                        navigate(`/leads/${leadId}`);
+                      }}
+                    >
                       View More
                     </button>
                   </td>
@@ -227,7 +265,18 @@ function LeadsDashboard({ defaultView = "leads" }) {
                       <td><span className={`ai-chip ${t}`}>{`${row.ai_score ?? "-"} - ${getTemperatureLabel(t)}`}</span></td>
                       <td>{formatDate(row.last_contact_date)}</td>
                       <td>{row.next_action || "-"}</td>
-                      <td><button className="view-btn" onClick={() => navigate(`/leads/${row._id}?deleted=true`)}>View More</button></td>
+                      <td>
+                        <button
+                          className="view-btn"
+                          onClick={() => {
+                            const leadId = row._id || row.lead_id;
+                            if (!leadId) return;
+                            navigate(`/leads/${leadId}?deleted=true`);
+                          }}
+                        >
+                          View More
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -241,3 +290,4 @@ function LeadsDashboard({ defaultView = "leads" }) {
 }
 
 export default LeadsDashboard;
+

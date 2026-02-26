@@ -55,6 +55,7 @@ function LeadFormPage() {
   /* ================= DROPDOWNS ================= */
   const [sources, setSources] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [industries, setIndustries] = useState([]);
 
   /* ================= CONTACTS ================= */
   const [contacts, setContacts] = useState([
@@ -99,9 +100,10 @@ function LeadFormPage() {
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
-      const [sourcesRes, locationsRes] = await Promise.allSettled([
+      const [sourcesRes, locationsRes, industriesRes] = await Promise.allSettled([
         API.get("/sources"),
         API.get("/location"),
+        API.get("/industries"),
       ]);
 
       if (sourcesRes.status === "fulfilled") {
@@ -114,6 +116,16 @@ function LeadFormPage() {
         setLocations(locationsRes.value.data || []);
       } else {
         console.error("locations load error", locationsRes.reason);
+      }
+
+      if (industriesRes.status === "fulfilled") {
+        setIndustries(
+          (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
+            .map((item) => item?.name)
+            .filter(Boolean)
+        );
+      } else {
+        console.error("industries load error", industriesRes.reason);
       }
     };
 
@@ -444,7 +456,21 @@ function LeadFormPage() {
       {/* ================= COMPANY INFO ================= */}
       <div className="lead-form">
         <Field label="Company Name" name="company_name" value={lead.company_name} onChange={handleLeadChange} editMode={editMode} />
-        <Field label="Industry" name="industry" value={lead.industry} onChange={handleLeadChange} editMode={editMode} />
+        <div className="field">
+          <label>Industry</label>
+          {editMode ? (
+            <select name="industry" value={lead.industry || ""} onChange={handleLeadChange}>
+              <option value="">Select Industry</option>
+              {industries.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p>{lead.industry || "-"}</p>
+          )}
+        </div>
         <Field label="Employees" name="employee_count" value={lead.employee_count} onChange={handleLeadChange} editMode={editMode} />
         <Field label="Turnover" name="turnover_range" value={lead.turnover_range} onChange={handleLeadChange} editMode={editMode} />
         <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
