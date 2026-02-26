@@ -1,0 +1,185 @@
+.clients-page,
+.clients-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.clients-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.clients-search-input {
+  width: 320px;
+  max-width: 100%;
+}
+
+.clients-card,
+.clients-detail-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.clients-card {
+  overflow: hidden;
+}
+
+.clients-empty {
+  padding: 24px;
+  color: #6b7280;
+}
+
+.clients-table-wrap {
+  overflow-x: auto;
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.clients-table th {
+  text-align: left;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.clients-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1f2937;
+}
+
+.clients-view-btn {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  font-weight: 600;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+
+.clients-detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clients-btn {
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clients-btn-primary {
+  border: none;
+  background: #5b6fd8;
+  color: #ffffff;
+}
+
+.clients-btn-secondary {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+}
+
+.clients-detail-card {
+  padding: 18px;
+}
+
+.clients-section-title {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 16px;
+}
+
+.clients-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.clients-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clients-field-full {
+  grid-column: 1 / -1;
+}
+
+.clients-field label {
+  color: #64748b;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+.clients-field input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 14px;
+  outline: none;
+}
+
+.clients-field input:focus {
+  border-color: #5b6fd8;
+  box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);
+}
+
+.clients-field input:disabled {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.clients-contacts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clients-contacts-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.clients-contact-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.clients-checkbox-field label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  color: #334155;
+}
+
+@media (max-width: 860px) {
+  .clients-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clients-field-full {
+    grid-column: auto;
+  }
+}

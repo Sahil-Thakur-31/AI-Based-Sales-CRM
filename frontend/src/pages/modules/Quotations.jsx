@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import "./styles/Quotations.css";
@@ -12,6 +12,16 @@ const STATUS_CLASS = {
   rejected: "rejected",
   expired: "expired"
 };
+
+const QUOTATION_STATUSES = [
+  "draft",
+  "sent",
+  "viewed",
+  "negotiation",
+  "approved",
+  "rejected",
+  "expired"
+];
 
 function formatCurrency(value) {
 
@@ -42,6 +52,8 @@ export default function Quotations() {
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusUpdatingId, setStatusUpdatingId] = useState("");
 
   useEffect(() => {
     loadQuotations();
@@ -89,20 +101,59 @@ export default function Quotations() {
 
   };
 
+  const updateQuotationStatus = async (quotationId, nextStatus, currentStatus) => {
+
+    if (!quotationId || !nextStatus || nextStatus === currentStatus) return;
+
+    try {
+
+      setStatusUpdatingId(quotationId);
+
+      const res = await API.put(`/quotations/${quotationId}/status`, {
+        status: nextStatus
+      });
+
+      const updatedStatus = res.data?.status || nextStatus;
+
+      setQuotations((prev) => prev.map((quote) => (
+        quote._id === quotationId
+          ? { ...quote, status: updatedStatus }
+          : quote
+      )));
+
+    } catch (err) {
+
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to update quotation status");
+
+    } finally {
+
+      setStatusUpdatingId("");
+
+    }
+
+  };
+
+  const filteredQuotations = useMemo(() => {
+
+    const term = query.trim().toLowerCase();
+    if (!term) return quotations;
+
+    return quotations.filter((quote) =>
+      String(quote.quoteNumber || "").toLowerCase().includes(term) ||
+      String(quote.refCode || "").toLowerCase().includes(term) ||
+      String(quote.clientName || "").toLowerCase().includes(term) ||
+      String(quote.status || "").toLowerCase().includes(term) ||
+      `v${quote.version || ""}`.toLowerCase().includes(term)
+    );
+
+  }, [quotations, query]);
+
   return (
 
     <div className="quotes-page">
 
       <div className="quotes-toolbar">
-
-        <div className="quotes-heading-wrap">
-          <h2 className="quotes-heading">
-            Quotations
-          </h2>
-          <span className="quotes-badge">
-            Auto-numbered
-          </span>
-        </div>
 
         <button
           className="quotes-new-btn"
@@ -110,6 +161,14 @@ export default function Quotations() {
         >
           + New Quote
         </button>
+
+        <input
+          className="app-search-input quotes-search-input"
+          type="text"
+          placeholder="Search quotations..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
 
       </div>
 
@@ -122,6 +181,10 @@ export default function Quotations() {
         ) : quotations.length === 0 ? (
           <div className="quotes-empty">
             No quotations yet. Create your first quote.
+          </div>
+        ) : filteredQuotations.length === 0 ? (
+          <div className="quotes-empty">
+            No quotations match your search.
           </div>
         ) : (
           <div className="quotes-table-scroll">
@@ -146,7 +209,7 @@ export default function Quotations() {
               </thead>
 
               <tbody>
-                {quotations.map((quote) => (
+                {filteredQuotations.map((quote) => (
                   <tr key={quote._id}>
 
                     <td className="quote-number">
@@ -176,9 +239,18 @@ export default function Quotations() {
                     <td>{formatDate(quote.validUntil)}</td>
 
                     <td>
-                      <span className={`quote-status ${STATUS_CLASS[quote.status] || "draft"}`}>
-                        {quote.status}
-                      </span>
+                      <select
+                        className={`quote-status-select ${STATUS_CLASS[quote.status] || "draft"}`}
+                        value={quote.status || "draft"}
+                        disabled={statusUpdatingId === quote._id}
+                        onChange={(e) => updateQuotationStatus(quote._id, e.target.value, quote.status)}
+                      >
+                        {QUOTATION_STATUSES.map((statusOption) => (
+                          <option key={statusOption} value={statusOption}>
+                            {statusOption}
+                          </option>
+                        ))}
+                      </select>
                     </td>
 
                     <td>

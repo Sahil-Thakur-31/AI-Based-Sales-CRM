@@ -12,7 +12,6 @@ function formatCurrency(value) {
 }
 
 export default function Deals() {
-
   const navigate = useNavigate();
 
   const [deals, setDeals] = useState([]);
@@ -25,69 +24,46 @@ export default function Deals() {
   }, []);
 
   const loadDeals = async () => {
-
     try {
-
       setLoading(true);
       setError("");
 
       const res = await API.get("/deals");
       setDeals(res.data || []);
-
     } catch (err) {
-
       console.error(err);
       setError("Failed to load deals");
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
   const filteredDeals = useMemo(() => {
-
     if (!query.trim()) return deals;
 
     const lower = query.toLowerCase();
-
     return deals.filter((deal) =>
       (deal.clientName || "").toLowerCase().includes(lower) ||
       (deal.stage || "").toLowerCase().includes(lower) ||
       (deal.status || "").toLowerCase().includes(lower)
     );
-
   }, [deals, query]);
 
   return (
-
     <div className="deals-page">
-
       <div className="deals-header">
-
-        <h2>Deals</h2>
-
         <div className="deals-header-actions">
-
           <input
+            className="app-search-input deals-search-input"
             type="text"
             placeholder="Search deals..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-
-          <button onClick={loadDeals}>
-            Refresh
-          </button>
-
         </div>
-
       </div>
 
       <div className="deals-card">
-
         {loading ? (
           <div className="deals-empty">Loading deals...</div>
         ) : error ? (
@@ -96,9 +72,7 @@ export default function Deals() {
           <div className="deals-empty">No deals found</div>
         ) : (
           <div className="deals-table-wrap">
-
             <table className="deals-table">
-
               <thead>
                 <tr>
                   <th>Deal Ref</th>
@@ -110,7 +84,6 @@ export default function Deals() {
               </thead>
 
               <tbody>
-
                 {filteredDeals.map((deal) => (
                   <tr key={deal._id}>
                     <td>{deal.stage || "-"}</td>
@@ -122,27 +95,28 @@ export default function Deals() {
                     </td>
                     <td>{formatCurrency(deal.dealValue)}</td>
                     <td>
-                      <button
-                        className="deal-quote-btn"
-                        onClick={() => navigate(`/quotations/new?dealId=${deal._id}`)}
-                      >
-                        Create Quote
-                      </button>
+                      <div className="deal-actions">
+                        <button
+                          className="deal-view-btn"
+                          onClick={() => navigate(`/deals/${deal._id}`)}
+                        >
+                          View
+                        </button>
+                        <button
+                          className="deal-quote-btn"
+                          onClick={() => navigate(`/quotations/new?dealId=${deal._id}`)}
+                        >
+                          Create Quote
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
-
               </tbody>
-
             </table>
-
           </div>
         )}
-
       </div>
-
     </div>
-
   );
-
 }

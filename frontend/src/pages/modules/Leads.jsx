@@ -110,6 +110,7 @@ function LeadsDashboard() {
 
         <div className="filters">
           <input
+            className="app-search-input leads-search-input"
             type="text"
             placeholder="Search leads..."
             value={search}
