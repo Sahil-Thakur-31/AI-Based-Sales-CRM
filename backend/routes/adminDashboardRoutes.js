@@ -7,7 +7,7 @@ const router = express.Router();
 const authenticate = require("../middlewares/auth"); // your existing middleware
 const adminOnly = require("../middlewares/adminOnly.admin");
 
-const ctrl = require("../controllers/adminController");
+const ctrl = require("../controllers/adminDashboard.admin.controller");
 
 // base: /api/admin/dashboard
 router.get("/summary", authenticate, adminOnly, ctrl.summary);

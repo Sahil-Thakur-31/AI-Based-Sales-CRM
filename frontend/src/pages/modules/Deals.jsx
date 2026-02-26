@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
@@ -121,13 +120,3 @@ export default function Deals() {
     </div>
   );
 }
-=======
-import React from "react";
-import Leads from "./Leads";
-
-const Deals = () => {
-  return <Leads defaultView="deals" />;
-};
-
-export default Deals;
->>>>>>> bd3b25a980fd0cb62a0dec353c742f37c89364e7
