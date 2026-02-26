@@ -8,6 +8,7 @@ const ClientContact = require("../models/client_contact");
 const Industry = require("../models/industries");
 const User = require("../models/users");
 const DealStageHistory = require("../models/dealStageHistory");
+const Notification = require("../models/notifications");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
@@ -567,6 +568,22 @@ exports.createLead = async (req, res) => {
       );
     }
 
+    // Send notification if lead is assigned to someone
+    if (lead.assigned_to) {
+      try {
+        await Notification.create({
+          userId: lead.assigned_to,
+          title: "New Lead Assigned",
+          message: `You have been assigned a new lead: ${lead.company_name || "Untitled"}`,
+          type: "info",
+          relatedId: lead._id,
+          relatedType: "Lead",
+        });
+      } catch (notifErr) {
+        console.error("Failed to create assignment notification:", notifErr);
+      }
+    }
+
     res.status(201).json(lead);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -582,6 +599,9 @@ exports.updateLead = async (req, res) => {
     if (locationId) {
       leadPayload.location = locationId;
     }
+
+    // Fetch old assigned_to before updating
+    const oldLead = await Leads.findById(req.params.id).select("assigned_to company_name").lean();
 
     const lead = await Leads.findOneAndUpdate(
       {
@@ -608,6 +628,24 @@ exports.updateLead = async (req, res) => {
 
     if (Array.isArray(req.body.contact_history)) {
       await syncLeadFollowupsFromHistory(lead, req.body.contact_history);
+    }
+
+    // Send notification if assigned_to changed to a different user
+    const oldAssignee = oldLead?.assigned_to ? String(oldLead.assigned_to) : "";
+    const newAssignee = lead.assigned_to ? String(lead.assigned_to) : "";
+    if (newAssignee && newAssignee !== oldAssignee) {
+      try {
+        await Notification.create({
+          userId: lead.assigned_to,
+          title: "Lead Assigned to You",
+          message: `You have been assigned the lead: ${lead.company_name || "Untitled"}`,
+          type: "info",
+          relatedId: lead._id,
+          relatedType: "Lead",
+        });
+      } catch (notifErr) {
+        console.error("Failed to create assignment notification:", notifErr);
+      }
     }
 
     res.json(lead);

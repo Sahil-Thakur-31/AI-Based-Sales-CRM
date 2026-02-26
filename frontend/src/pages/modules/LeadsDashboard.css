@@ -119,8 +119,20 @@ body {
   flex-wrap: wrap;
 }
 
-.filters .leads-search-input {
-  min-width: 240px;
+.filters input[type="text"] {
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid #cfd6e4;
+  font-size: 14px;
+  outline: none;
+  transition: 0.2s;
+  min-width: 260px;
+  background: #ffffff;
+}
+
+.filters input[type="text"]:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .filters select {
