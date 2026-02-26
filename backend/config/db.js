@@ -1,10 +1,13 @@
-const mongoose = require('mongoose')
-require('dotenv').config()
+const dns = require("dns");
+const mongoose = require("mongoose");
+require("dotenv").config();
 
-dbUrl = process.env.CONN
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
-mongoose.connect(dbUrl).then(()=>{
-    console.log('DB connected');
-}).catch((err)=>{
-    console.log("Error: ",err);
-})
+const dbUrl = process.env.CONN;
+
+mongoose.connect(dbUrl).then(() => {
+  console.log("DB connected");
+}).catch((err) => {
+  console.log("Error: ", err);
+});
