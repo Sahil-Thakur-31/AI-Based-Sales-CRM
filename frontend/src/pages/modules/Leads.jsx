@@ -129,11 +129,20 @@ function LeadsDashboard({ defaultView = "leads" }) {
       <div className="leads-header">
         <h2>{viewMode === "deals" ? "All Deals" : "All Leads"} (<span className="lead-count">{filteredRows.length}</span>)</h2>
         <div className="filters">
-          <input type="text" placeholder={viewMode === "deals" ? "Search deals..." : "Search leads..."} value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select value={industryFilter} onChange={(e) => setIndustryFilter(e.target.value)}>
-            {industries.map((industry) => (
-              <option key={industry} value={industry}>{industry === "All" ? "All Industries" : industry}</option>
-            ))}
+          <input
+            type="text"
+            placeholder="Search leads..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <select
+            value={industryFilter}
+            onChange={(e) => setIndustryFilter(e.target.value)}
+          >
+            <option value="All">All Industries</option>
+            <option value="Solar">Solar</option>
+            <option value="Manufacturing">Manufacturing</option>
           </select>
         </div>
       </div>

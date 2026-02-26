@@ -18,6 +18,10 @@
   --r16: 16px;
   --r14: 14px;
   --r12: 12px;
+
+  /* NEW: fixed pipeline height for desktop consistency */
+  --pipelineH: 620px; /* adjust if you want slightly taller/shorter */
+  --colGap: 14px;     /* should match .mainGrid gap */
 }
 
 * { box-sizing: border-box; }
@@ -26,24 +30,19 @@
 .adminHome {
   position: relative;
   min-height: 100vh;
-  padding: 26px 22px 32px;
-  margin-top: 10px;
+  padding: 8px 15px;
+  margin-top: 0px;
   color: var(--text);
   overflow: hidden;
   background: #f6f8fc;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  .adminHome {
-  border-radius: 34px !important;
-}
+  border-radius: 24px !important;
 }
 
 .adminHome__bg {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(900px 420px at 15% 10%, rgba(109,94,252,0.10), transparent 60%),
-    radial-gradient(900px 420px at 85% 5%, rgba(59,130,246,0.10), transparent 60%),
-    radial-gradient(900px 520px at 70% 90%, rgba(236,72,153,0.06), transparent 65%);
+ 
   pointer-events: none;
   border-radius: 20px !important;
 }
@@ -63,7 +62,7 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-   margin-left: auto;   /* pushes to right */
+  margin-left: auto; /* pushes to right */
 }
 
 /* CoreUI CFormSelect override */
@@ -141,7 +140,7 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(160px, 1fr));
   gap: 16px;
-  margin-top: 18px;
+  margin-top: 7px;
   margin-bottom: 16px;
 }
 
@@ -198,6 +197,52 @@
   grid-template-columns: 1.55fr 1fr;
   gap: 14px;
   grid-auto-rows: min-content;
+  align-items: stretch; /* keeps both columns same height */
+}
+
+/* Deal Pipeline height fixed */
+.panel--pipeline{
+  height: var(--pipelineH);
+}
+
+/* Right column becomes a 2-row grid, total height = pipeline height */
+.rightCol{
+  height: var(--pipelineH);
+  display: grid;                 /* equal halves */
+  grid-template-rows: 1fr 1fr;
+  gap: var(--colGap);
+}
+
+/* Ensure right panels fill each half neatly */
+.rightCol > .panel{
+  height: 100%;
+  overflow: hidden; /* prevents content forcing height change */
+}
+
+/* Allow scroll inside card body if content is more */
+.rightCol > .panel .card-body{
+  overflow: auto;
+  max-height: calc(100% - 56px); /* approx header height */
+}
+
+/* Slightly reduce pipeline height on mid screens */
+@media (max-width: 1200px){
+  :root{ --pipelineH: 560px; }
+}
+
+/* On smaller screens: remove fixed heights so it flows naturally */
+@media (max-width: 1200px){
+  .panel--pipeline{ height: auto; }
+  .rightCol{
+    height: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .rightCol > .panel{ overflow: visible; }
+  .rightCol > .panel .card-body{
+    overflow: visible;
+    max-height: none;
+  }
 }
 
 /* CoreUI CCard panel overrides */
@@ -315,13 +360,6 @@
 }
 .muted { color: var(--muted); font-size: 13px; }
 
-/* ─── Right column ─── */
-.rightCol {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
 /* ─── Team performance (CoreUI CProgress) ─── */
 .teamList {
   display: flex;
@@ -340,7 +378,8 @@
   background: #fff;
 }
 .teamItem__name {
-  font-size: 13px;
+  font-size: 10.5px; /* smaller name */
+  line-height: 1.2;
   color: #0f172a;
   font-weight: 800;
 }
@@ -356,7 +395,8 @@
 
 .teamItem__value {
   text-align: right;
-  font-size: 13px;
+  font-size: 10.5px; /* smaller amount */
+  line-height: 1.2;
   font-weight: 900;
   color: #0f172a;
 }
@@ -568,21 +608,7 @@
   .followRight { display: none; }
 }
 
-
-/* Team Performance - smaller name & amount */
-.teamItem__name{
-  font-size: 10.5px;   /* reduce name */
-  line-height: 1.2;
-}
-
-.teamItem__value{
-  font-size: 10.5px;   /* reduce amount */
-  line-height: 1.2;
-}
-
-
-
-/*to show view all button at right side*/
+/* to show view all button at right side */
 .panel__titleRow--space{
   display:flex;
   align-items:center;
@@ -590,3 +616,17 @@
   gap:12px;
   width: 100%;
 }
+
+/* refresh overlay (when changing range) */
+.refreshOverlay{
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 120px;
+  background: rgba(246,248,252,0.35);
+  backdrop-filter: blur(2px);
+}
+

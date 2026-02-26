@@ -1,194 +1,272 @@
 const Client = require("../models/client");
+const ClientContact = require("../models/client_contact");
 const Industry = require("../models/industries");
 const Source = require("../models/sources");
 
-function parseNumber(value, fallback = 0) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+function cleanString(value) {
+  if (value === undefined || value === null) return "";
+  return String(value).trim();
 }
 
-exports.getClients = async (req, res) => {
-  try {
-    const clients = await Client.find({ is_deleted: false })
-      .populate("industry", "name")
-      .populate("source", "name")
-      .sort({ createdAt: -1 })
-      .lean();
+function numberOrNull(value) {
+  if (value === "" || value === undefined || value === null) return null;
+  const n = Number(value);
+  return Number.isNaN(n) ? null : n;
+}
 
-    const data = clients.map((client) => ({
+function dateOrNull(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function boolOrDefault(value, fallback = true) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return Boolean(value);
+}
+
+exports.listClients = async (req, res) => {
+
+  try {
+
+    const clients = await Client.find({
+      is_deleted: { $ne: true }
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+    const industryIds = [
+      ...new Set(clients.map((c) => String(c.industry || "")).filter(Boolean))
+    ];
+    const sourceIds = [
+      ...new Set(clients.map((c) => String(c.source || "")).filter(Boolean))
+    ];
+
+    const [industries, sources, contactCounts] = await Promise.all([
+      Industry.find({ _id: { $in: industryIds } }).select("name").lean(),
+      Source.find({ _id: { $in: sourceIds } }).select("name").lean(),
+      ClientContact.aggregate([
+        {
+          $match: {
+            is_active: { $ne: false }
+          }
+        },
+        {
+          $group: {
+            _id: "$client_id",
+            count: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    const industryMap = new Map(industries.map((i) => [String(i._id), i.name]));
+    const sourceMap = new Map(sources.map((s) => [String(s._id), s.name]));
+    const contactsMap = new Map(contactCounts.map((c) => [String(c._id), c.count]));
+
+    const rows = clients.map((client) => ({
       _id: client._id,
       name: client.name || "",
-      industry: client.industry?._id || client.industry || "",
-      industryName: client.industry?.name || "-",
+      industry: client.industry || null,
+      industryName: industryMap.get(String(client.industry || "")) || "-",
       Address: client.Address || "",
-      employeeCount: client.employeeCount || 0,
+      employeeCount: client.employeeCount ?? null,
       turnoverRange: client.turnoverRange || "",
       website: client.website || "",
-      source: client.source?._id || client.source || "",
-      sourceName: client.source?.name || "-",
+      source: client.source || null,
+      sourceName: sourceMap.get(String(client.source || "")) || "-",
       deal_count: client.deal_count || 0,
-      GST_no: client.GST_no || ""
+      contactsCount: contactsMap.get(String(client._id)) || 0,
+      createdAt: client.createdAt || null,
+      updatedAt: client.updatedAt || null
     }));
 
-    res.json(data);
+    res.json(rows);
+
   } catch (err) {
+
     console.error(err);
-    res.status(500).json({ message: "Failed to fetch clients" });
-  }
-};
-
-exports.createClient = async (req, res) => {
-  try {
-    const name = String(req.body.name || "").trim();
-    const industry = req.body.industry || null;
-
-    if (!name) {
-      return res.status(400).json({ message: "Client name is required" });
-    }
-
-    if (!industry) {
-      return res.status(400).json({ message: "Industry is required" });
-    }
-
-    const industryExists = await Industry.findOne({
-      _id: industry,
-      is_deleted: false
-    }).lean();
-
-    if (!industryExists) {
-      return res.status(400).json({ message: "Invalid industry selected" });
-    }
-
-    if (req.body.source) {
-      const sourceExists = await Source.findOne({
-        _id: req.body.source,
-        is_deleted: false
-      }).lean();
-      if (!sourceExists) {
-        return res.status(400).json({ message: "Invalid source selected" });
-      }
-    }
-
-    const client = await Client.create({
-      name,
-      industry,
-      Address: req.body.Address || "",
-      employeeCount: parseNumber(req.body.employeeCount, 0),
-      turnoverRange: req.body.turnoverRange || "",
-      website: req.body.website || "",
-      source: req.body.source || null,
-      deal_count: parseNumber(req.body.deal_count, 0),
-      createdBy: req.user._id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      is_deleted: false,
-      GST_no: req.body.GST_no || "",
-      URD: req.body.URD || "",
-      Aadhar_doc: req.body.Aadhar_doc || "",
-      PanCard_doc: req.body.PanCard_doc || "",
-      Other_docs: req.body.Other_docs || "",
-      location: req.body.location || null
+    res.status(500).json({
+      message: "Failed to fetch clients"
     });
 
-    res.status(201).json(client);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to create client" });
   }
+
+};
+
+exports.getClientById = async (req, res) => {
+
+  try {
+
+    const client = await Client.findOne({
+      _id: req.params.id,
+      is_deleted: { $ne: true }
+    }).lean();
+
+    if (!client) {
+      return res.status(404).json({
+        message: "Client not found"
+      });
+    }
+
+    const contacts = await ClientContact.find({
+      client_id: String(client._id),
+      is_active: { $ne: false }
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+    res.json({
+      client: {
+        _id: client._id,
+        name: client.name || "",
+        industry: client.industry || "",
+        Address: client.Address || "",
+        employeeCount: client.employeeCount ?? "",
+        turnoverRange: client.turnoverRange || "",
+        website: client.website || "",
+        source: client.source || "",
+        deal_count: client.deal_count ?? 0,
+        GST_no: client.GST_no || "",
+        URD: client.URD || "",
+        Aadhar_doc: client.Aadhar_doc || "",
+        PanCard_doc: client.PanCard_doc || "",
+        Other_docs: client.Other_docs || "",
+        location: client.location || "",
+        createdAt: client.createdAt || null,
+        updatedAt: client.updatedAt || null
+      },
+      contacts: contacts.map((contact) => ({
+        _id: contact._id,
+        client_id: contact.client_id || "",
+        name: contact.name || "",
+        designation: contact.designation || "",
+        phone: contact.phone || "",
+        email: contact.email || "",
+        linkedin: contact.linkedin || "",
+        is_active: contact.is_active ?? true,
+        is_deleted: contact.is_deleted || null,
+        createdAt: contact.createdAt || null,
+        updatedAt: contact.updatedAt || null
+      }))
+    });
+
+  } catch (err) {
+
+    console.error(err);
+    res.status(500).json({
+      message: "Failed to fetch client details"
+    });
+
+  }
+
 };
 
 exports.updateClient = async (req, res) => {
+
   try {
-    const updateData = {
+
+    const { client: clientInput = {}, contacts: contactsInput = [] } = req.body || {};
+
+    const existingClient = await Client.findOne({
+      _id: req.params.id,
+      is_deleted: { $ne: true }
+    });
+
+    if (!existingClient) {
+      return res.status(404).json({
+        message: "Client not found"
+      });
+    }
+
+    const clientUpdate = {
       updatedAt: new Date()
     };
 
-    if (req.body.name !== undefined) updateData.name = String(req.body.name || "").trim();
-    if (req.body.industry !== undefined) updateData.industry = req.body.industry || null;
-    if (req.body.Address !== undefined) updateData.Address = req.body.Address || "";
-    if (req.body.employeeCount !== undefined) updateData.employeeCount = parseNumber(req.body.employeeCount, 0);
-    if (req.body.turnoverRange !== undefined) updateData.turnoverRange = req.body.turnoverRange || "";
-    if (req.body.website !== undefined) updateData.website = req.body.website || "";
-    if (req.body.source !== undefined) updateData.source = req.body.source || null;
-    if (req.body.deal_count !== undefined) updateData.deal_count = parseNumber(req.body.deal_count, 0);
-    if (req.body.GST_no !== undefined) updateData.GST_no = req.body.GST_no || "";
-    if (req.body.URD !== undefined) updateData.URD = req.body.URD || "";
-    if (req.body.Aadhar_doc !== undefined) updateData.Aadhar_doc = req.body.Aadhar_doc || "";
-    if (req.body.PanCard_doc !== undefined) updateData.PanCard_doc = req.body.PanCard_doc || "";
-    if (req.body.Other_docs !== undefined) updateData.Other_docs = req.body.Other_docs || "";
-    if (req.body.location !== undefined) updateData.location = req.body.location || null;
+    if (clientInput.name !== undefined) clientUpdate.name = cleanString(clientInput.name);
+    if (clientInput.industry !== undefined) clientUpdate.industry = clientInput.industry || null;
+    if (clientInput.Address !== undefined) clientUpdate.Address = cleanString(clientInput.Address);
+    if (clientInput.employeeCount !== undefined) clientUpdate.employeeCount = numberOrNull(clientInput.employeeCount);
+    if (clientInput.turnoverRange !== undefined) clientUpdate.turnoverRange = cleanString(clientInput.turnoverRange);
+    if (clientInput.website !== undefined) clientUpdate.website = cleanString(clientInput.website);
+    if (clientInput.source !== undefined) clientUpdate.source = clientInput.source || null;
+    if (clientInput.GST_no !== undefined) clientUpdate.GST_no = cleanString(clientInput.GST_no);
+    if (clientInput.URD !== undefined) clientUpdate.URD = cleanString(clientInput.URD);
+    if (clientInput.Aadhar_doc !== undefined) clientUpdate.Aadhar_doc = cleanString(clientInput.Aadhar_doc);
+    if (clientInput.PanCard_doc !== undefined) clientUpdate.PanCard_doc = cleanString(clientInput.PanCard_doc);
+    if (clientInput.Other_docs !== undefined) clientUpdate.Other_docs = cleanString(clientInput.Other_docs);
+    if (clientInput.location !== undefined) clientUpdate.location = clientInput.location || null;
 
-    if (updateData.industry) {
-      const industryExists = await Industry.findOne({
-        _id: updateData.industry,
-        is_deleted: false
-      }).lean();
-      if (!industryExists) {
-        return res.status(400).json({ message: "Invalid industry selected" });
+    await Client.findByIdAndUpdate(
+      existingClient._id,
+      { $set: clientUpdate },
+      { new: true, runValidators: false }
+    );
+
+    if (Array.isArray(contactsInput)) {
+      for (const contact of contactsInput) {
+        if (!contact) continue;
+
+        if (contact._id) {
+          const contactUpdate = {
+            updatedAt: new Date()
+          };
+
+          if (contact.name !== undefined) contactUpdate.name = cleanString(contact.name);
+          if (contact.designation !== undefined) contactUpdate.designation = cleanString(contact.designation);
+          if (contact.phone !== undefined) contactUpdate.phone = cleanString(contact.phone);
+          if (contact.email !== undefined) contactUpdate.email = cleanString(contact.email);
+          if (contact.linkedin !== undefined) contactUpdate.linkedin = cleanString(contact.linkedin);
+          if (contact.is_active !== undefined) {
+            const isActive = boolOrDefault(contact.is_active, true);
+            contactUpdate.is_active = isActive;
+            contactUpdate.is_deleted = isActive ? null : new Date();
+          }
+
+          await ClientContact.findByIdAndUpdate(
+            contact._id,
+            { $set: contactUpdate },
+            { runValidators: false }
+          );
+        } else if (cleanString(contact.name)) {
+          await ClientContact.create({
+            client_id: String(existingClient._id),
+            name: cleanString(contact.name),
+            designation: cleanString(contact.designation),
+            phone: cleanString(contact.phone),
+            email: cleanString(contact.email),
+            linkedin: cleanString(contact.linkedin),
+            createdBy: req.user?._id,
+            is_active: boolOrDefault(contact.is_active, true),
+            is_deleted: boolOrDefault(contact.is_active, true) ? null : new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
       }
     }
 
-    if (updateData.source) {
-      const sourceExists = await Source.findOne({
-        _id: updateData.source,
-        is_deleted: false
-      }).lean();
-      if (!sourceExists) {
-        return res.status(400).json({ message: "Invalid source selected" });
-      }
-    }
+    const updatedClient = await Client.findById(existingClient._id).lean();
+    const contacts = await ClientContact.find({
+      client_id: String(existingClient._id),
+      is_active: { $ne: false }
+    }).lean();
 
-    const client = await Client.findOneAndUpdate(
-      { _id: req.params.id, is_deleted: false },
-      { $set: updateData },
-      { returnDocument: "after" }
-    );
+    res.json({
+      client: updatedClient,
+      contacts
+    });
 
-    if (!client) {
-      return res.status(404).json({ message: "Client not found" });
-    }
-
-    res.json(client);
   } catch (err) {
+
     console.error(err);
-    res.status(500).json({ message: "Update failed" });
+    res.status(500).json({
+      message: "Failed to update client"
+    });
+
   }
-};
 
-exports.deleteClient = async (req, res) => {
-  try {
-    const client = await Client.findByIdAndUpdate(
-      req.params.id,
-      { is_deleted: true, updatedAt: new Date() },
-      { returnDocument: "after" }
-    );
-
-    if (!client) {
-      return res.status(404).json({ message: "Client not found" });
-    }
-
-    res.json({ message: "Client deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Delete failed" });
-  }
-};
-
-exports.activateClient = async (req, res) => {
-  try {
-    const client = await Client.findByIdAndUpdate(
-      req.params.id,
-      { is_deleted: false, updatedAt: new Date() },
-      { returnDocument: "after" }
-    );
-
-    if (!client) {
-      return res.status(404).json({ message: "Client not found" });
-    }
-
-    res.json({ message: "Client restored successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Restore failed" });
-  }
 };

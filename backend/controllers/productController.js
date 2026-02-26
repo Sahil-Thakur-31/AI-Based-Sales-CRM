@@ -1,4 +1,32 @@
 const Product = require("../models/products");
+const Tax = require("../models/taxes");
+
+const resolveTaxPayload = async (taxId) => {
+
+  if (!taxId) {
+    return {
+      taxId: null,
+      taxPercent: 0
+    };
+  }
+
+  const tax = await Tax.findOne({
+    _id: taxId,
+    is_deleted: false
+  })
+  .select("rate")
+  .lean();
+
+  if (!tax) {
+    throw new Error("Selected tax is invalid or deleted");
+  }
+
+  return {
+    taxId,
+    taxPercent: tax.rate
+  };
+
+};
 
 
 /*
@@ -37,6 +65,8 @@ exports.createProduct = async (req, res) => {
 
   try {
 
+    const taxPayload = await resolveTaxPayload(req.body.taxId);
+
     const product = await Product.create({
 
       name: req.body.name,
@@ -47,7 +77,9 @@ exports.createProduct = async (req, res) => {
 
       price: req.body.price,
 
-      taxPercent: req.body.taxPercent,
+      taxPercent: taxPayload.taxPercent,
+
+      taxId: taxPayload.taxId,
 
       createdBy: req.user._id,
 
@@ -83,6 +115,17 @@ exports.updateProduct = async (req, res) => {
 
   try {
 
+    const updatePayload = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "taxId")) {
+      const taxPayload = await resolveTaxPayload(req.body.taxId);
+      updatePayload.taxId = taxPayload.taxId;
+      updatePayload.taxPercent = taxPayload.taxPercent;
+    }
+
     const product = await Product.findOneAndUpdate(
 
       {
@@ -90,10 +133,7 @@ exports.updateProduct = async (req, res) => {
         is_deleted: false
       },
 
-      {
-        ...req.body,
-        updatedAt: new Date()
-      },
+      updatePayload,
 
       {
         returnDocument: "after"

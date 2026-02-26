@@ -23,14 +23,9 @@
 
 .admin-config-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-bottom: 18px;
-}
-
-.admin-config-header h2 {
-  font-size: 20px;
-  font-weight: 600;
 }
 
 .admin-config-actions {
@@ -39,12 +34,10 @@
   align-items: center;
 }
 
-.admin-config-actions input {
-  border-radius: 15px;
-  padding: 5px 25px;
-  font-weight: 600;
-  font-size: 17px;
-  border: 1px solid #ddd;
+.admin-config-actions .admin-search-input {
+  min-width: 240px;
+  max-width: 360px;
+  width: 100%;
 }
 
 .admin-config-actions select {

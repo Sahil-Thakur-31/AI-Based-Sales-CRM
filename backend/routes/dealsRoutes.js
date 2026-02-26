@@ -1,7 +1,10 @@
-const router = require("express").Router();
-const { getDeals } = require("../controllers/dealsController");
+const express = require("express");
+const router = express.Router();
+const authenticate = require("../middlewares/auth");
+const { getDeals, getDealById, updateDeal } = require("../controllers/dealsController");
 
-router.get("/", getDeals);
+router.get("/", authenticate, getDeals);
+router.get("/:id", authenticate, getDealById);
+router.put("/:id", authenticate, updateDeal);
 
 module.exports = router;
-

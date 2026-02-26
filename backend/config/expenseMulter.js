@@ -1,18 +1,17 @@
+const fs = require("fs");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 
-const uploadDir = path.join(__dirname, "..", "uploads");
+const receiptDir = path.join(__dirname, "..", "uploads", "receipt");
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(receiptDir)) {
+  fs.mkdirSync(receiptDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadDir);
+    cb(null, receiptDir);
   },
-
   filename: function (req, file, cb) {
     const uniqueName =
       req.user._id +
@@ -21,9 +20,7 @@ const storage = multer.diskStorage({
       path.extname(file.originalname);
 
     cb(null, uniqueName);
-  }
+  },
 });
 
-const upload = multer({ storage });
-
-module.exports = upload;
+module.exports = multer({ storage });
