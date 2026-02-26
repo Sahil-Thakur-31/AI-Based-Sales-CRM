@@ -16,6 +16,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [search, setSearch] = useState("");
   const [industryFilter, setIndustryFilter] = useState("All");
   const [temperatureFilter, setTemperatureFilter] = useState("All");
+  const [stageFilter, setStageFilter] = useState("All");
   const [industryOptions, setIndustryOptions] = useState([]);
 
   const [deletedDeals, setDeletedDeals] = useState([]);
@@ -145,9 +146,10 @@ function LeadsDashboard({ defaultView = "leads" }) {
         nextAction.includes(q);
       const matchesIndustry = industryFilter === "All" || row.industry === industryFilter;
       const matchesTemp = temperatureFilter === "All" || getTemperature(row) === temperatureFilter;
-      return matchesSearch && matchesIndustry && matchesTemp;
+      const matchesStage = stageFilter === "All" || row.stage === stageFilter;
+      return matchesSearch && matchesIndustry && (viewMode === "deals" ? matchesStage : matchesTemp);
     });
-  }, [sourceRows, search, industryFilter, temperatureFilter]);
+  }, [sourceRows, search, industryFilter, temperatureFilter, stageFilter, viewMode]);
 
   return (
     <div className="leads-container">
@@ -180,15 +182,31 @@ function LeadsDashboard({ defaultView = "leads" }) {
           />
 
 
-          <select
-            value={temperatureFilter}
-            onChange={(e) => setTemperatureFilter(e.target.value)}
-          >
-            <option value="All">All Temperatures</option>
-            <option value="hot">Hot</option>
-            <option value="warm">Warm</option>
-            <option value="cold">Cold</option>
-          </select>
+          {viewMode === "deals" ? (
+            <select
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+            >
+              <option value="All">All Stages</option>
+              <option value="P1">P1</option>
+              <option value="P2">P2</option>
+              <option value="P3">P3</option>
+              <option value="P4">P4</option>
+              <option value="P5">P5</option>
+              <option value="P6">P6</option>
+              <option value="P7">P7</option>
+            </select>
+          ) : (
+            <select
+              value={temperatureFilter}
+              onChange={(e) => setTemperatureFilter(e.target.value)}
+            >
+              <option value="All">All Temperatures</option>
+              <option value="hot">Hot</option>
+              <option value="warm">Warm</option>
+              <option value="cold">Cold</option>
+            </select>
+          )}
 
           <select
             value={industryFilter}

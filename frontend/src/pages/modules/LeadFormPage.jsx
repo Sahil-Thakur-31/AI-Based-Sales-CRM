@@ -679,6 +679,41 @@ function LeadFormPage() {
         </div>
       </div>
 
+      {/* ================= CONTACTS ================= */}
+      <div className="contacts-section">
+        <h3 className="contacts-title">Contacts</h3>
+
+        {contacts.map((c, i) => (
+          <div key={i} className="contact-card">
+            <div className="contact-title">
+              {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
+              {editMode && contacts.length > 1 && (
+                <button className="remove-contact-btn" onClick={() => removeContact(i)}>
+                  X
+                </button>
+              )}
+            </div>
+
+            <div className="contact-grid">
+              <InputField label="Name" name="name" value={c.name} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <InputField label="Designation" name="designation" value={c.designation} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <InputField label="Phone" name="phone" value={c.phone} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <InputField label="Email" name="email" value={c.email} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <InputField label="LinkedIn" name="linkedin" value={c.linkedin} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <InputField label="Address" name="address" value={c.address} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+            </div>
+          </div>
+        ))}
+
+        {editMode && (
+          <div className="add-contact-wrapper">
+            <button className="add-contact-btn" onClick={addContact}>
+              + Add Contact
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="contacts-section">
         <h3 className="contacts-title">Follow-up History</h3>
         {historyRows.length === 0 && <p>No follow-up history yet.</p>}
@@ -713,41 +748,6 @@ function LeadFormPage() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* ================= CONTACTS ================= */}
-      <div className="contacts-section">
-        <h3 className="contacts-title">Contacts</h3>
-
-        {contacts.map((c, i) => (
-          <div key={i} className="contact-card">
-            <div className="contact-title">
-              {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
-              {editMode && contacts.length > 1 && (
-                <button className="remove-contact-btn" onClick={() => removeContact(i)}>
-                  X
-                </button>
-              )}
-            </div>
-
-            <div className="contact-grid">
-              <InputField label="Name" name="name" value={c.name} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Designation" name="designation" value={c.designation} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Phone" name="phone" value={c.phone} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Email" name="email" value={c.email} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="LinkedIn" name="linkedin" value={c.linkedin} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Address" name="address" value={c.address} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-            </div>
-          </div>
-        ))}
-
-        {editMode && (
-          <div className="add-contact-wrapper">
-            <button className="add-contact-btn" onClick={addContact}>
-              + Add Contact
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="form-actions">
