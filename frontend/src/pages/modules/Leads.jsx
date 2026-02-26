@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import "./LeadsDashboard.css";
+import "./styles/Expense.css";
 
 function LeadsDashboard({ defaultView = "leads" }) {
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [deletedDeals, setDeletedDeals] = useState([]);
   const [loadingDeletedDeals, setLoadingDeletedDeals] = useState(true);
   const [showDeletedDeals, setShowDeletedDeals] = useState(false);
+  const [showOcrModal, setShowOcrModal] = useState(false);
 
   useEffect(() => {
     setViewMode(defaultView === "deals" ? "deals" : "leads");
@@ -155,7 +158,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
     <div className="leads-container">
       {viewMode === "leads" && (
         <div className="top-actions">
-          <button className="btn" type="button" onClick={() => { }}>
+          <button className="btn" type="button" onClick={() => setShowOcrModal(true)}>
             <span className="action-icon">📇</span>
             Scan Business Card
             <span className="ocr-tag">OCR</span>
@@ -473,6 +476,30 @@ function LeadsDashboard({ defaultView = "leads" }) {
           </div>
         </>
       )}
+      {showOcrModal &&
+        ReactDOM.createPortal(
+          <div className="expense-modal-overlay">
+            <div className="expense-modal expense-large-modal">
+              <div className="expense-modal-header">
+                <h3>OCR Business Card Scanner</h3>
+                <span className="expense-close-btn" onClick={() => setShowOcrModal(false)}>
+                  x
+                </span>
+              </div>
+
+              <div className="expense-upload-box">
+                <input type="file" accept="image/*" />
+                <p>Drop file or click to upload</p>
+                <span>Supports: JPG, PNG, PDF</span>
+
+                <div className="expense-ai-section">
+                  <button className="expense-ai-btn">+ AI OCR Processing</button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

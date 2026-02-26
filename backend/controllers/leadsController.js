@@ -300,11 +300,6 @@ exports.searchCompany = async (req, res) => {
       if (lead.location) {
         location = await Location.findById(lead.location).lean();
       }
-      // Fallback: if lead has direct location fields (legacy data)
-      const leadCountry = location?.country || lead.country || "";
-      const leadState = location?.State || lead.State || "";
-      const leadCity = location?.city || lead.city || "";
-      const leadZone = location?.zone || lead.zone || "";
 
       // Get lead contacts
       const leadContacts = await LeadContacts.find({ lead_id: lead._id })
@@ -324,10 +319,10 @@ exports.searchCompany = async (req, res) => {
         deal_value_estimate: lead.deal_value_estimate || "",
         lead_temperature: lead.lead_temperature || "cold",
         assigned_to: lead.assigned_to || "",
-        country: leadCountry,
-        State: leadState,
-        city: leadCity,
-        zone: leadZone,
+        country: location?.country || "",
+        State: location?.State || "",
+        city: location?.city || "",
+        zone: location?.zone || "",
         contacts: leadContacts.map((c) => ({
           name: c.name || "",
           designation: c.designation || "",
