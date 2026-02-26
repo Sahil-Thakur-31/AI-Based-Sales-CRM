@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
 import BackButton from "../../components/BackButton";
+import "./LeadsDashboard.css";
 
 function LeadFormPage() {
   const { id } = useParams();
@@ -76,33 +77,69 @@ function LeadFormPage() {
 
   /* ================= LOAD LEAD ================= */
   useEffect(() => {
-    const loadLead = async () => {
+    const loadData = async () => {
       if (isNew) return;
 
       try {
+        // 🔹 If viewing deal → load deal
+        if (dealView && dealIdFromQuery) {
+          const { data } = await API.get(`/deals/${dealIdFromQuery}`, {
+            params: { include_deleted: deletedView },
+          });
+
+          const loadedDeal = data.deal || data;
+
+          setLead({
+            ...loadedDeal,
+            assigned_to:
+              loadedDeal?.assigned_to?._id ||
+              loadedDeal?.assigned_to ||
+              "",
+            source:
+              loadedDeal?.source?._id ||
+              loadedDeal?.source ||
+              "",
+            contact_history: Array.isArray(loadedDeal.contact_history)
+              ? loadedDeal.contact_history
+              : [],
+          });
+
+          if (data.contacts?.length) setContacts(data.contacts);
+
+          return;
+        }
+
+        // 🔹 Otherwise load lead
         const { data } = await API.get(`/leads/${id}`, {
-          params: {
-            include_deleted: deletedView,
-          },
+          params: { include_deleted: deletedView },
         });
+
         const loadedLead = data.lead || data;
+
         setLead({
           ...loadedLead,
-          assigned_to: loadedLead?.assigned_to?._id || loadedLead?.assigned_to || "",
-          source: loadedLead?.source?._id || loadedLead?.source || "",
+          assigned_to:
+            loadedLead?.assigned_to?._id ||
+            loadedLead?.assigned_to ||
+            "",
+          source:
+            loadedLead?.source?._id ||
+            loadedLead?.source ||
+            "",
           contact_history: Array.isArray(loadedLead.contact_history)
             ? loadedLead.contact_history
             : [],
         });
+
         if (data.contacts?.length) setContacts(data.contacts);
+
       } catch (err) {
-        console.error("lead load error", err);
+        console.error("load error", err);
       }
     };
 
-    loadLead();
-  }, [id, isNew, deletedView]);
-
+    loadData();
+  }, [id, isNew, deletedView, dealView, dealIdFromQuery]);
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
@@ -473,6 +510,32 @@ function LeadFormPage() {
     );
   };
 
+  const handleRestoreDeal = async () => {
+    if (!dealId) {
+      showAlert("Restore Failed", "Deal ID is missing.", "error");
+      return;
+    }
+
+    showConfirm(
+      "Restore Deal",
+      "Do you want to restore this deleted deal?",
+      async () => {
+        try {
+          await API.put(`/deals/${dealId}/restore`);
+          navigate("/deals");
+        } catch (err) {
+          console.error("restore deal error", err);
+          showAlert(
+            "Restore Failed",
+            err.response?.data?.message || "Failed to restore deal",
+            "error"
+          );
+        }
+      },
+      { confirmLabel: "Restore", variant: "success" }
+    );
+  };
+
   const followUps = Array.isArray(lead.contact_history) ? lead.contact_history : [];
   const dealId = dealIdFromQuery || lead?.converted_deal_id || "";
   const isConvertedLead = Boolean(lead.converted_to_deal || lead.converted_deal_id);
@@ -630,8 +693,8 @@ function LeadFormPage() {
                 <p>
                   {(entry.contacted_at || entry.completed_at)
                     ? new Date(
-                        entry.contacted_at || entry.completed_at
-                      ).toLocaleString("en-IN")
+                      entry.contacted_at || entry.completed_at
+                    ).toLocaleString("en-IN")
                     : "-"}
                 </p>
               </div>
@@ -690,7 +753,7 @@ function LeadFormPage() {
       <div className="form-actions">
         {deletedView ? (
           !editMode && !isNew && (
-            <button className="convert-btn" onClick={handleRestoreLead}>
+            <button className="convert-btn" onClick={dealView ? handleRestoreDeal : handleRestoreLead}>
               Restore
             </button>
           )

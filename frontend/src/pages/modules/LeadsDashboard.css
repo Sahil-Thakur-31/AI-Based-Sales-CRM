@@ -277,14 +277,14 @@ td {
 }
 
 .quote-btn {
-  background-color: #ffffff;
-  color: #2563eb;
-  border: 1px solid #2563eb;
+  background-color: #1c9716;
+  color: #ffffff;
+  border: 1px solid #10c829;
 }
 
 .quote-btn:hover {
-  background-color: #eff6ff;
-  color: #1d4ed8;
+  background-color: #10c829;
+  color: #ffffff;
 }
 
 .quote-btn:disabled {
@@ -443,9 +443,9 @@ td {
 }
 
 .convert-btn {
-  background: #ffffff;
-  color: #1f2937;
-  border: 1px solid #d1d5db;
+  background: #0b9c1f;
+  color: #ffffff;
+  border: 1px solid #10c829;
   padding: 8px 20px;
   border-radius: 6px;
   cursor: pointer;
@@ -453,13 +453,18 @@ td {
 }
 
 .soft-delete-btn {
-  background: #ffffff;
-  color: #1f2937;
-  border: 1px solid #d1d5db;
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid #dc2626;
   padding: 8px 20px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+}
+
+.soft-delete-btn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .lead-form {
@@ -598,4 +603,60 @@ td {
   border-radius: 8px;
   padding: 10px;
   font-size: 14px;
+}
+
+.crm-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 16px;
+}
+
+.crm-popup-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 18px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+.crm-popup-card h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+.crm-popup-card p {
+  font-size: 14px;
+  color: #374151;
+}
+
+.crm-popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.crm-popup-cancel,
+.crm-popup-confirm {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+.crm-popup-confirm {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
 }

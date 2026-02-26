@@ -18,22 +18,46 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [temperatureFilter, setTemperatureFilter] = useState("All");
   const [industryOptions, setIndustryOptions] = useState([]);
 
+  const [deletedDeals, setDeletedDeals] = useState([]);
+  const [loadingDeletedDeals, setLoadingDeletedDeals] = useState(true);
+  const [showDeletedDeals, setShowDeletedDeals] = useState(false);
+
   useEffect(() => {
     setViewMode(defaultView === "deals" ? "deals" : "leads");
   }, [defaultView]);
 
   useEffect(() => {
     const load = async () => {
-      const [leadsRes, dealsRes, deletedRes, industriesRes] = await Promise.allSettled([
+      const [
+        leadsRes,
+        dealsRes,
+        deletedRes,
+        deletedDealsRes,
+        industriesRes,
+      ] = await Promise.allSettled([
         API.get("/leads"),
         API.get("/deals"),
         API.get("/leads", { params: { deleted_only: true, limit: 10 } }),
+        API.get("/deals", { params: { deleted_only: true, limit: 10 } }),
         API.get("/industries"),
       ]);
 
-      if (leadsRes.status === "fulfilled") setLeads(Array.isArray(leadsRes.value.data) ? leadsRes.value.data : []);
-      if (dealsRes.status === "fulfilled") setDeals(Array.isArray(dealsRes.value.data) ? dealsRes.value.data : []);
-      if (deletedRes.status === "fulfilled") setDeletedLeads(Array.isArray(deletedRes.value.data) ? deletedRes.value.data : []);
+      if (leadsRes.status === "fulfilled")
+        setLeads(Array.isArray(leadsRes.value.data) ? leadsRes.value.data : []);
+
+      if (dealsRes.status === "fulfilled")
+        setDeals(Array.isArray(dealsRes.value.data) ? dealsRes.value.data : []);
+
+      if (deletedRes.status === "fulfilled")
+        setDeletedLeads(Array.isArray(deletedRes.value.data) ? deletedRes.value.data : []);
+
+      if (deletedDealsRes.status === "fulfilled")
+        setDeletedDeals(
+          Array.isArray(deletedDealsRes.value.data)
+            ? deletedDealsRes.value.data.filter(d => d.deleted === true || d.is_deleted === true)
+            : []
+        );
+
       if (industriesRes.status === "fulfilled") {
         setIndustryOptions(
           (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
@@ -45,6 +69,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
       setLoadingLeads(false);
       setLoadingDeals(false);
       setLoadingDeleted(false);
+      setLoadingDeletedDeals(false);
     };
 
     load();
@@ -128,7 +153,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
     <div className="leads-container">
       {viewMode === "leads" && (
         <div className="top-actions">
-          <button className="btn" type="button" onClick={() => {}}>
+          <button className="btn" type="button" onClick={() => { }}>
             <span className="action-icon">📇</span>
             Scan Business Card
             <span className="ocr-tag">OCR</span>
@@ -186,7 +211,8 @@ function LeadsDashboard({ defaultView = "leads" }) {
               <th>Contact</th>
               <th>Industry</th>
               <th>Value</th>
-              <th>AI Score</th>
+              {viewMode === "leads" && <th>AI Score</th>}
+              {viewMode === "deals" && <th>Stage</th>}
               <th>Last Contact</th>
               <th>Next Action</th>
               <th></th>
@@ -206,7 +232,21 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   </td>
                   <td>{row.industry || "-"}</td>
                   <td>{formatCurrency(row.deal_value_estimate)}</td>
-                  <td><span className={`ai-chip ${t}`}>{`${row.ai_score ?? "-"} - ${getTemperatureLabel(t)}`}</span></td>
+                  {viewMode === "leads" && (
+                    <td>
+                      <span className={`ai-chip ${t}`}>
+                        {`${row.ai_score ?? "-"} - ${getTemperatureLabel(t)}`}
+                      </span>
+                    </td>
+                  )}
+
+                  {viewMode === "deals" && (
+                    <td>
+                      <span className="stage-chip">
+                        {row.stage || "-"}
+                      </span>
+                    </td>
+                  )}
                   <td>{formatDate(row.last_contact_date)}</td>
                   <td>{row.next_action || "-"}</td>
                   <td>
@@ -214,12 +254,14 @@ function LeadsDashboard({ defaultView = "leads" }) {
                       <button
                         className="view-btn"
                         onClick={() => {
-                          const leadId = viewMode === "deals" ? row.lead_id : row._id || row.lead_id;
-                          if (!leadId) return;
                           if (viewMode === "deals") {
-                            navigate(`/leads/${leadId}?view=deal&dealId=${row._id}`);
+                            const routeId = row.lead_id || row._id;
+                            if (!routeId) return;
+                            navigate(`/leads/${routeId}?view=deal&dealId=${row._id}`);
                             return;
                           }
+                          const leadId = row._id || row.lead_id;
+                          if (!leadId) return;
                           navigate(`/leads/${leadId}`);
                         }}
                       >
@@ -245,7 +287,19 @@ function LeadsDashboard({ defaultView = "leads" }) {
           </tbody>
         </table>
       </div>
-
+      {viewMode === "deals" && (
+        <div className="deleted-toggle-wrap">
+          <button
+            type="button"
+            className="deleted-toggle-btn"
+            onClick={() => setShowDeletedDeals((prev) => !prev)}
+          >
+            {showDeletedDeals
+              ? "Hide Recently Deleted Deals"
+              : "Recently Deleted Deals"}
+          </button>
+        </div>
+      )}
       {viewMode === "leads" && (
         <div className="deleted-toggle-wrap">
           <button type="button" className="deleted-toggle-btn" onClick={() => setShowDeletedLeads((prev) => !prev)}>
@@ -253,7 +307,104 @@ function LeadsDashboard({ defaultView = "leads" }) {
           </button>
         </div>
       )}
+      {viewMode === "deals" && showDeletedDeals && (
+        <>
+          <div className="leads-header deleted-header">
+            <h2>
+              Recently Deleted Deals (
+              <span className="lead-count">{deletedDeals.length}</span>)
+            </h2>
+          </div>
 
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Contact</th>
+                  <th>Industry</th>
+                  <th>Value</th>
+                  <th>Stage</th>
+                  <th>Delete Reason</th>
+                  <th>Last Contact</th>
+                  <th>Next Action</th>
+                  <th></th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loadingDeletedDeals && (
+                  <tr>
+                    <td colSpan={8}>Loading deleted deals...</td>
+                  </tr>
+                )}
+
+                {!loadingDeletedDeals && deletedDeals.length === 0 && (
+                  <tr>
+                    <td colSpan={8}>No recently deleted deals</td>
+                  </tr>
+                )}
+
+                {!loadingDeletedDeals &&
+                  deletedDeals.map((row) => {
+                    const t = getTemperature(row);
+                    return (
+                      <tr key={row._id}>
+                        <td className="company-cell">
+                          {row.company_name || "-"}
+                        </td>
+
+                        <td>
+                          <div className="contact-name">
+                            {row.primary_contact?.name || "-"}
+                          </div>
+                          <small className="contact-subtext">
+                            {row.primary_contact?.email ||
+                              row.primary_contact?.phone ||
+                              "-"}
+                          </small>
+                        </td>
+
+                        <td>{row.industry || "-"}</td>
+                        <td>{formatCurrency(row.deal_value_estimate)}</td>
+
+                        <td>
+                          <span className="stage-chip">
+                            {row.stage || "-"}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className="delete-reason">
+                            {row.delete_reason || row.deleted_reason || "No reason provided"}
+                          </span>
+                        </td>
+
+                        <td>{formatDate(row.last_contact_date)}</td>
+                        <td>{row.next_action || "-"}</td>
+
+                        <td>
+                          <button
+                            className="view-btn"
+                            onClick={() => {
+                              const routeId = row.lead_id || row._id;
+                              if (!routeId) return;
+                              navigate(
+                                `/leads/${routeId}?view=deal&dealId=${row._id}&deleted=true`
+                              );
+                            }}
+                          >
+                            View More
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
       {viewMode === "leads" && showDeletedLeads && (
         <>
           <div className="leads-header deleted-header">
@@ -263,7 +414,8 @@ function LeadsDashboard({ defaultView = "leads" }) {
             <table>
               <thead>
                 <tr>
-                  <th>Company</th><th>Contact</th><th>Industry</th><th>Value</th><th>AI Score</th><th>Last Contact</th><th>Next Action</th><th></th>
+                  <th>Company</th><th>Contact</th><th>Industry</th><th>Value</th><th>Stage</th>
+                  <th>Delete Reason</th><th>Last Contact</th><th>Next Action</th><th></th>
                 </tr>
               </thead>
               <tbody>

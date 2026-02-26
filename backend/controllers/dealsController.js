@@ -13,9 +13,21 @@ function mapTemperatureFromLead(lead) {
 
 exports.getDeals = async (req, res) => {
   try {
-    const deals = await Deal.find({ is_deleted: { $ne: true } })
-      .sort({ updatedAt: -1 })
-      .lean();
+    const deletedOnly =
+      req.query.deleted_only === "true" || req.query.deleted_only === true;
+
+    const filter = deletedOnly
+      ? { is_deleted: true }
+      : { is_deleted: { $ne: true } };
+
+    let dealsQuery = Deal.find(filter).sort({ updatedAt: -1 });
+
+    const limitParam = Number(req.query.limit);
+    if (!Number.isNaN(limitParam) && limitParam > 0) {
+      dealsQuery = dealsQuery.limit(limitParam);
+    }
+
+    const deals = await dealsQuery.lean();
 
     const leadIds = deals
       .map((deal) => deal.lead_id)
@@ -34,17 +46,17 @@ exports.getDeals = async (req, res) => {
       : [];
     const contacts = uniqueLeadIds.length
       ? await LeadContacts.find({ lead_id: { $in: uniqueLeadIds } })
-          .sort({ is_primary: -1, created_at: 1 })
-          .lean()
+        .sort({ is_primary: -1, created_at: 1 })
+        .lean()
       : [];
     const clients = uniqueClientIds.length
-      ? await Client.find({ _id: { $in: uniqueClientIds }, is_deleted: { $ne: true } }).lean()
+      ? await Client.find({ _id: { $in: uniqueClientIds } }).lean()
       : [];
     const clientContacts = uniqueClientIds.length
       ? await ClientContact.find({
-          client_id: { $in: uniqueClientIds },
-          is_active: true,
-        }).lean()
+        client_id: { $in: uniqueClientIds },
+        is_active: true,
+      }).lean()
       : [];
 
     const leadMap = new Map(leads.map((lead) => [lead._id.toString(), lead]));
@@ -81,7 +93,7 @@ exports.getDeals = async (req, res) => {
       return {
         _id: deal._id,
         deal_id: deal._id,
-        company_name: lead?.company_name || client?.name || "Untitled Deal",
+        company_name: lead?.company_name || client?.name || deal.clientName || "Untitled Deal",
         industry: lead?.industry || "",
         deal_value_estimate:
           typeof deal.dealValue === "number"
@@ -93,12 +105,16 @@ exports.getDeals = async (req, res) => {
         next_action: lead?.next_action || "",
         next_action_date: null,
         status: deal.status || "open",
+        stage: deal.stage || "",
         converted_to_deal: true,
         primary_contact:
           (leadId ? contactMap.get(leadId) : null) ||
           (clientId ? clientContactMap.get(clientId) : null) ||
           null,
         lead_id: deal.lead_id || null,
+        is_deleted: deal.is_deleted || false,
+        deleted: deal.is_deleted || false,
+        delete_reason: deal.deleted_reason || "",
       };
     });
 
@@ -111,9 +127,91 @@ exports.getDeals = async (req, res) => {
 // fallback handlers used by routes
 exports.getDealById = async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id).lean();
+    const includeDeleted =
+      req.query.include_deleted === "true" || req.query.include_deleted === true;
+
+    const filter = { _id: req.params.id };
+    if (!includeDeleted) {
+      filter.is_deleted = { $ne: true };
+    }
+
+    const deal = await Deal.findOne(filter).lean();
     if (!deal) return res.status(404).json({ message: "Deal not found" });
-    res.json(deal);
+
+    // Look up the associated lead and client to enrich the response
+    const lead = deal.lead_id
+      ? await Leads.findById(deal.lead_id).lean()
+      : null;
+    const client = deal.client_id
+      ? await Client.findById(deal.client_id).lean()
+      : null;
+
+    // Load contacts from the lead
+    const contacts = deal.lead_id
+      ? await LeadContacts.find({ lead_id: deal.lead_id })
+        .sort({ is_primary: -1, created_at: 1 })
+        .lean()
+      : [];
+
+    // Load contacts from the client if no lead contacts
+    const clientContacts =
+      !contacts.length && deal.client_id
+        ? await ClientContact.find({
+          client_id: deal.client_id,
+          is_active: true,
+        }).lean()
+        : [];
+
+    // Build enriched response matching LeadFormPage field names
+    const enriched = {
+      ...deal,
+      company_name:
+        lead?.company_name || client?.name || deal.clientName || "",
+      industry: lead?.industry || "",
+      employee_count: lead?.employee_count || null,
+      turnover_range: lead?.turnover_range || "",
+      Address: lead?.Address || client?.Address || "",
+      website: lead?.website || client?.website || "",
+      source: lead?.source || client?.source || "",
+      deal_value_estimate:
+        typeof deal.dealValue === "number"
+          ? deal.dealValue
+          : lead?.deal_value_estimate || 0,
+      assigned_to: deal.assignedTo || lead?.assigned_to || "",
+      lead_temperature: lead?.lead_temperature || "",
+      status: deal.status || "open",
+      stage: deal.stage || "",
+      last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
+      next_action: lead?.next_action || "",
+      contact_history: [],
+      converted_to_deal: true,
+    };
+
+    // Add location fields if the lead has them
+    if (lead?.location) {
+      const Location = require("../models/location");
+      const location = await Location.findById(lead.location).lean();
+      if (location) {
+        enriched.country = location.country || "";
+        enriched.State = location.State || "";
+        enriched.city = location.city || "";
+        enriched.zone = location.zone || "";
+      }
+    }
+
+    const allContacts = contacts.length
+      ? contacts
+      : clientContacts.map((cc) => ({
+        name: cc.name || "",
+        designation: cc.designation || "",
+        phone: cc.phone || "",
+        email: cc.email || "",
+        linkedin: cc.linkedin || "",
+        address: "",
+        is_primary: true,
+      }));
+
+    res.json({ deal: enriched, contacts: allContacts });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch deal" });
@@ -154,5 +252,25 @@ exports.deleteDeal = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Failed to delete deal" });
+  }
+};
+
+exports.restoreDeal = async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id);
+    if (!deal) {
+      return res.status(404).json({ message: "Deal not found" });
+    }
+
+    deal.is_deleted = false;
+    deal.isActive = true;
+    deal.deleted_reason = "";
+    deal.deleted_at = null;
+
+    await deal.save();
+    return res.json({ message: "Deal restored successfully", deal });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Failed to restore deal" });
   }
 };

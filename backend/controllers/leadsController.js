@@ -272,7 +272,10 @@ exports.getLeads = async (req, res) => {
 
     const filter = deletedOnly
       ? { is_deleted: true }
-      : { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] };
+      : {
+        $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
+        converted_to_deal: { $ne: true },
+      };
     let leadsQuery = Leads.find(filter).sort({ updated_at: -1 });
     if (!Number.isNaN(limit) && limit > 0) {
       leadsQuery = leadsQuery.limit(limit);
@@ -293,8 +296,8 @@ exports.getLeads = async (req, res) => {
       : [];
     const contacts = leadIds.length
       ? await LeadContacts.find({ lead_id: { $in: leadIds } })
-          .sort({ is_primary: -1, created_at: 1 })
-          .lean()
+        .sort({ is_primary: -1, created_at: 1 })
+        .lean()
       : [];
 
     const locationMap = new Map(locations.map((loc) => [loc._id.toString(), loc]));
@@ -324,10 +327,10 @@ exports.getLeads = async (req, res) => {
           lead.lead_temperature === "hot"
             ? 90
             : lead.lead_temperature === "warm"
-            ? 70
-            : lead.lead_temperature === "cold"
-            ? 50
-            : null,
+              ? 70
+              : lead.lead_temperature === "cold"
+                ? 50
+                : null,
         country: location?.country || "",
         State: location?.State || "",
         city: location?.city || "",
@@ -552,9 +555,9 @@ exports.convertLeadToDeal = async (req, res) => {
     const normalizedCompanyName = (lead.company_name || "").trim();
     let client = normalizedCompanyName
       ? await Client.findOne({
-          name: new RegExp(`^${escapeRegExp(normalizedCompanyName)}$`, "i"),
-          is_deleted: { $ne: true },
-        })
+        name: new RegExp(`^${escapeRegExp(normalizedCompanyName)}$`, "i"),
+        is_deleted: { $ne: true },
+      })
       : null;
 
     if (!client) {
@@ -627,6 +630,7 @@ exports.convertLeadToDeal = async (req, res) => {
 
     const deal = await Deal.create({
       client_id: client._id,
+      clientName: client.name || lead.company_name || "",
       client_contact_Id: clientContact?._id || null,
       lead_id: lead._id,
       assignedTo: lead.assigned_to || null,
