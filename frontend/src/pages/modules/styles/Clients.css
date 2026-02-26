@@ -59,13 +59,21 @@
 }
 
 .clients-view-btn {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #374151;
-  font-weight: 600;
-  padding: 6px 11px;
+  /* Mapped to btn-view (gray) */
+  all: revert;
+  background: #6c757d !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 6px;
+  padding: 8px 16px;
   cursor: pointer;
+  font-weight: 600;
+}
+
+.clients-view-btn:hover {
+  background: #5a6268 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
 .clients-detail-topbar {
@@ -75,22 +83,36 @@
 }
 
 .clients-btn {
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 9px 13px;
   font-weight: 600;
   cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
 }
 
 .clients-btn-primary {
-  border: none;
-  background: #5b6fd8;
+  /* Mapped to btn-add/create (green) */
+  background: #28a745;
   color: #ffffff;
 }
 
+.clients-btn-primary:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
 .clients-btn-secondary {
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
+  /* Mapped to btn-cancel (light gray) */
+  background: #adb5bd;
+  color: #ffffff;
+}
+
+.clients-btn-secondary:hover {
+  background: #97a0aa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
 }
 
 .clients-detail-card {

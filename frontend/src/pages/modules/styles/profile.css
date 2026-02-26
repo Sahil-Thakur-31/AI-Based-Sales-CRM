@@ -226,32 +226,35 @@
 }
 
 .profile-btn {
-  border-radius: 10px;
+  border-radius: 6px;
   padding: 10px 16px;
-  border: 1px solid transparent;
+  border: none;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .profile-btn-primary {
-  background: #5b6fd8;
+  background: #007bff;
   color: #ffffff;
-  border-color: #5b6fd8;
 }
 
 .profile-btn-primary:hover {
-  background: #4f61c7;
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .profile-btn-secondary {
-  background: #ffffff;
-  color: #334155;
-  border-color: #d7deea;
+  background: #adb5bd;
+  color: #ffffff;
 }
 
 .profile-btn-secondary:hover {
-  background: #f8fafc;
+  background: #97a0aa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
 }
 
 .profile-grid {

@@ -31,13 +31,20 @@
 
 .quotes-new-btn {
   border: none;
-  background: #5b6fd8;
+  background: #28a745;
   color: #ffffff;
-  border-radius: 10px;
+  border-radius: 6px;
   padding: 8px 13px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.quotes-new-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .quotes-table-shell,
@@ -258,15 +265,17 @@
 }
 
 .quote-action-btn {
-  border-radius: 8px;
-  padding: 5px 9px;
+  border-radius: 6px;
+  padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
 }
 
 .quote-action-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -281,21 +290,39 @@
 }
 
 .quote-action-neutral {
-  border: 1px solid #c7d2fe;
-  background: #eef2ff;
-  color: #4338ca;
+  border: none;
+  background: #007bff;
+  color: #ffffff;
+}
+
+.quote-action-neutral:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
 }
 
 .quote-action-view {
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border: none;
+  background: #6c757d;
+  color: #ffffff;
+}
+
+.quote-action-view:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.2);
 }
 
 .quote-action-danger {
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
+  border: none;
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.quote-action-danger:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2);
 }
 
 .quote-form-page {
@@ -389,13 +416,19 @@
 }
 
 .quote-close-btn {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d1d5db;
   background: #ffffff;
   color: #6b7280;
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quote-close-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
 }
 
 .quote-form-error {
@@ -480,12 +513,19 @@
 
 .quote-add-product-btn {
   border: none;
-  background: #5b6fd8;
+  background: #28a745;
   color: #fff;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quote-add-product-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .quote-line-table {
@@ -508,17 +548,25 @@
 }
 
 .quote-remove-row-btn {
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fff1f2;
-  color: #be123c;
+  border: none;
+  border-radius: 6px;
+  background: #dc3545;
+  color: #ffffff;
   height: 38px;
   cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.quote-remove-row-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
 .quote-remove-row-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.4;
+  opacity: 0.6;
 }
 
 .quote-summary-card {
@@ -569,27 +617,44 @@
 }
 
 .quote-cancel-btn {
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-  border-radius: 8px;
+  /* Mapped to btn-cancel (light gray) */
+  border: none;
+  background: #adb5bd;
+  color: #ffffff;
+  border-radius: 6px;
   padding: 10px 14px;
   cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.quote-cancel-btn:hover {
+  background: #97a0aa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
 }
 
 .quote-submit-btn {
+  /* Mapped to btn-save (green) */
   border: none;
-  background: #5b6fd8;
+  background: #28a745;
   color: #fff;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 10px 14px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quote-submit-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .quote-submit-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 @media (max-width: 900px) {

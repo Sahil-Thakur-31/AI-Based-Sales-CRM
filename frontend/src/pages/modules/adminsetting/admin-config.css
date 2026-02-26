@@ -75,18 +75,30 @@
 }
 
 .admin-config-btn {
-  padding: 6px 25px;
+  padding: 8px 16px;
   border-radius: 6px;
   border: none;
-  background: #5b6fd8;
+  background: #007bff;
   color: white;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
 
+.admin-config-btn:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .admin-config-btn-danger {
-  background: #ef4444;
+  background: #dc3545;
+}
+
+.admin-config-btn-danger:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
 .admin-config-modal {

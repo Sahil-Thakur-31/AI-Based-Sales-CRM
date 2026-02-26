@@ -264,8 +264,9 @@ td {
 /* ================= VIEW BUTTON ================= */
 
 .view-btn {
-  padding: 6px 12px;
-  background-color: #2563eb;
+  /* Mapped to btn-edit (blue) */
+  padding: 8px 16px;
+  background-color: #007bff;
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -274,12 +275,14 @@ td {
   white-space: nowrap;
   font-weight: 600;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s ease;
 }
 
 .view-btn:hover {
-  background-color: #1d4ed8;
+  background-color: #0056b3;
   color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .row-actions {
@@ -289,21 +292,30 @@ td {
 }
 
 .quote-btn {
-  background-color: #1c9716;
+  /* Mapped to btn-add/create (green) */
+  background-color: #28a745;
   color: #ffffff;
-  border: 1px solid #10c829;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .quote-btn:hover {
-  background-color: #10c829;
+  background-color: #218838;
   color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .quote-btn:disabled {
-  background-color: #f3f4f6;
-  color: #9ca3af;
-  border-color: #d1d5db;
+  background-color: #adb5bd;
+  color: #ffffff;
+  border-color: transparent;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* ================= OVERLAY PANEL ================= */
@@ -451,38 +463,54 @@ td {
 }
 
 .edit-btn {
-  background: #2563eb;
+  background: #007bff;
   color: #ffffff;
   border: none;
   padding: 8px 20px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.edit-btn:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .convert-btn {
-  background: #0b9c1f;
+  background: #28a745;
   color: #ffffff;
-  border: 1px solid #10c829;
+  border: none;
   padding: 8px 20px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.convert-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .soft-delete-btn {
-  background: #dc2626;
+  background: #dc3545;
   color: #ffffff;
-  border: 1px solid #dc2626;
+  border: none;
   padding: 8px 20px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .soft-delete-btn:hover {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
 .lead-form {
@@ -529,19 +557,35 @@ td {
 }
 
 .save-btn {
-  background: #2563eb;
+  background: #28a745;
   color: white;
   border: none;
   padding: 8px 20px;
   border-radius: 6px;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.save-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .cancel-btn {
-  background: #e5e7eb;
+  background: #adb5bd;
+  color: #ffffff;
   border: none;
   padding: 12px 24px;
-  border-radius: 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+  background: #97a0aa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
 }
 
 @media (max-width: 768px) {
@@ -562,13 +606,20 @@ td {
 }
 
 .add-contact-btn {
-  background: #ffffff;
-  color: #1f2937;
-  border: 1px solid #d1d5db;
+  background: #28a745;
+  color: #ffffff;
+  border: none;
   padding: 8px 20px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.add-contact-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .contact-card {
@@ -590,8 +641,14 @@ td {
 .remove-contact-btn {
   background: none;
   border: none;
-  color: #dc2626;
+  color: #dc3545;
   cursor: pointer;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.remove-contact-btn:hover {
+  color: #c82333;
 }
 
 .contact-grid {
@@ -664,19 +721,33 @@ td {
 
 .crm-popup-cancel,
 .crm-popup-confirm {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  background: #ffffff;
+  background: #adb5bd;
+  color: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.crm-popup-cancel:hover {
+  background: #97a0aa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
 }
 
 .crm-popup-confirm {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #007bff;
+  border-color: #007bff;
   color: #ffffff;
+}
+
+.crm-popup-confirm:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 /* ================= COMPANY AUTOCOMPLETE ================= */
