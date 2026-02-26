@@ -22,6 +22,11 @@ const ExpenseDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingExpense, setRejectingExpense] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [reasonExpense, setReasonExpense] = useState(null);
 
   const [expenses, setExpenses] = useState([]);
   const [usersList, setUsersList] = useState(["All Users"]);
@@ -297,21 +302,58 @@ const ExpenseDashboard = () => {
       return;
     }
 
-    let reason = "";
     if (status === "rejected") {
-      reason = window.prompt("Enter rejection reason:") || "";
-      if (!reason.trim()) {
-        alert("Reject reason is required");
-        return;
-      }
+      setRejectingExpense(expense);
+      setRejectReason("");
+      setShowRejectModal(true);
+      return;
     }
 
     try {
       await API.put(`/api/expenses/status/${expense.id}`, {
         status,
-        reason: reason.trim(),
+        reason: "",
       });
       await fetchExpenses();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to update status");
+    }
+  };
+
+  const closeRejectModal = () => {
+    setShowRejectModal(false);
+    setRejectingExpense(null);
+    setRejectReason("");
+  };
+
+  const openReasonModal = (expense) => {
+    if (expense.status !== "rejected" || !expense.approvalRemarks) return;
+    setReasonExpense(expense);
+    setShowReasonModal(true);
+  };
+
+  const closeReasonModal = () => {
+    setShowReasonModal(false);
+    setReasonExpense(null);
+  };
+
+  const submitRejectReason = async () => {
+    if (!rejectingExpense) return;
+
+    const trimmedReason = rejectReason.trim();
+    if (!trimmedReason) {
+      alert("Reject reason is required");
+      return;
+    }
+
+    try {
+      await API.put(`/api/expenses/status/${rejectingExpense.id}`, {
+        status: "rejected",
+        reason: trimmedReason,
+      });
+      await fetchExpenses();
+      closeRejectModal();
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to update status");
@@ -492,17 +534,27 @@ const ExpenseDashboard = () => {
                         <option value="rejected">rejected</option>
                       </select>
                     ) : (
-                      <span
-                        className={
-                          exp.status === "approved"
-                            ? "expense-approved"
-                            : exp.status === "rejected"
-                              ? "expense-rejected"
-                              : "expense-pending"
-                        }
-                      >
-                        {exp.status}
-                      </span>
+                      <div className="expense-status-stack">
+                        <button
+                          type="button"
+                          className={
+                            exp.status === "approved"
+                              ? "expense-approved"
+                              : exp.status === "rejected"
+                                ? "expense-rejected expense-status-clickable"
+                                : "expense-pending"
+                          }
+                          onClick={() => openReasonModal(exp)}
+                          title={exp.status === "rejected" ? "Click to view rejected reason" : ""}
+                        >
+                          {exp.status}
+                        </button>
+                        {exp.status === "rejected" && exp.approvalRemarks && (
+                          <small className="expense-rejection-inline" title="Click rejected status to view full reason">
+                            Click rejected status to view reason
+                          </small>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td>
@@ -732,6 +784,12 @@ const ExpenseDashboard = () => {
                     {viewingExpense.status}
                   </strong>
                 </div>
+                {viewingExpense.status === "rejected" && (
+                  <div className="expense-view-item expense-view-full">
+                    <span>Rejected Reason</span>
+                    <strong>{viewingExpense.approvalRemarks || "-"}</strong>
+                  </div>
+                )}
                 <div className="expense-view-item">
                   <span>Reference Type</span>
                   <strong>{viewingExpense.referenceType || "-"}</strong>
@@ -755,6 +813,73 @@ const ExpenseDashboard = () => {
                   <span>Description</span>
                   <strong>{viewingExpense.description || "-"}</strong>
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {showRejectModal &&
+        rejectingExpense &&
+        ReactDOM.createPortal(
+          <div className="expense-modal-overlay">
+            <div className="expense-modal expense-reject-modal">
+              <div className="expense-modal-header">
+                <h3>Reject Expense</h3>
+                <span className="expense-close-btn" onClick={closeRejectModal}>
+                  x
+                </span>
+              </div>
+
+              <div className="expense-reject-meta">
+                <p>
+                  You are rejecting expense submitted by{" "}
+                  <strong>{rejectingExpense.user}</strong>.
+                </p>
+              </div>
+
+              <div className="expense-form-group expense-full-width">
+                <label>Reason for rejection</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Write a clear reason so the employee can correct and resubmit."
+                />
+              </div>
+
+              <div className="expense-modal-footer">
+                <button className="expense-cancel-btn" onClick={closeRejectModal}>
+                  Cancel
+                </button>
+                <button className="expense-submit-btn" onClick={submitRejectReason}>
+                  Confirm Reject
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {showReasonModal &&
+        reasonExpense &&
+        ReactDOM.createPortal(
+          <div className="expense-modal-overlay">
+            <div className="expense-modal expense-reason-modal">
+              <div className="expense-modal-header">
+                <h3>Rejected Reason</h3>
+                <span className="expense-close-btn" onClick={closeReasonModal}>
+                  x
+                </span>
+              </div>
+
+              <div className="expense-reason-body">
+                <p>{reasonExpense.approvalRemarks || "No reason provided."}</p>
+              </div>
+
+              <div className="expense-modal-footer">
+                <button className="expense-submit-btn" onClick={closeReasonModal}>
+                  Close
+                </button>
               </div>
             </div>
           </div>,
