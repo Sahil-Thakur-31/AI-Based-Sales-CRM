@@ -107,3 +107,27 @@ exports.getDeals = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// fallback handlers used by routes
+exports.getDealById = async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id).lean();
+    if (!deal) return res.status(404).json({ message: "Deal not found" });
+    res.json(deal);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch deal" });
+  }
+};
+
+exports.updateDeal = async (req, res) => {
+  try {
+    const update = req.body || {};
+    const deal = await Deal.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
+    if (!deal) return res.status(404).json({ message: "Deal not found" });
+    res.json(deal);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to update deal" });
+  }
+};

@@ -270,3 +270,58 @@ exports.updateClient = async (req, res) => {
   }
 
 };
+// alias existing list handler to expected name
+exports.getClients = exports.listClients;
+
+// create a new client
+exports.createClient = async (req, res) => {
+  try {
+    const data = req.body || {};
+    const client = new Client({
+      name: cleanString(data.name),
+      industry: data.industry || null,
+      Address: cleanString(data.Address),
+      employeeCount: numberOrNull(data.employeeCount),
+      turnoverRange: cleanString(data.turnoverRange),
+      website: cleanString(data.website),
+      source: data.source || null,
+      deal_count: numberOrNull(data.deal_count) || 0,
+      GST_no: cleanString(data.GST_no),
+      URD: cleanString(data.URD),
+      Aadhar_doc: cleanString(data.Aadhar_doc),
+      PanCard_doc: cleanString(data.PanCard_doc),
+      Other_docs: cleanString(data.Other_docs),
+      location: data.location || null,
+      is_deleted: false
+    });
+    await client.save();
+    res.json({ message: "Client created", client });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to create client" });
+  }
+};
+
+// soft-delete client
+exports.deleteClient = async (req, res) => {
+  try {
+    const client = await Client.findByIdAndUpdate(req.params.id, { is_deleted: true }, { new: true }).lean();
+    if (!client) return res.status(404).json({ message: "Client not found" });
+    res.json({ message: "Client deleted", client });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to delete client" });
+  }
+};
+
+// reactivate client
+exports.activateClient = async (req, res) => {
+  try {
+    const client = await Client.findByIdAndUpdate(req.params.id, { is_deleted: false }, { new: true }).lean();
+    if (!client) return res.status(404).json({ message: "Client not found" });
+    res.json({ message: "Client activated", client });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to activate client" });
+  }
+};
