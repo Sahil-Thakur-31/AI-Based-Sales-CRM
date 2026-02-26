@@ -8,6 +8,7 @@ router.get("/", authenticate, controller.getExpenses);
 router.post("/", authenticate, expenseUpload.single("receipt"), controller.createExpense);
 router.delete("/:id", authenticate, controller.deleteExpense);
 router.put("/approve/:id", authenticate, controller.approveExpense);
+router.put("/status/:id", authenticate, controller.updateExpenseStatus);
 router.put("/:id", authenticate, expenseUpload.single("receipt"), controller.updateExpense);
 
 module.exports = router;

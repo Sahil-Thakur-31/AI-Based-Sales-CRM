@@ -1,4 +1,5 @@
 const Expense = require("../models/expenses");
+const Notification = require("../models/notifications");
 const getNextCounter = require("../utils/getNextCounter");
 
 const isAdmin = (role) => String(role || "").toLowerCase() === "admin";
@@ -110,6 +111,61 @@ exports.approveExpense = async (req, res) => {
     await expense.save();
 
     res.json({ message: "Expense Approved", expense });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.updateExpenseStatus = async (req, res) => {
+  try {
+    if (!isAdmin(req.user?.role)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const { status, reason } = req.body || {};
+    const allowed = ["pending", "approved", "rejected"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    if (status === "rejected" && !String(reason || "").trim()) {
+      return res.status(400).json({ message: "Reject reason is required" });
+    }
+
+    const expense = await Expense.findOne({ _id: req.params.id, is_deleted: false });
+    if (!expense) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    if (expense.approval?.status === "approved" && status !== "approved") {
+      return res.status(400).json({ message: "Approved expense status cannot be changed" });
+    }
+
+    expense.approval.status = status;
+    if (status === "pending") {
+      expense.approval.approvedBy = null;
+      expense.approval.approvedAt = null;
+      expense.approval.remarks = "";
+    } else {
+      expense.approval.approvedBy = req.user._id;
+      expense.approval.approvedAt = new Date();
+      expense.approval.remarks = status === "rejected" ? String(reason).trim() : "";
+    }
+
+    await expense.save();
+
+    if (status === "rejected") {
+      await Notification.create({
+        userId: expense.userId,
+        title: "Expense Rejected",
+        message: `Your expense #${expense.expenseNo} was rejected. Reason: ${expense.approval.remarks}`,
+        type: "warning",
+        relatedId: expense._id,
+        relatedType: "expense",
+      });
+    }
+
+    res.json({ message: "Expense status updated", expense });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

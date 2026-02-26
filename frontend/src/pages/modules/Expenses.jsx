@@ -12,6 +12,10 @@ const categories = [
 ];
 
 const ExpenseDashboard = () => {
+  const now = new Date();
+  const currentYear = String(now.getFullYear());
+  const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+  const totalPeriodLabel = now.toLocaleString("en-US", { month: "short", year: "numeric" });
   const [selectedUser, setSelectedUser] = useState("All Users");
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -82,6 +86,7 @@ const ExpenseDashboard = () => {
         total: Number(exp.totalAmount || 0),
         date: exp.expenseDate ? exp.expenseDate.split("T")[0] : "",
         status: exp.approval?.status || "pending",
+        approvalRemarks: exp.approval?.remarks || "",
         description: exp.description || "",
         referenceId: exp.referenceId,
         referenceType: exp.referenceType,
@@ -136,12 +141,21 @@ const ExpenseDashboard = () => {
     return bTime - aTime;
   });
 
-  const totalAmount = sortedExpenses.reduce((sum, e) => sum + e.total, 0);
+  const totalAmount = filteredExpenses
+    .filter((e) => {
+      const date = e.date || "";
+      if (!date) return false;
+      const year = date.slice(0, 4);
+      const month = date.slice(5, 7);
+      return year === currentYear && month === currentMonth;
+    })
+    .reduce((sum, e) => sum + e.total, 0);
   const approved = sortedExpenses.filter((e) => e.status === "approved");
   const pending = sortedExpenses.filter((e) => e.status === "pending");
+  const approvedFilteredExpenses = filteredExpenses.filter((e) => e.status === "approved");
 
   const categorySummary = categories.map((cat) => {
-    const total = filteredExpenses
+    const total = approvedFilteredExpenses
       .filter((e) => e.category === cat.value)
       .reduce((sum, e) => sum + e.total, 0);
     return { category: cat.label, total };
@@ -153,7 +167,7 @@ const ExpenseDashboard = () => {
   if (isAdmin) {
     const grouped = {};
 
-    for (const exp of filteredExpenses) {
+    for (const exp of approvedFilteredExpenses) {
       if (!grouped[exp.user]) {
         grouped[exp.user] = {
           user: exp.user,
@@ -278,13 +292,29 @@ const ExpenseDashboard = () => {
     }
   };
 
-  const handleApprove = async (id) => {
+  const handleStatusChange = async (expense, status) => {
+    if (!isAdmin || status === expense.status) {
+      return;
+    }
+
+    let reason = "";
+    if (status === "rejected") {
+      reason = window.prompt("Enter rejection reason:") || "";
+      if (!reason.trim()) {
+        alert("Reject reason is required");
+        return;
+      }
+    }
+
     try {
-      await API.put(`/api/expenses/approve/${id}`);
+      await API.put(`/api/expenses/status/${expense.id}`, {
+        status,
+        reason: reason.trim(),
+      });
       await fetchExpenses();
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to approve expense");
+      alert(err.response?.data?.message || "Failed to update status");
     }
   };
 
@@ -309,7 +339,7 @@ const ExpenseDashboard = () => {
         <div className="expense-card green">
           <h4>Total</h4>
           <h2>Rs. {totalAmount.toFixed(2)}</h2>
-          <p>Filtered View</p>
+          <p className="expense-total-period">{totalPeriodLabel}</p>
         </div>
 
         <div className="expense-card blue">
@@ -449,20 +479,36 @@ const ExpenseDashboard = () => {
                   <td>Rs. {exp.total.toFixed(2)}</td>
                   <td>{exp.date}</td>
                   <td>
-                    <span className={exp.status === "approved" ? "expense-approved" : "expense-pending"}>
-                      {exp.status}
-                    </span>
+                    {isAdmin ? (
+                      <select
+                        className={`expense-status-select expense-status-${exp.status}`}
+                        value={exp.status}
+                        disabled={exp.status === "approved"}
+                        title={exp.status === "approved" ? "Approved expense status cannot be changed" : "Update status"}
+                        onChange={(e) => handleStatusChange(exp, e.target.value)}
+                      >
+                        <option value="pending">pending</option>
+                        <option value="approved">approved</option>
+                        <option value="rejected">rejected</option>
+                      </select>
+                    ) : (
+                      <span
+                        className={
+                          exp.status === "approved"
+                            ? "expense-approved"
+                            : exp.status === "rejected"
+                              ? "expense-rejected"
+                              : "expense-pending"
+                        }
+                      >
+                        {exp.status}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <button className="expense-view" onClick={() => handleView(exp)}>
                       View
                     </button>
-
-                    {isAdmin && exp.status === "pending" && (
-                      <button className="expense-approve" onClick={() => handleApprove(exp.id)}>
-                        Approve
-                      </button>
-                    )}
 
                     {isAdmin && (
                       <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
@@ -674,7 +720,15 @@ const ExpenseDashboard = () => {
                 </div>
                 <div className="expense-view-item">
                   <span>Status</span>
-                  <strong className={viewingExpense.status === "approved" ? "expense-approved" : "expense-pending"}>
+                  <strong
+                    className={
+                      viewingExpense.status === "approved"
+                        ? "expense-approved"
+                        : viewingExpense.status === "rejected"
+                          ? "expense-rejected"
+                          : "expense-pending"
+                    }
+                  >
                     {viewingExpense.status}
                   </strong>
                 </div>
