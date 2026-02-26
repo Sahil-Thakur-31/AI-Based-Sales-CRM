@@ -1,9 +1,8 @@
-import React from 'react'
+import React from "react";
+import Leads from "./Leads";
 
 const Deals = () => {
-  return (
-    <div>Deals</div>
-  )
-}
+  return <Leads defaultView="deals" />;
+};
 
-export default Deals
+export default Deals;

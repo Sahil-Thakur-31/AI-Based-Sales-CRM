@@ -10,6 +10,9 @@ const rolesRoutes = require("./routes/roleRoutes");
 const sourcesRoutes = require("./routes/sourcesRoutes");
 const industriesRoutes = require("./routes/industriesRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
+const leadsRoutes = require("./routes/leadsRoutes");
+const locationRoutes = require("./routes/locationRoutes");
+const dealsRoutes = require("./routes/dealsRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -34,5 +37,8 @@ app.use("/roles", rolesRoutes);
 app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/leads", leadsRoutes);
+app.use("/deals", dealsRoutes);
+app.use("/location", locationRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 myServer.listen(PORT,()=>console.log('Server started on', PORT));

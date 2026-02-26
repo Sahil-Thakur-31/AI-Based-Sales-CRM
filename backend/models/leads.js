@@ -2,9 +2,9 @@ const mongoose = require("mongoose");
 
 const leadsSchema = new mongoose.Schema(
   {
-    is_existing_company: {
-      type: String,
-      enum: ["Yes", "No"],
+    is_existing_client: {
+      type: Boolean,
+      default: false,
     },
 
     company_name: {
@@ -65,23 +65,21 @@ const leadsSchema = new mongoose.Schema(
     },
 
     converted_to_deal: {
-      type: String,
-      enum: ["Yes", "No"],
+      type: Boolean,
+      default: false,
     },
 
     next_action: {
       type: String,
     },
-
     is_active: {
       type: Boolean,
       default: true,
     },
 
     is_deleted: {
-      type: String,
-      enum: ["Yes", "No"],
-      default: "No",
+      type: Boolean,
+      default: false,
     },
 
     location: {
