@@ -10,6 +10,7 @@ function TeamDashboard() {
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const navigate = useNavigate();
+  const roleName = localStorage.getItem('RoleName');
 
   useEffect(() => {
     // load teams list first
@@ -47,9 +48,14 @@ function TeamDashboard() {
       <div className="container mt-4">
         <h3>You don't have a team yet.</h3>
         <p>Click the button below to create one and add members.</p>
-        <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
-          Create New Team
-        </button>
+        {roleName === 'Admin' && (
+          <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
+            Create New Team
+          </button>
+        )}
+        {roleName !== 'Admin' && (
+          <p className="text-muted">Please contact an administrator to create a team for you.</p>
+        )}
       </div>
     );
   }
@@ -75,57 +81,68 @@ function TeamDashboard() {
   return (
     <div className="ManagerDashboard">
       <div className="dashboard container-fluid">
-        {/* team selector */}
-        {teams && teams.length > 1 && (
-          <div className="mb-3">
-            <label className="form-label">
-              Select Team:
-            </label>
-            <select
-              className="form-select"
-              value={selectedTeamId || ''}
-              onChange={e => setSelectedTeamId(e.target.value)}
-            >
-              {teams.map((t, idx) => (
-                <option key={t._id} value={t._id}>
-                  {t.name || `Team ${idx + 1}`}{t.teamLeads && t.teamLeads.length > 0 ? ` (${t.teamLeads.map(l=>l.userId?.name||l.userId?.email).join(', ')})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* BUTTON & DROPDOWN ON SAME ROW */}
+        <div className="team-selector-wrapper">
+          {/* ADMIN CREATE BUTTON - LEFT */}
+          {roleName === 'Admin' && (
+            <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
+              ➕ Create New Team
+            </button>
+          )}
 
-        {/* TEAM LEADS */}
-        {teamLeads && teamLeads.length > 0 && (
-          <div className="row mt-3">
-            <div className="col-12">
-              <div className="panel">
-                <h3>👑 Team Leads</h3>
-                <ul>
-                  {teamLeads.map((l, idx) => (
-                    <li key={idx}>{l.userId?.name || l.userId?.email}</li>
-                  ))}
-                </ul>
-              </div>
+          {/* DROPDOWN - RIGHT */}
+          {teams && teams.length > 0 && (
+            <div className="team-dropdown-container">
+              <label className="form-label">
+                <strong>Select Team:</strong>
+              </label>
+              <select
+                className="form-select"
+                value={selectedTeamId || ''}
+                onChange={e => setSelectedTeamId(e.target.value)}
+              >
+                {teams.map((t, idx) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name || `Team ${idx + 1}`}{t.teamLeads && t.teamLeads.length > 0 ? ` (${t.teamLeads.map(l=>l.userId?.name||l.userId?.email).join(', ')})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* TEAM MEMBERS */}
-        {members && members.length > 0 && (
-          <div className="row mt-3">
-            <div className="col-12">
-              <div className="panel">
-                <h3>👥 Team Members</h3>
-                <ul>
-                  {members.map((m, idx) => (
-                    <li key={idx}>{m.userId?.name || m.userId?.email} - {m.userId?.role}</li>
-                  ))}
-                </ul>
-              </div>
+        {/* TEAM LEADS & MEMBERS ON SAME ROW */}
+        <div className="team-info-row mt-4">
+          {/* TEAM LEADS */}
+          {teamLeads && teamLeads.length > 0 && (
+            <div className="team-card">
+              <h3>👑 Team Leads</h3>
+              <ul>
+                {teamLeads.map((l, idx) => (
+                  <li key={idx}>
+                    <div className="member-name">{l.userId?.name || 'Unknown'}</div>
+                    <div className="member-email">{l.userId?.email}</div>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* TEAM MEMBERS */}
+          {members && members.length > 0 && (
+            <div className="team-card">
+              <h3>👥 Team Members</h3>
+              <ul>
+                {members.map((m, idx) => (
+                  <li key={idx}>
+                    <div className="member-name">{m.userId?.name || 'Unknown'}</div>
+                    <div className="member-email">{m.userId?.email}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
 
         {/* STATS ROW */}
         <div className="row g-4 mt-2">

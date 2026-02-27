@@ -100,6 +100,193 @@
 .ManagerDashboard .insight.red { background: #fef2f2; }
 .ManagerDashboard .insight.green { background: #ecfdf5; }
 
+/* TEAM SELECTOR DROPDOWN */
+
+.ManagerDashboard .form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.ManagerDashboard .form-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #1e293b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236366f1' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.ManagerDashboard .form-select:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.1);
+}
+
+.ManagerDashboard .form-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.ManagerDashboard .form-select option {
+  padding: 8px;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+/* TEAM LEADS & MEMBERS CARDS */
+
+.ManagerDashboard .panel h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ManagerDashboard .panel ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ManagerDashboard .panel li {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-left: 4px solid #6366f1;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.ManagerDashboard .panel li:hover {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.ManagerDashboard .panel li::before {
+  content: '●';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 10px;
+  background: #6366f1;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* TEAM SELECTOR & BUTTON LAYOUT */
+
+.ManagerDashboard .team-selector-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.ManagerDashboard .team-dropdown-container {
+  flex: 0 1 350px;
+  min-width: 300px;
+}
+
+.ManagerDashboard .team-dropdown-container .form-label {
+  margin-bottom: 8px;
+}
+
+/* TEAM INFO ROW - LEADS & MEMBERS CARDS */
+
+.ManagerDashboard .team-info-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.ManagerDashboard .team-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: 0.3s ease;
+  flex: 0 1 auto;
+  min-width: 280px;
+  max-width: 100%;
+}
+
+.ManagerDashboard .team-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.15);
+}
+
+.ManagerDashboard .team-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ManagerDashboard .team-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ManagerDashboard .team-card li {
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+  transition: all 0.3s ease;
+}
+
+.ManagerDashboard .team-card li:hover {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  transform: translateX(4px);
+}
+
+.ManagerDashboard .member-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.ManagerDashboard .member-email {
+  font-size: 12px;
+  color: #64748b;
+}
+
 /* MOBILE IMPROVEMENTS */
 
 @media (max-width: 768px) {
@@ -115,6 +302,31 @@
 
   .ManagerDashboard .follow-item .right {
     text-align: left;
+  }
+
+  .ManagerDashboard .team-selector-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .ManagerDashboard .team-selector-wrapper button {
+    width: 100%;
+  }
+
+  .ManagerDashboard .team-dropdown-container {
+    flex: 1;
+    min-width: unset;
+  }
+
+  .ManagerDashboard .team-info-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ManagerDashboard .team-card {
+    width: 100%;
+    min-width: unset;
   }
 }
 
