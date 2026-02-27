@@ -27,6 +27,16 @@ function normalizeObjectIdArray(values = []) {
   return [...unique].map((value) => toObjectId(value));
 }
 
+function pickSingleLeadId(payload = {}) {
+  const directLead = String(payload.teamLeadId || "").trim();
+  if (isObjectId(directLead)) {
+    return toObjectId(directLead);
+  }
+
+  const fromArray = normalizeObjectIdArray(payload.teamLeadIds);
+  return fromArray[0] || null;
+}
+
 function isAdmin(role) {
   return String(role || "") === ADMIN_ROLE;
 }
@@ -197,21 +207,25 @@ exports.createTeam = async (req, res) => {
       return res.status(403).json({ message: "Only admins can create teams" });
     }
 
-    const { name, teamLeadIds, members } = req.body || {};
-    const normalizedLeadIds = normalizeObjectIdArray(teamLeadIds);
+    const { name, members } = req.body || {};
+    const rawLeadIds = normalizeObjectIdArray(req.body?.teamLeadIds);
+    if (rawLeadIds.length > 1) {
+      return res.status(400).json({ message: "Only one team lead is allowed" });
+    }
+    const selectedLeadId = pickSingleLeadId(req.body || {});
     const normalizedMemberIds = normalizeObjectIdArray(members);
 
     if (!String(name || "").trim()) {
       return res.status(400).json({ message: "Team name is required" });
     }
 
-    if (!normalizedLeadIds.length) {
-      return res.status(400).json({ message: "At least one team lead is required" });
+    if (!selectedLeadId) {
+      return res.status(400).json({ message: "A team lead is required" });
     }
 
     const [leadUsers, memberUsers] = await Promise.all([
       User.find({
-        _id: { $in: normalizedLeadIds },
+        _id: selectedLeadId,
         is_deleted: { $ne: true },
         is_active: true
       })
@@ -230,8 +244,8 @@ exports.createTeam = async (req, res) => {
         : []
     ]);
 
-    if (leadUsers.length !== normalizedLeadIds.length) {
-      return res.status(400).json({ message: "One or more selected team leads are invalid" });
+    if (leadUsers.length !== 1) {
+      return res.status(400).json({ message: "Selected team lead is invalid" });
     }
 
     const invalidLead = leadUsers.find((user) => roleNameFromUser(user) !== MANAGER_ROLE);
@@ -250,18 +264,18 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: "Admin users cannot be team members" });
     }
 
-    const leadIdSet = new Set(normalizedLeadIds.map((id) => String(id)));
+    const leadIdSet = new Set([String(selectedLeadId)]);
     const filteredMembers = normalizedMemberIds.filter((id) => !leadIdSet.has(String(id)));
 
     const team = await Team.create({
       name: String(name).trim(),
-      teamLeads: normalizedLeadIds.map((id) => ({ userId: id })),
+      teamLeads: [{ userId: selectedLeadId }],
       members: filteredMembers.map((id) => ({ userId: id })),
       createdBy: req.user._id
     });
 
     const usersMap = await loadUsersMap([
-      ...normalizedLeadIds.map((id) => String(id)),
+      String(selectedLeadId),
       ...filteredMembers.map((id) => String(id))
     ]);
 
@@ -437,6 +451,7 @@ exports.getTeamDashboard = async (req, res) => {
         team: {
           _id: team._id,
           name: team.name || "",
+          teamLeadId: teamLeads[0]?._id || null,
           leadCount: 0,
           memberCount: 0,
           totalPeople: 0
@@ -559,7 +574,6 @@ exports.getTeamDashboard = async (req, res) => {
         is_deleted: { $ne: true }
       })
         .sort({ last_contact_date: 1 })
-        .limit(10)
         .select("company_name message next_action last_contact_date lead_temperature assigned_to")
         .populate("assigned_to", "name email")
         .lean(),
@@ -653,6 +667,7 @@ exports.getTeamDashboard = async (req, res) => {
       team: {
         _id: team._id,
         name: team.name || "",
+        teamLeadId: teamLeads[0]?._id || null,
         leadCount: teamLeads.length,
         memberCount: members.length,
         totalPeople: teamLeads.length + members.length
