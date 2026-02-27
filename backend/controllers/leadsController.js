@@ -59,6 +59,7 @@ async function resolveLocationId(payload) {
 
 function stripLeadPayloadFields(payload) {
   const cleaned = { ...payload };
+  delete cleaned._id;
   delete cleaned.contacts;
   delete cleaned.country;
   delete cleaned.State;

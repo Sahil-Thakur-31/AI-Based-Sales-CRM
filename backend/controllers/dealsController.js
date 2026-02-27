@@ -221,6 +221,7 @@ exports.getDealById = async (req, res) => {
 exports.updateDeal = async (req, res) => {
   try {
     const update = req.body || {};
+    delete update._id;
     const deal = await Deal.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
     if (!deal) return res.status(404).json({ message: "Deal not found" });
     res.json(deal);
