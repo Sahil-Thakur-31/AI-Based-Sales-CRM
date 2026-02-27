@@ -202,6 +202,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
     }
   };
 
+  const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
+  const isAdminOrManager = roleName === "admin" || roleName === "manager";
+
   return (
     <div className="leads-container">
       {viewMode === "leads" && (
@@ -236,12 +239,14 @@ function LeadsDashboard({ defaultView = "leads" }) {
           >
             Inactive ({tabCounts.inactive})
           </button>
-          <button
-            className={`tab-btn ${activeTab === "deleted" ? "active" : ""}`}
-            onClick={() => setActiveTab("deleted")}
-          >
-            Deleted ({tabCounts.deleted})
-          </button>
+          {isAdminOrManager && (
+            <button
+              className={`tab-btn ${activeTab === "deleted" ? "active" : ""}`}
+              onClick={() => setActiveTab("deleted")}
+            >
+              Deleted ({tabCounts.deleted})
+            </button>
+          )}
         </div>
 
         <div className="filters">
