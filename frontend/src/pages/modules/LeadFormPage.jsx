@@ -551,11 +551,11 @@ function LeadFormPage() {
 
   return (
     <div className="lead-page">
-      <BackButton />
       <div className="lead-header">
         <h2>
           {isNew ? "Add Lead" : dealView ? `Deal - ${lead.company_name || "Details"}` : lead.company_name}
         </h2>
+        <BackButton />
       </div>
 
       {deletedView && (
