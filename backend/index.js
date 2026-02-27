@@ -13,6 +13,9 @@ const expenseRoutes = require("./routes/expenseRoutes");
 const dealsRoutes = require("./routes/dealsRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const taxRoutes = require("./routes/taxRoutes");
+const followupsRoutes = require("./routes/followupsRoutes");
+const mongoose = require("mongoose");
+const Meeting = require("./models/meetings");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -40,5 +43,18 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/deals", dealsRoutes);
 app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
+app.use("/followups", followupsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
+
+mongoose.connection.once("open", async () => {
+  try {
+    await Meeting.createCollection();
+    console.log("meetings collection ensured");
+  } catch (err) {
+    if (!String(err?.message || "").toLowerCase().includes("already exists")) {
+      console.error("Failed to ensure meetings collection:", err.message || err);
+    }
+  }
+});
+
 myServer.listen(PORT,()=>console.log('Server started on', PORT));

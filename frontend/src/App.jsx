@@ -19,6 +19,7 @@ import Quotations from './pages/modules/Quotations.jsx';
 import NewQuotation from './pages/modules/NewQuotation.jsx';
 import Meetings from './pages/modules/Meetings.jsx';
 import FollowUps from './pages/modules/FollowUps.jsx';
+import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
 import AILeads from './pages/modules/AILeads.jsx';
@@ -80,6 +81,7 @@ function App() {
 
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/followups" element={<FollowUps />} />
+          <Route path="/followups/add" element={<FollowupsAddPage />} />
 
           <Route path="/sales-forecast" element={<SalesForecast />} />
           <Route path="/expenses" element={<Expenses />} />

@@ -26,6 +26,7 @@ export const routeConfig = [
 
   { path: "/meetings", title: "Meetings" },
   { path: "/followups", title: "Follow-ups" },
+  { path: "/followups/add", title: "Add Followup and Meeting" },
 
   // Finance
   { path: "/sales-forecast", title: "Sales Forecasting" },
