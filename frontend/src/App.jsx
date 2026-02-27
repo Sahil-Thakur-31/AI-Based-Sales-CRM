@@ -26,6 +26,7 @@ import Expenses from './pages/modules/Expenses.jsx';
 import AILeads from './pages/modules/AILeads.jsx';
 import Events from './pages/modules/Events.jsx';
 import TeamDashboard from './pages/modules/TeamDashboard.jsx';
+import TeamSetup from './pages/modules/TeamSetup.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
@@ -91,7 +92,8 @@ function App() {
           <Route path="/ai-leads" element={<AILeads />} />
           <Route path="/events" element={<Events />} />
 
-          <Route path="/team-dashboard" element={<TeamDashboard />} />
+          <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager","Admin"]}><TeamDashboard /></ProtectedRoute>} />
+          <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
           <Route path="/reports" element={<Reports />} />
 
           <Route path="/settings" element={<Settings />} />
