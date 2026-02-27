@@ -38,7 +38,8 @@ export default function Sidebar() {
     { name: "AI Lead Gen", icon: "🤖", path: "/ai-leads" },
     { name: "Events & Expos", icon: "🎪", path: "/events" },
 
-    { name: "Team Dashboard", icon: "👥", path: "/team-dashboard" },
+    // team-related links (visible to managers and admin)
+    ...(userRole === "Manager" || userRole === "Admin" ? [{ name: "Team Dashboard", icon: "👥", path: "/team-dashboard" }] : []),
     { name: "Reports", icon: "📄", path: "/reports" },
     { name: "Settings", icon: "⚙️", path: "/settings" },
   ];

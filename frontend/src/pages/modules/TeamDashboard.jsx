@@ -1,9 +1,193 @@
-import React from 'react'
+import { useEffect, useState } from "react";
+import { useNavigate } from 'react-router-dom';
+import StatCard from '../../components/StatCard';
+import '../../styles/managerDashboard.css';
+import API from '../../api';
 
-const TeamDashboard = () => {
+function TeamDashboard() {
+  const [dashboardData, setDashboardData] = useState(null);
+  const [error, setError] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // load teams list first
+    API.get('/teams')
+      .then(res => {
+        setTeams(res.data || []);
+        if (res.data && res.data.length > 0) {
+          setSelectedTeamId(res.data[0]._id);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Unable to load teams');
+      });
+  }, []);
+
+  // whenever selectedTeamId changes fetch stats
+  useEffect(() => {
+    if (!selectedTeamId) return;
+    API.get(`/teams/dashboard?teamId=${selectedTeamId}`)
+      .then(res => {
+        setDashboardData(res.data);
+        setError(null);
+      })
+      .catch(err => {
+        console.error(err);
+        setError(err.response?.data?.message || 'Failed to load');
+        setDashboardData(null);
+      });
+  }, [selectedTeamId]);
+
+  // no teams at all
+  if (!error && teams && teams.length === 0) {
+    return (
+      <div className="container mt-4">
+        <h3>You don't have a team yet.</h3>
+        <p>Click the button below to create one and add members.</p>
+        <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
+          Create New Team
+        </button>
+      </div>
+    );
+  }
+
+  if (error) {
+    if (error === 'Team not found' || error === 'Unable to load teams') {
+      return (
+        <div className="container mt-4">
+          <h3>You don't have a team yet.</h3>
+          <p>Click the button below to create one and add members.</p>
+          <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
+            Create My Team
+          </button>
+        </div>
+      );
+    }
+    return <p className="text-danger">{error}</p>;
+  }
+  if (!dashboardData) return <p>Loading...</p>;
+
+  const { members, teamLeads } = dashboardData;
+
   return (
-    <div>TeamDashboard</div>
-  )
+    <div className="ManagerDashboard">
+      <div className="dashboard container-fluid">
+        {/* team selector */}
+        {teams && teams.length > 1 && (
+          <div className="mb-3">
+            <label className="form-label">
+              Select Team:
+            </label>
+            <select
+              className="form-select"
+              value={selectedTeamId || ''}
+              onChange={e => setSelectedTeamId(e.target.value)}
+            >
+              {teams.map((t, idx) => (
+                <option key={t._id} value={t._id}>
+                  {t.name || `Team ${idx + 1}`}{t.teamLeads && t.teamLeads.length > 0 ? ` (${t.teamLeads.map(l=>l.userId?.name||l.userId?.email).join(', ')})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* TEAM LEADS */}
+        {teamLeads && teamLeads.length > 0 && (
+          <div className="row mt-3">
+            <div className="col-12">
+              <div className="panel">
+                <h3>👑 Team Leads</h3>
+                <ul>
+                  {teamLeads.map((l, idx) => (
+                    <li key={idx}>{l.userId?.name || l.userId?.email}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TEAM MEMBERS */}
+        {members && members.length > 0 && (
+          <div className="row mt-3">
+            <div className="col-12">
+              <div className="panel">
+                <h3>👥 Team Members</h3>
+                <ul>
+                  {members.map((m, idx) => (
+                    <li key={idx}>{m.userId?.name || m.userId?.email} - {m.userId?.role}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STATS ROW */}
+        <div className="row g-4 mt-2">
+          {dashboardData.stats.map((stat, i) => (
+            <div key={i} className="col-12 col-sm-6 col-lg-3">
+              <StatCard {...stat} />
+            </div>
+          ))}
+        </div>
+
+        {/* BOTTOM SECTION */}
+        <div className="row mt-4">
+
+          {/* LEFT */}
+          <div className="col-12 col-lg-8">
+            <div className="panel">
+              <h3>🔥 Priority Follow-ups Today</h3>
+
+              {dashboardData.followups.map((item, idx) => (
+                <div key={idx} className="follow-item">
+                  <div>
+                    <strong>{item.company_name || item.company}</strong>
+                    <p>{item.message}</p>
+                  </div>
+                  <div className="text-end">
+                    <small>{item.last_contact_date ? new Date(item.last_contact_date).toLocaleTimeString() : item.time}</small>
+                    <div>{item.priority || ''}</div>
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          </div>
+
+          {/* RIGHT */}
+          <div className="col-12 col-lg-4">
+            <div className="panel mb-4">
+              <h3>📊 Pipeline Value</h3>
+              <div className="pipeline-value">
+                {dashboardData.pipelineValue}
+              </div>
+            </div>
+
+            <div className="panel">
+              <h3>📈 AI Insights</h3>
+
+              {dashboardData.insights.map((insight, idx) => (
+                <div key={idx} className="insight">
+                  <strong>{insight.type}</strong>
+                  <p>{insight.message}</p>
+                </div>
+              ))}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
 }
 
-export default TeamDashboard
+export default TeamDashboard;

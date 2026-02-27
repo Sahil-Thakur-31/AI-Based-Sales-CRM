@@ -18,6 +18,7 @@ const dealsRoutes = require("./routes/dealsRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const taxRoutes = require("./routes/taxRoutes");
+const teamRoutes = require("./routes/teamRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -49,5 +50,6 @@ app.use("/location", locationRoutes);
 app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
+app.use("/teams", teamRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
