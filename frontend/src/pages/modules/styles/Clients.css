@@ -8,6 +8,7 @@
 .clients-header {
   display: flex;
   justify-content: flex-end;
+  gap: 15px;
 }
 
 .clients-search-input {

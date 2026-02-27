@@ -19,7 +19,7 @@ import ClientDetails from './pages/modules/ClientDetails.jsx';
 import Quotations from './pages/modules/Quotations.jsx';
 import NewQuotation from './pages/modules/NewQuotation.jsx';
 import QuotationDetails from './pages/modules/QuotationDetails.jsx';
-import Meetings from './pages/modules/Meetings.jsx';
+// meetings module removed
 import FollowUps from './pages/modules/FollowUps.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
@@ -83,7 +83,6 @@ function App() {
           <Route path="/quotations/new" element={<NewQuotation />} />
           <Route path="/quotations/:id" element={<QuotationDetails />} />
 
-          <Route path="/meetings" element={<Meetings />} />
           <Route path="/followups" element={<FollowUps />} />
 
           <Route path="/sales-forecast" element={<SalesForecast />} />

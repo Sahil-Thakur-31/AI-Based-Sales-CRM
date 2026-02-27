@@ -30,7 +30,6 @@ export default function Sidebar() {
     { name: "Deals", icon: "💼", path: "/deals" },
     { name: "Quotations", icon: "🧾", path: "/quotations" },
 
-    { name: "Meetings", icon: "📅", path: "/meetings" },
     { name: "Follow-ups", icon: "⏰", path: "/followups" },
 
     { name: "Sales Forecasting", icon: "📈", path: "/sales-forecast" },

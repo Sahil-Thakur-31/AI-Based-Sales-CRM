@@ -241,14 +241,6 @@ function Navbar() {
       {/* RIGHT */}
       <div className="navbar-right">
 
-        <button
-          className={`nav-refresh-btn ${refreshingApp ? "refreshing" : ""}`}
-          onClick={handleGlobalRefresh}
-          title="Refresh all data"
-          disabled={refreshingApp}
-        >
-          {refreshingApp ? "Refreshing..." : "Refresh"}
-        </button>
 
 
         {/* ADMIN MENU */}
