@@ -60,9 +60,16 @@ export default function Sidebar() {
 
         {menuItems.map((item, index) => {
 
-          const isActive =
-            location.pathname === item.path ||
-            location.pathname.startsWith(`${item.path}/`);
+          const isDealView = location.pathname.startsWith("/leads/") && location.search.includes("view=deal");
+
+          let isActive = false;
+          if (item.path === "/deals") {
+            isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`) || isDealView;
+          } else if (item.path === "/leads") {
+            isActive = (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) && !isDealView;
+          } else {
+            isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+          }
 
           return (
             <div
