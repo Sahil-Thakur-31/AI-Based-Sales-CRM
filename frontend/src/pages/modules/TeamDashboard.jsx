@@ -1,203 +1,387 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from 'react-router-dom';
-import StatCard from '../../components/StatCard';
-import './styles/teamDashboard.css';
-import API from '../../api';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API from "../../api";
+import "./styles/teamDashboard.css";
 
-function TeamDashboard() {
-  const [dashboardData, setDashboardData] = useState(null);
-  const [error, setError] = useState(null);
-  const [teams, setTeams] = useState([]);
-  const [selectedTeamId, setSelectedTeamId] = useState(null);
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0
+  }).format(value || 0);
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function emptyDashboard(team = null) {
+  return {
+    team: team || {
+      _id: "",
+      name: "",
+      leadCount: 0,
+      memberCount: 0,
+      totalPeople: 0
+    },
+    teamLeads: [],
+    members: [],
+    kpis: {
+      followupsToday: 0,
+      activeDeals: 0,
+      pipelineValue: 0,
+      winRate: 0,
+      wonRevenue: 0,
+      closedDeals: 0
+    },
+    followups: [],
+    stageDistribution: [],
+    memberPerformance: [],
+    insights: []
+  };
+}
+
+export default function TeamDashboard() {
   const navigate = useNavigate();
-  const roleName = localStorage.getItem('RoleName');
+  const roleName = localStorage.getItem("RoleName") || "";
+  const canCreateTeam = roleName === "Admin";
 
-  useEffect(() => {
-    // load teams list first
-    API.get('/teams')
-      .then(res => {
-        setTeams(res.data || []);
-        if (res.data && res.data.length > 0) {
-          setSelectedTeamId(res.data[0]._id);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        setError('Unable to load teams');
-      });
-  }, []);
+  const [teams, setTeams] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [dashboardData, setDashboardData] = useState(emptyDashboard());
+  const [loadingTeams, setLoadingTeams] = useState(true);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [error, setError] = useState("");
 
-  // whenever selectedTeamId changes fetch stats
-  useEffect(() => {
-    if (!selectedTeamId) return;
-    API.get(`/teams/dashboard?teamId=${selectedTeamId}`)
-      .then(res => {
-        setDashboardData(res.data);
-        setError(null);
-      })
-      .catch(err => {
-        console.error(err);
-        setError(err.response?.data?.message || 'Failed to load');
-        setDashboardData(null);
-      });
+  const selectedTeam = useMemo(
+    () => teams.find((team) => String(team._id) === String(selectedTeamId)) || null,
+    [teams, selectedTeamId]
+  );
+
+  const loadTeams = useCallback(async () => {
+    try {
+      setLoadingTeams(true);
+      setError("");
+
+      const res = await API.get("/teams");
+      const teamRows = Array.isArray(res.data) ? res.data : [];
+      setTeams(teamRows);
+
+      if (!teamRows.length) {
+        setSelectedTeamId("");
+        setDashboardData(emptyDashboard());
+        return;
+      }
+
+      const hasSelected = teamRows.some((team) => String(team._id) === String(selectedTeamId));
+      if (!hasSelected) {
+        setSelectedTeamId(String(teamRows[0]._id));
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to load teams");
+      setTeams([]);
+      setSelectedTeamId("");
+      setDashboardData(emptyDashboard());
+    } finally {
+      setLoadingTeams(false);
+    }
   }, [selectedTeamId]);
 
-  // no teams at all
-  if (!error && teams && teams.length === 0) {
+  const loadDashboard = useCallback(async (teamId) => {
+    if (!teamId) return;
+
+    try {
+      setLoadingDashboard(true);
+      setError("");
+
+      const res = await API.get(`/teams/dashboard?teamId=${teamId}`);
+      setDashboardData(res.data || emptyDashboard());
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to load dashboard");
+      setDashboardData(emptyDashboard(selectedTeam));
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }, [selectedTeam]);
+
+  useEffect(() => {
+    loadTeams();
+  }, [loadTeams]);
+
+  useEffect(() => {
+    if (selectedTeamId) {
+      loadDashboard(selectedTeamId);
+    }
+  }, [selectedTeamId, loadDashboard]);
+
+  const onRefresh = async () => {
+    await loadTeams();
+    if (selectedTeamId) {
+      await loadDashboard(selectedTeamId);
+    }
+  };
+
+  const kpiCards = [
+    {
+      label: "Follow-ups Today",
+      value: dashboardData.kpis.followupsToday
+    },
+    {
+      label: "Active Deals",
+      value: dashboardData.kpis.activeDeals
+    },
+    {
+      label: "Pipeline Value",
+      value: formatCurrency(dashboardData.kpis.pipelineValue)
+    },
+    {
+      label: "Win Rate",
+      value: `${dashboardData.kpis.winRate || 0}%`
+    },
+    {
+      label: "Won Revenue",
+      value: formatCurrency(dashboardData.kpis.wonRevenue)
+    },
+    {
+      label: "Closed Deals",
+      value: dashboardData.kpis.closedDeals
+    }
+  ];
+
+  if (loadingTeams) {
+    return <div className="team-dashboard-loading">Loading team dashboard...</div>;
+  }
+
+  if (!teams.length) {
     return (
-      <div className="container mt-4">
-        <h3>You don't have a team yet.</h3>
-        <p>Click the button below to create one and add members.</p>
-        {roleName === 'Admin' && (
-          <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
-            Create New Team
+      <div className="team-dashboard-empty">
+        <h3>No Teams Available</h3>
+        <p>
+          {canCreateTeam
+            ? "Create a team to start tracking member performance and pipeline."
+            : "You are not assigned to any team yet. Contact your administrator."}
+        </p>
+        {canCreateTeam ? (
+          <button className="team-btn team-btn-primary" onClick={() => navigate("/team-setup")}>
+            Create Team
           </button>
-        )}
-        {roleName !== 'Admin' && (
-          <p className="text-muted">Please contact an administrator to create a team for you.</p>
-        )}
+        ) : null}
       </div>
     );
   }
 
-  if (error) {
-    if (error === 'Team not found' || error === 'Unable to load teams') {
-      return (
-        <div className="container mt-4">
-          <h3>You don't have a team yet.</h3>
-          <p>Click the button below to create one and add members.</p>
-          <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
-            Create My Team
+  return (
+    <div className="team-dashboard-page">
+      <div className="team-dashboard-toolbar">
+        <div className="team-toolbar-left">
+          {canCreateTeam ? (
+            <button className="team-btn team-btn-primary" onClick={() => navigate("/team-setup")}>
+              Create Team
+            </button>
+          ) : null}
+        </div>
+
+        <div className="team-toolbar-right">
+          <select
+            className="team-dashboard-select"
+            value={selectedTeamId}
+            onChange={(e) => setSelectedTeamId(e.target.value)}
+          >
+            {teams.map((team) => (
+              <option key={team._id} value={team._id}>
+                {team.name || "Untitled Team"} ({team.totalPeople || 0})
+              </option>
+            ))}
+          </select>
+
+          <button className="team-btn team-btn-secondary" onClick={onRefresh}>
+            Refresh
           </button>
         </div>
-      );
-    }
-    return <p className="text-danger">{error}</p>;
-  }
-  if (!dashboardData) return <p>Loading...</p>;
+      </div>
 
-  const { members, teamLeads } = dashboardData;
+      {error ? <div className="team-dashboard-error">{error}</div> : null}
 
-  return (
-    <div className="TeamDashboard">
-      <div className="dashboard container-fluid">
-        {/* BUTTON & DROPDOWN ON SAME ROW */}
-        <div className="team-selector-wrapper">
-          {/* ADMIN CREATE BUTTON - LEFT */}
-          {roleName === 'Admin' && (
-            <button className="btn btn-primary" onClick={() => { navigate('/team-setup'); }}>
-              ➕ Create New Team
-            </button>
-          )}
-
-          {/* DROPDOWN - RIGHT */}
-          {teams && teams.length > 0 && (
-            <div className="team-dropdown-container">
-              <label className="form-label">
-                <strong>Select Team:</strong>
-              </label>
-              <select
-                className="form-select"
-                value={selectedTeamId || ''}
-                onChange={e => setSelectedTeamId(e.target.value)}
-              >
-                {teams.map((t, idx) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name || `Team ${idx + 1}`}{t.teamLeads && t.teamLeads.length > 0 ? ` (${t.teamLeads.map(l=>l.userId?.name||l.userId?.email).join(', ')})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* TEAM LEADS & MEMBERS ON SAME ROW */}
-        <div className="team-info-row mt-4">
-          {/* TEAM LEADS */}
-          {teamLeads && teamLeads.length > 0 && (
-            <div className="team-card">
-              <h3>👑 Team Leads</h3>
-              <ul>
-                {teamLeads.map((l, idx) => (
-                  <li key={idx}>
-                    <div className="member-name">{l.userId?.name || 'Unknown'}</div>
-                    <div className="member-email">{l.userId?.email}</div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* TEAM MEMBERS */}
-          {members && members.length > 0 && (
-            <div className="team-card">
-              <h3>👥 Team Members</h3>
-              <ul>
-                {members.map((m, idx) => (
-                  <li key={idx}>
-                    <div className="member-name">{m.userId?.name || 'Unknown'}</div>
-                    <div className="member-email">{m.userId?.email}</div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* STATS ROW */}
-        <div className="row g-4 mt-2">
-          {dashboardData.stats.map((stat, i) => (
-            <div key={i} className="col-12 col-sm-6 col-lg-3">
-              <StatCard {...stat} />
-            </div>
-          ))}
-        </div>
-
-        {/* BOTTOM SECTION */}
-        <div className="row mt-4">
-
-          {/* LEFT */}
-          <div className="col-12 col-lg-8">
-            <div className="panel panel-followups">
-              <h3>🔥 Priority Follow-ups Today</h3>
-              <div className="panel-scroll">
-                  {dashboardData.followups.map((item, idx) => (
-                    <div key={idx} className="follow-item">
-                      <div>
-                        <strong>{item.company_name || item.company}</strong>
-                        <p>{item.message}</p>
-                      </div>
-                      <div className="text-end">
-                        <small>{item.last_contact_date ? new Date(item.last_contact_date).toLocaleTimeString() : item.time}</small>
-                        <div>{item.priority || ''}</div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
+      <div className="team-dashboard-summary">
+        {kpiCards.map((card) => (
+          <div key={card.label} className="team-kpi-card">
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
           </div>
+        ))}
+      </div>
 
-          {/* RIGHT */}
-          <div className="col-12 col-lg-4">
-            <div className="panel panel-insights">
-              <h3>📈 AI Insights</h3>
-              <div className="panel-scroll">
-                {dashboardData.insights.map((insight, idx) => (
-                  <div key={idx} className="insight">
-                    <strong>{insight.type}</strong>
-                    <p>{insight.message}</p>
+      <div className="team-dashboard-grid">
+        <section className="team-panel">
+          <div className="team-panel-head">
+            <h3>Team Leads</h3>
+            <small>{dashboardData.teamLeads.length}</small>
+          </div>
+          <div className="team-people-list">
+            {dashboardData.teamLeads.length ? (
+              dashboardData.teamLeads.map((user) => (
+                <div key={user._id} className="team-person-row">
+                  <strong>{user.name}</strong>
+                  <span>{user.email}</span>
+                </div>
+              ))
+            ) : (
+              <div className="team-muted">No team leads assigned</div>
+            )}
+          </div>
+        </section>
+
+        <section className="team-panel">
+          <div className="team-panel-head">
+            <h3>Team Members</h3>
+            <small>{dashboardData.members.length}</small>
+          </div>
+          <div className="team-people-list">
+            {dashboardData.members.length ? (
+              dashboardData.members.map((user) => (
+                <div key={user._id} className="team-person-row">
+                  <strong>{user.name}</strong>
+                  <span>{user.email}</span>
+                </div>
+              ))
+            ) : (
+              <div className="team-muted">No members assigned</div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="team-dashboard-grid team-dashboard-grid-wide">
+        <section className="team-panel team-panel-span-2">
+          <div className="team-panel-head">
+            <h3>Member Performance</h3>
+            {loadingDashboard ? <small>Refreshing...</small> : null}
+          </div>
+          <div className="team-table-wrap">
+            <table className="team-table">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Open</th>
+                  <th>Won</th>
+                  <th>Lost</th>
+                  <th>Follow-ups</th>
+                  <th>Win Rate</th>
+                  <th>Pipeline</th>
+                  <th>Won Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboardData.memberPerformance.length ? (
+                  dashboardData.memberPerformance.map((row) => (
+                    <tr key={row.user._id}>
+                      <td>
+                        <div className="team-cell-user">
+                          <strong>{row.user.name}</strong>
+                          <span>{row.user.email}</span>
+                        </div>
+                      </td>
+                      <td>{row.openDeals}</td>
+                      <td>{row.wonDeals}</td>
+                      <td>{row.lostDeals}</td>
+                      <td>{row.followupsToday}</td>
+                      <td>{row.winRate}%</td>
+                      <td>{formatCurrency(row.pipelineValue)}</td>
+                      <td>{formatCurrency(row.wonRevenue)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="team-table-empty">
+                      No performance data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="team-panel">
+          <div className="team-panel-head">
+            <h3>Stage Distribution</h3>
+          </div>
+          <div className="team-stage-list">
+            {dashboardData.stageDistribution.length ? (
+              dashboardData.stageDistribution.map((item) => (
+                <div key={item.stage} className="team-stage-row">
+                  <span>{item.stage}</span>
+                  <div className="team-stage-bar">
+                    <span
+                      style={{
+                        width: `${Math.min(100, (item.count || 0) * 14)}%`
+                      }}
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
-
+                  <strong>{item.count}</strong>
+                </div>
+              ))
+            ) : (
+              <div className="team-muted">No active stage data</div>
+            )}
           </div>
+        </section>
+      </div>
 
-        </div>
+      <div className="team-dashboard-grid team-dashboard-grid-wide">
+        <section className="team-panel team-panel-span-2">
+          <div className="team-panel-head">
+            <h3>Follow-ups Due Today</h3>
+            <small>{dashboardData.followups.length}</small>
+          </div>
+          <div className="team-followups-list">
+            {dashboardData.followups.length ? (
+              dashboardData.followups.map((followup) => (
+                <div key={followup._id} className="team-followup-row">
+                  <div className="team-followup-main">
+                    <strong>{followup.companyName}</strong>
+                    <p>{followup.message || followup.nextAction || "No note"}</p>
+                    <span>
+                      Owner: {followup.assignedTo?.name || "Unassigned"} | Priority:{" "}
+                      {followup.temperature || "cold"}
+                    </span>
+                  </div>
+                  <div className="team-followup-time">{formatDateTime(followup.lastContactDate)}</div>
+                </div>
+              ))
+            ) : (
+              <div className="team-muted">No follow-ups due today</div>
+            )}
+          </div>
+        </section>
 
+        <section className="team-panel">
+          <div className="team-panel-head">
+            <h3>Insights</h3>
+          </div>
+          <div className="team-insights-list">
+            {dashboardData.insights.length ? (
+              dashboardData.insights.map((insight, index) => (
+                <div key={`${insight.type}-${index}`} className="team-insight-row">
+                  <strong>{String(insight.type || "insight").replace("-", " ")}</strong>
+                  <p>{insight.message}</p>
+                </div>
+              ))
+            ) : (
+              <div className="team-muted">No insights available</div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
 }
-
-export default TeamDashboard;
