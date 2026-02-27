@@ -2,12 +2,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
 import BackButton from "../../components/BackButton";
-import "./LeadsDashboard.css";
+import "./styles/LeadsDashboard.css";
 
 function LeadFormPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
+  const isAdminOrManager = roleName === "admin" || roleName === "manager";
 
   const isNew = id === "new" || !id;
   const searchParams = new URLSearchParams(location.search);
@@ -551,11 +554,11 @@ function LeadFormPage() {
 
   return (
     <div className="lead-page">
-      <BackButton />
       <div className="lead-header">
         <h2>
           {isNew ? "Add Lead" : dealView ? `Deal - ${lead.company_name || "Details"}` : lead.company_name}
         </h2>
+        <BackButton />
       </div>
 
       {deletedView && (
@@ -761,7 +764,7 @@ function LeadFormPage() {
 
         <div className="field">
           <label>Assign Lead To</label>
-          {editMode ? (
+          {editMode && isAdminOrManager ? (
             <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
               <option value="">Select User</option>
               {users.map((u) => (
@@ -849,9 +852,11 @@ function LeadFormPage() {
 
       <div className="form-actions">
         {deletedView ? (
-          <button className="convert-btn restore-btn" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={dealView ? handleRestoreDeal : handleRestoreLead}>
-            Restore {dealView ? "Deal" : "Lead"}
-          </button>
+          isAdminOrManager && (
+            <button className="convert-btn restore-btn" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={dealView ? handleRestoreDeal : handleRestoreLead}>
+              Restore {dealView ? "Deal" : "Lead"}
+            </button>
+          )
         ) : editMode ? (
           <button className="save-btn" onClick={handleSave}>
             Save
@@ -877,12 +882,14 @@ function LeadFormPage() {
                   Convert to Deal
                 </button>
               )}
-              <button
-                className="soft-delete-btn"
-                onClick={dealView ? handleDeleteDeal : handleSoftDelete}
-              >
-                {dealView ? "Delete Deal" : "Delete"}
-              </button>
+              {isAdminOrManager && (
+                <button
+                  className="soft-delete-btn"
+                  onClick={dealView ? handleDeleteDeal : handleSoftDelete}
+                >
+                  {dealView ? "Delete Deal" : "Delete"}
+                </button>
+              )}
             </>
           )
         )}

@@ -7,16 +7,6 @@ const dealsSchema = new mongoose.Schema(
       ref: "client",
     },
 
-    clientName: {
-      type: String,
-      trim: true,
-    },
-
-    client_contact_Id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "client_contact",
-    },
-
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",
