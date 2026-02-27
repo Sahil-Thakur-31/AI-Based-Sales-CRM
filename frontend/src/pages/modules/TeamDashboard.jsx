@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../../components/StatCard';
-import '../../styles/managerDashboard.css';
+import './styles/teamDashboard.css';
 import API from '../../api';
 
 function TeamDashboard() {
@@ -79,7 +79,7 @@ function TeamDashboard() {
   const { members, teamLeads } = dashboardData;
 
   return (
-    <div className="ManagerDashboard">
+    <div className="TeamDashboard">
       <div className="dashboard container-fluid">
         {/* BUTTON & DROPDOWN ON SAME ROW */}
         <div className="team-selector-wrapper">
@@ -158,44 +158,37 @@ function TeamDashboard() {
 
           {/* LEFT */}
           <div className="col-12 col-lg-8">
-            <div className="panel">
+            <div className="panel panel-followups">
               <h3>🔥 Priority Follow-ups Today</h3>
-
-              {dashboardData.followups.map((item, idx) => (
-                <div key={idx} className="follow-item">
-                  <div>
-                    <strong>{item.company_name || item.company}</strong>
-                    <p>{item.message}</p>
-                  </div>
-                  <div className="text-end">
-                    <small>{item.last_contact_date ? new Date(item.last_contact_date).toLocaleTimeString() : item.time}</small>
-                    <div>{item.priority || ''}</div>
-                  </div>
-                </div>
-              ))}
-
+              <div className="panel-scroll">
+                  {dashboardData.followups.map((item, idx) => (
+                    <div key={idx} className="follow-item">
+                      <div>
+                        <strong>{item.company_name || item.company}</strong>
+                        <p>{item.message}</p>
+                      </div>
+                      <div className="text-end">
+                        <small>{item.last_contact_date ? new Date(item.last_contact_date).toLocaleTimeString() : item.time}</small>
+                        <div>{item.priority || ''}</div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
             </div>
           </div>
 
           {/* RIGHT */}
           <div className="col-12 col-lg-4">
-            <div className="panel mb-4">
-              <h3>📊 Pipeline Value</h3>
-              <div className="pipeline-value">
-                {dashboardData.pipelineValue}
-              </div>
-            </div>
-
-            <div className="panel">
+            <div className="panel panel-insights">
               <h3>📈 AI Insights</h3>
-
-              {dashboardData.insights.map((insight, idx) => (
-                <div key={idx} className="insight">
-                  <strong>{insight.type}</strong>
-                  <p>{insight.message}</p>
-                </div>
-              ))}
-
+              <div className="panel-scroll">
+                {dashboardData.insights.map((insight, idx) => (
+                  <div key={idx} className="insight">
+                    <strong>{insight.type}</strong>
+                    <p>{insight.message}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
           </div>
