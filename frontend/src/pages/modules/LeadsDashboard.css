@@ -12,7 +12,7 @@ body {
 }
 
 .leads-container {
-  padding: 30px;
+  padding: 7px 30px 7px 30px;
 }
 
 /* ================= TOP ACTIONS ================= */
@@ -20,8 +20,8 @@ body {
 .top-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  margin-bottom: 25px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .btn {
@@ -68,14 +68,14 @@ body {
 
 .leads-header {
   background: #ffffff;
-  padding: 20px 24px;
+  padding: 20px 24px 0;
   border-radius: 16px 16px 0 0;
   border: 1px solid #e6ebf2;
   border-bottom: none;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 15px;
 }
 
 .leads-header h2 {
@@ -113,10 +113,53 @@ body {
   color: #1f2937;
 }
 
+/* ================= STATUS TABS ================= */
+
+.status-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  border-bottom: 2px solid #e6ebf2;
+  width: 100%;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #3f5470;
+}
+
+.tab-btn.active {
+  color: #6d5efc;
+}
+
+.tab-btn.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #6d5efc;
+  border-radius: 2px 2px 0 0;
+}
+
 .filters {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  width: 100%;
+  margin-bottom: 15px;
 }
 
 .filters input[type="text"] {
@@ -157,6 +200,11 @@ body {
   border: 1px solid #e6ebf2;
   border-radius: 0 0 16px 16px;
   overflow-x: auto;
+  min-height: 400px;
+  /* Helps avoid jitter when pagination reduces row count */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 table {
@@ -317,6 +365,8 @@ td {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+
 
 /* ================= OVERLAY PANEL ================= */
 

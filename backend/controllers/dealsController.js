@@ -115,6 +115,7 @@ exports.getDeals = async (req, res) => {
         is_deleted: deal.is_deleted || false,
         deleted: deal.is_deleted || false,
         delete_reason: deal.deleted_reason || "",
+        isActive: deal.isActive !== false,
       };
     });
 

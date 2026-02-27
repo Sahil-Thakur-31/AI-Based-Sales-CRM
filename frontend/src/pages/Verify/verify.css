@@ -17,6 +17,10 @@
     width: 100%;
     max-width: 420px;
     box-sizing: border-box;
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .login-wrapper h1 {

@@ -558,6 +558,20 @@ function LeadFormPage() {
         </h2>
       </div>
 
+      {deletedView && (
+        <div className="deleted-banner" style={{ background: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', margin: '20px 0', fontSize: '15px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fecaca' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          This {dealView ? "deal" : "lead"} is currently deleted and is read-only. Please restore it to make edits.
+        </div>
+      )}
+
+      {!deletedView && (lead.is_active === false || lead.isActive === false) && (
+        <div className="inactive-banner" style={{ background: '#fef3c7', color: '#b45309', padding: '12px 16px', borderRadius: '8px', margin: '20px 0', fontSize: '15px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fde68a' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          This {dealView ? "deal" : "lead"} is currently inactive. You cannot generate quotes for inactive sales records.
+        </div>
+      )}
+
       {/* ================= COMPANY INFO ================= */}
       <div className="lead-form">
         <div className="field company-autocomplete-field">
@@ -835,11 +849,9 @@ function LeadFormPage() {
 
       <div className="form-actions">
         {deletedView ? (
-          !editMode && !isNew && (
-            <button className="convert-btn" onClick={dealView ? handleRestoreDeal : handleRestoreLead}>
-              Restore
-            </button>
-          )
+          <button className="convert-btn restore-btn" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={dealView ? handleRestoreDeal : handleRestoreLead}>
+            Restore {dealView ? "Deal" : "Lead"}
+          </button>
         ) : editMode ? (
           <button className="save-btn" onClick={handleSave}>
             Save
@@ -854,6 +866,8 @@ function LeadFormPage() {
                 <button
                   className="convert-btn"
                   onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
+                  disabled={lead.isActive === false}
+                  title={lead.isActive === false ? "Cannot create quotes for inactive deals." : ""}
                 >
                   Create Quote
                 </button>
