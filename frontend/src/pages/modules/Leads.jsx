@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import Pagination from "../../components/Pagination";
-import "./LeadsDashboard.css";
+import "./styles/LeadsDashboard.css";
 import "./styles/Expense.css";
 
 function LeadsDashboard({ defaultView = "leads" }) {

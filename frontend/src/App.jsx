@@ -8,6 +8,7 @@ import ResetPassword from './pages/Verify/ResetPassword';
 
 import AdminHome from './pages/AdminHome.jsx';
 import ManagerHome from './pages/ManagerHome';
+import UserHome from './pages/UserHome';
 import ManageUsers from './pages/modules/adminsetting/ManageUsers.jsx';
 
 import Leads from './pages/modules/Leads.jsx';
@@ -58,7 +59,7 @@ function App() {
 
         {/* Protected routes with Layout */}
         <Route element={
-          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+          <ProtectedRoute allowedRoles={["Admin", "Manager", "User", null]}>
             <Layout />
           </ProtectedRoute>
         }>
@@ -67,8 +68,11 @@ function App() {
           <Route path="/adminhome" element={<ProtectedRoute allowedRoles={["Admin"]}>
             <AdminHome />
           </ProtectedRoute>} />
-          <Route path="/managerhome" element={<ProtectedRoute allowedRoles={["Manager"]}>
+          <Route path="/managerhome" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}>
             <ManagerHome />
+          </ProtectedRoute>} />
+          <Route path="/userhome" element={<ProtectedRoute allowedRoles={["User", "Manager", "Admin", null]}>
+            <UserHome />
           </ProtectedRoute>} />
 
 
@@ -92,7 +96,7 @@ function App() {
           <Route path="/ai-leads" element={<AILeads />} />
           <Route path="/events" element={<Events />} />
 
-          <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager","Admin"]}><TeamDashboard /></ProtectedRoute>} />
+          <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamDashboard /></ProtectedRoute>} />
           <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
           <Route path="/reports" element={<Reports />} />
 
@@ -101,58 +105,58 @@ function App() {
 
           {/* Admin-only routes */}
           <Route
-  path="/manageusers"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <ManageUsers />
-    </ProtectedRoute>
-  }
-/>
+            path="/manageusers"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <ManageUsers />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/products"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Products />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Products />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/roles"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Roles />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/roles"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Roles />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/industry"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Industry />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/industry"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Industry />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/sources"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Sources />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/sources"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Sources />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/taxes"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Taxes />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/taxes"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Taxes />
+              </ProtectedRoute>
+            }
+          />
 
         </Route>
 

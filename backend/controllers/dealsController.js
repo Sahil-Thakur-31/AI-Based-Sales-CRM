@@ -221,8 +221,15 @@ exports.getDealById = async (req, res) => {
 
 exports.updateDeal = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
     const update = req.body || {};
     delete update._id;
+
+    if (userRole !== "admin" && userRole !== "manager") {
+      delete update.assignedTo;
+      delete update.assigned_to;
+    }
+
     const deal = await Deal.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
     if (!deal) return res.status(404).json({ message: "Deal not found" });
     res.json(deal);
@@ -234,6 +241,11 @@ exports.updateDeal = async (req, res) => {
 
 exports.deleteDeal = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    if (userRole !== "admin" && userRole !== "manager") {
+      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can delete deals" });
+    }
+
     const reason = String(req.body?.reason || "").trim();
     if (!reason) {
       return res.status(400).json({ message: "Delete reason is required" });
@@ -259,6 +271,11 @@ exports.deleteDeal = async (req, res) => {
 
 exports.restoreDeal = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    if (userRole !== "admin" && userRole !== "manager") {
+      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can restore deals" });
+    }
+
     const deal = await Deal.findById(req.params.id);
     if (!deal) {
       return res.status(404).json({ message: "Deal not found" });

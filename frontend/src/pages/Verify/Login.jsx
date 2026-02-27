@@ -80,6 +80,8 @@ function Login() {
                     setTimeout(() => navigate('/managerhome'), 1000);
                 } else if (result.rolename === 'Admin') {
                     setTimeout(() => navigate('/adminhome'), 1000);
+                } else {
+                    setTimeout(() => navigate('/userhome'), 1000);
                 }
 
             }

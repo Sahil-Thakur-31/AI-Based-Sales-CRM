@@ -1,5 +1,5 @@
 import React from "react";
-import "./SalesForecasting.css";
+import "./styles/SalesForecasting.css";
 
 const SalesForecasting = () => {
   const pipelineData = [
@@ -50,7 +50,7 @@ const SalesForecasting = () => {
 
   return (
     <div className="forecast-container">
-     
+
 
       {/* KPI Cards */}
       <div className="kpi-grid">

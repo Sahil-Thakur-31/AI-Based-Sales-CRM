@@ -548,9 +548,14 @@ exports.getLeadById = async (req, res) => {
 
 exports.createLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
     await normalizeLegacyLeadFlagsOnce();
     const locationId = await resolveLocationId(req.body);
     const leadPayload = applyLeadDerivations(stripLeadPayloadFields(req.body));
+
+    if (userRole !== "admin" && userRole !== "manager") {
+      delete leadPayload.assigned_to;
+    }
 
     if (locationId) {
       leadPayload.location = locationId;
@@ -593,9 +598,14 @@ exports.createLead = async (req, res) => {
 
 exports.updateLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
     await normalizeLegacyLeadFlagsOnce();
     const locationId = await resolveLocationId(req.body);
     const leadPayload = applyLeadDerivations(stripLeadPayloadFields(req.body));
+
+    if (userRole !== "admin" && userRole !== "manager") {
+      delete leadPayload.assigned_to;
+    }
 
     if (locationId) {
       leadPayload.location = locationId;
@@ -657,6 +667,11 @@ exports.updateLead = async (req, res) => {
 
 exports.deleteLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    if (userRole !== "admin" && userRole !== "manager") {
+      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can delete leads" });
+    }
+
     await normalizeLegacyLeadFlagsOnce();
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,
@@ -676,6 +691,11 @@ exports.deleteLead = async (req, res) => {
 
 exports.restoreLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    if (userRole !== "admin" && userRole !== "manager") {
+      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can restore leads" });
+    }
+
     await normalizeLegacyLeadFlagsOnce();
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,

@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const authenticate = require("../middlewares/auth");
 const {
   getLeads,
   getLeadById,
@@ -10,13 +11,13 @@ const {
   searchCompany,
 } = require("../controllers/leadsController");
 
-router.get("/", getLeads);
-router.get("/search-company", searchCompany);
-router.get("/:id", getLeadById);
-router.post("/", createLead);
-router.put("/:id/convert-to-deal", convertLeadToDeal);
-router.put("/:id/restore", restoreLead);
-router.put("/:id", updateLead);
-router.delete("/:id", deleteLead);
+router.get("/", authenticate, getLeads);
+router.get("/search-company", authenticate, searchCompany);
+router.get("/:id", authenticate, getLeadById);
+router.post("/", authenticate, createLead);
+router.put("/:id/convert-to-deal", authenticate, convertLeadToDeal);
+router.put("/:id/restore", authenticate, restoreLead);
+router.put("/:id", authenticate, updateLead);
+router.delete("/:id", authenticate, deleteLead);
 
 module.exports = router;

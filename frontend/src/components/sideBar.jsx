@@ -18,8 +18,9 @@ export default function Sidebar() {
   }
 
   // Dynamic dashboard path
-  const dashboardPath =
-    userRole === "Admin" ? "/adminhome" : "/managerhome";
+  let dashboardPath = "/userhome";
+  if (userRole === "Admin") dashboardPath = "/adminhome";
+  if (userRole === "Manager") dashboardPath = "/managerhome";
 
 
   const menuItems = [
