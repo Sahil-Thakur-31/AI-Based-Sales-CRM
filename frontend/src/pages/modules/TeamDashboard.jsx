@@ -336,15 +336,13 @@ export default function TeamDashboard() {
               {paginatedFollowups.length ? (
                 paginatedFollowups.map((followup) => (
                   <div key={followup._id} className="team-followup-row">
-                    <div className="team-followup-main">
-                      <strong>{followup.companyName}</strong>
-                      <p>{followup.message || followup.nextAction || "No note"}</p>
-                      <span>
-                        Owner: {followup.assignedTo?.name || "Unassigned"} | Priority:{" "}
-                        {followup.temperature || "cold"}
-                      </span>
-                    </div>
-                    <div className="team-followup-time">{formatDateTime(followup.lastContactDate)}</div>
+                    <span className="team-followup-title">{followup.title || "Untitled Follow-up"}</span>
+                    <span className="team-followup-assignee">
+                      Assigned To: {followup.assignedTo?.name || "Unassigned"}
+                    </span>
+                    <span className="team-followup-tag mode">{followup.modeTag || "Phone Call"}</span>
+                    <span className="team-followup-tag entity">{followup.entityTag || "Lead"}</span>
+                    <span className="team-followup-time">{formatDateTime(followup.dueDateTime)}</span>
                   </div>
                 ))
               ) : (
