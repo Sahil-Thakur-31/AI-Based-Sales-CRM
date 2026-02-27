@@ -1,14 +1,23 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import { handleError, handleSuccess } from "../../utils";
 import "./verify.css"
 
 function VerifyOTP() {
   const [otp, setOtp] = useState("");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false); // <-- new state
-  
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  const handleError = (msg) => {
+    setErrorMsg(msg);
+    setSuccessMsg("");
+  };
+  const handleSuccess = (msg) => {
+    setSuccessMsg(msg);
+    setErrorMsg("");
+  };
+
 
   const email = localStorage.getItem("otpEmail");
 
@@ -52,6 +61,8 @@ function VerifyOTP() {
     <div className="login-wrapper">
       <div className="container">
         <h1>Verify OTP</h1>
+        {errorMsg && <div className="form-message danger">{errorMsg}</div>}
+        {successMsg && <div className="form-message primary">{successMsg}</div>}
 
         <form onSubmit={verifyOTP}>
           <label>OTP</label>
@@ -66,8 +77,6 @@ function VerifyOTP() {
             Verify OTP
           </button>
         </form>
-
-        <ToastContainer />
       </div>
     </div>
   );
