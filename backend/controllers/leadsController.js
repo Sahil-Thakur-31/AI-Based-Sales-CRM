@@ -801,8 +801,6 @@ exports.convertLeadToDeal = async (req, res) => {
 
     const deal = await Deal.create({
       client_id: client._id,
-      clientName: client.name || lead.company_name || "",
-      client_contact_Id: clientContact?._id || null,
       lead_id: lead._id,
       assignedTo: lead.assigned_to || null,
       assignedBy: actorId,
