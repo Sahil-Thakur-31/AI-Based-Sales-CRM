@@ -2,7 +2,7 @@
 //Uses your models:
 
 
-// backend/services/adminDashboard.admin.service.js
+// backend/services/adminDashboardservice.js
 const Deal = require("../models/deals");
 const Lead = require("../models/leads");
 const Followup = require("../models/followUp");
@@ -125,9 +125,14 @@ async function getSummary(range) {
   const pipelineDeltaPct = 0;
 
   // Open leads created in this range
-  const openLeads = await Lead.countDocuments({
+  const openLeads = await Lead.collection.countDocuments({
     is_active: true,
-    is_deleted: { $ne: "Yes" },
+    $or: [
+      { is_deleted: false },
+      { is_deleted: null },
+      { is_deleted: { $exists: false } },
+      { is_deleted: { $type: "string", $in: ["No"] } },
+    ],
     status: { $in: ["new", "contacted", "qualified"] },
     created_at: { $gte: start, $lte: end },
   });

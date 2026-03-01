@@ -4,10 +4,8 @@ import API from "../../api";
 import "./styles/Quotations.css";
 
 function parseNumber(value, fallback = 0) {
-
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
-
 }
 
 function round2(value) {
@@ -37,7 +35,6 @@ function makeEmptyItem() {
 }
 
 export default function NewQuotation() {
-
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -52,7 +49,6 @@ export default function NewQuotation() {
     dealId: "",
     quoteDate: todayAsInputDate(),
     validUntil: "",
-    status: "draft",
     discountAmount: 0,
     notes: ""
   });
@@ -66,6 +62,11 @@ export default function NewQuotation() {
   const initialDealId = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("dealId") || "";
+  }, [location.search]);
+
+  const initialFromQuoteId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("fromQuoteId") || "";
   }, [location.search]);
 
   const selectedDeal = useMemo(
@@ -84,9 +85,7 @@ export default function NewQuotation() {
   );
 
   const calculatedItems = useMemo(() => {
-
     return lineItems.map((item) => {
-
       const quantity = Math.max(1, Math.round(parseNumber(item.quantity, 1)));
       const unitPrice = Math.max(0, parseNumber(item.unitPrice, 0));
       const discountPercent = Math.min(100, Math.max(0, parseNumber(item.discountPercent, 0)));
@@ -110,23 +109,12 @@ export default function NewQuotation() {
         lineTax: round2(tax),
         netTotal: round2(netTotal)
       };
-
     });
-
   }, [lineItems, taxMap]);
 
   const totals = useMemo(() => {
-
-    const subtotal = calculatedItems.reduce(
-      (acc, item) => acc + item.lineSubtotal,
-      0
-    );
-
-    const tax = calculatedItems.reduce(
-      (acc, item) => acc + item.lineTax,
-      0
-    );
-
+    const subtotal = calculatedItems.reduce((acc, item) => acc + item.lineSubtotal, 0);
+    const tax = calculatedItems.reduce((acc, item) => acc + item.lineTax, 0);
     const discountAmount = Math.max(0, parseNumber(form.discountAmount, 0));
     const grandTotal = Math.max(0, round2(subtotal + tax - discountAmount));
 
@@ -136,13 +124,10 @@ export default function NewQuotation() {
       discountAmount: round2(discountAmount),
       grandTotal
     };
-
   }, [calculatedItems, form.discountAmount]);
 
   const loadDependencies = async () => {
-
     try {
-
       setLoading(true);
       setError("");
 
@@ -167,23 +152,56 @@ export default function NewQuotation() {
         }));
       }
 
-    } catch (err) {
+      // If opening as a new version from an existing quotation, prefill fields
+      if (initialFromQuoteId) {
+        try {
+          const quoteRes = await API.get(`/quotations/${initialFromQuoteId}`);
+          const detail = quoteRes.data || null;
+          if (detail && detail.quotation) {
+            const q = detail.quotation;
 
+            setForm((prev) => ({
+              ...prev,
+              dealId: q.dealId || prev.dealId || initialDealId,
+              quoteDate: q.quoteDate ? q.quoteDate.split("T")[0] : prev.quoteDate,
+              validUntil: q.validUntil ? q.validUntil.split("T")[0] : prev.validUntil,
+              discountAmount: q.discountAmount || prev.discountAmount,
+              notes: q.notes || prev.notes
+            }));
+
+            if (Array.isArray(detail.items) && detail.items.length) {
+              const mapped = detail.items.map((it) => ({
+                productId: it.productId || "",
+                quantity: it.quantity || 1,
+                unitPrice: it.unitPrice || 0,
+                discountPercent: it.discountPercent || 0,
+                taxId: ""
+              }));
+
+              // Try to set taxId from products list when available
+              const prodMap = new Map((productRows || []).map((p) => [String(p._id), p]));
+              const withTax = mapped.map((mi) => ({
+                ...mi,
+                taxId: prodMap.get(String(mi.productId))?.taxId || mi.taxId || ""
+              }));
+
+              setLineItems(withTax.length ? withTax : [makeEmptyItem()]);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to prefill from quotation:", err);
+        }
+      }
+    } catch (err) {
       console.error(err);
       setError("Failed to load deals/products");
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
   const updateLineItem = (index, key, value) => {
-
     setLineItems((prev) => {
-
       const next = [...prev];
       next[index] = {
         ...next[index],
@@ -191,20 +209,15 @@ export default function NewQuotation() {
       };
 
       if (key === "productId") {
-
         const selectedProduct = productMap.get(String(value));
-
         if (selectedProduct) {
           next[index].unitPrice = selectedProduct.price || 0;
           next[index].taxId = selectedProduct.taxId || "";
         }
-
       }
 
       return next;
-
     });
-
   };
 
   const addLineItem = () => {
@@ -212,16 +225,13 @@ export default function NewQuotation() {
   };
 
   const removeLineItem = (index) => {
-
     setLineItems((prev) => {
       if (prev.length === 1) return prev;
       return prev.filter((_, rowIndex) => rowIndex !== index);
     });
-
   };
 
   const submit = async () => {
-
     const validItems = calculatedItems.filter((item) => item.productId);
 
     if (!form.dealId) {
@@ -235,38 +245,30 @@ export default function NewQuotation() {
     }
 
     try {
-
       setSaving(true);
 
       await API.post("/quotations", {
         dealId: form.dealId,
         quoteDate: form.quoteDate,
         validUntil: form.validUntil || null,
-        status: form.status,
         discountAmount: totals.discountAmount,
         notes: form.notes,
         items: validItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-            discountPercent: item.discountPercent,
-            taxId: item.taxId || null
-          }))
-        });
+          discountPercent: item.discountPercent,
+          taxId: item.taxId || null
+        }))
+      });
 
       navigate("/quotations");
-
     } catch (err) {
-
       console.error(err);
       alert(err.response?.data?.message || "Failed to create quotation");
-
     } finally {
-
       setSaving(false);
-
     }
-
   };
 
   if (loading) {
@@ -274,32 +276,19 @@ export default function NewQuotation() {
   }
 
   return (
-
     <div className="quote-form-page">
-
       <div className="quote-form-card">
-
         <div className="quote-form-header">
-
           <h2>New Quotation</h2>
 
-          <button
-            className="quote-close-btn"
-            onClick={() => navigate("/quotations")}
-          >
+          <button className="quote-close-btn" onClick={() => navigate("/quotations")}>
             x
           </button>
-
         </div>
 
-        {error && (
-          <div className="quote-form-error">
-            {error}
-          </div>
-        )}
+        {error && <div className="quote-form-error">{error}</div>}
 
         <div className="quote-form-grid">
-
           <div className="quote-field">
             <label>Link To Deal</label>
             <select
@@ -309,7 +298,7 @@ export default function NewQuotation() {
               <option value="">-- Select Deal --</option>
               {deals.map((deal) => (
                 <option key={deal._id} value={deal._id}>
-                  {deal.label}
+                  {deal.company_name || deal.stage || String(deal._id)}
                 </option>
               ))}
             </select>
@@ -318,7 +307,11 @@ export default function NewQuotation() {
           <div className="quote-field">
             <label>Client Name</label>
             <input
-              value={selectedDeal?.clientName || ""}
+              value={
+                selectedDeal?.company_name ||
+                selectedDeal?.primary_contact?.name ||
+                ""
+              }
               readOnly
               placeholder="Auto-filled from selected deal"
             />
@@ -341,39 +334,17 @@ export default function NewQuotation() {
               onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
             />
           </div>
-
-          <div className="quote-field quote-field-full">
-            <label>Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              <option value="draft">draft</option>
-              <option value="sent">sent</option>
-              <option value="viewed">viewed</option>
-              <option value="negotiation">negotiation</option>
-              <option value="approved">approved</option>
-              <option value="rejected">rejected</option>
-              <option value="expired">expired</option>
-            </select>
-          </div>
-
         </div>
 
         <div className="quote-line-items-card">
-
           <div className="quote-line-items-header">
             <h3>Line Items</h3>
-            <button
-              className="quote-add-product-btn"
-              onClick={addLineItem}
-            >
+            <button className="quote-add-product-btn" onClick={addLineItem}>
               + Add Product
             </button>
           </div>
 
           <div className="quote-line-table">
-
             <div className="quote-line-head">Product</div>
             <div className="quote-line-head">Qty</div>
             <div className="quote-line-head">Unit</div>
@@ -393,13 +364,10 @@ export default function NewQuotation() {
                 canRemove={calculatedItems.length > 1}
               />
             ))}
-
           </div>
-
         </div>
 
         <div className="quote-summary-card">
-
           <div className="quote-summary-row">
             <span>Subtotal</span>
             <span>{formatCurrency(totals.subtotal)}</span>
@@ -424,7 +392,6 @@ export default function NewQuotation() {
             <span>Grand Total</span>
             <strong>{formatCurrency(totals.grandTotal)}</strong>
           </div>
-
         </div>
 
         <div className="quote-field quote-field-full quote-notes-field">
@@ -437,47 +404,23 @@ export default function NewQuotation() {
         </div>
 
         <div className="quote-form-footer">
-
-          <button
-            className="quote-cancel-btn"
-            onClick={() => navigate("/quotations")}
-          >
+          <button className="quote-cancel-btn" onClick={() => navigate("/quotations")}>
             Cancel
           </button>
 
-          <button
-            className="quote-submit-btn"
-            disabled={saving}
-            onClick={submit}
-          >
+          <button className="quote-submit-btn" disabled={saving} onClick={submit}>
             {saving ? "Creating..." : "Create Quote"}
           </button>
-
         </div>
-
       </div>
-
     </div>
-
   );
-
 }
 
-function LineItemRow({
-  item,
-  products,
-  taxes,
-  onChange,
-  onRemove,
-  canRemove
-}) {
-
+function LineItemRow({ item, products, taxes, onChange, onRemove, canRemove }) {
   return (
     <>
-      <select
-        value={item.productId}
-        onChange={(e) => onChange("productId", e.target.value)}
-      >
+      <select value={item.productId} onChange={(e) => onChange("productId", e.target.value)}>
         <option value="">Select Product</option>
         {products.map((product) => (
           <option key={product._id} value={product._id}>
@@ -508,10 +451,7 @@ function LineItemRow({
         onChange={(e) => onChange("discountPercent", e.target.value)}
       />
 
-      <select
-        value={item.taxId || ""}
-        onChange={(e) => onChange("taxId", e.target.value)}
-      >
+      <select value={item.taxId || ""} onChange={(e) => onChange("taxId", e.target.value)}>
         <option value="">0%</option>
         {taxes.map((tax) => (
           <option key={tax._id} value={tax._id}>
@@ -520,18 +460,11 @@ function LineItemRow({
         ))}
       </select>
 
-      <div className="quote-line-net">
-        {formatCurrency(item.netTotal)}
-      </div>
+      <div className="quote-line-net">{formatCurrency(item.netTotal)}</div>
 
-      <button
-        className="quote-remove-row-btn"
-        disabled={!canRemove}
-        onClick={onRemove}
-      >
+      <button className="quote-remove-row-btn" disabled={!canRemove} onClick={onRemove}>
         x
       </button>
     </>
   );
-
 }

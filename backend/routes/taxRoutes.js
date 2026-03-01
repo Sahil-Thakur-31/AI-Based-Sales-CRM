@@ -1,19 +1,17 @@
-const express = require("express");
-const router = express.Router();
-const authenticate = require("../middlewares/auth");
-
+const router = require("express").Router();
+const auth = require("../middlewares/auth");
 const {
   getTaxes,
   createTax,
   updateTax,
   deleteTax,
-  restoreTax
+  activateTax
 } = require("../controllers/taxController");
 
-router.get("/", authenticate, getTaxes);
-router.post("/", authenticate, createTax);
-router.put("/:id", authenticate, updateTax);
-router.put("/delete/:id", authenticate, deleteTax);
-router.put("/restore/:id", authenticate, restoreTax);
+router.get("/", auth, getTaxes);
+router.post("/", auth, createTax);
+router.put("/:id", auth, updateTax);
+router.put("/delete/:id", auth, deleteTax);
+router.put("/activate/:id", auth, activateTax);
 
 module.exports = router;

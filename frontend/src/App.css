@@ -1,8 +1,31 @@
+@import './styles/buttons.css';
+
 html, body, #root {
     height: 100%;
     width: 100%;
     margin: 0;
     padding: 0;
     background-color: #f4f7f9; 
-    overflow-y: hidden;
+    overflow: hidden;
+}
+
+.app-search-input {
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: #1f2937;
+    background: #ffffff;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.app-search-input::placeholder {
+    color: #9ca3af;
+}
+
+.app-search-input:focus {
+    outline: none;
+    border-color: #5b6fd8;
+    box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);
 }

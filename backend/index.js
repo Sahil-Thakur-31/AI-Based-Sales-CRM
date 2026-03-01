@@ -1,5 +1,6 @@
 const http = require('http')
 const express = require('express')
+const path = require("path");
 require('dotenv').config()
 const authRoute = require('./routes/authRoutes')
 const userRoutes = require('./routes/userRoutes')
@@ -10,12 +11,17 @@ const rolesRoutes = require("./routes/roleRoutes");
 const sourcesRoutes = require("./routes/sourcesRoutes");
 const industriesRoutes = require("./routes/industriesRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
+
+const leadsRoutes = require("./routes/leadsRoutes");
+const locationRoutes = require("./routes/locationRoutes");
 const dealsRoutes = require("./routes/dealsRoutes");
+const clientRoutes = require("./routes/clientRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const taxRoutes = require("./routes/taxRoutes");
 const followupsRoutes = require("./routes/followupsRoutes");
 const mongoose = require("mongoose");
 const Meeting = require("./models/meetings");
+const teamRoutes = require("./routes/teamRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -32,7 +38,7 @@ app.use(cors());
 
 app.use('/auth',authRoute);
 app.use("/users", userRoutes);
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/crm-settings", crmSettingsRoutes);
 app.use("/products", productRoutes);
 app.use("/notifications", notificationRoutes);
@@ -40,7 +46,11 @@ app.use("/roles", rolesRoutes);
 app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
 app.use("/api/expenses", expenseRoutes);
+
+app.use("/leads", leadsRoutes);
 app.use("/deals", dealsRoutes);
+app.use("/location", locationRoutes);
+app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/followups", followupsRoutes);

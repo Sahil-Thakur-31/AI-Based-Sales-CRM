@@ -105,12 +105,18 @@ const expenseSchema = new mongoose.Schema(
       enum: [
         "travel",
         "client_meeting",
-        "demo",
+        "other",
         "marketing",
         "event"
       ],
       required: true,
       index: true
+    },
+
+    otherCategory: {
+      type: String,
+      trim: true,
+      maxlength: 100
     },
 
     amount: {

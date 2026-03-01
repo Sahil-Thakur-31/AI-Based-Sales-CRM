@@ -18,6 +18,7 @@ function Navbar() {
 
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [refreshingApp, setRefreshingApp] = useState(false);
 
   /* timers */
   const profileMenuTimer = useRef(null);
@@ -105,6 +106,11 @@ function Navbar() {
   const moduleName = useMemo(() => {
 
   const currentPath = location.pathname;
+  const query = new URLSearchParams(location.search);
+
+  if (currentPath.startsWith("/leads/") && currentPath !== "/leads/new") {
+    return query.get("view") === "deal" ? "Deal Details" : "Lead Details";
+  }
 
   const sortedRoutes = [...routeConfig].sort(
     (a, b) => b.path.length - a.path.length
@@ -121,7 +127,7 @@ function Navbar() {
 
   return route?.title || "Dashboard";
 
-}, [location.pathname]);
+}, [location.pathname, location.search]);
 
   /* Initials fallback */
   const getInitials = (name) => {
@@ -137,6 +143,15 @@ function Navbar() {
       parts[0][0] +
       parts[parts.length - 1][0]
     ).toUpperCase();
+
+  };
+
+  const handleGlobalRefresh = () => {
+
+    if (refreshingApp) return;
+
+    setRefreshingApp(true);
+    window.location.reload();
 
   };
 
@@ -157,7 +172,7 @@ function Navbar() {
 
       setShowProfileMenu(false);
 
-    }, 200);
+    }, 60);
 
   };
 
@@ -178,7 +193,7 @@ function Navbar() {
 
       setShowAdminMenu(false);
 
-    }, 200);
+    }, 60);
 
   };
 
@@ -199,7 +214,7 @@ function Navbar() {
 
       setShowNotifications(false);
 
-    }, 200);
+    }, 60);
 
   };
 
@@ -227,6 +242,7 @@ function Navbar() {
       <div className="navbar-right">
 
 
+
         {/* ADMIN MENU */}
         {user.role?.name === "Admin" && (
 
@@ -247,7 +263,7 @@ function Navbar() {
               </div>
 
               <div onClick={() => navigate("/taxes")}>
-                Taxes
+                Tax
               </div>
 
               <div onClick={() => navigate("/roles")}>

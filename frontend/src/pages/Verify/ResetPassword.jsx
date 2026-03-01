@@ -1,7 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import { handleError, handleSuccess } from "../../utils";
 import BackButton from "../../components/BackButton";
 import "./verify.css"
 
@@ -9,6 +7,17 @@ function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  const handleError = (msg) => {
+    setErrorMsg(msg);
+    setSuccessMsg("");
+  };
+  const handleSuccess = (msg) => {
+    setSuccessMsg(msg);
+    setErrorMsg("");
+  };
 
   const navigate = useNavigate();
   const email = localStorage.getItem("otpEmail");
@@ -75,6 +84,8 @@ function ResetPassword() {
     <div className="login-wrapper">
       <div className="container">
         <h1>Reset Password</h1>
+        {errorMsg && <div className="form-message danger">{errorMsg}</div>}
+        {successMsg && <div className="form-message primary">{successMsg}</div>}
 
         <form onSubmit={handleReset}>
           <label>New Password</label>
@@ -99,7 +110,6 @@ function ResetPassword() {
         </form>
 
         <BackButton />
-        <ToastContainer limit={1} />
       </div>
     </div>
   );

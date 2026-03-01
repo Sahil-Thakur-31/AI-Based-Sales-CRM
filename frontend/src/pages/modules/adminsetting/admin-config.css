@@ -4,6 +4,17 @@
   border-radius: 12px;
 }
 
+.admin-config-actions input{
+    padding: 11px 16px;
+    border-radius: 10px;
+    border: 1px solid #cfd6e4;
+    font-size: 14px;
+    outline: none;
+    transition: 0.2s;
+    min-width: 190px;
+    background: #ffffff;
+}
+
 .admin-config-page select {
   padding: 6px 10px;
   border-radius: 6px;
@@ -12,14 +23,9 @@
 
 .admin-config-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-bottom: 18px;
-}
-
-.admin-config-header h2 {
-  font-size: 20px;
-  font-weight: 600;
 }
 
 .admin-config-actions {
@@ -28,12 +34,10 @@
   align-items: center;
 }
 
-.admin-config-actions input {
-  border-radius: 15px;
-  padding: 5px 25px;
-  font-weight: 600;
-  font-size: 17px;
-  border: 1px solid #ddd;
+.admin-config-actions .admin-search-input {
+  min-width: 240px;
+  max-width: 360px;
+  width: 100%;
 }
 
 .admin-config-actions select {
@@ -71,18 +75,30 @@
 }
 
 .admin-config-btn {
-  padding: 6px 25px;
+  padding: 8px 16px;
   border-radius: 6px;
   border: none;
-  background: #5b6fd8;
+  background: #007bff;
   color: white;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
 
+.admin-config-btn:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .admin-config-btn-danger {
-  background: #ef4444;
+  background: #dc3545;
+}
+
+.admin-config-btn-danger:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
 .admin-config-modal {
