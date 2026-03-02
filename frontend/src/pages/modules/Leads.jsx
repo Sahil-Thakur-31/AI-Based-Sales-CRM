@@ -296,9 +296,12 @@ function LeadsDashboard({ defaultView = "leads" }) {
           </select>
 
           {viewMode === "deals" && (
-            <button className="btn add-deal-btn" type="button" onClick={() => navigate("/leads/new?view=deal")} style={{ marginLeft: "10px" }}>
-              <span className="action-icon" style={{ marginRight: "4px" }}>➕</span>
-              Add Deal Manually
+            <button
+              className="btn add-deal-btn"
+              type="button"
+              onClick={() => navigate("/leads/new?view=deal")}
+            >
+              + Add Deal
             </button>
           )}
         </div>

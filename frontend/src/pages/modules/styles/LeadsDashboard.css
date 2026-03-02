@@ -162,6 +162,18 @@ body {
   margin-bottom: 15px;
 }
 
+.add-deal-btn {
+  margin-left: auto;
+  background: #09a62e;
+  border-color: #09a62e;
+  color: #ffffff;
+}
+
+.add-deal-btn:hover {
+  background: #0b5ed7;
+  border-color: #0b5ed7;
+}
+
 .filters input[type="text"] {
   padding: 11px 16px;
   border-radius: 10px;

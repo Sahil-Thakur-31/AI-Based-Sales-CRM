@@ -4,6 +4,20 @@ import API from "../../api";
 import BackButton from "../../components/BackButton";
 import "./styles/LeadsDashboard.css";
 
+function getUserIdFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return "";
+    const payload = token.split(".")[1];
+    if (!payload) return "";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(atob(normalized));
+    return decoded?._id ? String(decoded._id) : "";
+  } catch (_) {
+    return "";
+  }
+}
+
 function LeadFormPage() {
   const { id } = useParams();
   const location = useLocation();
@@ -11,6 +25,8 @@ function LeadFormPage() {
 
   const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
+  const currentUserId = getUserIdFromToken();
+  const currentUserName = String(localStorage.getItem("Name") || "");
 
   const isNew = id === "new" || !id;
   const searchParams = new URLSearchParams(location.search);
@@ -188,6 +204,14 @@ function LeadFormPage() {
 
     load();
   }, []);
+
+  useEffect(() => {
+    if (!isNew || isAdminOrManager || !currentUserId) return;
+    setLead((prev) => ({
+      ...prev,
+      assigned_to: prev.assigned_to || currentUserId,
+    }));
+  }, [isNew, isAdminOrManager, currentUserId]);
 
   /* ================= CHANGE ================= */
   const handleLeadChange = (e) => {
@@ -780,7 +804,10 @@ function LeadFormPage() {
               ))}
             </select>
           ) : (
-            <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
+            <p>
+              {users.find((u) => u._id === lead.assigned_to)?.name ||
+                (lead.assigned_to === currentUserId ? currentUserName : "-")}
+            </p>
           )}
         </div>
       </div>
