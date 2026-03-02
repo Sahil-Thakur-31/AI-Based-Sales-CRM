@@ -2,10 +2,43 @@ const Location = require("../models/location");
 
 exports.getLocations = async (req, res) => {
   try {
-    const locations = await Location.find({})
-      .sort({ country: 1, state: 1, district: 1, city: 1, area: 1, pincode: 1 })
-      .lean();
-    res.json(locations);
+    const country = String(req.query.country || "").trim();
+    const State = String(req.query.State || req.query.state || "").trim();
+    const city = String(req.query.city || "").trim();
+
+    let groupKey = "$country";
+    let projectKey = "country";
+    const match = {};
+
+    if (country) {
+      match.country = country;
+      groupKey = { $ifNull: ["$State", "$state"] };
+      projectKey = "State";
+    }
+
+    if (country && State) {
+      match.$expr = {
+        $eq: [{ $ifNull: ["$State", "$state"] }, State]
+      };
+      groupKey = "$city";
+      projectKey = "city";
+    }
+
+    if (country && State && city) {
+      match.city = city;
+      groupKey = { $ifNull: ["$zone", "$area"] };
+      projectKey = "zone";
+    }
+
+    const rows = await Location.aggregate([
+      { $match: match },
+      { $group: { _id: groupKey, locationId: { $first: "$_id" } } },
+      { $project: { _id: "$locationId", [projectKey]: "$_id" } },
+      { $match: { [projectKey]: { $type: "string", $ne: "" } } },
+      { $sort: { [projectKey]: 1 } }
+    ]).allowDiskUse(true);
+
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -24,6 +24,7 @@ const Meeting = require("./models/meetings");
 const teamRoutes = require("./routes/teamRoutes");
 const ocrRoutes = require("./routes/ocr");
 const eventsRoutes = require("./routes/eventsRoutes");
+const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -77,3 +78,4 @@ mongoose.connection.once("open", async () => {
 });
 
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
+startNotificationEmailWorker();

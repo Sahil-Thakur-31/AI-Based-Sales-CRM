@@ -9,6 +9,7 @@ const Industry = require("../models/industries");
 const User = require("../models/users");
 const DealStageHistory = require("../models/dealStageHistory");
 const Notification = require("../models/notifications");
+const { processPendingNotificationEmails } = require("../services/notificationEmailWorker");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
@@ -586,6 +587,9 @@ exports.createLead = async (req, res) => {
           relatedId: lead._id,
           relatedType: "Lead",
         });
+        processPendingNotificationEmails().catch((err) => {
+          console.error("lead assignment email dispatch error:", err);
+        });
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);
       }
@@ -659,6 +663,9 @@ exports.updateLead = async (req, res) => {
           type: "info",
           relatedId: lead._id,
           relatedType: "Lead",
+        });
+        processPendingNotificationEmails().catch((err) => {
+          console.error("lead reassignment email dispatch error:", err);
         });
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);

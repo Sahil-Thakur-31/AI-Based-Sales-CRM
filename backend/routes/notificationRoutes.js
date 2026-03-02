@@ -10,10 +10,7 @@ const Event = require("../models/events");
 
 
 const authenticate = require("../middlewares/auth");
-const sendOTPEmail = require("../services/emailService");
-const { buildNotificationEmail, TEMPLATE_KEYS, inferTemplateKey } = require("../services/emailTemplates");
-
-const sentReminderEmailCache = new Map();
+const { TEMPLATE_KEYS } = require("../services/emailTemplates");
 
 function getReminderOffsetMinutes(reminderTiming, customReminderOffsetMinutes) {
   if (reminderTiming === "custom") {
@@ -126,28 +123,6 @@ router.post("/", authenticate, async (req, res) => {
         relatedType: req.body.relatedType || null
 
       });
-
-    // Send immediate email for non-reminder notifications.
-    try {
-      const templateKey = inferTemplateKey(notification);
-      if (!isReminderTemplate(templateKey) && req.user?.email) {
-        const emailPayload = await buildNotificationEmail({
-          notification: { ...notification.toObject(), templateKey },
-          recipientName: req.user.name || "",
-          appBaseUrl: process.env.FRONTEND_URL || "http://localhost:5173"
-        });
-
-        await sendOTPEmail.sendEmail({
-          to: req.user.email,
-          subject: emailPayload.subject,
-          html: emailPayload.html,
-          text: emailPayload.text,
-          fromName: "CRM Notifications"
-        });
-      }
-    } catch (mailErr) {
-      console.error("Failed to send immediate notification email:", mailErr);
-    }
 
     res.json(notification);
 

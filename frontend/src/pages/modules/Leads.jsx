@@ -367,9 +367,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
                         className="view-btn"
                         onClick={() => {
                           if (viewMode === "deals") {
-                            const routeId = row.lead_id || row._id;
-                            if (!routeId) return;
-                            navigate(`/leads/${routeId}?view=deal&dealId=${row._id}${activeTab === 'deleted' ? '&deleted=true' : ''}`);
+                            const dealId = String(row._id || row.deal_id || "").trim();
+                            if (!dealId) return;
+                            navigate(`/leads/${dealId}?view=deal&dealId=${dealId}${activeTab === 'deleted' ? '&deleted=true' : ''}`);
                             return;
                           }
                           const leadId = row._id || row.lead_id;
