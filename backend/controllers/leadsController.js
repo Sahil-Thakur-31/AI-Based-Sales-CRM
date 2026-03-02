@@ -549,12 +549,13 @@ exports.getLeadById = async (req, res) => {
 exports.createLead = async (req, res) => {
   try {
     const userRole = (req.user?.role || "").toLowerCase();
+    const actorId = req.user?._id || null;
     await normalizeLegacyLeadFlagsOnce();
     const locationId = await resolveLocationId(req.body);
     const leadPayload = applyLeadDerivations(stripLeadPayloadFields(req.body));
 
     if (userRole !== "admin" && userRole !== "manager") {
-      delete leadPayload.assigned_to;
+      leadPayload.assigned_to = actorId;
     }
 
     if (locationId) {

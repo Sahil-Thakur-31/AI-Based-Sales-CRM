@@ -162,6 +162,18 @@ body {
   margin-bottom: 15px;
 }
 
+.add-deal-btn {
+  margin-left: auto;
+  background: #09a62e;
+  border-color: #09a62e;
+  color: #ffffff;
+}
+
+.add-deal-btn:hover {
+  background: #0b5ed7;
+  border-color: #0b5ed7;
+}
+
 .filters input[type="text"] {
   padding: 11px 16px;
   border-radius: 10px;
@@ -229,6 +241,13 @@ th {
   color: #3f5470;
 }
 
+th.contact-col,
+td.contact-cell {
+  width: 230px;
+  min-width: 230px;
+  max-width: 230px;
+}
+
 tbody tr {
   border-top: 1px solid #edf2f7;
   transition: 0.15s ease;
@@ -252,11 +271,18 @@ td {
   font-size: 16px;
   font-weight: 500;
   color: #1f3552;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .contact-subtext {
   color: #5f7091;
   font-size: 13px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ai-chip {

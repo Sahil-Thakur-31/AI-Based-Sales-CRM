@@ -4,6 +4,20 @@ import API from "../../api";
 import BackButton from "../../components/BackButton";
 import "./styles/LeadsDashboard.css";
 
+function getUserIdFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return "";
+    const payload = token.split(".")[1];
+    if (!payload) return "";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(atob(normalized));
+    return decoded?._id ? String(decoded._id) : "";
+  } catch (_) {
+    return "";
+  }
+}
+
 function LeadFormPage({ formMode = "" }) {
   const { id } = useParams();
   const location = useLocation();
@@ -11,6 +25,8 @@ function LeadFormPage({ formMode = "" }) {
 
   const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
+  const currentUserId = getUserIdFromToken();
+  const currentUserName = String(localStorage.getItem("Name") || "");
 
   const isNew = id === "new" || !id;
   const searchParams = new URLSearchParams(location.search);
@@ -186,6 +202,14 @@ function LeadFormPage({ formMode = "" }) {
 
     load();
   }, []);
+
+  useEffect(() => {
+    if (!isNew || isAdminOrManager || !currentUserId) return;
+    setLead((prev) => ({
+      ...prev,
+      assigned_to: prev.assigned_to || currentUserId,
+    }));
+  }, [isNew, isAdminOrManager, currentUserId]);
 
   /* ================= CHANGE ================= */
   const handleLeadChange = (e) => {
@@ -807,23 +831,21 @@ function LeadFormPage({ formMode = "" }) {
           )}
         </div>
 
-        {!clientView && (
-          <div className="field">
-            <label>Assign Lead To</label>
-            {editMode && isAdminOrManager ? (
-              <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
-                <option value="">Select User</option>
-                {users.map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
-            )}
-          </div>
-        )}
+        <div className="field">
+          <label>Assign Lead To</label>
+          {editMode && isAdminOrManager ? (
+            <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
+              <option value="">Select User</option>
+              {users.map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
+          )}
+        </div>
       </div>
 
       {/* ================= CONTACTS ================= */}
