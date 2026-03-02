@@ -23,12 +23,16 @@ function parseArgs(argv) {
     file: TXT_PATH,
     limit: 0,
     batchSize: 2000,
-    countryCode: ""
+    countryCode: "",
+    replace: false,
+    cityMode: "admin2"
   };
 
   for (const arg of argv) {
     if (arg === "--download") {
       options.download = true;
+    } else if (arg === "--replace") {
+      options.replace = true;
     } else if (arg.startsWith("--file=")) {
       options.file = arg.slice("--file=".length);
     } else if (arg.startsWith("--limit=")) {
@@ -37,6 +41,11 @@ function parseArgs(argv) {
       options.batchSize = Math.max(100, Number(arg.slice("--batch=".length)) || 2000);
     } else if (arg.startsWith("--country=")) {
       options.countryCode = String(arg.slice("--country=".length) || "").trim().toUpperCase();
+    } else if (arg.startsWith("--city-mode=")) {
+      const mode = String(arg.slice("--city-mode=".length) || "").trim().toLowerCase();
+      if (["admin2", "admin3", "auto"].includes(mode)) {
+        options.cityMode = mode;
+      }
     }
   }
 
@@ -188,7 +197,20 @@ function clean(value) {
   return String(value || "").trim();
 }
 
-function buildLocationDoc(parts) {
+function resolveCity(adminName2, adminName3, placeName, cityMode) {
+  if (cityMode === "admin3") {
+    return adminName3 || adminName2 || placeName;
+  }
+  if (cityMode === "auto") {
+    if (adminName2) return adminName2;
+    if (adminName3) return adminName3;
+    return placeName;
+  }
+  // admin2 mode keeps Indian districts like "Pune" grouped together.
+  return adminName2 || adminName3 || placeName;
+}
+
+function buildLocationDoc(parts, options) {
   const countryCode = clean(parts[0]).toUpperCase();
   const pincode = clean(parts[1]);
   const placeName = clean(parts[2]);
@@ -197,12 +219,13 @@ function buildLocationDoc(parts) {
   const adminName3 = clean(parts[7]); // city/subdivision
 
   const country = isoToCountryName(countryCode);
-  const state = adminName1;
-  const district = adminName2;
-  const city = adminName3 || adminName2 || placeName;
+  const state = adminName1 || "";
+  const district = adminName2 || adminName3 || "";
+  const city = resolveCity(adminName2, adminName3, placeName, options.cityMode);
   const area = placeName;
+  const zone = adminName3 || area;
 
-  if (!country || !state || !city || !pincode || !area) {
+  if (!country || !city || !pincode || !area) {
     return null;
   }
 
@@ -214,7 +237,7 @@ function buildLocationDoc(parts) {
     pincode,
     area,
     State: state,
-    zone: area
+    zone
   };
 }
 
@@ -284,6 +307,12 @@ async function main() {
   } else {
     console.log("Mongo connected. Import started...");
   }
+  console.log(`City mapping mode: ${options.cityMode}`);
+
+  if (options.replace) {
+    console.log("Clearing existing location collection before import...");
+    await Location.deleteMany({});
+  }
 
   const stream = fs.createReadStream(options.file, { encoding: "utf8" });
   const reader = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -314,7 +343,7 @@ async function main() {
       continue;
     }
 
-    const doc = buildLocationDoc(parts);
+    const doc = buildLocationDoc(parts, options);
     if (!doc) {
       skippedRows += 1;
       continue;
