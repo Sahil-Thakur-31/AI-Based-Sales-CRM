@@ -66,7 +66,7 @@ exports.updateSource = async (req, res) => {
     const source = await Source.findOneAndUpdate(
       { _id: req.params.id, is_deleted: false },
       { name, url, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!source) {
@@ -85,7 +85,7 @@ exports.deleteSource = async (req, res) => {
     const source = await Source.findByIdAndUpdate(
       req.params.id,
       { is_deleted: true, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!source) {
@@ -104,7 +104,7 @@ exports.activateSource = async (req, res) => {
     const source = await Source.findByIdAndUpdate(
       req.params.id,
       { is_deleted: false, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!source) {

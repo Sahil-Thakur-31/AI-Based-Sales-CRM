@@ -22,7 +22,7 @@ const followupSchema = new mongoose.Schema(
 
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
+      ref: "User",
       required: true,
       index: true
     },
@@ -78,6 +78,36 @@ const followupSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 2000
+    },
+
+    dealId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Deal",
+      index: true
+    },
+
+    currentLocation: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+
+    currentExactLocation: {
+      type: String,
+      trim: true,
+      maxlength: 300
+    },
+
+    meetingLocation: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+
+    meetingExactLocation: {
+      type: String,
+      trim: true,
+      maxlength: 300
     },
 
     address: {

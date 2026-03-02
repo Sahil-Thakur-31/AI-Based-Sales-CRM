@@ -12,6 +12,18 @@ const STAGES = [
   { key: "P7", title: "P7 - Won", sub: "Deal closed" },
 ];
 
+const LEAD_STAGES = STAGES.map((stage) =>
+  stage.key === "P7"
+    ? { ...stage, title: "P7 - Lead Convert to Deal", sub: "Converted leads" }
+    : stage
+);
+
+const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P7"]);
+const DEAL_STAGES = STAGES.map((stage) => ({
+  ...stage,
+  hidden: !DEAL_STAGE_KEYS.has(stage.key),
+}));
+
 const EMPTY_FOLLOWUP_FORM = {
   client: "",
   title: "",
@@ -27,6 +39,13 @@ const EMPTY_MEETING_FORM = {
   priority: "medium",
   minutesOfMeeting: "",
   status: "pending",
+};
+
+const EMPTY_DONE_MODAL = {
+  id: "",
+  kind: "meeting",
+  durationMinutes: "",
+  minutesOfMeeting: "",
 };
 
 const PAGE_SIZE = 4;
@@ -77,6 +96,9 @@ function mapDocToMeeting(doc) {
   const followupId = doc.sourceFollowupId || doc.Id || doc.followupId || doc._id;
   return {
     id: String(followupId),
+    leadId: doc.leadId || "",
+    dealId: doc.dealId || "",
+    clientId: doc.clientId || "",
     clientName: doc.clientName || "N/A",
     title: doc.title || "",
     eventType: doc.actionType || doc.meetingType || "Meeting",
@@ -99,6 +121,9 @@ function mapDocToMeeting(doc) {
 function mapDocToFollowup(doc) {
   return {
     id: doc._id,
+    leadId: doc.leadId || "",
+    dealId: doc.dealId || "",
+    clientId: doc.clientId || "",
     client: doc.clientName || "N/A",
     title: doc.title || "",
     stage: doc.stage || "P1",
@@ -125,8 +150,16 @@ function isPhysicalMeetingEvent(eventType = "") {
   return String(eventType).toLowerCase().includes("physical");
 }
 
+function inferRecordBucket(doc) {
+  if (doc?.clientId) return "existingClient";
+  if (doc?.dealId) return "deal";
+  if (doc?.leadId) return "lead";
+  return "deal";
+}
+
 export default function Followups() {
   const [activeStage, setActiveStage] = useState("P1");
+  const [recordBucket, setRecordBucket] = useState("lead");
   const [followupMode, setFollowupMode] = useState("list");
   const [followups, setFollowups] = useState([]);
   const [meetings, setMeetings] = useState([]);
@@ -146,12 +179,17 @@ export default function Followups() {
   const [editingMeetingId, setEditingMeetingId] = useState(null);
   const [meetingForm, setMeetingForm] = useState({ ...EMPTY_MEETING_FORM });
   const [meetingFormError, setMeetingFormError] = useState("");
+  const [doneModal, setDoneModal] = useState({ open: false, ...EMPTY_DONE_MODAL });
+  const [doneModalError, setDoneModalError] = useState("");
+  const [savingDone, setSavingDone] = useState(false);
   const [scopeLabel, setScopeLabel] = useState("My Records");
   const [currentRole, setCurrentRole] = useState("");
   const [teamOptions, setTeamOptions] = useState([]);
   const [employeeOptions, setEmployeeOptions] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
+  const useStageFilter = recordBucket !== "existingClient";
 
   const loadData = async () => {
     try {
@@ -224,56 +262,93 @@ export default function Followups() {
         const res = await API.get("/followups/filter-options");
         setTeamOptions(res.data?.teams || []);
         setEmployeeOptions(res.data?.employees || []);
+        setCurrentUserId(String(res.data?.currentUser?.id || ""));
       } catch (err) {
         console.error(err);
       }
     })();
   }, [currentRole]);
 
+  const visibleStageOptions = useMemo(
+    () => (recordBucket === "lead" ? LEAD_STAGES : DEAL_STAGES),
+    [recordBucket]
+  );
+
+  const bucketedMeetings = useMemo(
+    () => meetings.filter((m) => inferRecordBucket(m) === recordBucket),
+    [meetings, recordBucket]
+  );
+
+  const bucketedFollowups = useMemo(
+    () => followups.filter((f) => inferRecordBucket(f) === recordBucket),
+    [followups, recordBucket]
+  );
+
   const stageCounts = useMemo(() => {
-    const map = Object.fromEntries(STAGES.map((s) => [s.key, 0]));
-    followups.forEach((f) => {
-      map[f.stage] = (map[f.stage] || 0) + 1;
+    const map = Object.fromEntries(visibleStageOptions.map((s) => [s.key, 0]));
+    [...bucketedFollowups, ...bucketedMeetings].forEach((item) => {
+      if (!item?.stage || !(item.stage in map)) return;
+      map[item.stage] = (map[item.stage] || 0) + 1;
     });
     return map;
-  }, [followups]);
+  }, [bucketedFollowups, bucketedMeetings, visibleStageOptions]);
 
   const visibleFollowups = useMemo(
-    () => followups.filter((f) => f.stage === activeStage),
-    [followups, activeStage]
+    () => (useStageFilter ? bucketedFollowups.filter((f) => f.stage === activeStage) : bucketedFollowups),
+    [bucketedFollowups, activeStage, useStageFilter]
   );
 
   const filteredMeetings = useMemo(
-    () => meetings.filter((m) => {
-      const statusMatch = statusFilter === "completed" ? isCompletedStatus(m.status) : !isCompletedStatus(m.status);
-      const stageMatch = m.stage === activeStage;
+    () => bucketedMeetings.filter((m) => {
+      const statusMatch =
+        statusFilter === "completed"
+          ? isCompletedStatus(m.status)
+          : statusFilter === "remaining"
+            ? !isCompletedStatus(m.status)
+            : true;
+      const stageMatch = !useStageFilter || m.stage === activeStage;
       let assigneeMatch = true;
       if (selectedEmployeeId) {
-        assigneeMatch = String(m.assignedToId || "") === String(selectedEmployeeId);
+        const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
+        assigneeMatch = String(m.assignedToId || "") === String(targetUserId);
       } else if (selectedTeamId) {
-        const team = teamOptions.find((t) => t.id === selectedTeamId);
-        const users = team?.userIds || [];
-        assigneeMatch = users.includes(String(m.assignedToId || ""));
+        if (selectedTeamId === "__mine__") {
+          assigneeMatch = String(m.assignedToId || "") === String(currentUserId);
+        } else {
+          const team = teamOptions.find((t) => t.id === selectedTeamId);
+          const users = team?.userIds || [];
+          assigneeMatch = users.includes(String(m.assignedToId || ""));
+        }
       }
       return statusMatch && stageMatch && assigneeMatch;
     }),
-    [meetings, statusFilter, activeStage, selectedEmployeeId, selectedTeamId, teamOptions]
+    [bucketedMeetings, statusFilter, activeStage, selectedEmployeeId, selectedTeamId, teamOptions, currentUserId, useStageFilter]
   );
 
   const filteredFollowupsByStatus = useMemo(
     () => visibleFollowups.filter((f) => {
-      const statusMatch = statusFilter === "completed" ? isCompletedStatus(f.status) : !isCompletedStatus(f.status);
+      const statusMatch =
+        statusFilter === "completed"
+          ? isCompletedStatus(f.status)
+          : statusFilter === "remaining"
+            ? !isCompletedStatus(f.status)
+            : true;
       let assigneeMatch = true;
       if (selectedEmployeeId) {
-        assigneeMatch = String(f.assignedToId || "") === String(selectedEmployeeId);
+        const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
+        assigneeMatch = String(f.assignedToId || "") === String(targetUserId);
       } else if (selectedTeamId) {
-        const team = teamOptions.find((t) => t.id === selectedTeamId);
-        const users = team?.userIds || [];
-        assigneeMatch = users.includes(String(f.assignedToId || ""));
+        if (selectedTeamId === "__mine__") {
+          assigneeMatch = String(f.assignedToId || "") === String(currentUserId);
+        } else {
+          const team = teamOptions.find((t) => t.id === selectedTeamId);
+          const users = team?.userIds || [];
+          assigneeMatch = users.includes(String(f.assignedToId || ""));
+        }
       }
       return statusMatch && assigneeMatch;
     }),
-    [visibleFollowups, statusFilter, selectedEmployeeId, selectedTeamId, teamOptions]
+    [visibleFollowups, statusFilter, selectedEmployeeId, selectedTeamId, teamOptions, currentUserId]
   );
 
   const meetingTotalPages = useMemo(
@@ -296,15 +371,23 @@ export default function Followups() {
   }, [filteredFollowupsByStatus, followupPage]);
 
   const statusCounts = useMemo(() => {
-    const meetingRemaining = meetings.filter((m) => !isCompletedStatus(m.status)).length;
-    const meetingCompleted = meetings.filter((m) => isCompletedStatus(m.status)).length;
+    const meetingRemaining = bucketedMeetings.filter((m) => !isCompletedStatus(m.status)).length;
+    const meetingCompleted = bucketedMeetings.filter((m) => isCompletedStatus(m.status)).length;
     const followupRemaining = visibleFollowups.filter((f) => !isCompletedStatus(f.status)).length;
     const followupCompleted = visibleFollowups.filter((f) => isCompletedStatus(f.status)).length;
     return {
+      all: meetingRemaining + meetingCompleted + followupRemaining + followupCompleted,
       remaining: meetingRemaining + followupRemaining,
       completed: meetingCompleted + followupCompleted,
     };
-  }, [meetings, visibleFollowups]);
+  }, [bucketedMeetings, visibleFollowups]);
+
+  useEffect(() => {
+    if (!useStageFilter) return;
+    if (!visibleStageOptions.some((stage) => stage.key === activeStage)) {
+      setActiveStage(visibleStageOptions[0]?.key || "P1");
+    }
+  }, [activeStage, visibleStageOptions, useStageFilter]);
 
   useEffect(() => {
     setMeetingPage(1);
@@ -320,27 +403,73 @@ export default function Followups() {
   }, [followupPage, followupTotalPages]);
 
   const handleMeetingDone = async (id) => {
+    const meeting = meetings.find((m) => String(m.id) === String(id)) || selectedMeeting;
+    setDoneModal({
+      open: true,
+      id: String(id),
+      kind: "meeting",
+      durationMinutes: meeting?.durationMinutes ? String(meeting.durationMinutes) : "",
+      minutesOfMeeting: meeting?.notes || "",
+    });
+    setDoneModalError("");
+  };
+
+  const closeDoneModal = () => {
+    if (savingDone) return;
+    setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
+    setDoneModalError("");
+  };
+
+  const submitMeetingDone = async (e) => {
+    e.preventDefault();
+    setDoneModalError("");
+
+    if (!doneModal.durationMinutes || Number(doneModal.durationMinutes) < 1) {
+      return setDoneModalError("Duration of minutes is required");
+    }
+    if (!doneModal.minutesOfMeeting.trim()) {
+      return setDoneModalError("Minutes of Meeting is required");
+    }
+
     try {
-      const res = await API.patch(`/followups/${id}/status`, { status: "completed" });
-      const updated = mapDocToMeeting(res.data);
-      setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, ...updated, status: "completed" } : m)));
-      if (selectedMeeting?.id === id) setSelectedMeeting((prev) => ({ ...prev, ...updated, status: "completed" }));
+      setSavingDone(true);
+      const res = await API.patch(`/followups/${doneModal.id}/status`, {
+        status: "completed",
+        durationMinutes: Number(doneModal.durationMinutes),
+        notes: doneModal.minutesOfMeeting.trim(),
+      });
+      if (doneModal.kind === "meeting") {
+        const updated = mapDocToMeeting(res.data);
+        setMeetings((prev) => prev.map((m) => (m.id === doneModal.id ? { ...m, ...updated, status: "completed" } : m)));
+        if (selectedMeeting?.id === doneModal.id) {
+          setSelectedMeeting((prev) => ({ ...prev, ...updated, status: "completed" }));
+        }
+      } else {
+        const updated = mapDocToFollowup(res.data);
+        setFollowups((prev) => prev.map((x) => (x.id === doneModal.id ? updated : x)));
+        if (selectedFollowup?.id === doneModal.id) {
+          setSelectedFollowup(updated);
+        }
+      }
+      setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
     } catch (err) {
       console.error(err);
+      setDoneModalError(err?.response?.data?.message || `Failed to complete ${doneModal.kind}`);
+    } finally {
+      setSavingDone(false);
     }
   };
 
   const markDone = async (id) => {
-    try {
-      const res = await API.patch(`/followups/${id}/status`, { status: "completed" });
-      const updated = mapDocToFollowup(res.data);
-      setFollowups((prev) => prev.map((x) => (x.id === id ? updated : x)));
-      if (selectedFollowup?.id === id) {
-        setSelectedFollowup(updated);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    const followup = followups.find((f) => String(f.id) === String(id)) || selectedFollowup;
+    setDoneModal({
+      open: true,
+      id: String(id),
+      kind: "followup",
+      durationMinutes: followup?.durationMinutes ? String(followup.durationMinutes) : "",
+      minutesOfMeeting: followup?.notes || "",
+    });
+    setDoneModalError("");
   };
 
   const openFollowupView = (item) => {
@@ -451,26 +580,37 @@ export default function Followups() {
 
   return (
     <div className="fuPage">
-      <div className="fuStages" role="tablist" aria-label="Follow-up stages">
-        {STAGES.map((s) => (
-          <button
-            key={s.key}
-            className={cx("fuStageCard", activeStage === s.key && "active")}
-            onClick={() => {
-              setActiveStage(s.key);
-              if (followupMode === "all") setFollowupMode("list");
-            }}
-            type="button"
-          >
-            <div className="fuStageTop"><span className="fuStageTitle">{s.title}</span></div>
-            <div className="fuStageMid"><span className="fuStageCount">{stageCounts[s.key] ?? 0}</span></div>
-            <div className="fuStageSub">{s.sub}</div>
-          </button>
-        ))}
-      </div>
+      {useStageFilter && (
+        <div className={cx("fuStages", recordBucket === "deal" && "fuStagesDeal")} role="tablist" aria-label="Follow-up stages">
+          {visibleStageOptions.map((s) => (
+            !s.hidden ? (
+              <button
+                key={s.key}
+                className={cx("fuStageCard", activeStage === s.key && "active")}
+                onClick={() => {
+                  setActiveStage(s.key);
+                  if (followupMode === "all") setFollowupMode("list");
+                }}
+                type="button"
+              >
+                <div className="fuStageTop"><span className="fuStageTitle">{s.title}</span></div>
+                <div className="fuStageMid"><span className="fuStageCount">{stageCounts[s.key] ?? 0}</span></div>
+                <div className="fuStageSub">{s.sub}</div>
+              </button>
+            ) : null
+          ))}
+        </div>
+      )}
       <div className="fuTopbar">
         <div className="fuTopbarLeft">
           <div className="fuTopbarGroup">
+            <button
+              className={cx("fuTopbarBtn", statusFilter === "all" && "active")}
+              type="button"
+              onClick={() => setStatusFilter("all")}
+            >
+              All ({statusCounts.all})
+            </button>
             <button
               className={cx("fuTopbarBtn", statusFilter === "remaining" && "active")}
               type="button"
@@ -486,20 +626,28 @@ export default function Followups() {
               Completed ({statusCounts.completed})
             </button>
           </div>
-          <div className="fuTopbarGroup fuTopbarStages">
-            {STAGES.map((s) => (
-              <button
-                key={s.key}
-                className={cx("fuTopbarBtn", activeStage === s.key && "active")}
-                type="button"
-                onClick={() => {
-                  setActiveStage(s.key);
-                  if (followupMode === "all") setFollowupMode("list");
-                }}
-              >
-                {s.key}
-              </button>
-            ))}
+          <div className="fuTopbarGroup">
+            <button
+              className={cx("fuTopbarBtn", recordBucket === "lead" && "active")}
+              type="button"
+              onClick={() => setRecordBucket("lead")}
+            >
+              Lead
+            </button>
+            <button
+              className={cx("fuTopbarBtn", recordBucket === "existingClient" && "active")}
+              type="button"
+              onClick={() => setRecordBucket("existingClient")}
+            >
+              Existing Client
+            </button>
+            <button
+              className={cx("fuTopbarBtn", recordBucket === "deal" && "active")}
+              type="button"
+              onClick={() => setRecordBucket("deal")}
+            >
+              Deal
+            </button>
           </div>
         </div>
         {(currentRole === "admin" || currentRole === "manager") && (
@@ -513,6 +661,7 @@ export default function Followups() {
               }}
             >
               <option value="">All Teams</option>
+              <option value="__mine__">My Records</option>
               {teamOptions.map((t) => (
                 <option key={t.id} value={t.id}>{t.label}</option>
               ))}
@@ -526,13 +675,13 @@ export default function Followups() {
               }}
             >
               <option value="">All Employees</option>
+              <option value="__mine__">My Records</option>
               {employeeOptions.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
           </div>
         )}
-        <div className="fuTopbarScope">{scopeLabel}</div>
       </div>
 
       <div className="fuGrid">
@@ -682,7 +831,7 @@ export default function Followups() {
             <div>
               <h3>Active Follow-ups</h3>
               <div className="fuHint">
-                {followupMode === "all" ? (
+                {recordBucket === "existingClient" ? null : followupMode === "all" ? (
                   <>Showing: <span className="fuHintStrong">All stages</span></>
                 ) : (
                   <>Stage: <span className="fuHintStrong">{activeStage}</span></>
@@ -723,7 +872,7 @@ export default function Followups() {
                   <label className="fuFormLabel">
                     Stage
                     <select className="fuField" value={followupForm.stage} onChange={(e) => setFollowupForm((p) => ({ ...p, stage: e.target.value }))}>
-                      {STAGES.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
+                      {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
                     </select>
                   </label>
                   <label className="fuFormLabel fuFull">
@@ -798,6 +947,46 @@ export default function Followups() {
           </div>
         </section>
       </div>
+
+      {doneModal.open && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label={`Complete ${doneModal.kind}`}>
+          <form className="fuModalCard" onSubmit={submitMeetingDone}>
+            <div className="fuModalHead">
+              <div className="fuFormTitle">{doneModal.kind === "meeting" ? "Complete Meeting" : "Complete Follow-up"}</div>
+            </div>
+            {doneModalError && <div className="fuEmptyBox">{doneModalError}</div>}
+            <div className="fuFormGrid">
+              <label className="fuFormLabel">
+                Duration of Minutes*
+                <input
+                  className="fuField"
+                  type="number"
+                  min="1"
+                  value={doneModal.durationMinutes}
+                  onChange={(e) => setDoneModal((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                />
+              </label>
+              <label className="fuFormLabel fuFull">
+                {doneModal.kind === "meeting" ? "Minutes Of Meeting (MOM)*" : "Completion Notes*"}
+                <textarea
+                  className="fuField fuTextarea"
+                  rows={5}
+                  value={doneModal.minutesOfMeeting}
+                  onChange={(e) => setDoneModal((prev) => ({ ...prev, minutesOfMeeting: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="fuFormActions">
+              <button className="fuBtn fuBtnPrimary" type="submit" disabled={savingDone}>
+                {savingDone ? "Saving..." : doneModal.kind === "meeting" ? "Save & Complete" : "Save & Mark Done"}
+              </button>
+              <button className="fuBtn fuBtnGhost" type="button" onClick={closeDoneModal} disabled={savingDone}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

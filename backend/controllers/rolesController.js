@@ -66,7 +66,7 @@ exports.updateRole = async (req, res) => {
     const role = await Role.findOneAndUpdate(
       { _id: req.params.id, is_deleted: false },
       { name, description, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!role) {
@@ -85,7 +85,7 @@ exports.deleteRole = async (req, res) => {
     const role = await Role.findByIdAndUpdate(
       req.params.id,
       { is_deleted: true, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!role) {
@@ -104,7 +104,7 @@ exports.restoreRole = async (req, res) => {
     const role = await Role.findByIdAndUpdate(
       req.params.id,
       { is_deleted: false, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!role) {

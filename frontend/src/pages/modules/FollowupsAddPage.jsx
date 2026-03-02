@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import "./styles/FollowupAddPage.css";
 
@@ -13,6 +14,7 @@ const STAGES = [
 ];
 
 const EMPTY_FORM = {
+  sourceType: "existingClient",
   eventType: "",
   date: "",
   time: "",
@@ -23,9 +25,11 @@ const EMPTY_FORM = {
   priority: "medium",
   durationMinutes: "",
   agenda: "",
-  address: "",
-  locationSearch: "",
-  exactLocation: "",
+  currentLocation: "",
+  currentExactLocation: "",
+  meetingLocation: "",
+  meetingLocationSearch: "",
+  meetingExactLocation: "",
 };
 
 function cx(...arr) {
@@ -85,9 +89,22 @@ function buildOsmEmbedUrl(lat, lng) {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${lat}%2C${lng}`;
 }
 
+function normalizeValue(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function inferSourceTypeFromDoc(doc) {
+  if (doc?.dealId) return "deal";
+  if (doc?.leadId) return "lead";
+  return "existingClient";
+}
+
 function mapDocToMeeting(doc) {
   return {
     id: doc._id,
+    leadId: doc.leadId || "",
+    dealId: doc.dealId || "",
+    clientId: doc.clientId || "",
     clientName: doc.clientName || "N/A",
     eventType: doc.actionType || "Meeting",
     time: formatTime(doc.dueDateTime),
@@ -97,14 +114,22 @@ function mapDocToMeeting(doc) {
     notes: doc.notes || "",
     durationMinutes: doc.durationMinutes || "",
     agenda: doc.agenda || "",
-    address: doc.address || "",
-    exactLocation: doc.exactLocation || "",
+    assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
+    assignedToName: doc.assignedTo?.name || "",
+    sourceType: inferSourceTypeFromDoc(doc),
+    currentLocation: doc.currentLocation || "",
+    currentExactLocation: doc.currentExactLocation || "",
+    meetingLocation: doc.meetingLocation || doc.address || "",
+    meetingExactLocation: doc.meetingExactLocation || doc.exactLocation || "",
   };
 }
 
 function mapDocToFollowup(doc) {
   return {
     id: doc._id,
+    leadId: doc.leadId || "",
+    dealId: doc.dealId || "",
+    clientId: doc.clientId || "",
     stage: doc.stage || "P1",
     title: doc.title || "",
     client: doc.clientName || "N/A",
@@ -115,6 +140,10 @@ function mapDocToFollowup(doc) {
     time: formatTime(doc.dueDateTime),
     notes: doc.notes || "",
     status: doc.status || "pending",
+    agenda: doc.agenda || "",
+    assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
+    assignedToName: doc.assignedTo?.name || "",
+    sourceType: inferSourceTypeFromDoc(doc),
   };
 }
 
@@ -127,6 +156,7 @@ function isMeetingEventType(eventType = "") {
 }
 
 export default function FollowupsAddPage() {
+  const navigate = useNavigate();
   const [activeAction, setActiveAction] = useState("add");
   const [activeStage, setActiveStage] = useState("P1");
   const [formTarget, setFormTarget] = useState("followup");
@@ -139,43 +169,155 @@ export default function FollowupsAddPage() {
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
   const [dealRows, setDealRows] = useState([]);
+  const [leadRows, setLeadRows] = useState([]);
 
   const [clientSuggestions, setClientSuggestions] = useState([]);
-  const [selectedClientId, setSelectedClientId] = useState("");
-  const [loadingClientSuggestions, setLoadingClientSuggestions] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState("");
 
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [loadingLocationSuggestions, setLoadingLocationSuggestions] = useState(false);
+  const [locatingCurrent, setLocatingCurrent] = useState(false);
   const [scopeLabel, setScopeLabel] = useState("Sales Scope: My Records");
+  const [currentRole, setCurrentRole] = useState("");
+  const [teamOptions, setTeamOptions] = useState([]);
+  const [employeeOptions, setEmployeeOptions] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [recordScope, setRecordScope] = useState("mine");
+  const [hasExistingClient, setHasExistingClient] = useState("yes");
 
   const visibleFollowups = useMemo(
-    () => followups.filter((f) => f.stage === activeStage),
-    [followups, activeStage]
+    () =>
+      followups.filter((f) => {
+        const stageMatch = (f.stage || "P1") === activeStage;
+        let assigneeMatch = true;
+        if (selectedEmployeeId) {
+          const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
+          assigneeMatch = String(f.assignedToId || "") === String(targetUserId);
+        } else if (recordScope === "mine") {
+          assigneeMatch = String(f.assignedToId || "") === String(currentUserId);
+        } else if (selectedTeamId) {
+          if (selectedTeamId === "__mine__") {
+            assigneeMatch = String(f.assignedToId || "") === String(currentUserId);
+          } else {
+            const team = teamOptions.find((t) => t.id === selectedTeamId);
+            const users = team?.userIds || [];
+            assigneeMatch = users.includes(String(f.assignedToId || ""));
+          }
+        }
+        return stageMatch && assigneeMatch;
+      }),
+    [followups, activeStage, selectedEmployeeId, currentUserId, selectedTeamId, teamOptions, recordScope]
   );
 
-  const stageByClientId = useMemo(() => {
-    const map = new Map();
-    (dealRows || []).forEach((d) => {
-      if (!d?.clientId || !d?.stage) return;
-      if (!map.has(String(d.clientId))) {
-        map.set(String(d.clientId), d.stage);
-      }
-    });
-    return map;
-  }, [dealRows]);
+  const visibleMeetings = useMemo(
+    () =>
+      meetings.filter((m) => {
+        const stageMatch = (m.stage || "P1") === activeStage;
+        let assigneeMatch = true;
+        if (selectedEmployeeId) {
+          const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
+          assigneeMatch = String(m.assignedToId || "") === String(targetUserId);
+        } else if (recordScope === "mine") {
+          assigneeMatch = String(m.assignedToId || "") === String(currentUserId);
+        } else if (selectedTeamId) {
+          if (selectedTeamId === "__mine__") {
+            assigneeMatch = String(m.assignedToId || "") === String(currentUserId);
+          } else {
+            const team = teamOptions.find((t) => t.id === selectedTeamId);
+            const users = team?.userIds || [];
+            assigneeMatch = users.includes(String(m.assignedToId || ""));
+          }
+        }
+        return stageMatch && assigneeMatch;
+      }),
+    [meetings, activeStage, selectedEmployeeId, currentUserId, selectedTeamId, teamOptions, recordScope]
+  );
+
+  const visibleEmployeeOptions = useMemo(() => {
+    if (!selectedTeamId || selectedTeamId === "__mine__") return employeeOptions;
+    const team = teamOptions.find((t) => t.id === selectedTeamId);
+    const userIds = team?.userIds || [];
+    return employeeOptions.filter((user) => userIds.includes(String(user.id)));
+  }, [employeeOptions, selectedTeamId, teamOptions]);
+
+  const selectedSourceInfo = useMemo(() => {
+    if (!selectedSourceId) return null;
+
+    if (formData.sourceType === "lead") {
+      const lead = leadRows.find((row) => String(row._id) === String(selectedSourceId));
+      if (!lead) return null;
+      return {
+        title: lead.company_name || "Untitled Lead",
+        phone: lead.primary_contact?.phone || "N/A",
+        email: lead.primary_contact?.email || "N/A",
+        extraOneLabel: "Industry",
+        extraOneValue: lead.industry || "N/A",
+      };
+    }
+
+    const deal = dealRows.find((row) => String(row._id) === String(selectedSourceId));
+    if (!deal) return null;
+    return {
+      title: deal.company_name || "Untitled Deal",
+      phone: deal.primary_contact?.phone || "N/A",
+      email: deal.primary_contact?.email || "N/A",
+      extraOneLabel: "Industry",
+      extraOneValue: deal.industry || "N/A",
+    };
+  }, [dealRows, formData.sourceType, leadRows, selectedSourceId]);
+
+  const suggestionRows = useMemo(() => {
+    const query = normalizeValue(formData.searchClient);
+    if (!query || selectedSourceId) return [];
+
+    if (formData.sourceType === "lead") {
+      return leadRows
+        .filter((lead) => normalizeValue(lead.company_name).includes(query))
+        .slice(0, 8)
+        .map((lead) => ({
+          id: String(lead._id),
+          label: lead.company_name || "Untitled Lead",
+          sourceType: "lead",
+          stage: "P1",
+          leadId: String(lead._id),
+        }));
+    }
+
+    const onlyExistingClient = formData.sourceType === "existingClient";
+    return dealRows
+      .filter((deal) => {
+        const isExistingClientDeal = !deal.lead_id;
+        if (onlyExistingClient && !isExistingClientDeal) return false;
+        return normalizeValue(deal.company_name).includes(query);
+      })
+      .slice(0, 8)
+      .map((deal) => ({
+        id: String(deal._id),
+        label: deal.company_name || "Untitled Deal",
+        sourceType: formData.sourceType,
+        stage: deal.stage || "P1",
+        dealId: String(deal._id),
+        clientId: onlyExistingClient ? String(deal.clientId || deal.client_id || "") : "",
+        leadId: deal.lead_id ? String(deal.lead_id) : "",
+      }));
+  }, [dealRows, formData.searchClient, formData.sourceType, leadRows, selectedSourceId]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError("");
-      const [mRes, fRes, dRes] = await Promise.all([
+      const [mRes, fRes, dRes, lRes] = await Promise.all([
         API.get("/followups", { params: { kind: "meeting" } }),
         API.get("/followups", { params: { kind: "followup" } }),
         API.get("/deals"),
+        API.get("/leads"),
       ]);
       setMeetings((mRes.data || []).map(mapDocToMeeting));
       setFollowups((fRes.data || []).map(mapDocToFollowup));
       setDealRows(dRes.data || []);
+      setLeadRows(lRes.data || []);
     } catch (err) {
       console.error(err);
       setError("Failed to load data");
@@ -190,53 +332,50 @@ export default function FollowupsAddPage() {
 
   useEffect(() => {
     const rawRole = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+    setCurrentRole(rawRole);
     if (rawRole === "admin") setScopeLabel("Admin Scope: My + Managers + Sales");
     else if (rawRole === "manager") setScopeLabel("Manager Scope: My + Team");
     else setScopeLabel("Sales Scope: My Records");
   }, []);
 
+  useEffect(() => {
+    if (!(currentRole === "admin" || currentRole === "manager")) return;
+    (async () => {
+      try {
+        const res = await API.get("/followups/filter-options");
+        setTeamOptions(res.data?.teams || []);
+        setEmployeeOptions(res.data?.employees || []);
+        setCurrentUserId(String(res.data?.currentUser?.id || ""));
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+  }, [currentRole]);
+
   const resetForm = () => {
     setFormData({ ...EMPTY_FORM });
     setFormError("");
     setEditingRecord(null);
-    setSelectedClientId("");
+    setSelectedSourceId("");
+    setHasExistingClient("yes");
     setClientSuggestions([]);
     setLocationSuggestions([]);
   };
 
-  const applyClientSelection = (client) => {
-    const id = String(client?._id || "");
-    const dealStage = id ? stageByClientId.get(id) || "" : "";
-    setSelectedClientId(id);
+  const applyClientSelection = (item) => {
+    const id = String(item?.id || "");
+    setSelectedSourceId(id);
     setFormData((p) => ({
       ...p,
-      searchClient: client?.name || "",
-      stage: dealStage,
+      searchClient: item?.label || "",
+      stage: item?.stage || "P1",
     }));
     setClientSuggestions([]);
   };
 
   useEffect(() => {
-    const q = formData.searchClient.trim();
-    if (!q || selectedClientId) {
-      if (!q) setClientSuggestions([]);
-      return;
-    }
-
-    const t = setTimeout(async () => {
-      try {
-        setLoadingClientSuggestions(true);
-        const res = await API.get("/deals/client-suggestions", { params: { q, limit: 8 } });
-        setClientSuggestions(res.data || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingClientSuggestions(false);
-      }
-    }, 250);
-
-    return () => clearTimeout(t);
-  }, [formData.searchClient, selectedClientId]);
+    setClientSuggestions(suggestionRows);
+  }, [suggestionRows]);
 
   useEffect(() => {
     if (formData.eventType !== "Physical Meeting") {
@@ -244,7 +383,7 @@ export default function FollowupsAddPage() {
       return;
     }
 
-    const query = formData.locationSearch.trim();
+    const query = formData.meetingLocationSearch.trim();
     if (query.length < 2) {
       setLocationSuggestions([]);
       return;
@@ -265,21 +404,60 @@ export default function FollowupsAddPage() {
     }, 350);
 
     return () => clearTimeout(t);
-  }, [formData.locationSearch, formData.eventType]);
+  }, [formData.meetingLocationSearch, formData.eventType]);
+
+  const fillCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setFormError("Geolocation is not supported in this browser");
+      return;
+    }
+
+    setFormError("");
+    setLocatingCurrent(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = Number(position.coords.latitude).toFixed(6);
+        const lng = Number(position.coords.longitude).toFixed(6);
+        let label = `${lat}, ${lng}`;
+
+        try {
+          const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+          const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+          const data = await res.json();
+          label = data?.display_name || label;
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setFormData((p) => ({
+            ...p,
+            currentLocation: label,
+            currentExactLocation: `${lat}, ${lng}`,
+          }));
+          setLocatingCurrent(false);
+        }
+      },
+      () => {
+        setLocatingCurrent(false);
+        setFormError("Unable to fetch current location");
+      }
+    );
+  };
 
   const validateForm = () => {
     if (!formData.eventType.trim()) return "Event type is required";
     if (!formData.time.trim()) return "Time is required";
-    if (!formData.searchClient.trim()) return "Client is required";
-    if (!selectedClientId) return "Select a client from suggestions";
+    if (!formData.searchClient.trim()) return "Selection is required";
+    if (!selectedSourceId) return "Select an item from suggestions";
     if (!(formData.taskDescription || formData.purpose).trim()) return "Purpose/Task description is required";
     if (!formData.date) return "Date is required";
     const selectedAt = new Date(`${formData.date}T${formData.time}:00`);
     if (!Number.isNaN(selectedAt.getTime()) && selectedAt < new Date()) {
       return "Past date/time is not allowed";
     }
-    if (!formData.stage) return "Stage not found for selected client in deals";
-    if (formData.eventType === "Physical Meeting" && !formData.exactLocation.trim()) return "Select a location from suggestions";
+    if (!formData.stage) return "Stage is required";
+    if (!formData.agenda.trim()) return "Agenda of meeting is required";
+    if (formData.eventType === "Physical Meeting" && !formData.currentLocation.trim()) return "Current location is required";
+    if (formData.eventType === "Physical Meeting" && !formData.meetingExactLocation.trim()) return "Select a meeting location from suggestions";
     return "";
   };
 
@@ -292,17 +470,22 @@ export default function FollowupsAddPage() {
     if (!selectedRecord) return;
     const { type, item } = selectedRecord;
     const existingName = type === "meeting" ? item.clientName : item.client;
-    const matchedDeal = (dealRows || []).find(
-      (d) => String(d.clientName || "").toLowerCase() === String(existingName || "").toLowerCase()
-    );
-    const matchedClientId = matchedDeal?.clientId ? String(matchedDeal.clientId) : "";
-    const matchedStage = matchedClientId ? stageByClientId.get(matchedClientId) || "" : "";
+    const matchedDeal = (dealRows || []).find((d) => normalizeValue(d.company_name) === normalizeValue(existingName));
+    const inferredSourceType = item.sourceType || (matchedDeal ? "deal" : "existingClient");
+    const matchedSourceId =
+      inferredSourceType === "lead"
+        ? String(item.leadId || "")
+        : inferredSourceType === "deal"
+          ? String(item.dealId || matchedDeal?._id || "")
+          : String(item.clientId || matchedDeal?._id || "");
+    const matchedStage = item.stage || matchedDeal?.stage || "P1";
 
     setFormTarget(type);
     setEditingRecord({ type, id: item.id });
     if (type === "meeting") {
       setFormData({
         ...EMPTY_FORM,
+        sourceType: inferredSourceType,
         eventType: item.eventType || "",
         time: item.time || "",
         date: toDateInputValue(item.dueDateTime),
@@ -312,14 +495,17 @@ export default function FollowupsAddPage() {
         priority: item.priority || "medium",
         durationMinutes: item.durationMinutes || "",
         agenda: item.agenda || "",
-        address: item.address || "",
-        locationSearch: item.address || "",
-        exactLocation: item.exactLocation || "",
+        currentLocation: item.currentLocation || "",
+        currentExactLocation: item.currentExactLocation || "",
+        meetingLocation: item.meetingLocation || "",
+        meetingLocationSearch: item.meetingLocation || "",
+        meetingExactLocation: item.meetingExactLocation || "",
         stage: matchedStage,
       });
     } else {
       setFormData({
         ...EMPTY_FORM,
+        sourceType: inferredSourceType,
         eventType: item.eventType || "Follow Up Phone Call",
         time: item.time || "",
         date: toDateInputValue(item.dueDateTime),
@@ -327,10 +513,12 @@ export default function FollowupsAddPage() {
         purpose: item.title || "",
         taskDescription: item.title || "",
         priority: item.priority || "medium",
+        agenda: item.agenda || "",
         stage: matchedStage,
       });
     }
-    setSelectedClientId(matchedClientId);
+    setSelectedSourceId(matchedSourceId);
+    setHasExistingClient("yes");
     setClientSuggestions([]);
     setFormError("");
     setActiveAction("add");
@@ -345,19 +533,33 @@ export default function FollowupsAddPage() {
     try {
       const resolvedTarget = editingRecord?.type || (isMeetingEventType(formData.eventType) ? "meeting" : "followup");
       const dueDateTime = new Date(`${formData.date}T${formData.time}:00`).toISOString();
+      const selectedDealRow =
+        formData.sourceType === "existingClient" || formData.sourceType === "deal"
+          ? (dealRows || []).find((row) => String(row._id) === String(selectedSourceId))
+          : null;
       const payload = {
         kind: resolvedTarget === "meeting" ? "meeting" : "followup",
         actionType: formData.eventType,
         title: (formData.taskDescription || formData.purpose).trim(),
         clientName: formData.searchClient.trim(),
         stage: formData.stage || activeStage,
+        leadId: formData.sourceType === "lead" ? selectedSourceId : undefined,
+        dealId: formData.sourceType === "deal" ? selectedSourceId : undefined,
+        clientId:
+          formData.sourceType === "existingClient"
+            ? (selectedDealRow?.clientId || selectedDealRow?.client_id || selectedSourceId)
+            : undefined,
         dueDateTime,
         priority: formData.priority || "medium",
         notes: formData.purpose || formData.taskDescription,
         durationMinutes: formData.durationMinutes || undefined,
         agenda: formData.agenda || "",
-        address: formData.address.trim() || formData.locationSearch.trim() || "",
-        exactLocation: formData.exactLocation || "",
+        currentLocation: formData.currentLocation.trim() || "",
+        currentExactLocation: formData.currentExactLocation || "",
+        meetingLocation: formData.meetingLocation.trim() || formData.meetingLocationSearch.trim() || "",
+        meetingExactLocation: formData.meetingExactLocation || "",
+        address: formData.meetingLocation.trim() || formData.meetingLocationSearch.trim() || "",
+        exactLocation: formData.meetingExactLocation || "",
       };
 
       let res;
@@ -388,13 +590,74 @@ export default function FollowupsAddPage() {
 
   const renderForm = () => (
     (() => {
-      const selectedLatLng = parseLatLng(formData.exactLocation);
+      const selectedLatLng = parseLatLng(formData.meetingExactLocation);
       const todayISO = getTodayISO();
       const minTime = formData.date === todayISO ? getNowTimeHHMM() : undefined;
       return (
         <form className="fuaForm" onSubmit={submitForm}>
           {formError && <div className="fuaEmpty">{formError}</div>}
           <div className="fuaGrid">
+        <label className="full">
+          Client Type*
+          <div className="fuaBinaryRow">
+            <label className="fuaBinaryOption">
+              <input
+                type="radio"
+                name="clientType"
+                checked={hasExistingClient === "yes"}
+                onChange={() => {
+                  setHasExistingClient("yes");
+                  setSelectedSourceId("");
+                  setClientSuggestions([]);
+                  setFormData((p) => ({
+                    ...EMPTY_FORM,
+                    sourceType: "existingClient",
+                    eventType: p.eventType,
+                    date: p.date,
+                    time: p.time,
+                    priority: p.priority,
+                  }));
+                }}
+              />
+              <span>Existing Client/Project</span>
+            </label>
+            <label className="fuaBinaryOption">
+              <input
+                type="radio"
+                name="clientType"
+                checked={hasExistingClient === "no"}
+                onChange={() => setHasExistingClient("no")}
+              />
+              <span>Add New Lead/Project</span>
+            </label>
+          </div>
+        </label>
+
+        {hasExistingClient === "yes" ? (
+          <>
+        <label className="full">
+          Follow-up For*
+          <select
+            value={formData.sourceType}
+            onChange={(e) => {
+              const nextSourceType = e.target.value;
+              setSelectedSourceId("");
+              setClientSuggestions([]);
+              setFormData((p) => ({
+                ...EMPTY_FORM,
+                sourceType: nextSourceType,
+                eventType: p.eventType,
+                date: p.date,
+                time: p.time,
+                priority: p.priority,
+              }));
+            }}
+          >
+            <option value="lead">Lead</option>
+            <option value="deal">Deal</option>
+          </select>
+        </label>
+
         <label>
           Event Type*
           <select value={formData.eventType} onChange={(e) => setFormData((p) => ({ ...p, eventType: e.target.value }))}>
@@ -416,24 +679,23 @@ export default function FollowupsAddPage() {
         </label>
 
         <label>
-          Search Client*
+          {formData.sourceType === "lead" ? "Search Lead*" : formData.sourceType === "deal" ? "Search Deal*" : "Search Existing Client*"}
           <div className="fuaSuggestField">
             <input
               type="text"
-              placeholder="Type client name"
+              placeholder={formData.sourceType === "lead" ? "Type lead name" : formData.sourceType === "deal" ? "Type deal name" : "Type client name"}
               value={formData.searchClient}
               onChange={(e) => {
                 const next = e.target.value;
-                setSelectedClientId("");
+                setSelectedSourceId("");
                 setFormData((p) => ({ ...p, searchClient: next, stage: "" }));
               }}
             />
-            {loadingClientSuggestions && <span className="fuaHint">Searching clients...</span>}
-            {!selectedClientId && clientSuggestions.length > 0 && (
+            {!selectedSourceId && clientSuggestions.length > 0 && (
               <div className="fuaSuggestList">
                 {clientSuggestions.map((c) => (
-                  <button key={String(c._id)} type="button" className="fuaSuggestItem" onClick={() => applyClientSelection(c)}>
-                    {c.name}
+                  <button key={String(c.id)} type="button" className="fuaSuggestItem" onClick={() => applyClientSelection(c)}>
+                    {c.label}
                   </button>
                 ))}
               </div>
@@ -441,15 +703,45 @@ export default function FollowupsAddPage() {
           </div>
         </label>
 
+        {selectedSourceInfo && (
+          <div className="fuaSelectedInfo full">
+            <div className="fuaSelectedGrid">
+              <div className="fuaSelectedItem">
+                <div className="key">{formData.sourceType === "lead" ? "Lead Name" : formData.sourceType === "deal" ? "Deal Name" : "Client Name"}</div>
+                <div className="val">{selectedSourceInfo.title}</div>
+              </div>
+              <div className="fuaSelectedItem">
+                <div className="key">{formData.sourceType === "lead" ? "Lead Mobile" : "Client Mobile"}</div>
+                <div className="val">{selectedSourceInfo.phone}</div>
+              </div>
+              <div className="fuaSelectedItem">
+                <div className="key">{formData.sourceType === "lead" ? "Lead Email" : "Client Email"}</div>
+                <div className="val">{selectedSourceInfo.email}</div>
+              </div>
+              <div className="fuaSelectedItem">
+                <div className="key">{selectedSourceInfo.extraOneLabel}</div>
+                <div className="val">{selectedSourceInfo.extraOneValue}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <label className="full">
           Purpose / Task Description*
           <input type="text" placeholder="Purpose of meeting / task" value={formData.taskDescription || formData.purpose} onChange={(e) => setFormData((p) => ({ ...p, purpose: e.target.value, taskDescription: e.target.value }))} />
         </label>
 
-        <label>
-          Stage (From Deal)
-          <input type="text" value={formData.stage || "No stage found"} readOnly />
+        <label className="full">
+          Agenda of Meeting*
+          <input type="text" placeholder="Enter agenda of meeting" value={formData.agenda} onChange={(e) => setFormData((p) => ({ ...p, agenda: e.target.value }))} />
         </label>
+
+        {formData.sourceType !== "existingClient" && (
+          <label>
+            Stage
+            <input type="text" value={formData.stage || "No stage found"} readOnly />
+          </label>
+        )}
 
         <label>
           Priority
@@ -466,32 +758,42 @@ export default function FollowupsAddPage() {
               Duration of Meeting (minutes)
               <input type="number" min="1" placeholder="30" value={formData.durationMinutes} onChange={(e) => setFormData((p) => ({ ...p, durationMinutes: e.target.value }))} />
             </label>
-            <label className="full">
-              Agenda of Meeting
-              <input type="text" placeholder="Enter agenda" value={formData.agenda} onChange={(e) => setFormData((p) => ({ ...p, agenda: e.target.value }))} />
-            </label>
           </>
         )}
 
         {formData.eventType === "Physical Meeting" && (
           <>
             <label className="full">
-              Address*
+              Current Location*
+              <div className="fuaSuggestField">
+                <input
+                  type="text"
+                  placeholder="Use current location or enter manually"
+                  value={formData.currentLocation}
+                  onChange={(e) => setFormData((p) => ({ ...p, currentLocation: e.target.value }))}
+                />
+                <button className="fuaBtn ghost" type="button" onClick={fillCurrentLocation} disabled={locatingCurrent}>
+                  {locatingCurrent ? "Locating..." : "Use Current Location"}
+                </button>
+              </div>
+            </label>
+            {/* <label className="full">
+              Meeting Location*
               <input
                 type="text"
-                placeholder="Enter address manually"
-                value={formData.address}
-                onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
+                placeholder="Enter meeting location manually"
+                value={formData.meetingLocation}
+                onChange={(e) => setFormData((p) => ({ ...p, meetingLocation: e.target.value }))}
               />
-            </label>
+            </label> */}
             <label className="full">
-              Location (Search & Suggest)
+              Meeting Location 
               <div className="fuaSuggestField">
                 <input
                   type="text"
                   placeholder="Type area, landmark, city..."
-                  value={formData.locationSearch}
-                  onChange={(e) => setFormData((p) => ({ ...p, locationSearch: e.target.value, exactLocation: "" }))}
+                  value={formData.meetingLocationSearch}
+                  onChange={(e) => setFormData((p) => ({ ...p, meetingLocationSearch: e.target.value, meetingExactLocation: "" }))}
                 />
                 {loadingLocationSuggestions && <span className="fuaHint">Searching places...</span>}
                 {locationSuggestions.length > 0 && (
@@ -504,9 +806,9 @@ export default function FollowupsAddPage() {
                         onClick={() => {
                           setFormData((p) => ({
                             ...p,
-                            locationSearch: loc.display_name || p.locationSearch,
-                            address: p.address || loc.display_name || "",
-                            exactLocation: `${Number(loc.lat).toFixed(6)}, ${Number(loc.lon).toFixed(6)}`,
+                            meetingLocationSearch: loc.display_name || p.meetingLocationSearch,
+                            meetingLocation: p.meetingLocation || loc.display_name || "",
+                            meetingExactLocation: `${Number(loc.lat).toFixed(6)}, ${Number(loc.lon).toFixed(6)}`,
                           }));
                           setLocationSuggestions([]);
                         }}
@@ -530,12 +832,28 @@ export default function FollowupsAddPage() {
             )}
           </>
         )}
+          </>
+        ) : (
+          <div className="fuaRedirectBox full">
+            <div className="fuaRedirectTitle">Add a new record before creating the follow-up.</div>
+            <div className="fuaRedirectActions">
+              <button className="fuaBtn primary" type="button" onClick={() => navigate("/leads/new")}>
+                Add New Lead
+              </button>
+              <button className="fuaBtn ghost" type="button" onClick={() => navigate("/deals")}>
+                Open Deals
+              </button>
+            </div>
+          </div>
+        )}
           </div>
 
-          <div className="fuaActions">
-            <button className="fuaBtn primary" type="submit">{editingRecord ? "Update" : "Submit"}</button>
-            <button className="fuaBtn danger" type="button" onClick={resetForm}>Cancel</button>
-          </div>
+          {hasExistingClient === "yes" && (
+            <div className="fuaActions">
+              <button className="fuaBtn primary" type="submit">{editingRecord ? "Update" : "Submit"}</button>
+              <button className="fuaBtn danger" type="button" onClick={resetForm}>Cancel</button>
+            </div>
+          )}
         </form>
       );
     })()
@@ -563,9 +881,9 @@ export default function FollowupsAddPage() {
     </div>
   );
 
-  const renderMeetings = () => (
+  const renderMeetings = (items = meetings) => (
     <div className="fuaList">
-      {meetings.map((m) => (
+      {items.map((m) => (
         <div key={m.id} className="fuaCard">
           <div className={cx("dot", m.priority)} />
           <div className="main">
@@ -581,7 +899,7 @@ export default function FollowupsAddPage() {
           </div>
         </div>
       ))}
-      {meetings.length === 0 && <div className="fuaEmpty">No meetings.</div>}
+      {items.length === 0 && <div className="fuaEmpty">No meetings.</div>}
     </div>
   );
 
@@ -598,8 +916,9 @@ export default function FollowupsAddPage() {
           ["Notes", item.notes || "N/A"],
           ["Duration", item.durationMinutes || "N/A"],
           ["Agenda", item.agenda || "N/A"],
-          ["Address", item.address || "N/A"],
-          ["Location", item.exactLocation || "N/A"],
+          ["Current Location", item.currentLocation || "N/A"],
+          ["Meeting Location", item.meetingLocation || "N/A"],
+          ["Meeting Coordinates", item.meetingExactLocation || "N/A"],
         ]
       : [
           ["Client", item.client],
@@ -611,6 +930,7 @@ export default function FollowupsAddPage() {
           ["Event Type", item.eventType || "N/A"],
           ["Time", item.time || "N/A"],
           ["Notes", item.notes || "N/A"],
+          ["Agenda", item.agenda || "N/A"],
         ];
 
     return (
@@ -665,6 +985,57 @@ export default function FollowupsAddPage() {
         {!loading && activeAction === "view" && renderDetails()}
         {!loading && activeAction === "filter" && (
           <>
+            {(currentRole === "admin" || currentRole === "manager") && (
+              <div className="fuaFilterBar">
+                <select
+                  className="fuaFilterSelect"
+                  value={recordScope}
+                  onChange={(e) => {
+                    const nextScope = e.target.value;
+                    setRecordScope(nextScope);
+                    if (nextScope === "mine") {
+                      setSelectedTeamId("");
+                      setSelectedEmployeeId("");
+                    }
+                  }}
+                >
+                  <option value="mine">My Records</option>
+                  <option value="all">Select</option>
+                </select>
+                <select
+                  className="fuaFilterSelect"
+                  value={selectedTeamId}
+                  disabled={recordScope === "mine"}
+                  onChange={(e) => {
+                    setRecordScope("all");
+                    setSelectedTeamId(e.target.value);
+                    setSelectedEmployeeId("");
+                  }}
+                >
+                  <option value="">All Teams</option>
+                  <option value="__mine__">My Records</option>
+                  {teamOptions.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+                <select
+                  className="fuaFilterSelect"
+                  value={selectedEmployeeId}
+                  disabled={recordScope === "mine"}
+                  onChange={(e) => {
+                    setRecordScope("all");
+                    setSelectedEmployeeId(e.target.value);
+                    if (e.target.value) setSelectedTeamId("");
+                  }}
+                >
+                  <option value="">All Employees</option>
+                  <option value="__mine__">My Records</option>
+                  {visibleEmployeeOptions.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="fuaStages">
               {STAGES.map((s) => (
                 <button key={s.key} className={cx("fuaStageBtn", activeStage === s.key && "active")} type="button" onClick={() => setActiveStage(s.key)}>
@@ -672,7 +1043,14 @@ export default function FollowupsAddPage() {
                 </button>
               ))}
             </div>
-            {renderFollowups(visibleFollowups)}
+            <div className="fuaSectionBlock">
+              <h3 className="fuaSectionTitle">Meetings</h3>
+              {renderMeetings(visibleMeetings)}
+            </div>
+            <div className="fuaSectionBlock">
+              <h3 className="fuaSectionTitle">Follow-ups</h3>
+              {renderFollowups(visibleFollowups)}
+            </div>
           </>
         )}
       </section>
