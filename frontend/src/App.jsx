@@ -15,7 +15,6 @@ import Leads from './pages/modules/Leads.jsx';
 import LeadFormPage from './pages/modules/LeadFormPage.jsx'
 
 import Clients from './pages/modules/Clients.jsx';
-import ClientNew from './pages/modules/ClientNew.jsx';
 import ClientDetails from './pages/modules/ClientDetails.jsx';
 import Quotations from './pages/modules/Quotations.jsx';
 import NewQuotation from './pages/modules/NewQuotation.jsx';
@@ -82,7 +81,7 @@ function App() {
           <Route path="/leads/new" element={<LeadFormPage />} />
           <Route path="/leads/:id" element={<LeadFormPage />} />
           <Route path="/clients" element={<Clients />} />
-          <Route path="/clients/new" element={<ClientNew />} />
+          <Route path="/clients/new" element={<LeadFormPage formMode="client" />} />
           <Route path="/clients/:id" element={<ClientDetails />} />
           <Route path="/deals" element={<Leads defaultView="deals" />} />
           <Route path="/quotations" element={<Quotations />} />

@@ -415,6 +415,28 @@
   color: #1f2937;
 }
 
+.quote-form-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quote-add-deal-btn {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quote-add-deal-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .quote-close-btn {
   border: 1px solid #d1d5db;
   background: #ffffff;
@@ -471,6 +493,7 @@
   background: #ffffff;
   color: #111827;
   outline: none;
+  width: 100%;
 }
 
 .quote-field input:focus,
@@ -484,6 +507,64 @@
 
 .quote-field-full {
   grid-column: 1 / -1;
+}
+
+.quote-deal-search-wrap {
+  position: relative;
+}
+
+.quote-deal-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  z-index: 20;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.quote-deal-suggestions li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.quote-deal-suggestions li:last-child {
+  border-bottom: none;
+}
+
+.quote-deal-suggestions li:hover {
+  background: #f8fafc;
+}
+
+.quote-deal-suggestion-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.quote-deal-suggestion-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.quote-deal-suggestion-empty {
+  cursor: default;
+  color: #64748b;
+}
+
+.quote-deal-suggestion-empty:hover {
+  background: #ffffff;
 }
 
 .quote-notes-field {

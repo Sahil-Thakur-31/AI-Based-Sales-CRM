@@ -34,6 +34,16 @@ function makeEmptyItem() {
   };
 }
 
+function getDealDisplayName(deal) {
+  if (!deal) return "";
+  return (
+    deal.company_name ||
+    deal.primary_contact?.name ||
+    deal.stage ||
+    `Deal ${String(deal._id || "").slice(-6)}`
+  );
+}
+
 export default function NewQuotation() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,9 +51,12 @@ export default function NewQuotation() {
   const [deals, setDeals] = useState([]);
   const [products, setProducts] = useState([]);
   const [taxes, setTaxes] = useState([]);
+  const [quotedDealIds, setQuotedDealIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [dealSearch, setDealSearch] = useState("");
+  const [showDealSuggestions, setShowDealSuggestions] = useState(false);
 
   const [form, setForm] = useState({
     dealId: "",
@@ -68,6 +81,46 @@ export default function NewQuotation() {
     const params = new URLSearchParams(location.search);
     return params.get("fromQuoteId") || "";
   }, [location.search]);
+
+  const isVersionMode = Boolean(initialFromQuoteId);
+
+  const quotedDealIdSet = useMemo(
+    () => new Set((quotedDealIds || []).map((dealId) => String(dealId))),
+    [quotedDealIds]
+  );
+
+  const eligibleDeals = useMemo(() => {
+    return deals.filter((deal) => {
+      const dealId = String(deal._id || "");
+      const isActive = deal.isActive !== false && deal.is_deleted !== true && deal.deleted !== true;
+      if (!isActive) return false;
+
+      if (isVersionMode && String(form.dealId) === dealId) {
+        return true;
+      }
+
+      return !quotedDealIdSet.has(dealId);
+    });
+  }, [deals, quotedDealIdSet, isVersionMode, form.dealId]);
+
+  const filteredDealSuggestions = useMemo(() => {
+    const searchTerm = String(dealSearch || "").trim().toLowerCase();
+    const source = eligibleDeals || [];
+    if (!searchTerm) return source.slice(0, 10);
+
+    return source
+      .filter((deal) => {
+        const dealName = String(getDealDisplayName(deal) || "").toLowerCase();
+        const stage = String(deal.stage || "").toLowerCase();
+        const contact = String(deal.primary_contact?.name || "").toLowerCase();
+        return (
+          dealName.includes(searchTerm) ||
+          stage.includes(searchTerm) ||
+          contact.includes(searchTerm)
+        );
+      })
+      .slice(0, 10);
+  }, [eligibleDeals, dealSearch]);
 
   const selectedDeal = useMemo(
     () => deals.find((deal) => String(deal._id) === String(form.dealId)),
@@ -131,25 +184,46 @@ export default function NewQuotation() {
       setLoading(true);
       setError("");
 
-      const [dealsRes, productsRes, taxesRes] = await Promise.all([
+      const [dealsRes, productsRes, taxesRes, quotationsRes] = await Promise.all([
         API.get("/deals"),
         API.get("/products"),
-        API.get("/taxes")
+        API.get("/taxes"),
+        API.get("/quotations")
       ]);
 
       const dealRows = dealsRes.data || [];
       const productRows = productsRes.data || [];
       const taxRows = taxesRes.data || [];
+      const quotationRows = quotationsRes.data || [];
+      const existingDealIds = [
+        ...new Set(
+          (Array.isArray(quotationRows) ? quotationRows : [])
+            .map((quote) => quote?.dealId)
+            .filter(Boolean)
+            .map((dealId) => String(dealId))
+        )
+      ];
 
       setDeals(dealRows);
       setProducts(productRows);
       setTaxes(taxRows);
+      setQuotedDealIds(existingDealIds);
 
-      if (initialDealId && dealRows.some((deal) => String(deal._id) === initialDealId)) {
+      if (
+        initialDealId &&
+        dealRows.some((deal) => String(deal._id) === initialDealId) &&
+        (isVersionMode || !existingDealIds.includes(String(initialDealId)))
+      ) {
         setForm((prev) => ({
           ...prev,
           dealId: initialDealId
         }));
+        const initialDeal = dealRows.find((deal) => String(deal._id) === String(initialDealId));
+        setDealSearch(getDealDisplayName(initialDeal));
+      } else if (initialDealId && existingDealIds.includes(String(initialDealId)) && !isVersionMode) {
+        setError(
+          "This deal already has a quotation. Please use New Version from quotation details."
+        );
       }
 
       // If opening as a new version from an existing quotation, prefill fields
@@ -168,6 +242,11 @@ export default function NewQuotation() {
               discountAmount: q.discountAmount || prev.discountAmount,
               notes: q.notes || prev.notes
             }));
+
+            const prefillDeal = dealRows.find((deal) => String(deal._id) === String(q.dealId || ""));
+            if (prefillDeal) {
+              setDealSearch(getDealDisplayName(prefillDeal));
+            }
 
             if (Array.isArray(detail.items) && detail.items.length) {
               const mapped = detail.items.map((it) => ({
@@ -199,6 +278,20 @@ export default function NewQuotation() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!form.dealId) {
+      if (!showDealSuggestions) {
+        setDealSearch("");
+      }
+      return;
+    }
+
+    const deal = deals.find((row) => String(row._id) === String(form.dealId));
+    if (deal) {
+      setDealSearch(getDealDisplayName(deal));
+    }
+  }, [form.dealId, deals, showDealSuggestions]);
 
   const updateLineItem = (index, key, value) => {
     setLineItems((prev) => {
@@ -249,6 +342,7 @@ export default function NewQuotation() {
 
       await API.post("/quotations", {
         dealId: form.dealId,
+        baseQuotationId: initialFromQuoteId || null,
         quoteDate: form.quoteDate,
         validUntil: form.validUntil || null,
         discountAmount: totals.discountAmount,
@@ -281,9 +375,19 @@ export default function NewQuotation() {
         <div className="quote-form-header">
           <h2>New Quotation</h2>
 
-          <button className="quote-close-btn" onClick={() => navigate("/quotations")}>
-            x
-          </button>
+          <div className="quote-form-header-actions">
+            <button
+              className="quote-add-deal-btn"
+              onClick={() => navigate("/leads/new?view=deal")}
+              type="button"
+            >
+              + Add Deal
+            </button>
+
+            <button className="quote-close-btn" onClick={() => navigate("/quotations")}>
+              x
+            </button>
+          </div>
         </div>
 
         {error && <div className="quote-form-error">{error}</div>}
@@ -291,17 +395,59 @@ export default function NewQuotation() {
         <div className="quote-form-grid">
           <div className="quote-field">
             <label>Link To Deal</label>
-            <select
-              value={form.dealId}
-              onChange={(e) => setForm({ ...form, dealId: e.target.value })}
-            >
-              <option value="">-- Select Deal --</option>
-              {deals.map((deal) => (
-                <option key={deal._id} value={deal._id}>
-                  {deal.company_name || deal.stage || String(deal._id)}
-                </option>
-              ))}
-            </select>
+            <div className="quote-deal-search-wrap">
+              <input
+                type="text"
+                value={dealSearch}
+                placeholder="Search active deals by client name..."
+                readOnly={isVersionMode}
+                onFocus={() => {
+                  if (!isVersionMode) setShowDealSuggestions(true);
+                }}
+                onBlur={() => setTimeout(() => setShowDealSuggestions(false), 150)}
+                onChange={(e) => {
+                  if (isVersionMode) return;
+                  const value = e.target.value;
+                  setDealSearch(value);
+                  setForm((prev) => ({ ...prev, dealId: "" }));
+                  setShowDealSuggestions(true);
+                }}
+              />
+
+              {!isVersionMode && showDealSuggestions && (
+                <ul className="quote-deal-suggestions">
+                  {filteredDealSuggestions.length === 0 ? (
+                    <li className="quote-deal-suggestion-empty">
+                      {eligibleDeals.length === 0
+                        ? "No eligible active deals. For existing quotes, use New Version."
+                        : "No matching deals found"}
+                    </li>
+                  ) : (
+                    filteredDealSuggestions.map((deal) => (
+                      <li
+                        key={deal._id}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setForm((prev) => ({
+                            ...prev,
+                            dealId: String(deal._id)
+                          }));
+                          setDealSearch(getDealDisplayName(deal));
+                          setShowDealSuggestions(false);
+                        }}
+                      >
+                        <span className="quote-deal-suggestion-title">
+                          {getDealDisplayName(deal)}
+                        </span>
+                        <span className="quote-deal-suggestion-meta">
+                          {deal.stage || "No stage"} | {String(deal._id).slice(-6)}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
           </div>
 
           <div className="quote-field">
