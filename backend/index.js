@@ -11,18 +11,17 @@ const rolesRoutes = require("./routes/roleRoutes");
 const sourcesRoutes = require("./routes/sourcesRoutes");
 const industriesRoutes = require("./routes/industriesRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
-
-const leadsRoutes = require("./routes/leadsRoutes");
-const locationRoutes = require("./routes/locationRoutes");
 const dealsRoutes = require("./routes/dealsRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const taxRoutes = require("./routes/taxRoutes");
+const organizationRoutes = require("./routes/organizationRoutes");
 const followupsRoutes = require("./routes/followupsRoutes");
 const mongoose = require("mongoose");
 const Meeting = require("./models/meetings");
 const teamRoutes = require("./routes/teamRoutes");
 const ocrRoutes = require("./routes/ocr");
+const eventsRoutes = require("./routes/eventsRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -47,16 +46,19 @@ app.use("/roles", rolesRoutes);
 app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
 app.use("/api/expenses", expenseRoutes);
-
-app.use("/leads", leadsRoutes);
 app.use("/deals", dealsRoutes);
-app.use("/location", locationRoutes);
+app.use("/clients", clientRoutes);
+app.use("/quotations", quotationRoutes);
 app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
+app.use("/organizations", organizationRoutes);
 app.use("/followups", followupsRoutes);
+app.use("/taxes", taxRoutes);
+app.use("/events", eventsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/ocr", ocrRoutes);
+app.use("/events", eventsRoutes);
 
 mongoose.connection.once("open", async () => {
   try {

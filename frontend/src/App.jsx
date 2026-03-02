@@ -26,6 +26,8 @@ import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
 import AILeads from './pages/modules/AILeads.jsx';
 import Events from './pages/modules/Events.jsx';
+import EventRegistration from './pages/modules/EventRegistration.jsx';
+import AddEvent from './pages/modules/AddEvent.jsx';
 import TeamDashboard from './pages/modules/TeamDashboard.jsx';
 import TeamSetup from './pages/modules/TeamSetup.jsx';
 import Reports from './pages/modules/Reports.jsx';
@@ -37,6 +39,7 @@ import Roles from './pages/modules/adminsetting/Roles.jsx';
 import Industry from './pages/modules/adminsetting/Industry.jsx';
 import Sources from './pages/modules/adminsetting/Sources.jsx';
 import Taxes from './pages/modules/adminsetting/Taxes.jsx';
+import Organization from './pages/modules/adminsetting/Organization.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -96,6 +99,8 @@ function App() {
 
           <Route path="/ai-leads" element={<AILeads />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/events/new" element={<AddEvent />} />
+          <Route path="/events/register" element={<EventRegistration />} />
 
           <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamDashboard /></ProtectedRoute>} />
           <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
@@ -155,6 +160,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["Admin"]}>
                 <Taxes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/organization"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Organization />
               </ProtectedRoute>
             }
           />

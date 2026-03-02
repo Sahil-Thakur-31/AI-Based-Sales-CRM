@@ -6,16 +6,9 @@ import Pagination from "../../components/Pagination";
 import "./styles/LeadsDashboard.css";
 import "./styles/Expense.css";
 
-function LeadsDashboard({ defaultView = "leads" }) {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState(defaultView === "deals" ? "deals" : "leads");
-  const [leads, setLeads] = useState([]);
-  const [deals, setDeals] = useState([]);
-  const [deletedLeads, setDeletedLeads] = useState([]);
-  const [loadingLeads, setLoadingLeads] = useState(true);
-  const [loadingDeals, setLoadingDeals] = useState(true);
-  const [loadingDeleted, setLoadingDeleted] = useState(true);
-  const [showDeletedLeads, setShowDeletedLeads] = useState(false);
+
+  const [selectedLead, setSelectedLead] = useState(null);
   const [search, setSearch] = useState("");
   const [industryFilter, setIndustryFilter] = useState("All");
   const [temperatureFilter, setTemperatureFilter] = useState("All");
@@ -475,6 +468,41 @@ function LeadsDashboard({ defaultView = "leads" }) {
         </div>
       )}
 
+      {/* ================= TOP ACTIONS ================= */}
+      <div className="top-actions">
+        <button className="btn">
+          📇 Scan Business Card <span className="tag">OCR</span>
+        </button>
+
+        <button className="btn" onClick={() => navigate("/leads/new")}>
+          ➕ Add Lead Manually
+        </button>
+
+        <button
+          className="btn"
+          onClick={() => setTemperatureFilter("hot")}
+        >
+          🔥 Hot Leads
+        </button>
+
+        <button
+          className="btn"
+          onClick={() => setTemperatureFilter("warm")}
+        >
+          🌡 Warm Leads
+        </button>
+
+        <button
+          className="btn"
+          onClick={() => setTemperatureFilter("cold")}
+        >
+          ❄ Cold Leads
+        </button>
+
+        <button className="btn">📥 Import CSV</button>
+      </div>
+
+      {/* ================= HEADER ================= */}
       <div className="leads-header">
         <div className="status-tabs">
           <button
@@ -501,6 +529,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
 
         <div className="filters">
           <input
+            className="app-search-input leads-search-input"
             type="text"
             placeholder={viewMode === "deals" ? "Search deals..." : "Search leads..."}
             value={search}
@@ -557,6 +586,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
         </div>
       </div>
 
+      {/* ================= TABLE ================= */}
       <div className="table-wrapper">
         <table>
           <thead>
@@ -573,6 +603,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
               <th></th>
             </tr>
           </thead>
+
           <tbody>
             {loading && <tr><td colSpan={9}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
             {!loading && paginatedRows.length === 0 && <tr><td colSpan={9}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}

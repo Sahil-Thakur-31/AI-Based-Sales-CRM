@@ -3,10 +3,13 @@ const express = require("express");
 const router = express.Router();
 
 const Notification = require("../models/notifications");
+<<<<<<< HEAD
 const Followup = require("../models/followUp");
 const CRMSettings = require("../models/crmSettings");
 const Meeting = require("../models/meetings");
 const Event = require("../models/events");
+=======
+>>>>>>> 3227199e933376f08179b5fb7dd4ef595a944bbb
 
 const authenticate = require("../middlewares/auth");
 const sendOTPEmail = require("../services/emailService");
@@ -61,6 +64,7 @@ router.get("/", authenticate, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
+<<<<<<< HEAD
     let settings = await CRMSettings.findOne({ userId: req.user._id }).lean();
     if (!settings) {
       settings = {
@@ -213,6 +217,9 @@ router.get("/", authenticate, async (req, res) => {
       .slice(0, 50);
 
     res.json(combined);
+=======
+    res.json(notifications);
+>>>>>>> 3227199e933376f08179b5fb7dd4ef595a944bbb
 
   }
   catch (err) {
