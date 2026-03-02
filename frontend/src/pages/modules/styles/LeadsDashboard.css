@@ -21,7 +21,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 10px;
+  margin: 6px 0 14px;
 }
 
 .btn {
@@ -196,7 +196,7 @@ body {
   background: #ffffff;
   border: 1px solid #e6ebf2;
   border-radius: 0 0 16px 16px;
-  overflow-x: auto;
+  overflow-x: hidden;
   min-height: 400px;
   /* Helps avoid jitter when pagination reduces row count */
   display: flex;
@@ -207,7 +207,8 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 thead {
@@ -228,10 +229,18 @@ th {
 
 th.contact-col,
 td.contact-cell {
-  width: 230px;
-  min-width: 230px;
-  max-width: 230px;
+  width: 19%;
+  min-width: 19%;
+  max-width: 19%;
 }
+
+th.col-company, td.col-company { width: 16%; }
+th.col-industry, td.col-industry { width: 13%; }
+th.col-value, td.col-value { width: 10%; }
+th.col-score, td.col-score { width: 10%; }
+th.col-last-contact, td.col-last-contact { width: 9%; }
+th.col-next-action, td.col-next-action { width: 10%; }
+th.col-actions, td.col-actions { width: 13%; }
 
 tbody tr {
   border-top: 1px solid #edf2f7;
@@ -245,6 +254,8 @@ tbody tr:hover {
 td {
   color: #374151;
   color: #1f3552;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .company-cell {
@@ -357,6 +368,14 @@ td {
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.row-actions .view-btn,
+.row-actions .quote-btn {
+  min-width: 112px;
+  justify-content: center;
 }
 
 .quote-btn {
@@ -508,9 +527,7 @@ td {
     width: 100%;
   }
 
-  table {
-    min-width: 600px;
-  }
+  table { min-width: 600px; }
 
   .details-panel {
     width: 100%;

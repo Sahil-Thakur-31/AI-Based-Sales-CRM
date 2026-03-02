@@ -476,40 +476,6 @@ function Leads({ defaultView = "leads" }) {
         </div>
       )}
 
-      {/* ================= TOP ACTIONS ================= */}
-      <div className="top-actions">
-        <button className="btn">
-          📇 Scan Business Card <span className="tag">OCR</span>
-        </button>
-
-        <button className="btn" onClick={() => navigate("/leads/new")}>
-          ➕ Add Lead Manually
-        </button>
-
-        <button
-          className="btn"
-          onClick={() => setTemperatureFilter("hot")}
-        >
-          🔥 Hot Leads
-        </button>
-
-        <button
-          className="btn"
-          onClick={() => setTemperatureFilter("warm")}
-        >
-          🌡 Warm Leads
-        </button>
-
-        <button
-          className="btn"
-          onClick={() => setTemperatureFilter("cold")}
-        >
-          ❄ Cold Leads
-        </button>
-
-        <button className="btn">📥 Import CSV</button>
-      </div>
-
       {/* ================= HEADER ================= */}
       <div className="leads-header">
         <div className="status-tabs">
@@ -599,16 +565,16 @@ function Leads({ defaultView = "leads" }) {
         <table>
           <thead>
             <tr>
-              <th>Company</th>
-              <th className="contact-col">Contact</th>
-              <th>Industry</th>
-              <th>Value</th>
-              {viewMode === "leads" && <th>AI Score</th>}
-              {viewMode === "deals" && <th>Stage</th>}
-              <th>Last Contact</th>
-              <th>Next Action</th>
+              <th className="col-company">Company</th>
+              <th className="contact-col col-contact">Contact</th>
+              <th className="col-industry">Industry</th>
+              <th className="col-value">Value</th>
+              {viewMode === "leads" && <th className="col-score">AI Score</th>}
+              {viewMode === "deals" && <th className="col-score">Stage</th>}
+              <th className="col-last-contact">Last Contact</th>
+              <th className="col-next-action">Next Action</th>
               {activeTab === "deleted" && <th>Delete Reason</th>}
-              <th></th>
+              <th className="col-actions"></th>
             </tr>
           </thead>
 
@@ -619,15 +585,15 @@ function Leads({ defaultView = "leads" }) {
               const t = getTemperature(row);
               return (
                 <tr key={row._id}>
-                  <td className="company-cell">{row.company_name || "-"}</td>
-                  <td className="contact-cell">
+                  <td className="company-cell col-company">{row.company_name || "-"}</td>
+                  <td className="contact-cell col-contact">
                     <div className="contact-name">{row.primary_contact?.name || "-"}</div>
                     <small className="contact-subtext">{row.primary_contact?.email || row.primary_contact?.phone || "-"}</small>
                   </td>
-                  <td>{row.industry || "-"}</td>
-                  <td>{formatCurrency(row.deal_value_estimate)}</td>
+                  <td className="col-industry">{row.industry || "-"}</td>
+                  <td className="col-value">{formatCurrency(row.deal_value_estimate)}</td>
                   {viewMode === "leads" && (
-                    <td>
+                    <td className="col-score">
                       <span className={`ai-chip ${t}`}>
                         {`${row.ai_score ?? "-"} - ${getTemperatureLabel(t)}`}
                       </span>
@@ -635,14 +601,14 @@ function Leads({ defaultView = "leads" }) {
                   )}
 
                   {viewMode === "deals" && (
-                    <td>
+                    <td className="col-score">
                       <span className="stage-chip">
                         {row.stage || "-"}
                       </span>
                     </td>
                   )}
-                  <td>{formatDate(row.last_contact_date)}</td>
-                  <td>{row.next_action || "-"}</td>
+                  <td className="col-last-contact">{formatDate(row.last_contact_date)}</td>
+                  <td className="col-next-action">{row.next_action || "-"}</td>
                   {activeTab === "deleted" && (
                     <td>
                       <span className="delete-reason">
@@ -650,7 +616,7 @@ function Leads({ defaultView = "leads" }) {
                       </span>
                     </td>
                   )}
-                  <td>
+                  <td className="col-actions">
                     <div className="row-actions">
                       <button
                         className="view-btn"
@@ -710,44 +676,13 @@ function Leads({ defaultView = "leads" }) {
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      {
-        !loading && totalPages > 1 && (
-          <div className="pagination-container">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-            <div className="pagination-numbers">
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
-                .map((page, index, array) => (
-                  <React.Fragment key={page}>
-                    {index > 0 && page - array[index - 1] > 1 && (
-                      <span className="pagination-ellipses">...</span>
-                    )}
-                    <button
-                      className={`pagination-number ${currentPage === page ? "active" : ""}`}
-                      onClick={() => handlePageChange(page)}
-                    >
-                      {page}
-                    </button>
-                  </React.Fragment>
-                ))}
-            </div>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-          </div>
-        )
-      }
+      {!loading && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          handlePageChange={handlePageChange}
+        />
+      )}
 
       {
         showOcrModal &&
