@@ -95,4 +95,6 @@ const leadsSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Leads", leadsSchema);
+module.exports =
+  mongoose.models.Leads ||
+  mongoose.model("Leads", leadsSchema);

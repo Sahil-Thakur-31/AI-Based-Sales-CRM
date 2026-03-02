@@ -470,7 +470,31 @@ function LeadsDashboard({ defaultView = "leads" }) {
               </div>
 
               <div className="expense-upload-box">
-                <input type="file" accept="image/*" />
+                <input
+  type="file"
+  accept="image/*"
+  onChange={async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("card", file);
+
+    try {
+      const res = await API.post("/ocr/scan-business-card", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      alert("Lead created successfully!");
+      setShowOcrModal(false);
+      window.location.reload();
+
+    } catch (err) {
+      console.error(err);
+      alert("OCR failed");
+    }
+  }}
+/>
                 <p>Drop file or click to upload</p>
                 <span>Supports: JPG, PNG, PDF</span>
 
