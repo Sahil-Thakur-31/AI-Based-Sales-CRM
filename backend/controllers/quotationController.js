@@ -2,6 +2,7 @@ const Quotation = require("../models/quatations");
 const QuotationItem = require("../models/quatation_item");
 const Deal = require("../models/deals");
 const Client = require("../models/client");
+const ClientContact = require("../models/client_contact");
 const Product = require("../models/products");
 const Tax = require("../models/taxes");
 
@@ -199,6 +200,16 @@ exports.getQuotationById = async (req, res) => {
         .lean()
     ]);
 
+    const clientContact = client?._id
+      ? await ClientContact.findOne({
+          client_id: String(client._id),
+          is_active: true
+        })
+          .sort({ updatedAt: -1, createdAt: -1 })
+          .select("name phone email designation")
+          .lean()
+      : null;
+
     const canCreateNewVersion = latestQuoteForDeal
       ? VERSION_ALLOWED_PREVIOUS_STATUSES.includes(
           String(latestQuoteForDeal.status || "").toLowerCase()
@@ -255,7 +266,15 @@ exports.getQuotationById = async (req, res) => {
             name: client.name || "Unknown Client",
             website: client.website || "",
             GST_no: client.GST_no || "",
-            Address: client.Address || ""
+            Address: client.Address || "",
+            contact: clientContact
+              ? {
+                  name: clientContact.name || "",
+                  phone: clientContact.phone || "",
+                  email: clientContact.email || "",
+                  designation: clientContact.designation || ""
+                }
+              : null
           }
         : null,
       items: itemRows

@@ -20,7 +20,7 @@ function requireAdmin(req, res, next) {
 }
 
 router.get("/", auth, requireAdmin, getOrganizations);
-router.get("/profile", auth, requireAdmin, getOrganizationProfile);
+router.get("/profile", auth, getOrganizationProfile);
 router.post("/", auth, requireAdmin, organizationLogoUpload.single("logo"), createOrganization);
 router.put("/profile", auth, requireAdmin, organizationLogoUpload.single("logo"), upsertOrganizationProfile);
 router.put("/:id", auth, requireAdmin, organizationLogoUpload.single("logo"), updateOrganization);
