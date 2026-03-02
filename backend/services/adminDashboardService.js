@@ -127,7 +127,7 @@ async function getSummary(range) {
   // Open leads created in this range
   const openLeads = await Lead.countDocuments({
     is_active: true,
-    is_deleted: { $ne: "Yes" },
+    is_deleted: { $ne: true },
     status: { $in: ["new", "contacted", "qualified"] },
     created_at: { $gte: start, $lte: end },
   });
