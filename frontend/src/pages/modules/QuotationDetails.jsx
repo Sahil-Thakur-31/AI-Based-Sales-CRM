@@ -321,9 +321,32 @@ export default function QuotationDetails() {
         </section>
 
         <footer className="qdoc-signoff">
-          <div>
+          <div className="qdoc-signatory-block">
             <p>For {asReadable(organization?.name)}</p>
-            <div className="qdoc-sign-line" />
+            <div className="qdoc-signature-stamp-row">
+              <div className="qdoc-sign-visual">
+                {organization?.signatureUrl ? (
+                  <img
+                    className="qdoc-signature-image"
+                    src={resolveAssetUrl(organization.signatureUrl)}
+                    alt="Authorized Signature"
+                  />
+                ) : (
+                  <div className="qdoc-sign-placeholder">Authorized Signature</div>
+                )}
+              </div>
+              <div className="qdoc-sign-visual qdoc-stamp-visual">
+                {organization?.stampUrl ? (
+                  <img
+                    className="qdoc-stamp-image"
+                    src={resolveAssetUrl(organization.stampUrl)}
+                    alt="Organization Stamp"
+                  />
+                ) : (
+                  <div className="qdoc-sign-placeholder">Company Stamp</div>
+                )}
+              </div>
+            </div>
             <p className="qdoc-sign-caption">Authorized Signatory</p>
           </div>
           <p className="qdoc-generated-note">

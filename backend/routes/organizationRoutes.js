@@ -11,6 +11,12 @@ const {
   restoreOrganization
 } = require("../controllers/organizationController");
 
+const organizationAssetUpload = organizationLogoUpload.fields([
+  { name: "logo", maxCount: 1 },
+  { name: "signature", maxCount: 1 },
+  { name: "stamp", maxCount: 1 }
+]);
+
 function requireAdmin(req, res, next) {
   const role = String(req.user?.role || "").toLowerCase();
   if (role !== "admin") {
@@ -20,10 +26,10 @@ function requireAdmin(req, res, next) {
 }
 
 router.get("/", auth, requireAdmin, getOrganizations);
-router.get("/profile", auth, requireAdmin, getOrganizationProfile);
-router.post("/", auth, requireAdmin, organizationLogoUpload.single("logo"), createOrganization);
-router.put("/profile", auth, requireAdmin, organizationLogoUpload.single("logo"), upsertOrganizationProfile);
-router.put("/:id", auth, requireAdmin, organizationLogoUpload.single("logo"), updateOrganization);
+router.get("/profile", auth, getOrganizationProfile);
+router.post("/", auth, requireAdmin, organizationAssetUpload, createOrganization);
+router.put("/profile", auth, requireAdmin, organizationAssetUpload, upsertOrganizationProfile);
+router.put("/:id", auth, requireAdmin, organizationAssetUpload, updateOrganization);
 router.put("/delete/:id", auth, requireAdmin, deleteOrganization);
 router.put("/restore/:id", auth, requireAdmin, restoreOrganization);
 

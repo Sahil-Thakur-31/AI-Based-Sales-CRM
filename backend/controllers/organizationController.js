@@ -20,6 +20,20 @@ function normalizeEmail(value) {
   return normalizeText(value).toLowerCase();
 }
 
+function resolveUploadedAssetUrl(req, fieldName) {
+  const fieldFiles = req.files?.[fieldName];
+  if (Array.isArray(fieldFiles) && fieldFiles[0]?.filename) {
+    return `/uploads/organization_logo/${fieldFiles[0].filename}`;
+  }
+
+  // Backward compatibility if route is still using single("logo")
+  if (fieldName === "logo" && req.file?.filename) {
+    return `/uploads/organization_logo/${req.file.filename}`;
+  }
+
+  return "";
+}
+
 async function buildStats() {
   const [employeesCount, clientsCount, dealsCount] = await Promise.all([
     User.countDocuments({ is_deleted: { $ne: true } }),
@@ -37,6 +51,8 @@ function mapOrganization(row, stats) {
     _id: row._id,
     name: row.name || "",
     logoUrl: row.logoUrl || "",
+    signatureUrl: row.signatureUrl || "",
+    stampUrl: row.stampUrl || "",
     address: row.address || "",
     website: row.website || "",
     area: row.area || "",
@@ -144,9 +160,10 @@ exports.createOrganization = async (req, res) => {
       });
     }
 
-    const logoUrl = req.file
-      ? `/uploads/organization_logo/${req.file.filename}`
-      : normalizeText(req.body.logoUrl);
+    const logoUrl = resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const signatureUrl =
+      resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
+    const stampUrl = resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
 
     const duplicateMessage = await ensureUniqueIdentifiers({ panNumber, cinNumber, gstNumber });
     if (duplicateMessage) {
@@ -156,6 +173,8 @@ exports.createOrganization = async (req, res) => {
     const organization = await Organization.create({
       name,
       logoUrl,
+      signatureUrl,
+      stampUrl,
       address: normalizeText(req.body.address),
       website: normalizeText(req.body.website),
       area: normalizeText(req.body.area),
@@ -243,14 +262,21 @@ exports.upsertOrganizationProfile = async (req, res) => {
       return res.status(400).json({ message: duplicateMessage });
     }
 
-    const incomingLogoUrl = req.file
-      ? `/uploads/organization_logo/${req.file.filename}`
-      : normalizeText(req.body.logoUrl);
+    const incomingLogoUrl =
+      resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const incomingSignatureUrl =
+      resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
+    const incomingStampUrl =
+      resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
     const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
+    const removeSignature = String(req.body.removeSignature || "").toLowerCase() === "true";
+    const removeStamp = String(req.body.removeStamp || "").toLowerCase() === "true";
 
     const payload = {
       name,
       logoUrl: incomingLogoUrl || "",
+      signatureUrl: incomingSignatureUrl || "",
+      stampUrl: incomingStampUrl || "",
       address: normalizeText(req.body.address),
       website: normalizeText(req.body.website),
       area: normalizeText(req.body.area),
@@ -274,7 +300,7 @@ exports.upsertOrganizationProfile = async (req, res) => {
         _id: existing._id,
         is_deleted: false
       })
-        .select("logoUrl")
+        .select("logoUrl signatureUrl stampUrl")
         .lean();
 
       organization = await Organization.findOneAndUpdate(
@@ -284,7 +310,13 @@ exports.upsertOrganizationProfile = async (req, res) => {
             ...payload,
             logoUrl: removeLogo
               ? ""
-              : incomingLogoUrl || existingOrganization?.logoUrl || ""
+              : incomingLogoUrl || existingOrganization?.logoUrl || "",
+            signatureUrl: removeSignature
+              ? ""
+              : incomingSignatureUrl || existingOrganization?.signatureUrl || "",
+            stampUrl: removeStamp
+              ? ""
+              : incomingStampUrl || existingOrganization?.stampUrl || ""
           }
         },
         { returnDocument: "after" }
@@ -349,10 +381,13 @@ exports.updateOrganization = async (req, res) => {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const logoUrl = req.file
-      ? `/uploads/organization_logo/${req.file.filename}`
-      : normalizeText(req.body.logoUrl);
+    const logoUrl = resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const signatureUrl =
+      resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
+    const stampUrl = resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
     const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
+    const removeSignature = String(req.body.removeSignature || "").toLowerCase() === "true";
+    const removeStamp = String(req.body.removeStamp || "").toLowerCase() === "true";
 
     const duplicateMessage = await ensureUniqueIdentifiers({
       panNumber,
@@ -364,12 +399,27 @@ exports.updateOrganization = async (req, res) => {
       return res.status(400).json({ message: duplicateMessage });
     }
 
+    const existingOrganization = await Organization.findOne({
+      _id: req.params.id,
+      is_deleted: false
+    })
+      .select("logoUrl signatureUrl stampUrl")
+      .lean();
+
+    if (!existingOrganization) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+
     const updated = await Organization.findOneAndUpdate(
       { _id: req.params.id, is_deleted: false },
       {
         $set: {
           name,
-          logoUrl: removeLogo ? "" : logoUrl,
+          logoUrl: removeLogo ? "" : logoUrl || existingOrganization.logoUrl || "",
+          signatureUrl: removeSignature
+            ? ""
+            : signatureUrl || existingOrganization.signatureUrl || "",
+          stampUrl: removeStamp ? "" : stampUrl || existingOrganization.stampUrl || "",
           address: normalizeText(req.body.address),
           website: normalizeText(req.body.website),
           area: normalizeText(req.body.area),

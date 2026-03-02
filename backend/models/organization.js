@@ -12,6 +12,16 @@ const organizationSchema = new mongoose.Schema(
       trim: true,
       default: ""
     },
+    signatureUrl: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    stampUrl: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     address: {
       type: String,
       trim: true,

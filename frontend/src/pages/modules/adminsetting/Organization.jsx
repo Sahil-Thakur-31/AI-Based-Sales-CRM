@@ -6,6 +6,8 @@ function createEmptyForm() {
   return {
     name: "",
     logoUrl: "",
+    signatureUrl: "",
+    stampUrl: "",
     address: "",
     website: "",
     area: "",
@@ -25,6 +27,8 @@ function createEmptyForm() {
 
 export default function Organization() {
   const fileInputRef = useRef(null);
+  const signatureInputRef = useRef(null);
+  const stampInputRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,6 +46,12 @@ export default function Organization() {
   const [logoFile, setLogoFile] = useState(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [logoPreview, setLogoPreview] = useState("");
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signatureRemoved, setSignatureRemoved] = useState(false);
+  const [signaturePreview, setSignaturePreview] = useState("");
+  const [stampFile, setStampFile] = useState(null);
+  const [stampRemoved, setStampRemoved] = useState(false);
+  const [stampPreview, setStampPreview] = useState("");
 
   const resolveLogoUrl = (value) => {
     const raw = String(value || "").trim();
@@ -67,6 +77,8 @@ export default function Organization() {
   const mapProfileToForm = (profile) => ({
     name: profile?.name || "",
     logoUrl: profile?.logoUrl || "",
+    signatureUrl: profile?.signatureUrl || "",
+    stampUrl: profile?.stampUrl || "",
     address: profile?.address || "",
     website: profile?.website || "",
     area: profile?.area || "",
@@ -106,8 +118,14 @@ export default function Organization() {
       setForm(mapped);
       setSnapshot(mapped);
       setLogoPreview(withCacheBust(resolveLogoUrl(mapped.logoUrl || "")));
+      setSignaturePreview(withCacheBust(resolveLogoUrl(mapped.signatureUrl || "")));
+      setStampPreview(withCacheBust(resolveLogoUrl(mapped.stampUrl || "")));
       setLogoFile(null);
       setLogoRemoved(false);
+      setSignatureFile(null);
+      setSignatureRemoved(false);
+      setStampFile(null);
+      setStampRemoved(false);
     } catch (err) {
       console.error("Failed to fetch organization profile", err);
       setError(err.response?.data?.message || "Failed to load organization profile");
@@ -121,13 +139,21 @@ export default function Organization() {
     setSuccess("");
     setError("");
     setLogoRemoved(false);
+    setSignatureRemoved(false);
+    setStampRemoved(false);
   };
 
   const cancelEdit = () => {
     setForm(snapshot);
     setLogoPreview(withCacheBust(resolveLogoUrl(snapshot.logoUrl || "")));
+    setSignaturePreview(withCacheBust(resolveLogoUrl(snapshot.signatureUrl || "")));
+    setStampPreview(withCacheBust(resolveLogoUrl(snapshot.stampUrl || "")));
     setLogoFile(null);
     setLogoRemoved(false);
+    setSignatureFile(null);
+    setSignatureRemoved(false);
+    setStampFile(null);
+    setStampRemoved(false);
     setIsEditing(false);
     setSuccess("");
     setError("");
@@ -190,6 +216,50 @@ export default function Organization() {
     setForm((prev) => ({ ...prev, logoUrl: "" }));
   };
 
+  const handleChangeSignature = () => {
+    if (!isEditing) return;
+    signatureInputRef.current?.click();
+  };
+
+  const handleSignatureFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setSignatureFile(file);
+    if (file) {
+      setSignaturePreview(URL.createObjectURL(file));
+      setSignatureRemoved(false);
+    }
+  };
+
+  const handleDeleteSignature = () => {
+    if (!isEditing) return;
+    setSignatureFile(null);
+    setSignatureRemoved(true);
+    setSignaturePreview("");
+    setForm((prev) => ({ ...prev, signatureUrl: "" }));
+  };
+
+  const handleChangeStamp = () => {
+    if (!isEditing) return;
+    stampInputRef.current?.click();
+  };
+
+  const handleStampFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setStampFile(file);
+    if (file) {
+      setStampPreview(URL.createObjectURL(file));
+      setStampRemoved(false);
+    }
+  };
+
+  const handleDeleteStamp = () => {
+    if (!isEditing) return;
+    setStampFile(null);
+    setStampRemoved(true);
+    setStampPreview("");
+    setForm((prev) => ({ ...prev, stampUrl: "" }));
+  };
+
   const saveProfile = async () => {
     try {
       if (!form.name.trim()) {
@@ -204,7 +274,11 @@ export default function Organization() {
       const payload = new FormData();
       payload.append("name", form.name || "");
       payload.append("logoUrl", form.logoUrl || "");
+      payload.append("signatureUrl", form.signatureUrl || "");
+      payload.append("stampUrl", form.stampUrl || "");
       payload.append("removeLogo", logoRemoved ? "true" : "false");
+      payload.append("removeSignature", signatureRemoved ? "true" : "false");
+      payload.append("removeStamp", stampRemoved ? "true" : "false");
       payload.append("address", form.address || "");
       payload.append("website", form.website || "");
       payload.append("area", form.area || "");
@@ -221,6 +295,8 @@ export default function Organization() {
       payload.append("email", form.email || "");
 
       if (logoFile) payload.append("logo", logoFile);
+      if (signatureFile) payload.append("signature", signatureFile);
+      if (stampFile) payload.append("stamp", stampFile);
 
       const res = await API.put("/organizations/profile", payload);
       const org = res.data?.organization || null;
@@ -237,8 +313,14 @@ export default function Organization() {
         setForm(savedProfile);
         setSnapshot(savedProfile);
         setLogoPreview(withCacheBust(resolveLogoUrl(savedProfile.logoUrl || "")));
+        setSignaturePreview(withCacheBust(resolveLogoUrl(savedProfile.signatureUrl || "")));
+        setStampPreview(withCacheBust(resolveLogoUrl(savedProfile.stampUrl || "")));
         setLogoFile(null);
         setLogoRemoved(false);
+        setSignatureFile(null);
+        setSignatureRemoved(false);
+        setStampFile(null);
+        setStampRemoved(false);
       }
 
       setSuccess("Organization profile saved successfully");
@@ -493,6 +575,82 @@ export default function Organization() {
                 ) : (
                   <p className="org-view-value">{form.email || "-"}</p>
                 )}
+              </div>
+            </div>
+
+            <div className="org-sign-assets-row">
+              <div className="org-sign-asset-card">
+                <label>Signature</label>
+                <div className="org-logo-block">
+                  {signaturePreview ? (
+                    <img
+                      className="org-logo-preview org-sign-preview"
+                      src={signaturePreview}
+                      alt="Organization signature"
+                    />
+                  ) : (
+                    <div className="org-logo-preview-empty org-sign-preview-empty">
+                      No signature uploaded
+                    </div>
+                  )}
+                </div>
+                {isEditing ? (
+                  <div className="org-logo-actions">
+                    <input
+                      ref={signatureInputRef}
+                      className="org-logo-hidden-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleSignatureFileChange}
+                    />
+                    <button className="admin-config-btn" type="button" onClick={handleChangeSignature}>
+                      Change
+                    </button>
+                    <button
+                      className="admin-config-btn admin-config-btn-danger"
+                      type="button"
+                      onClick={handleDeleteSignature}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="org-sign-asset-card">
+                <label>Stamp</label>
+                <div className="org-logo-block">
+                  {stampPreview ? (
+                    <img
+                      className="org-logo-preview org-sign-preview"
+                      src={stampPreview}
+                      alt="Organization stamp"
+                    />
+                  ) : (
+                    <div className="org-logo-preview-empty org-sign-preview-empty">No stamp uploaded</div>
+                  )}
+                </div>
+                {isEditing ? (
+                  <div className="org-logo-actions">
+                    <input
+                      ref={stampInputRef}
+                      className="org-logo-hidden-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleStampFileChange}
+                    />
+                    <button className="admin-config-btn" type="button" onClick={handleChangeStamp}>
+                      Change
+                    </button>
+                    <button
+                      className="admin-config-btn admin-config-btn-danger"
+                      type="button"
+                      onClick={handleDeleteStamp}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
