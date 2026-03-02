@@ -56,6 +56,7 @@ app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/organizations", organizationRoutes);
 app.use("/followups", followupsRoutes);
+app.use("/teams", teamRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/events", eventsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);

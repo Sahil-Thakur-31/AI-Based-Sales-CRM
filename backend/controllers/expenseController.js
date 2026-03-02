@@ -1,6 +1,7 @@
 const Expense = require("../models/expenses");
 const Notification = require("../models/notifications");
 const getNextCounter = require("../utils/getNextCounter");
+require("../models/users");
 
 const isAdmin = (role) => String(role || "").toLowerCase() === "admin";
 const normalizeReceiptUrl = (value) => {
