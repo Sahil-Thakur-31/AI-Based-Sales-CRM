@@ -1,11 +1,13 @@
 import "./sideBar.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
+import { useState } from "react";
 
 export default function Sidebar() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const [hoveredPath, setHoveredPath] = useState("");
 
   // Decode user role from token
   const token = localStorage.getItem("token");
@@ -73,14 +75,33 @@ export default function Sidebar() {
             isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
           }
 
+          const isFollowups = item.path === "/followups";
+          const isFollowupsAddActive = location.pathname === "/followups/add";
+          const showFollowupsAdd = isFollowups && (hoveredPath === item.path || isActive || isFollowupsAddActive);
+
           return (
             <div
               key={index}
-              className={`sidebar-item ${isActive ? "active" : ""}`}
-              onClick={() => navigate(item.path)}
+              className="sidebar-item-wrap"
+              onMouseEnter={() => setHoveredPath(item.path)}
+              onMouseLeave={() => setHoveredPath("")}
             >
-              <span className="sidebar-icon">{item.icon}</span>
-              <span className="sidebar-text">{item.name}</span>
+              <div
+                className={`sidebar-item ${(isActive || (isFollowups && isFollowupsAddActive)) ? "active" : ""}`}
+                onClick={() => navigate(item.path)}
+              >
+                <span className="sidebar-icon">{item.icon}</span>
+                <span className="sidebar-text">{item.name}</span>
+              </div>
+
+              {showFollowupsAdd && (
+                <div
+                  className={`sidebar-subitem ${isFollowupsAddActive ? "active" : ""}`}
+                  onClick={() => navigate("/followups/add")}
+                >
+                  + Add
+                </div>
+              )}
             </div>
           );
 

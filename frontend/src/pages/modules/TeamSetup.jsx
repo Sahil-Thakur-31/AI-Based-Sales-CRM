@@ -1,231 +1,254 @@
-import { useEffect, useState } from 'react';
-import API from '../../api';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API from "../../api";
+import "./styles/teamSetup.css";
 
-function TeamSetup() {
-  const [error, setError] = useState(null);
-  const [teams, setTeams] = useState([]);
-  const [currentTeam, setCurrentTeam] = useState(null);
-  const [teamName, setTeamName] = useState('');
-  const [managers, setManagers] = useState([]);
-  const [selectedLeads, setSelectedLeads] = useState(new Set());
-  const [users, setUsers] = useState([]);
-  const [selectedUsers, setSelectedUsers] = useState(new Set());
-  const [managerQuery, setManagerQuery] = useState('');
-  const [userQuery, setUserQuery] = useState('');
+function getRoleName(user) {
+  return user?.roleName || user?.role?.name || "";
+}
+
+export default function TeamSetup() {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    API.get('/teams')
-      .then(res => {
-        setTeams(res.data || []);
-        // do not auto-select a team so creation inputs show
-      })
-      .catch(_ => {});
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(true);
 
-    // load managers and regular users
-    API.get('/users')
-      .then(res => {
-        // API returns {roleName} field
-        console.log('users loaded', res.data);
-        setManagers(res.data.filter(u => u.roleName === 'Manager'));
-        setUsers(res.data.filter(u => u.roleName === 'User'));
-      })
-      .catch(_ => {});
+  const [teams, setTeams] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+
+  const [teamName, setTeamName] = useState("");
+  const [selectedLeadId, setSelectedLeadId] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState(new Set());
+  const [memberQuery, setMemberQuery] = useState("");
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [teamsRes, usersRes] = await Promise.all([API.get("/teams"), API.get("/users")]);
+        setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
+        setAllUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
+      } catch (err) {
+        console.error(err);
+        setError(err.response?.data?.message || "Failed to load team setup data");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
   }, []);
 
+  const managers = useMemo(
+    () =>
+      allUsers.filter(
+        (user) => String(getRoleName(user)).toLowerCase() === "manager" && user?.is_active !== false
+      ),
+    [allUsers]
+  );
 
-  const submit = () => {
-    if (currentTeam) {
-      // existing team management is handled elsewhere
-      navigate('/team-dashboard');
-    } else {
-      if (!teamName.trim()) {
-        setError('Team name is required');
-        return;
-      }
-      if (selectedLeads.size === 0) {
-        setError('Please select at least one manager as team lead');
-        return;
-      }
-      // send arrays
-      API.post('/teams', {
-        name: teamName,
-        teamLeadIds: Array.from(selectedLeads),
-        members: Array.from(selectedUsers)
+  const memberPool = useMemo(
+    () =>
+      allUsers.filter((user) => {
+        const role = String(getRoleName(user)).toLowerCase();
+        const isActive = user?.is_active !== false;
+        return role !== "admin" && isActive;
+      }),
+    [allUsers]
+  );
+
+  const selectedMembers = useMemo(
+    () => memberPool.filter((user) => selectedMemberIds.has(String(user._id))),
+    [memberPool, selectedMemberIds]
+  );
+
+  const filteredMemberOptions = useMemo(() => {
+    const query = memberQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    return memberPool
+      .filter((user) => {
+        const id = String(user._id);
+        const searchText = `${user.name || ""} ${user.email || ""} ${getRoleName(user)}`.toLowerCase();
+        return !selectedMemberIds.has(id) && id !== selectedLeadId && searchText.includes(query);
       })
-        .then(() => {
-          navigate('/team-dashboard');
-        })
-        .catch(err => setError(err.response?.data?.message || 'Could not create team'));
+      .slice(0, 12);
+  }, [memberPool, memberQuery, selectedMemberIds, selectedLeadId]);
+
+  function addMember(userId) {
+    const id = String(userId);
+    if (!id || id === selectedLeadId) return;
+    setSelectedMemberIds((prev) => new Set([...prev, id]));
+    setMemberQuery("");
+  }
+
+  function removeMember(userId) {
+    const id = String(userId);
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function onLeadChange(newLeadId) {
+    const id = String(newLeadId || "");
+    setSelectedLeadId(id);
+    if (!id) return;
+
+    // Lead cannot also be a member.
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  async function submit() {
+    try {
+      setError("");
+      setSuccess("");
+
+      if (!teamName.trim()) {
+        setError("Team name is required");
+        return;
+      }
+
+      if (!selectedLeadId) {
+        setError("Please select one team lead");
+        return;
+      }
+
+      await API.post("/teams", {
+        name: teamName.trim(),
+        teamLeadId: selectedLeadId,
+        members: Array.from(selectedMemberIds)
+      });
+
+      setSuccess("Team created successfully");
+      navigate("/team-dashboard");
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Could not create team");
     }
-  };
+  }
+
+  if (loading) {
+    return <div className="team-setup-loading">Loading team setup...</div>;
+  }
 
   return (
-    <div className="container mt-4">
-      <h2>{currentTeam ? 'Manage Team' : 'Setup Your Team'}</h2>
-      {error && <p className="text-danger">{error}</p>}
-
-      {/* existing teams selector */}
-      {teams.length > 0 && (
-        <div className="mb-3">
-          <label className="form-label">Choose team to manage or create new:</label>
-          <select
-            className="form-select"
-            value={currentTeam?._id || ''}
-            onChange={e => {
-              const t = teams.find(x => x._id === e.target.value);
-              setCurrentTeam(t || null);
-              if (t) setTeamName(t.name || '');
-              else setTeamName('');
-            }}
-          >
-            <option value="">-- new team --</option>
-            {teams.map((t, i) => (
-              <option key={t._id} value={t._id}>
-                {t.name || `Team ${i + 1}`}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {currentTeam && currentTeam.teamLeads && currentTeam.teamLeads.length > 0 && (
-        <div className="mb-3">
-          <h4>Team Lead(s)</h4>
-          <ul>
-            {currentTeam.teamLeads.map((m, idx) => (
-              <li key={idx}>{m.userId?.name || m.userId?.email}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {currentTeam && currentTeam.members && currentTeam.members.length > 0 && (
-        <div className="mb-3">
-          <h4>Current members</h4>
-          <ul>
-            {currentTeam.members.map((m, idx) => (
-              <li key={idx} className="d-flex justify-content-between align-items-center">
-                <span>{m.userId?.name || m.userId?.email}</span>
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => {
-                    API.post('/teams/remove-member', { userId: m.userId?._id, teamId: currentTeam._id })
-                      .then(() => {
-                        API.get('/teams').then(res => {
-                          setTeams(res.data || []);
-                          const updated = res.data.find(x => x._id === currentTeam._id);
-                          setCurrentTeam(updated || null);
-                        });
-                      })
-                      .catch(err => setError(err.response?.data?.message || 'Failed to remove'));
-                  }}
-                >Remove</button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* show creation area when no team selected */}
-      {!currentTeam && (
-        <>
-          <div className="mb-3">
-            <label className="form-label">Team Name</label>
-            <input
-              type="text"
-              className="form-control"
-              value={teamName}
-              onChange={e => setTeamName(e.target.value)}
-            />
+    <div className="team-setup-page">
+      <div className="team-setup-shell">
+        <div className="team-setup-header">
+          <div>
+            <h2>Create Team</h2>
+            <p>Choose one manager as lead and assign any non-admin users as members.</p>
           </div>
-          <div className="mb-3">
-            <label className="form-label">Managers</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search managers..."
-              value={managerQuery}
-              onChange={e => setManagerQuery(e.target.value)}
-            />
-            <div className="tag-container mt-1">
-              {[...selectedLeads].map(id => {
-                const u = managers.find(m => m._id === id);
-                return u ? (
-                  <span key={id} className="badge bg-primary me-1">
-                    {u.name || u.email}
-                    <button type="button" className="btn-close btn-close-white btn-sm ms-1" aria-label="Remove" onClick={() => {
-                      const copy = new Set(selectedLeads);
-                      copy.delete(id);
-                      setSelectedLeads(copy);
-                    }}></button>
-                  </span>
-                ) : null;
-              })}
+          <button className="team-setup-btn secondary" onClick={() => navigate("/team-dashboard")}>
+            Go To Dashboard
+          </button>
+        </div>
+
+        {teams.length > 0 ? (
+          <section className="team-setup-card">
+            <h3>Existing Teams</h3>
+            <div className="team-setup-team-list">
+              {teams.map((team) => (
+                <div key={team._id} className="team-setup-team-chip">
+                  <strong>{team.name || "Untitled Team"}</strong>
+                  <span>{team.totalPeople || 0} members</span>
+                </div>
+              ))}
             </div>
-            {managerQuery && (
-              <div className="list-group mt-1" style={{maxHeight: '150px', overflowY:'auto'}}>
-                {managers.filter(m => (m.name||m.email).toLowerCase().includes(managerQuery.toLowerCase()) && !selectedLeads.has(m._id)).map(m => (
-                  <div key={m._id} className="list-group-item list-group-item-action" onClick={() => {
-                    const copy = new Set(selectedLeads);
-                    copy.add(m._id);
-                    setSelectedLeads(copy);
-                    setManagerQuery('');
-                  }}>
-                    {m.name || m.email}
-                  </div>
+          </section>
+        ) : null}
+
+        <section className="team-setup-card">
+          <div className="team-setup-field-grid">
+            <label className="team-setup-field">
+              <span>Team Name</span>
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="e.g. North Zone Pipeline Team"
+              />
+            </label>
+
+            <label className="team-setup-field">
+              <span>Team Lead (Manager only)</span>
+              <select value={selectedLeadId} onChange={(e) => onLeadChange(e.target.value)}>
+                <option value="">Select Manager</option>
+                {managers.map((manager) => (
+                  <option key={manager._id} value={manager._id}>
+                    {manager.name || manager.email} ({manager.email})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="team-setup-members">
+            <label className="team-setup-field">
+              <span>Team Members (Any role except Admin)</span>
+              <input
+                type="text"
+                value={memberQuery}
+                onChange={(e) => setMemberQuery(e.target.value)}
+                placeholder="Search by name, email, or role"
+              />
+            </label>
+
+            {filteredMemberOptions.length > 0 ? (
+              <div className="team-setup-suggest">
+                {filteredMemberOptions.map((user) => (
+                  <button
+                    key={user._id}
+                    className="team-setup-suggest-item"
+                    onClick={() => addMember(user._id)}
+                  >
+                    <strong>{user.name || "Unnamed User"}</strong>
+                    <span>
+                      {user.email} | {getRoleName(user)}
+                    </span>
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Users</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search users..."
-              value={userQuery}
-              onChange={e => setUserQuery(e.target.value)}
-            />
-            <div className="tag-container mt-1">
-              {[...selectedUsers].map(id => {
-                const u = users.find(u2 => u2._id === id);
-                return u ? (
-                  <span key={id} className="badge bg-secondary me-1">
-                    {u.name || u.email}
-                    <button type="button" className="btn-close btn-close-white btn-sm ms-1" aria-label="Remove" onClick={() => {
-                      const copy = new Set(selectedUsers);
-                      copy.delete(id);
-                      setSelectedUsers(copy);
-                    }}></button>
-                  </span>
-                ) : null;
-              })}
-            </div>
-            {userQuery && (
-              <div className="list-group mt-1" style={{maxHeight: '150px', overflowY:'auto'}}>
-                {users.filter(u => (u.name||u.email).toLowerCase().includes(userQuery.toLowerCase()) && !selectedUsers.has(u._id)).map(u => (
-                  <div key={u._id} className="list-group-item list-group-item-action" onClick={() => {
-                    const copy = new Set(selectedUsers);
-                    copy.add(u._id);
-                    setSelectedUsers(copy);
-                    setUserQuery('');
-                  }}>
-                    {u.name || u.email}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+            ) : null}
 
-      <button className="btn btn-primary mt-3" onClick={submit}>
-        {currentTeam ? 'View Dashboard' : 'Create Team'}
-      </button>
+            <div className="team-setup-selected-list">
+              {selectedMembers.length ? (
+                selectedMembers.map((user) => (
+                  <div key={user._id} className="team-setup-selected-chip">
+                    <div>
+                      <strong>{user.name || "Unnamed User"}</strong>
+                      <span>
+                        {user.email} | {getRoleName(user)}
+                      </span>
+                    </div>
+                    <button onClick={() => removeMember(user._id)}>Remove</button>
+                  </div>
+                ))
+              ) : (
+                <div className="team-setup-empty">No members selected</div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {error ? <div className="team-setup-alert error">{error}</div> : null}
+        {success ? <div className="team-setup-alert success">{success}</div> : null}
+
+        <div className="team-setup-footer">
+          <button className="team-setup-btn primary" onClick={submit}>
+            Create Team
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
-
-export default TeamSetup;

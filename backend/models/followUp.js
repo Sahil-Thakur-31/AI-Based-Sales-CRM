@@ -22,8 +22,15 @@ const followupSchema = new mongoose.Schema(
 
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "users",
       required: true,
+      index: true
+    },
+
+    kind: {
+      type: String,
+      enum: ["followup", "meeting"],
+      default: "followup",
       index: true
     },
 
@@ -38,6 +45,49 @@ const followupSchema = new mongoose.Schema(
     title: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 300
+    },
+
+    clientName: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+      index: true
+    },
+
+    stage: {
+      type: String,
+      enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
+      default: "P1",
+      index: true
+    },
+
+    notes: {
+      type: String,
+      trim: true,
+      maxlength: 2000
+    },
+
+    durationMinutes: {
+      type: Number,
+      min: 1
+    },
+
+    agenda: {
+      type: String,
+      trim: true,
+      maxlength: 2000
+    },
+
+    address: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+
+    exactLocation: {
+      type: String,
       trim: true,
       maxlength: 300
     },
