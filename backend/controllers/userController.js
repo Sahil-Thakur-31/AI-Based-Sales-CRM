@@ -336,7 +336,7 @@ const updateProfile = async (req, res) => {
     };
 
     if (req.file)
-      updateData.photoUrl = `/uploads/${req.file.filename}`;
+      updateData.photoUrl = `/uploads/profile_picture/${req.file.filename}`;
 
 
     const updatedUser = await User.findOneAndUpdate(

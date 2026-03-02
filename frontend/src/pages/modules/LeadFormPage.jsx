@@ -20,7 +20,6 @@ function getUserIdFromToken() {
 
 function LeadFormPage({ formMode = "" }) {
   const { id } = useParams();
-  const location = useLocation();
   const navigate = useNavigate();
 
   const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
@@ -66,9 +65,9 @@ function LeadFormPage({ formMode = "" }) {
     website: "",
     source: "",
     country: "",
-    State: "",
-    city: "",
-    zone: "",
+State: "",
+city: "",
+zone: "",
     lead_temperature: "cold",
     deal_value_estimate: "",
     status: "new",
@@ -199,7 +198,6 @@ function LeadFormPage({ formMode = "" }) {
         console.error("users load error", usersRes.reason);
       }
     };
-
     load();
   }, []);
 
@@ -213,73 +211,35 @@ function LeadFormPage({ formMode = "" }) {
 
   /* ================= CHANGE ================= */
   const handleLeadChange = (e) => {
-    const { name, value } = e.target;
+  const { name, value } = e.target;
 
-    setLead((prev) => {
-      let updated = { ...prev, [name]: value };
+  setLead(prev => {
+    let updated = { ...prev, [name]: value };
 
-      // reset dependent dropdowns
-      if (name === "country") {
-        updated.State = "";
-        updated.city = "";
-        updated.zone = "";
-      }
+    // reset dependent dropdowns
+    if (name === "country") {
+      updated.State = "";
+      updated.city = "";
+      updated.zone = "";
+    }
 
-      if (name === "State") {
-        updated.city = "";
-        updated.zone = "";
-      }
+    if (name === "State") {
+      updated.city = "";
+      updated.zone = "";
+    }
 
-      if (name === "city") {
-        updated.zone = "";
-      }
+    if (name === "city") {
+      updated.zone = "";
+    }
 
-      return updated;
-    });
-  };
+    return updated;
+  });
+};
 
   const handleContactChange = (i, e) => {
     const updated = [...contacts];
     updated[i][e.target.name] = e.target.value;
     setContacts(updated);
-  };
-
-  const handleHistoryChange = (index, field, value) => {
-    setLead((prev) => {
-      const history = Array.isArray(prev.contact_history)
-        ? [...prev.contact_history]
-        : [];
-      history[index] = { ...(history[index] || {}), [field]: value };
-      return { ...prev, contact_history: history };
-    });
-  };
-
-  const addHistoryEntry = () => {
-    setLead((prev) => ({
-      ...prev,
-      contact_history: [
-        ...(Array.isArray(prev.contact_history) ? prev.contact_history : []),
-        {
-          contacted_at: new Date().toISOString().slice(0, 16),
-          mode: "call",
-          reply: "",
-          notes: "",
-          next_action: "",
-          next_action_date: "",
-          is_completed: false,
-          completed_at: "",
-        },
-      ],
-    }));
-  };
-
-  const removeHistoryEntry = (index) => {
-    setLead((prev) => {
-      const history = Array.isArray(prev.contact_history)
-        ? prev.contact_history.filter((_, i) => i !== index)
-        : [];
-      return { ...prev, contact_history: history };
-    });
   };
 
   const addContact = () => {
@@ -307,7 +267,7 @@ function LeadFormPage({ formMode = "" }) {
   /* ================= SAVE ================= */
   const handleSave = async () => {
     if (!contacts[0].name || !contacts[0].phone) {
-      showAlert("Validation", "Primary contact required", "error");
+      alert("Primary contact required");
       return;
     }
 
@@ -366,23 +326,23 @@ function LeadFormPage({ formMode = "" }) {
 
   /* ================= LOCATION FILTERS ================= */
 
-  const countries = [...new Set(locations.map((l) => l.country))];
+const countries = [...new Set(locations.map(l => l.country))];
 
-  const states = [
-    ...new Set(
-      locations
-        .filter((l) => l.country === lead.country)
-        .map((l) => l.State)
-    ),
-  ];
+const states = [
+  ...new Set(
+    locations
+      .filter(l => l.country === lead.country)
+      .map(l => l.state)   // 👈 lowercase
+  )
+];
 
-  const cities = [
-    ...new Set(
-      locations
-        .filter((l) => l.State === lead.State)
-        .map((l) => l.city)
-    ),
-  ];
+const cities = [
+  ...new Set(
+    locations
+      .filter(l => l.state === lead.State)
+      .map(l => l.city)
+  )
+];
 
   const zones = [
     ...new Set(
@@ -746,73 +706,69 @@ function LeadFormPage({ formMode = "" }) {
         )}
         <Field label="Address" name="Address" value={lead.Address} onChange={handleLeadChange} editMode={editMode} />
 
-        {/* COUNTRY */}
-        <div className="field">
-          <label>Country</label>
-          <select name="country" value={lead.country} onChange={handleLeadChange}>
-            <option value="">Select Country</option>
-            {countries.map((c, i) => (
-              <option key={i} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
+       {/* COUNTRY */}
+<div className="field">
+  <label>Country</label>
+  <select
+    name="country"
+    value={lead.country}
+    onChange={handleLeadChange}
+  >
+    <option value="">Select Country</option>
+    {countries.map((c, i) => (
+      <option key={i} value={c}>{c}</option>
+    ))}
+  </select>
+</div>
 
-        {/* STATE */}
-        <div className="field">
-          <label>State</label>
-          <select
-            name="State"
-            value={lead.State}
-            onChange={handleLeadChange}
-            disabled={!lead.country}
-          >
-            <option value="">Select State</option>
-            {states.map((s, i) => (
-              <option key={i} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
+{/* STATE */}
+<div className="field">
+  <label>State</label>
+  <select
+    name="State"
+    value={lead.State}
+    onChange={handleLeadChange}
+    disabled={!lead.country}
+  >
+    <option value="">Select State</option>
+    {states.map((s, i) => (
+      <option key={i} value={s}>{s}</option>
+    ))}
+  </select>
+</div>
 
-        {/* CITY */}
-        <div className="field">
-          <label>City</label>
-          <select
-            name="city"
-            value={lead.city}
-            onChange={handleLeadChange}
-            disabled={!lead.State}
-          >
-            <option value="">Select City</option>
-            {cities.map((c, i) => (
-              <option key={i} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
+{/* CITY */}
+<div className="field">
+  <label>City</label>
+  <select
+    name="city"
+    value={lead.city}
+    onChange={handleLeadChange}
+    disabled={!lead.State}
+  >
+    <option value="">Select City</option>
+    {cities.map((c, i) => (
+      <option key={i} value={c}>{c}</option>
+    ))}
+  </select>
+</div>
 
-        {/* ZONE */}
-        <div className="field">
-          <label>Zone</label>
-          <select
-            name="zone"
-            value={lead.zone}
-            onChange={handleLeadChange}
-            disabled={!lead.city}
-          >
-            <option value="">Select Zone</option>
-            {zones.map((z, i) => (
-              <option key={i} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Field label="Website" name="website" value={lead.website} onChange={handleLeadChange} editMode={editMode} />
+{/* ZONE */}
+<div className="field">
+  <label>Zone</label>
+  <select
+    name="zone"
+    value={lead.zone}
+    onChange={handleLeadChange}
+    disabled={!lead.city}
+  >
+    <option value="">Select Zone</option>
+    {zones.map((z, i) => (
+      <option key={i} value={z}>{z}</option>
+    ))}
+  </select>
+</div>
+<Field label="Website" name="website" value={lead.website} onChange={handleLeadChange} editMode={editMode}/>
 
         {/* SOURCE */}
         <div className="field">
@@ -820,10 +776,8 @@ function LeadFormPage({ formMode = "" }) {
           {editMode ? (
             <select name="source" value={lead.source || ""} onChange={handleLeadChange}>
               <option value="">Select Source</option>
-              {sources.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name}
-                </option>
+              {sources.map(s => (
+                <option key={s._id} value={s._id}>{s.name}</option>
               ))}
             </select>
           ) : (
@@ -999,12 +953,12 @@ function LeadFormPage({ formMode = "" }) {
 
 /* ================= FIELD COMPONENTS ================= */
 
-function Field({ label, name, value, onChange, editMode, type = "text" }) {
+function Field({ label, name, value, onChange, editMode }) {
   return (
     <div className="field">
       <label>{label}</label>
       {editMode ? (
-        <input type={type} name={name} value={value || ""} onChange={onChange} />
+        <input name={name} value={value || ""} onChange={onChange}/>
       ) : (
         <p>{value || "-"}</p>
       )}
@@ -1012,12 +966,12 @@ function Field({ label, name, value, onChange, editMode, type = "text" }) {
   );
 }
 
-function InputField({ label, name, value, onChange, editMode, type = "text" }) {
+function InputField({ label, name, value, onChange, editMode }) {
   return (
     <div className="field">
       <label>{label}</label>
       {editMode ? (
-        <input type={type} name={name} value={value || ""} onChange={onChange} />
+        <input name={name} value={value || ""} onChange={onChange}/>
       ) : (
         <p>{value || "-"}</p>
       )}

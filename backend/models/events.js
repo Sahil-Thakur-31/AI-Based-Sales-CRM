@@ -1,5 +1,95 @@
 const mongoose = require("mongoose");
 
+const eventRegistrationSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      required: true
+    },
+    fullName: {
+      type: String,
+      trim: true,
+      maxlength: 200
+    },
+    email: {
+      type: String,
+      trim: true,
+      maxlength: 200
+    },
+    mobile: {
+      type: String,
+      trim: true,
+      maxlength: 20
+    },
+    companyName: {
+      type: String,
+      trim: true,
+      maxlength: 200
+    },
+    designation: {
+      type: String,
+      trim: true,
+      maxlength: 200
+    },
+    ticketType: {
+      type: String,
+      trim: true,
+      maxlength: 100
+    },
+    city: {
+      type: String,
+      trim: true,
+      maxlength: 120
+    },
+    attendeesCount: {
+      type: Number,
+      min: 1,
+      default: 1
+    },
+    specialRequirements: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+    attendeeUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "users"
+      }
+    ],
+    payment: {
+      method: {
+        type: String,
+        trim: true,
+        maxlength: 100
+      },
+      referenceNo: {
+        type: String,
+        trim: true,
+        maxlength: 120
+      },
+      amountPaid: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+      paymentDate: {
+        type: Date
+      },
+      notes: {
+        type: String,
+        trim: true,
+        maxlength: 500
+      }
+    }
+  },
+  {
+    _id: false,
+    timestamps: true
+  }
+);
+
 const eventSchema = new mongoose.Schema(
   {
     name: {
@@ -12,7 +102,7 @@ const eventSchema = new mongoose.Schema(
 
     industry: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Industry",
+      ref: "industries",
       required: true,
       index: true
     },
@@ -31,7 +121,7 @@ const eventSchema = new mongoose.Schema(
 
     location: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Location",
+      ref: "location",
       index: true
     },
 
@@ -85,7 +175,7 @@ const eventSchema = new mongoose.Schema(
 
     source: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Source",
+      ref: "sources",
       index: true
     },
 
@@ -125,7 +215,7 @@ const eventSchema = new mongoose.Schema(
     attendedBy: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "users",
         index: true
       }
     ],
@@ -133,7 +223,7 @@ const eventSchema = new mongoose.Schema(
     registeredBy: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "users",
         index: true
       }
     ],
@@ -141,10 +231,12 @@ const eventSchema = new mongoose.Schema(
     interested: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "users",
         index: true
       }
     ],
+
+    registrations: [eventRegistrationSchema],
 
     is_deleted: {
       type: Boolean,

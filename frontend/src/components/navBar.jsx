@@ -286,6 +286,10 @@ function Navbar() {
                 Sources
               </div>
 
+              <div onClick={() => navigate("/organization")}>
+                Organization
+              </div>
+
             </div>
 
           </div>

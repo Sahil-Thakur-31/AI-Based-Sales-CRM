@@ -1,18 +1,140 @@
 const mongoose = require("mongoose");
 const Deal = require("../models/deals");
-const Leads = require("../models/leads");
-const LeadContacts = require("../models/leadContacts");
 const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
+const DealStageHistory = require("../models/dealStageHistory");
 
-function mapTemperatureFromLead(lead) {
-  const temp = (lead?.lead_temperature || "").toLowerCase();
-  if (temp === "hot") return { ai_score: 90, lead_temperature: "hot" };
-  if (temp === "warm") return { ai_score: 70, lead_temperature: "warm" };
-  return { ai_score: 50, lead_temperature: "cold" };
+const DEAL_STAGES = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+const DEAL_STATUSES = ["open", "won", "lost"];
+
+function cleanString(value) {
+  if (value === undefined || value === null) return "";
+  return String(value).trim();
+}
+
+function numberOrNull(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isNaN(n) ? null : n;
+}
+
+function dateOrNull(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function boolOrNull(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return Boolean(value);
+}
+
+function safeDateDisplay(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+async function buildDealDetail(dealDoc) {
+  const deal = dealDoc.toObject ? dealDoc.toObject() : dealDoc;
+
+  let client = null;
+  if (deal.client_id) {
+    client = await Client.findOne({
+      _id: deal.client_id,
+      is_deleted: { $ne: true }
+    }).lean();
+  }
+
+  let contacts = [];
+  if (deal.client_id) {
+    contacts = await ClientContact.find({
+      client_id: String(deal.client_id),
+      is_active: { $ne: false }
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+  }
+
+  if (contacts.length === 0 && deal.client_contact_Id) {
+    const primaryContact = await ClientContact.findById(deal.client_contact_Id).lean();
+    if (primaryContact) contacts = [primaryContact];
+  }
+
+  const stageHistory = await DealStageHistory.find({
+    dealId: deal._id
+  })
+  .sort({ movedAt: -1 })
+  .lean();
+
+  return {
+    deal: {
+      _id: deal._id,
+      client_id: deal.client_id || null,
+      client_contact_Id: deal.client_contact_Id || null,
+      assignedTo: deal.assignedTo || null,
+      stage: deal.stage || "",
+      dealValue: deal.dealValue ?? null,
+      probability: deal.probability ?? null,
+      expectedCloseDate: safeDateDisplay(deal.expectedCloseDate),
+      actualCloseDate: safeDateDisplay(deal.actualCloseDate),
+      status: deal.status || "open",
+      aiRiskScore: deal.aiRiskScore ?? null,
+      lead_id: deal.lead_id || null,
+      isActive: deal.isActive ?? null,
+      isDeleted: deal.is_deleted ?? false,
+      assignedBy: deal.assignedBy || null,
+      createdAt: safeDateDisplay(deal.createdAt),
+      updatedAt: safeDateDisplay(deal.updatedAt)
+    },
+    client: client
+      ? {
+        _id: client._id,
+        name: client.name || "",
+        industry: client.industry || null,
+        Address: client.Address || "",
+        employeeCount: client.employeeCount ?? null,
+        turnoverRange: client.turnoverRange || "",
+        website: client.website || "",
+        source: client.source || null,
+        deal_count: client.deal_count ?? null,
+        GST_no: client.GST_no || "",
+        URD: client.URD || "",
+        Aadhar_doc: client.Aadhar_doc || "",
+        PanCard_doc: client.PanCard_doc || "",
+        Other_docs: client.Other_docs || "",
+        location: client.location || null
+      }
+      : null,
+    contacts: contacts.map((contact) => ({
+      _id: contact._id,
+      client_id: contact.client_id || "",
+      name: contact.name || "",
+      designation: contact.designation || "",
+      phone: contact.phone || "",
+      email: contact.email || "",
+      linkedin: contact.linkedin || "",
+      is_active: contact.is_active ?? true,
+      is_deleted: contact.is_deleted || null,
+      createdAt: safeDateDisplay(contact.createdAt),
+      updatedAt: safeDateDisplay(contact.updatedAt)
+    })),
+    stageHistory: stageHistory.map((h) => ({
+      _id: h._id,
+      dealId: h.dealId,
+      stage: h.stage || "",
+      movedAt: safeDateDisplay(h.movedAt),
+      movedBy: h.movedBy || null
+    }))
+  };
 }
 
 exports.getDeals = async (req, res) => {
+
   try {
     const deletedOnly =
       req.query.deleted_only === "true" || req.query.deleted_only === true;
@@ -35,12 +157,13 @@ exports.getDeals = async (req, res) => {
       .filter(Boolean)
       .map((id) => id.toString());
 
-    const uniqueLeadIds = [...new Set(leadIds)];
-    const clientIds = deals
-      .map((deal) => deal.client_id)
-      .filter(Boolean)
-      .map((id) => id.toString());
-    const uniqueClientIds = [...new Set(clientIds)];
+    const clientIds = [
+      ...new Set(
+        deals
+        .map((deal) => deal.client_id ? String(deal.client_id) : "")
+        .filter(Boolean)
+      )
+    ];
 
     const leads = uniqueLeadIds.length
       ? await Leads.find({ _id: { $in: uniqueLeadIds } }).lean()
@@ -85,11 +208,10 @@ exports.getDeals = async (req, res) => {
     }
 
     const response = deals.map((deal) => {
-      const leadId = deal.lead_id?.toString();
-      const clientId = deal.client_id?.toString();
-      const lead = leadId ? leadMap.get(leadId) : null;
-      const client = clientId ? clientMap.get(clientId) : null;
-      const temperatureData = mapTemperatureFromLead(lead);
+
+      const clientName = deal.client_id
+        ? (clientMap.get(String(deal.client_id)) || deal.clientName || "Unknown Client")
+        : (deal.clientName || "Unlinked Deal");
 
       return {
         _id: deal._id,
@@ -118,217 +240,11 @@ exports.getDeals = async (req, res) => {
         delete_reason: deal.deleted_reason || "",
         isActive: deal.isActive !== false,
       };
+
     });
 
     res.json(response);
   } catch (err) {
     res.status(500).json({ message: err.message });
-  }
-};
-
-// fallback handlers used by routes
-exports.getDealById = async (req, res) => {
-  try {
-    const includeDeleted =
-      req.query.include_deleted === "true" || req.query.include_deleted === true;
-
-    const filter = { _id: req.params.id };
-    if (!includeDeleted) {
-      filter.is_deleted = { $ne: true };
-    }
-
-    const deal = await Deal.findOne(filter).lean();
-    if (!deal) return res.status(404).json({ message: "Deal not found" });
-
-    // Look up the associated lead and client to enrich the response
-    const lead = deal.lead_id
-      ? await Leads.findById(deal.lead_id).lean()
-      : null;
-    const client = deal.client_id
-      ? await Client.findById(deal.client_id).lean()
-      : null;
-
-    // Load contacts from the lead
-    const contacts = deal.lead_id
-      ? await LeadContacts.find({ lead_id: deal.lead_id })
-        .sort({ is_primary: -1, created_at: 1 })
-        .lean()
-      : [];
-
-    // Load contacts from the client if no lead contacts
-    const clientContacts =
-      !contacts.length && deal.client_id
-        ? await ClientContact.find({
-          client_id: deal.client_id,
-          is_active: true,
-        }).lean()
-        : [];
-
-    // Build enriched response matching LeadFormPage field names
-    const enriched = {
-      ...deal,
-      company_name:
-        lead?.company_name || client?.name || deal.clientName || "",
-      industry: lead?.industry || "",
-      employee_count: lead?.employee_count || null,
-      turnover_range: lead?.turnover_range || "",
-      Address: lead?.Address || client?.Address || "",
-      website: lead?.website || client?.website || "",
-      source: lead?.source || client?.source || "",
-      deal_value_estimate:
-        typeof deal.dealValue === "number"
-          ? deal.dealValue
-          : lead?.deal_value_estimate || 0,
-      assigned_to: deal.assignedTo || lead?.assigned_to || "",
-      lead_temperature: lead?.lead_temperature || "",
-      status: deal.status || "open",
-      stage: deal.stage || "",
-      last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
-      next_action: lead?.next_action || "",
-      contact_history: [],
-      converted_to_deal: true,
-    };
-
-    // Add location fields if the lead has them
-    if (lead?.location) {
-      const Location = require("../models/location");
-      const location = await Location.findById(lead.location).lean();
-      if (location) {
-        enriched.country = location.country || "";
-        enriched.State = location.State || "";
-        enriched.city = location.city || "";
-        enriched.zone = location.zone || "";
-      }
-    }
-
-    const allContacts = contacts.length
-      ? contacts
-      : clientContacts.map((cc) => ({
-        name: cc.name || "",
-        designation: cc.designation || "",
-        phone: cc.phone || "",
-        email: cc.email || "",
-        linkedin: cc.linkedin || "",
-        address: "",
-        is_primary: true,
-      }));
-
-    res.json({ deal: enriched, contacts: allContacts });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch deal" });
-  }
-};
-
-exports.updateDeal = async (req, res) => {
-  try {
-    const userRole = (req.user?.role || "").toLowerCase();
-    const update = req.body || {};
-    delete update._id;
-
-    if (userRole !== "admin" && userRole !== "manager") {
-      delete update.assignedTo;
-      delete update.assigned_to;
-    }
-
-    const deal = await Deal.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
-    if (!deal) return res.status(404).json({ message: "Deal not found" });
-    res.json(deal);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update deal" });
-  }
-};
-
-exports.deleteDeal = async (req, res) => {
-  try {
-    const userRole = (req.user?.role || "").toLowerCase();
-    if (userRole !== "admin" && userRole !== "manager") {
-      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can delete deals" });
-    }
-
-    const reason = String(req.body?.reason || "").trim();
-    if (!reason) {
-      return res.status(400).json({ message: "Delete reason is required" });
-    }
-
-    const deal = await Deal.findById(req.params.id);
-    if (!deal || deal.is_deleted) {
-      return res.status(404).json({ message: "Deal not found" });
-    }
-
-    deal.is_deleted = true;
-    deal.deleted_reason = reason;
-    deal.deleted_at = new Date();
-    deal.isActive = false;
-
-    await deal.save();
-    return res.json({ message: "Deal deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Failed to delete deal" });
-  }
-};
-
-exports.restoreDeal = async (req, res) => {
-  try {
-    const userRole = (req.user?.role || "").toLowerCase();
-    if (userRole !== "admin" && userRole !== "manager") {
-      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can restore deals" });
-    }
-
-    const deal = await Deal.findById(req.params.id);
-    if (!deal) {
-      return res.status(404).json({ message: "Deal not found" });
-    }
-
-    deal.is_deleted = false;
-    deal.isActive = true;
-    deal.deleted_reason = "";
-    deal.deleted_at = null;
-
-    await deal.save();
-    return res.json({ message: "Deal restored successfully", deal });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Failed to restore deal" });
-  }
-};
-
-exports.getClientSuggestions = async (req, res) => {
-  try {
-    const q = String(req.query.q || "").trim();
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 25);
-    const allowedIds = await getAccessibleUserIds(req.user);
-    const assignedObjectIds = allowedIds.map((id) => new mongoose.Types.ObjectId(id));
-
-    const dealClientIds = await Deal.find({
-      is_deleted: { $ne: true },
-      assignedTo: { $in: assignedObjectIds },
-      client_id: { $exists: true, $ne: null },
-    }).distinct("client_id");
-
-    const filter = {
-      is_deleted: { $ne: true },
-      _id: { $in: dealClientIds },
-    };
-    if (q) {
-      filter.name = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
-    }
-
-    const clients = await Client.find(filter)
-      .select("_id name")
-      .sort({ name: 1 })
-      .limit(limit);
-
-    res.json(
-      clients.map((c) => ({
-        _id: c._id,
-        name: c.name || "",
-      }))
-    );
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch client suggestions" });
   }
 };

@@ -1,0 +1,242 @@
+.event-registration-page {
+  box-sizing: border-box;
+  min-height: calc(100vh - 24px);
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(16, 91, 161, 0.08), transparent 40%),
+    linear-gradient(180deg, #f4f8fc 0%, #eef3fa 100%);
+}
+
+.event-registration-header {
+  margin: 0 auto 16px;
+  max-width: 980px;
+}
+
+.event-registration-header h2 {
+  margin: 10px 0 8px;
+  color: #102a43;
+  font-size: 30px;
+}
+
+.event-registration-header p {
+  margin: 0;
+  color: #526987;
+}
+
+.back-button {
+  border: 1px solid #d6dfed;
+  background: #fff;
+  color: #1b4f8f;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.event-summary-strip {
+  max-width: 980px;
+  margin: 0 auto 16px;
+  background: #fff;
+  border: 1px solid #dbe5f2;
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(14, 38, 69, 0.07);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+}
+
+.event-summary-strip .summary-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: #1c5ca3;
+}
+
+.event-summary-strip h3 {
+  margin: 0;
+  color: #102a43;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.event-summary-strip p {
+  margin: 0;
+  color: #2f435a;
+  font-size: 14px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.event-form-card {
+  max-width: 980px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #dbe5f2;
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(15, 38, 67, 0.08);
+  padding: 20px;
+}
+
+.registration-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-section {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.loading-note {
+  margin: 0 0 12px;
+  color: #4f6685;
+  font-size: 13px;
+}
+
+.section-title {
+  margin: 4px 0 10px;
+  color: #143253;
+  font-size: 17px;
+}
+
+.section-note {
+  margin: 0 0 10px;
+  color: #58708f;
+  font-size: 13px;
+}
+
+.registration-form .form-grid,
+.attendee-grid {
+  display: grid;
+  gap: 12px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.registration-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #1f3551;
+  font-weight: 600;
+  margin: 0;
+  min-width: 0;
+}
+
+.registration-form input,
+.registration-form select,
+.registration-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d2dceb;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #1b2e43;
+  outline: none;
+  min-height: 42px;
+}
+
+.registration-form input:focus,
+.registration-form select:focus,
+.registration-form textarea:focus {
+  border-color: #1f6fc4;
+  box-shadow: 0 0 0 3px rgba(31, 111, 196, 0.12);
+}
+
+.full-width {
+  margin: 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.payment-panel {
+  margin-top: 2px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.checkbox-row {
+  margin: 4px 0 0;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  color: #27405f;
+  font-size: 13px;
+}
+
+.checkbox-row input {
+  min-height: auto;
+  width: auto;
+}
+
+.submit-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.error-text {
+  color: #b42318;
+  margin: 0;
+}
+
+.submit-btn,
+.success-box button {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0f76be, #1c4c91);
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.success-box {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.success-box h3 {
+  margin: 0 0 10px;
+  color: #0f5132;
+}
+
+.success-box p {
+  margin: 0 0 14px;
+  color: #334155;
+}
+
+@media (max-width: 960px) {
+  .event-registration-page {
+    padding: 18px;
+  }
+
+  .event-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .event-form-card {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .event-summary-strip,
+  .registration-form .form-grid,
+  .attendee-grid {
+    grid-template-columns: 1fr;
+  }
+}

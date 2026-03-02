@@ -26,42 +26,29 @@ body {
 
 .btn {
   background: #ffffff;
-  border: 1px solid #d1d5db;
-  padding: 10px 20px;
-  border-radius: 6px;
+  border: 1px solid #e3e8ef;
+  padding: 10px 18px;
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #1f2937;
+  gap: 8px;
 }
 
 .btn:hover {
-  background: #f9fafb;
+  background: #f0f4ff;
+  border-color: #cfd8ff;
 }
 
-.btn.active {
-  background: #eff6ff;
-  border-color: #93c5fd;
-  color: #1d4ed8;
-}
-
-.action-icon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.ocr-tag {
-  background: linear-gradient(90deg, #6f59ce, #5f73d6);
+.tag {
+  background: #6c63ff;
   color: white;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 999px;
-  line-height: 1.3;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
 }
 
 /* ================= HEADER ================= */
@@ -84,6 +71,8 @@ body {
   color: #1f2937;
 }
 
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+=======
 .deleted-header {
   margin-top: 24px;
 }
@@ -154,6 +143,7 @@ body {
   border-radius: 2px 2px 0 0;
 }
 
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
 .filters {
   display: flex;
   gap: 12px;
@@ -191,14 +181,12 @@ body {
 }
 
 .filters select {
-  padding: 11px 16px;
+  padding: 8px 14px;
   border-radius: 10px;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #d1d5db;
   font-size: 14px;
   outline: none;
   transition: 0.2s;
-  min-width: 190px;
-  background: #ffffff;
 }
 
 .filters select:focus {
@@ -226,7 +214,7 @@ table {
 }
 
 thead {
-  background-color: #f0f3f8;
+  background-color: #f3f6fb;
 }
 
 th,
@@ -238,7 +226,7 @@ td {
 
 th {
   font-weight: 600;
-  color: #3f5470;
+  color: #6b7280;
 }
 
 th.contact-col,
@@ -258,6 +246,9 @@ tbody tr:hover {
 }
 
 td {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  color: #374151;
+=======
   color: #1f3552;
 }
 
@@ -308,6 +299,7 @@ td {
 .ai-chip.cold {
   background: #d5eafb;
   color: #2b6ead;
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
 }
 
 /* ================= BADGES ================= */
@@ -338,6 +330,14 @@ td {
 /* ================= VIEW BUTTON ================= */
 
 .view-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  padding: 6px 12px;
+  background-color: #eef2ff;
+  color: #4f46e5;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+=======
   /* Mapped to btn-edit (blue) */
   padding: 8px 16px;
   background-color: #007bff;
@@ -348,15 +348,21 @@ td {
   line-height: 1.2;
   white-space: nowrap;
   font-weight: 600;
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .view-btn:hover {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background-color: #6366f1;
+  color: white;
+=======
   background-color: #0056b3;
   color: #ffffff;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
 }
 
 .row-actions {
@@ -482,6 +488,9 @@ td {
     padding: 16px;
   }
 
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+
+=======
   .btn {
     padding: 10px 14px;
     font-size: 14px;
@@ -500,6 +509,7 @@ td {
   .ai-chip {
     font-size: 13px;
   }
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
 
   .filters {
     width: 100%;
@@ -534,17 +544,21 @@ td {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
-  gap: 10px;
-  flex-wrap: wrap;
 }
 
 .edit-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background: #eef2ff;
+=======
   background: #007bff;
   color: #ffffff;
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
   border: none;
-  padding: 8px 20px;
-  border-radius: 6px;
+  padding: 10px 18px;
+  border-radius: 10px;
   cursor: pointer;
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+=======
   font-weight: 600;
   transition: all 0.2s ease;
 }
@@ -587,6 +601,7 @@ td {
   background: #c82333;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
 }
 
 .lead-form {
@@ -617,15 +632,6 @@ td {
   font-weight: 500;
 }
 
-.followup-done-toggle {
-  margin-top: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #374151;
-}
-
 .form-actions {
   margin-top: 20px;
   display: flex;
@@ -633,6 +639,13 @@ td {
 }
 
 .save-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+=======
   background: #28a745;
   color: white;
   border: none;
@@ -646,6 +659,7 @@ td {
   background: #218838;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
 }
 
 .cancel-btn {
@@ -682,6 +696,13 @@ td {
 }
 
 .add-contact-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background: #eef2ff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+=======
   background: #28a745;
   color: #ffffff;
   border: none;
@@ -696,6 +717,7 @@ td {
   background: #218838;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
 }
 
 .contact-card {
@@ -746,6 +768,8 @@ td {
   border: 1px solid #d1d5db;
   background: white;
 }
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+=======
 
 .crm-popup-input {
   width: 100%;
@@ -882,3 +906,4 @@ td {
   background: #e0e7ff;
   color: #4338ca;
 }
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
