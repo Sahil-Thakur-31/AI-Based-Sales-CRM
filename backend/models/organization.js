@@ -17,6 +17,11 @@ const organizationSchema = new mongoose.Schema(
       trim: true,
       default: ""
     },
+    website: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     area: {
       type: String,
       trim: true,

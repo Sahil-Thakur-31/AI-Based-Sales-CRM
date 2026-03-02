@@ -7,6 +7,7 @@ function createEmptyForm() {
     name: "",
     logoUrl: "",
     address: "",
+    website: "",
     area: "",
     city: "",
     pincode: "",
@@ -67,6 +68,7 @@ export default function Organization() {
     name: profile?.name || "",
     logoUrl: profile?.logoUrl || "",
     address: profile?.address || "",
+    website: profile?.website || "",
     area: profile?.area || "",
     city: profile?.city || "",
     pincode: profile?.pincode || "",
@@ -204,6 +206,7 @@ export default function Organization() {
       payload.append("logoUrl", form.logoUrl || "");
       payload.append("removeLogo", logoRemoved ? "true" : "false");
       payload.append("address", form.address || "");
+      payload.append("website", form.website || "");
       payload.append("area", form.area || "");
       payload.append("city", form.city || "");
       payload.append("pincode", form.pincode || "");
@@ -349,6 +352,19 @@ export default function Organization() {
                     />
                   ) : (
                     <p className="org-view-value">{form.address || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field org-profile-field-full">
+                  <label>Website</label>
+                  {isEditing ? (
+                    <input
+                      value={form.website}
+                      onChange={(e) => updateField("website", e.target.value)}
+                      placeholder="https://example.com"
+                    />
+                  ) : (
+                    <p className="org-view-value">{form.website || "-"}</p>
                   )}
                 </div>
               </div>
