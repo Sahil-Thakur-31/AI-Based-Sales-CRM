@@ -3,13 +3,11 @@ const express = require("express");
 const router = express.Router();
 
 const Notification = require("../models/notifications");
-<<<<<<< HEAD
 const Followup = require("../models/followUp");
 const CRMSettings = require("../models/crmSettings");
 const Meeting = require("../models/meetings");
 const Event = require("../models/events");
-=======
->>>>>>> 3227199e933376f08179b5fb7dd4ef595a944bbb
+
 
 const authenticate = require("../middlewares/auth");
 const sendOTPEmail = require("../services/emailService");
