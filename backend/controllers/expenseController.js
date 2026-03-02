@@ -110,6 +110,15 @@ exports.approveExpense = async (req, res) => {
     expense.approval.approvedAt = new Date();
     await expense.save();
 
+    await Notification.create({
+      userId: expense.userId,
+      title: "Expense Approved",
+      message: `Your expense #${expense.expenseNo} has been approved.`,
+      type: "success",
+      relatedId: expense._id,
+      relatedType: "expense",
+    });
+
     res.json({ message: "Expense Approved", expense });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -153,6 +162,17 @@ exports.updateExpenseStatus = async (req, res) => {
     }
 
     await expense.save();
+
+    if (status === "approved") {
+      await Notification.create({
+        userId: expense.userId,
+        title: "Expense Approved",
+        message: `Your expense #${expense.expenseNo} has been approved.`,
+        type: "success",
+        relatedId: expense._id,
+        relatedType: "expense",
+      });
+    }
 
     if (status === "rejected") {
       await Notification.create({

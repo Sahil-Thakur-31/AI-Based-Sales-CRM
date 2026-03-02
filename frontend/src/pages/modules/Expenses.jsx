@@ -684,7 +684,7 @@ const ExpenseDashboard = () => {
                 </div>
 
                 <div className="expense-form-group">
-                  <label>Total Expense</label>
+                  <label>Total Expense(Including Tax)</label>
                   <input type="number" name="total" value={formData.total} onChange={handleChange} />
                 </div>
 
