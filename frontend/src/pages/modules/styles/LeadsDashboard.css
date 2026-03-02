@@ -21,34 +21,47 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: 6px 0 14px;
+  margin-bottom: 10px;
 }
 
 .btn {
   background: #ffffff;
-  border: 1px solid #e3e8ef;
-  padding: 10px 18px;
-  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  padding: 10px 20px;
+  border-radius: 6px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  color: #1f2937;
 }
 
 .btn:hover {
-  background: #f0f4ff;
-  border-color: #cfd8ff;
+  background: #f9fafb;
 }
 
-.tag {
-  background: #6c63ff;
+.btn.active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.action-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ocr-tag {
+  background: linear-gradient(90deg, #6f59ce, #5f73d6);
   color: white;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  line-height: 1.3;
 }
 
 /* ================= HEADER ================= */
@@ -178,12 +191,14 @@ body {
 }
 
 .filters select {
-  padding: 8px 14px;
+  padding: 11px 16px;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #cfd6e4;
   font-size: 14px;
   outline: none;
   transition: 0.2s;
+  min-width: 190px;
+  background: #ffffff;
 }
 
 .filters select:focus {
@@ -196,7 +211,7 @@ body {
   background: #ffffff;
   border: 1px solid #e6ebf2;
   border-radius: 0 0 16px 16px;
-  overflow-x: hidden;
+  overflow-x: auto;
   min-height: 400px;
   /* Helps avoid jitter when pagination reduces row count */
   display: flex;
@@ -207,12 +222,11 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 0;
-  table-layout: fixed;
+  min-width: 800px;
 }
 
 thead {
-  background-color: #f3f6fb;
+  background-color: #f0f3f8;
 }
 
 th,
@@ -224,23 +238,8 @@ td {
 
 th {
   font-weight: 600;
-  color: #6b7280;
+  color: #3f5470;
 }
-
-th.contact-col,
-td.contact-cell {
-  width: 19%;
-  min-width: 19%;
-  max-width: 19%;
-}
-
-th.col-company, td.col-company { width: 16%; }
-th.col-industry, td.col-industry { width: 13%; }
-th.col-value, td.col-value { width: 10%; }
-th.col-score, td.col-score { width: 10%; }
-th.col-last-contact, td.col-last-contact { width: 9%; }
-th.col-next-action, td.col-next-action { width: 10%; }
-th.col-actions, td.col-actions { width: 13%; }
 
 tbody tr {
   border-top: 1px solid #edf2f7;
@@ -252,10 +251,7 @@ tbody tr:hover {
 }
 
 td {
-  color: #374151;
   color: #1f3552;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .company-cell {
@@ -268,18 +264,11 @@ td {
   font-size: 16px;
   font-weight: 500;
   color: #1f3552;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .contact-subtext {
   color: #5f7091;
   font-size: 13px;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .ai-chip {
@@ -335,12 +324,6 @@ td {
 /* ================= VIEW BUTTON ================= */
 
 .view-btn {
-  padding: 6px 12px;
-  background-color: #eef2ff;
-  color: #4f46e5;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
   /* Mapped to btn-edit (blue) */
   padding: 8px 16px;
   background-color: #007bff;
@@ -356,8 +339,6 @@ td {
 }
 
 .view-btn:hover {
-  background-color: #6366f1;
-  color: white;
   background-color: #0056b3;
   color: #ffffff;
   transform: translateY(-2px);
@@ -368,14 +349,6 @@ td {
   display: flex;
   gap: 8px;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-}
-
-.row-actions .view-btn,
-.row-actions .quote-btn {
-  min-width: 112px;
-  justify-content: center;
 }
 
 .quote-btn {
@@ -495,7 +468,6 @@ td {
     padding: 16px;
   }
 
-
   .btn {
     padding: 10px 14px;
     font-size: 14px;
@@ -527,7 +499,9 @@ td {
     width: 100%;
   }
 
-  table { min-width: 600px; }
+  table {
+    min-width: 600px;
+  }
 
   .details-panel {
     width: 100%;
@@ -546,15 +520,16 @@ td {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .edit-btn {
-  background: #eef2ff;
   background: #007bff;
   color: #ffffff;
   border: none;
-  padding: 10px 18px;
-  border-radius: 10px;
+  padding: 8px 20px;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
@@ -628,6 +603,15 @@ td {
   font-weight: 500;
 }
 
+.followup-done-toggle {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
 .form-actions {
   margin-top: 20px;
   display: flex;
@@ -635,11 +619,6 @@ td {
 }
 
 .save-btn {
-  background: #6366f1;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 10px;
   background: #28a745;
   color: white;
   border: none;
@@ -689,11 +668,6 @@ td {
 }
 
 .add-contact-btn {
-  background: #eef2ff;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
   background: #28a745;
   color: #ffffff;
   border: none;

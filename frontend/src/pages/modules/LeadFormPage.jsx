@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
 import BackButton from "../../components/BackButton";
@@ -18,8 +18,9 @@ function getUserIdFromToken() {
   }
 }
 
-function LeadFormPage({ formMode = "" }) {
+function LeadFormPage() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
@@ -31,7 +32,6 @@ function LeadFormPage({ formMode = "" }) {
   const searchParams = new URLSearchParams(location.search);
   const deletedView = searchParams.get("deleted") === "true";
   const dealView = searchParams.get("view") === "deal";
-  const clientView = formMode === "client" || searchParams.get("view") === "client";
   const dealIdFromQuery = searchParams.get("dealId") || "";
   const shouldStartInEditMode =
     !deletedView && (isNew || searchParams.get("edit") === "true");
@@ -65,9 +65,9 @@ function LeadFormPage({ formMode = "" }) {
     website: "",
     source: "",
     country: "",
-State: "",
-city: "",
-zone: "",
+    State: "",
+    city: "",
+    zone: "",
     lead_temperature: "cold",
     deal_value_estimate: "",
     status: "new",
@@ -102,7 +102,6 @@ zone: "",
   useEffect(() => {
     const loadData = async () => {
       if (isNew) return;
-      if (clientView) return;
 
       try {
         // 🔹 If viewing deal → load deal
@@ -163,7 +162,7 @@ zone: "",
     };
 
     loadData();
-  }, [id, isNew, deletedView, dealView, dealIdFromQuery, clientView]);
+  }, [id, isNew, deletedView, dealView, dealIdFromQuery]);
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
@@ -187,7 +186,11 @@ zone: "",
       }
 
       if (industriesRes.status === "fulfilled") {
-        setIndustries(Array.isArray(industriesRes.value.data) ? industriesRes.value.data : []);
+        setIndustries(
+          (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
+            .map((item) => item?.name)
+            .filter(Boolean)
+        );
       } else {
         console.error("industries load error", industriesRes.reason);
       }
@@ -198,6 +201,7 @@ zone: "",
         console.error("users load error", usersRes.reason);
       }
     };
+
     load();
   }, []);
 
@@ -211,35 +215,73 @@ zone: "",
 
   /* ================= CHANGE ================= */
   const handleLeadChange = (e) => {
-  const { name, value } = e.target;
+    const { name, value } = e.target;
 
-  setLead(prev => {
-    let updated = { ...prev, [name]: value };
+    setLead((prev) => {
+      let updated = { ...prev, [name]: value };
 
-    // reset dependent dropdowns
-    if (name === "country") {
-      updated.State = "";
-      updated.city = "";
-      updated.zone = "";
-    }
+      // reset dependent dropdowns
+      if (name === "country") {
+        updated.State = "";
+        updated.city = "";
+        updated.zone = "";
+      }
 
-    if (name === "State") {
-      updated.city = "";
-      updated.zone = "";
-    }
+      if (name === "State") {
+        updated.city = "";
+        updated.zone = "";
+      }
 
-    if (name === "city") {
-      updated.zone = "";
-    }
+      if (name === "city") {
+        updated.zone = "";
+      }
 
-    return updated;
-  });
-};
+      return updated;
+    });
+  };
 
   const handleContactChange = (i, e) => {
     const updated = [...contacts];
     updated[i][e.target.name] = e.target.value;
     setContacts(updated);
+  };
+
+  const handleHistoryChange = (index, field, value) => {
+    setLead((prev) => {
+      const history = Array.isArray(prev.contact_history)
+        ? [...prev.contact_history]
+        : [];
+      history[index] = { ...(history[index] || {}), [field]: value };
+      return { ...prev, contact_history: history };
+    });
+  };
+
+  const addHistoryEntry = () => {
+    setLead((prev) => ({
+      ...prev,
+      contact_history: [
+        ...(Array.isArray(prev.contact_history) ? prev.contact_history : []),
+        {
+          contacted_at: new Date().toISOString().slice(0, 16),
+          mode: "call",
+          reply: "",
+          notes: "",
+          next_action: "",
+          next_action_date: "",
+          is_completed: false,
+          completed_at: "",
+        },
+      ],
+    }));
+  };
+
+  const removeHistoryEntry = (index) => {
+    setLead((prev) => {
+      const history = Array.isArray(prev.contact_history)
+        ? prev.contact_history.filter((_, i) => i !== index)
+        : [];
+      return { ...prev, contact_history: history };
+    });
   };
 
   const addContact = () => {
@@ -267,51 +309,23 @@ zone: "",
   /* ================= SAVE ================= */
   const handleSave = async () => {
     if (!contacts[0].name || !contacts[0].phone) {
-      alert("Primary contact required");
+      showAlert("Validation", "Primary contact required", "error");
       return;
     }
 
+    const payload = {
+      ...lead,
+      contacts,
+    };
+
     try {
-      let response;
-
-      if (clientView) {
-        const payload = {
-          name: lead.company_name || "",
-          industry: lead.industry || "",
-          Address: lead.Address || "",
-          employeeCount: lead.employee_count || "",
-          turnoverRange: lead.turnover_range || "",
-          website: lead.website || "",
-          source: lead.source || "",
-          deal_count: 0,
-          location: selectedLocationId || null,
-          contacts: contacts.map((contact) => ({
-            name: contact.name || "",
-            designation: contact.designation || "",
-            phone: contact.phone || "",
-            email: contact.email || "",
-            linkedin: contact.linkedin || "",
-            is_active: contact.is_active !== false
-          }))
-        };
-
-        response = await API.post("/clients", payload);
-      } else {
-        const payload = {
-          ...lead,
-          contacts,
-        };
-
-        response = isNew
-          ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
-          : await API.put(`/leads/${id}`, payload);
-      }
+      const response = isNew
+        ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
+        : await API.put(`/leads/${id}`, payload);
 
       const data = response.data;
       if (isNew) {
-        if (clientView) {
-          navigate("/clients");
-        } else if (dealView && data.deal) {
+        if (dealView && data.deal) {
           navigate(`/leads/${data.lead._id}?view=deal&dealId=${data.deal._id}`);
         } else {
           navigate(`/leads/${data._id || data.lead?._id}`);
@@ -326,23 +340,23 @@ zone: "",
 
   /* ================= LOCATION FILTERS ================= */
 
-const countries = [...new Set(locations.map(l => l.country))];
+  const countries = [...new Set(locations.map((l) => l.country))];
 
-const states = [
-  ...new Set(
-    locations
-      .filter(l => l.country === lead.country)
-      .map(l => l.state)   // 👈 lowercase
-  )
-];
+  const states = [
+    ...new Set(
+      locations
+        .filter((l) => l.country === lead.country)
+        .map((l) => l.State)
+    ),
+  ];
 
-const cities = [
-  ...new Set(
-    locations
-      .filter(l => l.state === lead.State)
-      .map(l => l.city)
-  )
-];
+  const cities = [
+    ...new Set(
+      locations
+        .filter((l) => l.State === lead.State)
+        .map((l) => l.city)
+    ),
+  ];
 
   const zones = [
     ...new Set(
@@ -352,34 +366,33 @@ const cities = [
     ),
   ];
 
-  const industryNameMap = useMemo(() => {
-    const map = new Map();
-    industries.forEach((item) => {
-      if (item?._id) map.set(String(item._id), item.name || "");
-      if (item?.name) map.set(String(item.name), item.name);
+  const asDateInputValue = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 10);
+  };
+
+  const asDateTimeInputValue = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 16);
+  };
+
+  const handleFollowUpCompleted = (index, checked) => {
+    setLead((prev) => {
+      const history = Array.isArray(prev.contact_history)
+        ? [...prev.contact_history]
+        : [];
+      history[index] = {
+        ...(history[index] || {}),
+        is_completed: checked,
+        completed_at: checked ? new Date().toISOString() : "",
+      };
+      return { ...prev, contact_history: history };
     });
-    return map;
-  }, [industries]);
-
-  const selectedLocationId = useMemo(() => {
-    if (!locations.length) return null;
-    const exact = locations.find(
-      (item) =>
-        item.country === lead.country &&
-        item.State === lead.State &&
-        item.city === lead.city &&
-        item.zone === lead.zone
-    );
-    if (exact?._id) return exact._id;
-
-    const fallback = locations.find(
-      (item) =>
-        item.country === lead.country &&
-        item.State === lead.State &&
-        item.city === lead.city
-    );
-    return fallback?._id || null;
-  }, [locations, lead.country, lead.State, lead.city, lead.zone]);
+  };
 
   const closePopup = () => {
     setDealDeleteReason("");
@@ -573,17 +586,7 @@ const cities = [
     <div className="lead-page">
       <div className="lead-header">
         <h2>
-          {isNew
-            ? clientView
-              ? "Add Client"
-              : dealView
-                ? "Add Deal"
-                : "Add Lead"
-            : clientView
-              ? `Client - ${lead.company_name || "Details"}`
-              : dealView
-                ? `Deal - ${lead.company_name || "Details"}`
-                : lead.company_name}
+          {isNew ? (dealView ? "Add Deal" : "Add Lead") : dealView ? `Deal - ${lead.company_name || "Details"}` : lead.company_name}
         </h2>
         <BackButton />
       </div>
@@ -591,14 +594,14 @@ const cities = [
       {deletedView && (
         <div className="deleted-banner" style={{ background: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', margin: '20px 0', fontSize: '15px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fecaca' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          This {clientView ? "client" : dealView ? "deal" : "lead"} is currently deleted and is read-only. Please restore it to make edits.
+          This {dealView ? "deal" : "lead"} is currently deleted and is read-only. Please restore it to make edits.
         </div>
       )}
 
       {!deletedView && (lead.is_active === false || lead.isActive === false) && (
         <div className="inactive-banner" style={{ background: '#fef3c7', color: '#b45309', padding: '12px 16px', borderRadius: '8px', margin: '20px 0', fontSize: '15px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fde68a' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          This {clientView ? "client" : dealView ? "deal" : "lead"} is currently inactive. You cannot generate quotes for inactive sales records.
+          This {dealView ? "deal" : "lead"} is currently inactive. You cannot generate quotes for inactive sales records.
         </div>
       )}
 
@@ -615,7 +618,7 @@ const cities = [
                 autoComplete="off"
                 onChange={(e) => {
                   handleLeadChange(e);
-                  if (isNew && !clientView) {
+                  if (isNew) {
                     const val = e.target.value.trim();
                     if (companySearchTimer.current) clearTimeout(companySearchTimer.current);
                     if (val.length < 2) {
@@ -641,7 +644,7 @@ const cities = [
                   setTimeout(() => setShowSuggestions(false), 200);
                 }}
               />
-              {!clientView && showSuggestions && companySuggestions.length > 0 && (
+              {showSuggestions && companySuggestions.length > 0 && (
                 <ul className="company-suggestions">
                   {companySuggestions.map((s) => (
                     <li
@@ -690,85 +693,87 @@ const cities = [
             <select name="industry" value={lead.industry || ""} onChange={handleLeadChange}>
               <option value="">Select Industry</option>
               {industries.map((item) => (
-                <option key={item?._id || item?.name} value={clientView ? item?._id : item?.name}>
-                  {item?.name}
+                <option key={item} value={item}>
+                  {item}
                 </option>
               ))}
             </select>
           ) : (
-            <p>{industryNameMap.get(String(lead.industry || "")) || lead.industry || "-"}</p>
+            <p>{lead.industry || "-"}</p>
           )}
         </div>
         <Field label="Employees" name="employee_count" value={lead.employee_count} onChange={handleLeadChange} editMode={editMode} />
         <Field label="Turnover" name="turnover_range" value={lead.turnover_range} onChange={handleLeadChange} editMode={editMode} />
-        {!clientView && (
-          <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
-        )}
+        <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
         <Field label="Address" name="Address" value={lead.Address} onChange={handleLeadChange} editMode={editMode} />
 
-       {/* COUNTRY */}
-<div className="field">
-  <label>Country</label>
-  <select
-    name="country"
-    value={lead.country}
-    onChange={handleLeadChange}
-  >
-    <option value="">Select Country</option>
-    {countries.map((c, i) => (
-      <option key={i} value={c}>{c}</option>
-    ))}
-  </select>
-</div>
+        {/* COUNTRY */}
+        <div className="field">
+          <label>Country</label>
+          <select name="country" value={lead.country} onChange={handleLeadChange}>
+            <option value="">Select Country</option>
+            {countries.map((c, i) => (
+              <option key={i} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
 
-{/* STATE */}
-<div className="field">
-  <label>State</label>
-  <select
-    name="State"
-    value={lead.State}
-    onChange={handleLeadChange}
-    disabled={!lead.country}
-  >
-    <option value="">Select State</option>
-    {states.map((s, i) => (
-      <option key={i} value={s}>{s}</option>
-    ))}
-  </select>
-</div>
+        {/* STATE */}
+        <div className="field">
+          <label>State</label>
+          <select
+            name="State"
+            value={lead.State}
+            onChange={handleLeadChange}
+            disabled={!lead.country}
+          >
+            <option value="">Select State</option>
+            {states.map((s, i) => (
+              <option key={i} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
 
-{/* CITY */}
-<div className="field">
-  <label>City</label>
-  <select
-    name="city"
-    value={lead.city}
-    onChange={handleLeadChange}
-    disabled={!lead.State}
-  >
-    <option value="">Select City</option>
-    {cities.map((c, i) => (
-      <option key={i} value={c}>{c}</option>
-    ))}
-  </select>
-</div>
+        {/* CITY */}
+        <div className="field">
+          <label>City</label>
+          <select
+            name="city"
+            value={lead.city}
+            onChange={handleLeadChange}
+            disabled={!lead.State}
+          >
+            <option value="">Select City</option>
+            {cities.map((c, i) => (
+              <option key={i} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
 
-{/* ZONE */}
-<div className="field">
-  <label>Zone</label>
-  <select
-    name="zone"
-    value={lead.zone}
-    onChange={handleLeadChange}
-    disabled={!lead.city}
-  >
-    <option value="">Select Zone</option>
-    {zones.map((z, i) => (
-      <option key={i} value={z}>{z}</option>
-    ))}
-  </select>
-</div>
-<Field label="Website" name="website" value={lead.website} onChange={handleLeadChange} editMode={editMode}/>
+        {/* ZONE */}
+        <div className="field">
+          <label>Zone</label>
+          <select
+            name="zone"
+            value={lead.zone}
+            onChange={handleLeadChange}
+            disabled={!lead.city}
+          >
+            <option value="">Select Zone</option>
+            {zones.map((z, i) => (
+              <option key={i} value={z}>
+                {z}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Field label="Website" name="website" value={lead.website} onChange={handleLeadChange} editMode={editMode} />
 
         {/* SOURCE */}
         <div className="field">
@@ -776,8 +781,10 @@ const cities = [
           {editMode ? (
             <select name="source" value={lead.source || ""} onChange={handleLeadChange}>
               <option value="">Select Source</option>
-              {sources.map(s => (
-                <option key={s._id} value={s._id}>{s.name}</option>
+              {sources.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name}
+                </option>
               ))}
             </select>
           ) : (
@@ -797,7 +804,10 @@ const cities = [
               ))}
             </select>
           ) : (
-            <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
+            <p>
+              {users.find((u) => u._id === lead.assigned_to)?.name ||
+                (lead.assigned_to === currentUserId ? currentUserName : "-")}
+            </p>
           )}
         </div>
       </div>
@@ -837,49 +847,47 @@ const cities = [
         )}
       </div>
 
-      {!clientView && (
-        <div className="contacts-section">
-          <h3 className="contacts-title">Follow-up History</h3>
-          {historyRows.length === 0 && <p>No follow-up history yet.</p>}
-          {historyRows.map((entry, idx) => (
-            <div key={`done-${idx}`} className="contact-card">
-              <div className="contact-title">
-                {`Follow-up #${idx + 1}`}
+      <div className="contacts-section">
+        <h3 className="contacts-title">Follow-up History</h3>
+        {historyRows.length === 0 && <p>No follow-up history yet.</p>}
+        {historyRows.map((entry, idx) => (
+          <div key={`done-${idx}`} className="contact-card">
+            <div className="contact-title">
+              {`Follow-up #${idx + 1}`}
+            </div>
+            <div className="contact-grid">
+              <div className="field">
+                <label>Date</label>
+                <p>
+                  {(entry.contacted_at || entry.completed_at)
+                    ? new Date(
+                      entry.contacted_at || entry.completed_at
+                    ).toLocaleString("en-IN")
+                    : "-"}
+                </p>
               </div>
-              <div className="contact-grid">
-                <div className="field">
-                  <label>Date</label>
-                  <p>
-                    {(entry.contacted_at || entry.completed_at)
-                      ? new Date(
-                        entry.contacted_at || entry.completed_at
-                      ).toLocaleString("en-IN")
-                      : "-"}
-                  </p>
-                </div>
-                <div className="field">
-                  <label>Status</label>
-                  <p>{entry.is_completed ? "Completed" : "Pending"}</p>
-                </div>
-                <div className="field">
-                  <label>Reply / Outcome</label>
-                  <p>{entry.reply || "-"}</p>
-                </div>
-                <div className="field">
-                  <label>Notes</label>
-                  <p>{entry.notes || "-"}</p>
-                </div>
+              <div className="field">
+                <label>Status</label>
+                <p>{entry.is_completed ? "Completed" : "Pending"}</p>
+              </div>
+              <div className="field">
+                <label>Reply / Outcome</label>
+                <p>{entry.reply || "-"}</p>
+              </div>
+              <div className="field">
+                <label>Notes</label>
+                <p>{entry.notes || "-"}</p>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       <div className="form-actions">
         {deletedView ? (
           isAdminOrManager && (
             <button className="convert-btn restore-btn" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={dealView ? handleRestoreDeal : handleRestoreLead}>
-              Restore {clientView ? "Client" : dealView ? "Deal" : "Lead"}
+              Restore {dealView ? "Deal" : "Lead"}
             </button>
           )
         ) : editMode ? (
@@ -902,12 +910,12 @@ const cities = [
                   Create Quote
                 </button>
               )}
-              {!clientView && !dealView && !isConvertedLead && (
+              {!dealView && !isConvertedLead && (
                 <button className="convert-btn" onClick={handleConvertToDeal}>
                   Convert to Deal
                 </button>
               )}
-              {isAdminOrManager && !clientView && (
+              {isAdminOrManager && (
                 <button
                   className="soft-delete-btn"
                   onClick={dealView ? handleDeleteDeal : handleSoftDelete}
@@ -953,12 +961,12 @@ const cities = [
 
 /* ================= FIELD COMPONENTS ================= */
 
-function Field({ label, name, value, onChange, editMode }) {
+function Field({ label, name, value, onChange, editMode, type = "text" }) {
   return (
     <div className="field">
       <label>{label}</label>
       {editMode ? (
-        <input name={name} value={value || ""} onChange={onChange}/>
+        <input type={type} name={name} value={value || ""} onChange={onChange} />
       ) : (
         <p>{value || "-"}</p>
       )}
@@ -966,12 +974,12 @@ function Field({ label, name, value, onChange, editMode }) {
   );
 }
 
-function InputField({ label, name, value, onChange, editMode }) {
+function InputField({ label, name, value, onChange, editMode, type = "text" }) {
   return (
     <div className="field">
       <label>{label}</label>
       {editMode ? (
-        <input name={name} value={value || ""} onChange={onChange}/>
+        <input type={type} name={name} value={value || ""} onChange={onChange} />
       ) : (
         <p>{value || "-"}</p>
       )}

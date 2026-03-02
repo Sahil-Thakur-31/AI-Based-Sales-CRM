@@ -9,8 +9,6 @@ const Industry = require("../models/industries");
 const User = require("../models/users");
 const DealStageHistory = require("../models/dealStageHistory");
 const Notification = require("../models/notifications");
-const sendOTPEmail = require("../services/emailService");
-const { buildNotificationEmail, TEMPLATE_KEYS } = require("../services/emailTemplates");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
@@ -580,7 +578,7 @@ exports.createLead = async (req, res) => {
     // Send notification if lead is assigned to someone
     if (lead.assigned_to) {
       try {
-        const createdNotification = await Notification.create({
+        await Notification.create({
           userId: lead.assigned_to,
           title: "New Lead Assigned",
           message: `You have been assigned a new lead: ${lead.company_name || "Untitled"}`,
@@ -588,27 +586,6 @@ exports.createLead = async (req, res) => {
           relatedId: lead._id,
           relatedType: "Lead",
         });
-
-        const assignee = await User.findById(lead.assigned_to).select("name email").lean();
-        if (assignee?.email) {
-          const emailPayload = await buildNotificationEmail({
-            notification: {
-              ...createdNotification.toObject(),
-              templateKey: TEMPLATE_KEYS.LEAD_ASSIGNED,
-            },
-            recipientName: assignee.name || "",
-            appBaseUrl: process.env.FRONTEND_URL || "http://localhost:5173",
-            relatedData: lead,
-          });
-
-          await sendOTPEmail.sendEmail({
-            to: assignee.email,
-            subject: emailPayload.subject,
-            html: emailPayload.html,
-            text: emailPayload.text,
-            fromName: "CRM Notifications",
-          });
-        }
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);
       }
@@ -675,7 +652,7 @@ exports.updateLead = async (req, res) => {
     const newAssignee = lead.assigned_to ? String(lead.assigned_to) : "";
     if (newAssignee && newAssignee !== oldAssignee) {
       try {
-        const createdNotification = await Notification.create({
+        await Notification.create({
           userId: lead.assigned_to,
           title: "Lead Assigned to You",
           message: `You have been assigned the lead: ${lead.company_name || "Untitled"}`,
@@ -683,27 +660,6 @@ exports.updateLead = async (req, res) => {
           relatedId: lead._id,
           relatedType: "Lead",
         });
-
-        const assignee = await User.findById(lead.assigned_to).select("name email").lean();
-        if (assignee?.email) {
-          const emailPayload = await buildNotificationEmail({
-            notification: {
-              ...createdNotification.toObject(),
-              templateKey: TEMPLATE_KEYS.LEAD_ASSIGNED,
-            },
-            recipientName: assignee.name || "",
-            appBaseUrl: process.env.FRONTEND_URL || "http://localhost:5173",
-            relatedData: lead,
-          });
-
-          await sendOTPEmail.sendEmail({
-            to: assignee.email,
-            subject: emailPayload.subject,
-            html: emailPayload.html,
-            text: emailPayload.text,
-            fromName: "CRM Notifications",
-          });
-        }
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);
       }
