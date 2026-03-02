@@ -21,9 +21,6 @@ const mongoose = require("mongoose");
 const Meeting = require("./models/meetings");
 const teamRoutes = require("./routes/teamRoutes");
 const ocrRoutes = require("./routes/ocr");
-const clientRoutes = require("./routes/clientRoutes");
-const quotationRoutes = require("./routes/quotationRoutes");
-const taxRoutes = require("./routes/taxRoutes");
 const eventsRoutes = require("./routes/eventsRoutes");
 
 require('./config/db');
