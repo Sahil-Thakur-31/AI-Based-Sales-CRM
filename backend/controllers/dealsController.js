@@ -94,6 +94,8 @@ exports.getDeals = async (req, res) => {
       return {
         _id: deal._id,
         deal_id: deal._id,
+        client_id: deal.client_id || null,
+        clientId: deal.client_id || null,
         company_name: lead?.company_name || client?.name || deal.clientName || "Untitled Deal",
         industry: lead?.industry || "",
         deal_value_estimate:
@@ -231,7 +233,7 @@ exports.updateDeal = async (req, res) => {
       delete update.assigned_to;
     }
 
-    const deal = await Deal.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
+    const deal = await Deal.findByIdAndUpdate(req.params.id, update, { returnDocument: "after" }).lean();
     if (!deal) return res.status(404).json({ message: "Deal not found" });
     res.json(deal);
   } catch (err) {

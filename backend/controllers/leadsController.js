@@ -257,7 +257,7 @@ async function syncLeadFollowupsFromHistory(lead, history = []) {
       await Followup.findOneAndUpdate(
         { _id: followupId, leadId: lead._id },
         payload,
-        { new: true, upsert: false }
+        { returnDocument: "after", upsert: false }
       );
     } else {
       await Followup.create(payload);
@@ -620,7 +620,7 @@ exports.updateLead = async (req, res) => {
         $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
       },
       leadPayload,
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
 
     if (!lead) {
@@ -676,7 +676,7 @@ exports.deleteLead = async (req, res) => {
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,
       { is_deleted: true, is_active: false },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!lead) {
@@ -700,7 +700,7 @@ exports.restoreLead = async (req, res) => {
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,
       { is_deleted: false, is_active: true },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!lead) {

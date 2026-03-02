@@ -24,6 +24,7 @@
   border: 1px solid #dde5ef;
   border-radius: 12px;
   padding: 10px 10px 9px;
+  min-height: 136px;
   color: #fff;
   cursor: pointer;
   min-width: 0;
@@ -40,6 +41,10 @@
 .fuStageCard.active {
   outline: 2px solid rgba(177, 255, 77, 0.85);
   outline-offset: 2px;
+}
+
+.fuStagesDeal {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .fuStageTitle {
@@ -673,8 +678,35 @@
   color: #6b7280;
 }
 
+.fuModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.fuModalCard {
+  width: min(560px, 100%);
+  background: #ffffff;
+  border: 1px solid #e6ebf2;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+  padding: 16px;
+}
+
+.fuModalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
 @media (max-width: 1100px) {
   .fuStages { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .fuStagesDeal { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .fuGrid { grid-template-columns: 1fr; }
   .fuPanelFixed { min-height: 500px; }
   .fuTopbarRight {
@@ -691,6 +723,7 @@
 
 @media (max-width: 900px) {
   .fuStages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fuStagesDeal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fuItem {
     flex-wrap: wrap;
     align-items: flex-start;

@@ -5,6 +5,8 @@ const Meeting = require("../models/meetings");
 const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
 const Team = require("../models/teams");
+const CRMSettings = require("../models/crmSettings");
+const Notification = require("../models/notifications");
 
 function normalizeRole(roleName = "") {
   return String(roleName).trim().toLowerCase();
@@ -141,7 +143,9 @@ function isMeetingLikeFollowup(doc) {
 async function syncMeetingMirrorFromFollowup(doc, actorId) {
   if (!isMeetingLikeFollowup(doc)) return;
 
-  const { latitude, longitude } = parseExactLocation(doc.exactLocation || "");
+  const meetingLocation = doc.meetingLocation || doc.address || "";
+  const meetingExactLocation = doc.meetingExactLocation || doc.exactLocation || "";
+  const { latitude, longitude } = parseExactLocation(meetingExactLocation);
   const now = new Date();
   const payload = {
     sourceFollowupId: doc._id,
@@ -149,6 +153,10 @@ async function syncMeetingMirrorFromFollowup(doc, actorId) {
     title: doc.title || "",
     description: doc.notes || "",
     clientName: doc.clientName || "",
+    leadId: doc.leadId || undefined,
+    dealId: doc.dealId || undefined,
+    clientId: doc.clientId || undefined,
+    stage: doc.stage || "",
     actionType: doc.actionType || "Meeting",
     createdBy: actorId ? new mongoose.Types.ObjectId(actorId) : doc.assignedTo,
     assignedTo: doc.assignedTo,
@@ -156,12 +164,13 @@ async function syncMeetingMirrorFromFollowup(doc, actorId) {
     meetingDate: doc.dueDateTime,
     startTime: doc.dueDateTime,
     durationMinutes: doc.durationMinutes || undefined,
-    Address: doc.address || "",
+    Address: meetingLocation,
     status: mapFollowupStatusToMeetingStatus(doc.status),
     latitude,
     longitude,
     followupRequired: true,
     followupDate: doc.dueDateTime,
+    minutes_of_meeting: doc.notes || "",
     agenda_of_meating: doc.agenda || "",
     priority: doc.priority || "medium",
     is_deleted: doc.is_deleted === true,
@@ -171,7 +180,7 @@ async function syncMeetingMirrorFromFollowup(doc, actorId) {
   await Meeting.findOneAndUpdate(
     { sourceFollowupId: doc._id },
     { $set: payload, $setOnInsert: { createdAt: now } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: "after" }
   );
 }
 
@@ -205,6 +214,76 @@ async function logUserDailyActivity({
   });
 }
 
+function getReminderOffsetMinutes(settings) {
+  if (!settings) return 30;
+
+  if (settings.reminderTiming === "15min") return 15;
+  if (settings.reminderTiming === "30min") return 30;
+  if (settings.reminderTiming === "1hr") return 60;
+  if (settings.reminderTiming === "custom") {
+    const customMinutes = Number(settings.customReminderOffsetMinutes);
+    if (Number.isFinite(customMinutes) && customMinutes >= 0) {
+      return customMinutes;
+    }
+  }
+
+  return 30;
+}
+
+function formatReminderLabel(offsetMinutes) {
+  if (offsetMinutes < 60) return `${offsetMinutes} minutes`;
+  if (offsetMinutes % 60 === 0) return `${offsetMinutes / 60} hour${offsetMinutes === 60 ? "" : "s"}`;
+  return `${offsetMinutes} minutes`;
+}
+
+function getNotificationItemType(doc) {
+  const actionType = String(doc?.actionType || "").trim();
+  if (actionType) return actionType;
+  return doc?.kind === "meeting" ? "Meeting" : "Follow-up Call";
+}
+
+function getNotificationCompanyName(doc) {
+  return String(doc?.clientName || "").trim() || "the selected company";
+}
+
+async function createFollowupNotification(doc, userId, eventType) {
+  if (!doc || !userId) return;
+  const settings = await CRMSettings.findOne({ userId }).lean();
+  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp) return;
+
+  const isMeeting = doc.kind === "meeting";
+  const itemLabel = isMeeting ? "Meeting" : "Follow-up";
+  const companyName = getNotificationCompanyName(doc);
+  const itemType = getNotificationItemType(doc);
+
+  if (eventType === "created") {
+    const offsetMinutes = getReminderOffsetMinutes(settings);
+    const dueAt = new Date(doc.dueDateTime);
+    const scheduledText = Number.isNaN(dueAt.getTime()) ? "" : dueAt.toLocaleString("en-IN");
+
+    await Notification.create({
+      userId,
+      title: `${itemLabel} Created`,
+      message: `${itemType} scheduled for ${companyName} on ${scheduledText}. An in-app reminder will be shown ${formatReminderLabel(offsetMinutes)} before the scheduled time.`,
+      type: "info",
+      relatedId: doc._id,
+      relatedType: "Followup",
+    });
+    return;
+  }
+
+  if (eventType === "completed") {
+    await Notification.create({
+      userId,
+      title: `${itemLabel} Completed`,
+      message: `${itemType} for ${companyName} has been marked as completed successfully.`,
+      type: "success",
+      relatedId: doc._id,
+      relatedType: "Followup",
+    });
+  }
+}
+
 exports.list = async (req, res) => {
   try {
     const allowedIds = await getAccessibleUserIds(req.user);
@@ -223,6 +302,21 @@ exports.list = async (req, res) => {
     }
 
     const docs = await Followup.find(q).sort({ dueDateTime: 1, createdAt: -1 }).populate("assignedTo", "name email");
+
+    if (req.query.kind === "meeting") {
+      await Promise.all(
+        docs
+          .filter(isMeetingLikeFollowup)
+          .map(async (doc) => {
+            try {
+              await syncMeetingMirrorFromFollowup(doc, req.user._id);
+            } catch (syncErr) {
+              console.error("followups.list syncMeetingMirror error:", syncErr);
+            }
+          })
+      );
+    }
+
     res.json(docs);
   } catch (err) {
     console.error("followups.list error:", err);
@@ -286,20 +380,20 @@ exports.filterOptions = async (req, res) => {
       ])
     );
 
-    const teams = await Team.find({}).select("_id teamLead members");
+    const teams = await Team.find({}).select("_id name teamLeads members");
     const visibleTeams = teams
       .map((t) => {
-        const leadId = String(t.teamLead?.userId || "");
+        const leadIds = (t.teamLeads || []).map((lead) => String(lead.userId || "")).filter(Boolean);
         const memberIds = (t.members || []).map((m) => String(m.userId)).filter(Boolean);
-        const userIds = [...new Set([leadId, ...memberIds].filter((id) => userMap.has(id)))];
+        const userIds = [...new Set([...leadIds, ...memberIds].filter((id) => userMap.has(id)))];
         if (userIds.length === 0) return null;
 
         return {
           id: String(t._id),
-          leadUserId: leadId,
+          leadUserIds: leadIds.filter((id) => userMap.has(id)),
           memberUserIds: memberIds.filter((id) => userMap.has(id)),
           userIds,
-          label: `Team ${userMap.get(leadId)?.name || "Unknown"}`,
+          label: t.name || `Team ${leadIds.map((id) => userMap.get(id)?.name || "").filter(Boolean).join(", ") || "Unknown"}`,
         };
       })
       .filter(Boolean);
@@ -314,6 +408,9 @@ exports.filterOptions = async (req, res) => {
     res.json({
       teams: visibleTeams,
       employees,
+      currentUser: {
+        id: String(req.user._id),
+      },
     });
   } catch (err) {
     console.error("followups.filterOptions error:", err);
@@ -355,6 +452,9 @@ exports.create = async (req, res) => {
       kind: req.body.kind || "followup",
       actionType: req.body.actionType || "",
       title: String(req.body.title).trim(),
+      leadId: req.body.leadId || undefined,
+      dealId: req.body.dealId || undefined,
+      clientId: req.body.clientId || undefined,
       clientName: req.body.clientName || "",
       stage: req.body.stage || "P1",
       notes: req.body.notes || "",
@@ -364,12 +464,15 @@ exports.create = async (req, res) => {
       assignedTo: new mongoose.Types.ObjectId(assignedTo),
       durationMinutes: req.body.durationMinutes || undefined,
       agenda: req.body.agenda || "",
-      address: req.body.address || "",
-      exactLocation: req.body.exactLocation || "",
+      currentLocation: req.body.currentLocation || "",
+      currentExactLocation: req.body.currentExactLocation || "",
+      meetingLocation: req.body.meetingLocation || req.body.address || "",
+      meetingExactLocation: req.body.meetingExactLocation || req.body.exactLocation || "",
+      address: req.body.meetingLocation || req.body.address || "",
+      exactLocation: req.body.meetingExactLocation || req.body.exactLocation || "",
     };
 
     const doc = await Followup.create(payload);
-    await syncMeetingMirrorFromFollowup(doc, req.user._id);
 
     await appendHistory({
       followupId: doc._id,
@@ -377,6 +480,12 @@ exports.create = async (req, res) => {
       notes: `Created ${payload.kind}`,
       performedBy: req.user._id,
     });
+
+    try {
+      await syncMeetingMirrorFromFollowup(doc, req.user._id);
+    } catch (syncErr) {
+      console.error("followups.create syncMeetingMirror error:", syncErr);
+    }
 
     const created = await Followup.findById(doc._id).populate("assignedTo", "name email");
     try {
@@ -390,6 +499,13 @@ exports.create = async (req, res) => {
     } catch (activityErr) {
       console.error("followups.create activity log error:", activityErr);
     }
+
+    try {
+      await createFollowupNotification(doc, req.user._id, "created");
+    } catch (notificationErr) {
+      console.error("followups.create notification error:", notificationErr);
+    }
+
     res.status(201).json(created);
   } catch (err) {
     console.error("followups.create error:", err);
@@ -418,6 +534,9 @@ exports.update = async (req, res) => {
       kind: req.body.kind ?? current.kind,
       actionType: req.body.actionType ?? current.actionType,
       title: req.body.title ?? current.title,
+      leadId: req.body.leadId ?? current.leadId,
+      dealId: req.body.dealId ?? current.dealId,
+      clientId: req.body.clientId ?? current.clientId,
       clientName: req.body.clientName ?? current.clientName,
       stage: req.body.stage ?? current.stage,
       notes: req.body.notes ?? current.notes,
@@ -427,8 +546,12 @@ exports.update = async (req, res) => {
       assignedTo: new mongoose.Types.ObjectId(nextAssigned),
       durationMinutes: req.body.durationMinutes ?? current.durationMinutes,
       agenda: req.body.agenda ?? current.agenda,
-      address: req.body.address ?? current.address,
-      exactLocation: req.body.exactLocation ?? current.exactLocation,
+      currentLocation: req.body.currentLocation ?? current.currentLocation,
+      currentExactLocation: req.body.currentExactLocation ?? current.currentExactLocation,
+      meetingLocation: req.body.meetingLocation ?? req.body.address ?? current.meetingLocation ?? current.address,
+      meetingExactLocation: req.body.meetingExactLocation ?? req.body.exactLocation ?? current.meetingExactLocation ?? current.exactLocation,
+      address: req.body.meetingLocation ?? req.body.address ?? current.meetingLocation ?? current.address,
+      exactLocation: req.body.meetingExactLocation ?? req.body.exactLocation ?? current.meetingExactLocation ?? current.exactLocation,
     };
 
     const errors = validatePayload(merged);
@@ -436,7 +559,6 @@ exports.update = async (req, res) => {
 
     await Followup.updateOne({ _id: current._id }, { $set: merged });
     const updatedDoc = await Followup.findById(current._id);
-    await syncMeetingMirrorFromFollowup(updatedDoc, req.user._id);
 
     await appendHistory({
       followupId: current._id,
@@ -444,6 +566,12 @@ exports.update = async (req, res) => {
       notes: `Updated ${merged.kind} details`,
       performedBy: req.user._id,
     });
+
+    try {
+      await syncMeetingMirrorFromFollowup(updatedDoc, req.user._id);
+    } catch (syncErr) {
+      console.error("followups.update syncMeetingMirror error:", syncErr);
+    }
 
     const updated = await Followup.findById(current._id).populate("assignedTo", "name email");
     try {
@@ -471,6 +599,23 @@ exports.updateStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
+    const updatePayload = {
+      status,
+      completedAt: status === "completed" ? new Date() : null,
+    };
+
+    if (req.body.durationMinutes !== undefined && req.body.durationMinutes !== "") {
+      const durationMinutes = Number(req.body.durationMinutes);
+      if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
+        return res.status(400).json({ message: "durationMinutes must be a positive number" });
+      }
+      updatePayload.durationMinutes = durationMinutes;
+    }
+
+    if (req.body.notes !== undefined) {
+      updatePayload.notes = String(req.body.notes || "").trim();
+    }
+
     const allowedIds = await getAccessibleUserIds(req.user);
     const updated = await Followup.findOneAndUpdate(
       {
@@ -479,21 +624,28 @@ exports.updateStatus = async (req, res) => {
         assignedTo: { $in: allowedIds.map((id) => new mongoose.Types.ObjectId(id)) },
       },
       {
-        status,
-        completedAt: status === "completed" ? new Date() : null,
+        $set: updatePayload,
       },
-      { new: true }
+      { returnDocument: "after" }
     ).populate("assignedTo", "name email");
 
     if (!updated) return res.status(404).json({ message: "Followup not found" });
-    await syncMeetingMirrorFromFollowup(updated, req.user._id);
 
     await appendHistory({
       followupId: updated._id,
       actionType: "status_changed",
-      notes: `Status changed to ${status}`,
+      notes:
+        status === "completed"
+          ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
+          : `Status changed to ${status}`,
       performedBy: req.user._id,
     });
+
+    try {
+      await syncMeetingMirrorFromFollowup(updated, req.user._id);
+    } catch (syncErr) {
+      console.error("followups.updateStatus syncMeetingMirror error:", syncErr);
+    }
 
     try {
       await logUserDailyActivity({
@@ -505,6 +657,14 @@ exports.updateStatus = async (req, res) => {
       });
     } catch (activityErr) {
       console.error("followups.updateStatus activity log error:", activityErr);
+    }
+
+    if (status === "completed") {
+      try {
+        await createFollowupNotification(updated, req.user._id, "completed");
+      } catch (notificationErr) {
+        console.error("followups.updateStatus notification error:", notificationErr);
+      }
     }
 
     res.json(updated);
@@ -530,7 +690,7 @@ exports.remove = async (req, res) => {
         _id: existing._id,
       },
       { is_deleted: true },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (existing.kind === "meeting") {

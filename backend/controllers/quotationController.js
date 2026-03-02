@@ -539,7 +539,7 @@ exports.updateQuotationStatus = async (req, res) => {
         $set: updatePayload
       },
       {
-        new: true
+        returnDocument: "after"
       }
     ).select("_id status version updatedAt");
 

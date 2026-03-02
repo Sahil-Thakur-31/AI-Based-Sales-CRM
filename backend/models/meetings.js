@@ -16,6 +16,25 @@ const meetingsSchema = new mongoose.Schema({
     type: String
   },
 
+  leadId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Lead"
+  },
+
+  dealId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Deal"
+  },
+
+  clientId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Client"
+  },
+
+  stage: {
+    type: String
+  },
+
   actionType: {
     type: String
   },
