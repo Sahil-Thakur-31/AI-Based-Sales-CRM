@@ -48,6 +48,36 @@ const organizationSchema = new mongoose.Schema(
       trim: true,
       default: ""
     },
+    area: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    city: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    pincode: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    district: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    state: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    country: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     panNumber: {
       type: String,
       trim: true,

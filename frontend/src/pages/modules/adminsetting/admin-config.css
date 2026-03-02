@@ -244,6 +244,37 @@
   padding: 14px;
 }
 
+.org-profile-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.org-logo-column {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.org-details-column {
+  min-width: 0;
+}
+
+.org-below-section {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.org-three-field-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .org-profile-header {
   display: flex;
   justify-content: space-between;
@@ -333,6 +364,12 @@
   max-width: 100%;
 }
 
+.org-logo-block-fixed {
+  width: 100%;
+  min-height: 180px;
+  justify-content: center;
+}
+
 .org-logo-upload-meta {
   display: flex;
   flex-direction: column;
@@ -350,6 +387,11 @@
 
 .org-logo-hidden-input {
   display: none;
+}
+
+.org-logo-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .org-logo-clickable {
@@ -388,7 +430,7 @@
 
 .org-logo-preview-large {
   max-width: 220px;
-  max-height: 120px;
+  max-height: 140px;
 }
 
 .org-logo-preview-empty {
@@ -405,7 +447,7 @@
 
 .org-logo-preview-empty-large {
   width: 220px;
-  height: 120px;
+  height: 140px;
 }
 
 .org-success-banner {
@@ -445,5 +487,36 @@
 .org-contact-view span {
   font-size: 13px;
   color: #475569;
+}
+
+.org-pincode-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.org-pincode-status {
+  font-size: 12px;
+  color: #64748b;
+}
+
+@media (max-width: 980px) {
+  .org-profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .org-logo-column {
+    width: 100%;
+  }
+
+  .org-three-field-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .org-three-field-row {
+    grid-template-columns: 1fr;
+  }
 }
 

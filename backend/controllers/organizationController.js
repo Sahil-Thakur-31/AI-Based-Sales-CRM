@@ -57,6 +57,12 @@ function mapOrganization(row, stats) {
     name: row.name || "",
     logoUrl: row.logoUrl || "",
     address: row.address || "",
+    area: row.area || "",
+    city: row.city || "",
+    pincode: row.pincode || "",
+    district: row.district || "",
+    state: row.state || "",
+    country: row.country || "",
     panNumber: row.panNumber || "",
     cinNumber: row.cinNumber || "",
     gstNumber: row.gstNumber || "",
@@ -162,6 +168,12 @@ exports.createOrganization = async (req, res) => {
       name,
       logoUrl,
       address: normalizeText(req.body.address),
+      area: normalizeText(req.body.area),
+      city: normalizeText(req.body.city),
+      pincode: normalizeText(req.body.pincode),
+      district: normalizeText(req.body.district),
+      state: normalizeText(req.body.state),
+      country: normalizeText(req.body.country),
       panNumber,
       cinNumber,
       gstNumber,
@@ -237,11 +249,18 @@ exports.upsertOrganizationProfile = async (req, res) => {
     const incomingLogoUrl = req.file
       ? `/uploads/organization_logo/${req.file.filename}`
       : normalizeText(req.body.logoUrl);
+    const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
 
     const payload = {
       name,
       logoUrl: incomingLogoUrl || "",
       address: normalizeText(req.body.address),
+      area: normalizeText(req.body.area),
+      city: normalizeText(req.body.city),
+      pincode: normalizeText(req.body.pincode),
+      district: normalizeText(req.body.district),
+      state: normalizeText(req.body.state),
+      country: normalizeText(req.body.country),
       panNumber,
       cinNumber,
       gstNumber,
@@ -263,7 +282,9 @@ exports.upsertOrganizationProfile = async (req, res) => {
         {
           $set: {
             ...payload,
-            logoUrl: incomingLogoUrl || existingOrganization?.logoUrl || ""
+            logoUrl: removeLogo
+              ? ""
+              : incomingLogoUrl || existingOrganization?.logoUrl || ""
           }
         },
         { returnDocument: "after" }
@@ -326,6 +347,7 @@ exports.updateOrganization = async (req, res) => {
     const logoUrl = req.file
       ? `/uploads/organization_logo/${req.file.filename}`
       : normalizeText(req.body.logoUrl);
+    const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
 
     const duplicateMessage = await ensureUniqueIdentifiers({
       panNumber,
@@ -342,8 +364,14 @@ exports.updateOrganization = async (req, res) => {
       {
         $set: {
           name,
-          logoUrl,
+          logoUrl: removeLogo ? "" : logoUrl,
           address: normalizeText(req.body.address),
+          area: normalizeText(req.body.area),
+          city: normalizeText(req.body.city),
+          pincode: normalizeText(req.body.pincode),
+          district: normalizeText(req.body.district),
+          state: normalizeText(req.body.state),
+          country: normalizeText(req.body.country),
           panNumber,
           cinNumber,
           gstNumber,
