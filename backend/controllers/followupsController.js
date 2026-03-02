@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Followup = require("../models/followUp");
 const FollowupHistory = require("../models/followUpHistory");
 const Meeting = require("../models/meetings");
+const Notification = require("../models/notifications");
 const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
 const Team = require("../models/teams");
@@ -489,6 +490,11 @@ exports.create = async (req, res) => {
 
     const created = await Followup.findById(doc._id).populate("assignedTo", "name email");
     try {
+      await createFollowupAssignmentNotification(doc);
+    } catch (notifErr) {
+      console.error("followups.create notification error:", notifErr);
+    }
+    try {
       await logUserDailyActivity({
         userId: req.user._id,
         activityId: doc._id,
@@ -574,6 +580,19 @@ exports.update = async (req, res) => {
     }
 
     const updated = await Followup.findById(current._id).populate("assignedTo", "name email");
+
+    const oldAssignee = String(current.assignedTo || "");
+    const newAssignee = String(merged.assignedTo || "");
+    const dueDateChanged =
+      new Date(current.dueDateTime || 0).getTime() !== new Date(merged.dueDateTime || 0).getTime();
+    if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged)) {
+      try {
+        await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id });
+      } catch (notifErr) {
+        console.error("followups.update notification error:", notifErr);
+      }
+    }
+
     try {
       await logUserDailyActivity({
         userId: req.user._id,

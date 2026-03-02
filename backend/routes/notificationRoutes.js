@@ -5,8 +5,43 @@ const router = express.Router();
 const Notification = require("../models/notifications");
 const Followup = require("../models/followUp");
 const CRMSettings = require("../models/crmSettings");
+const Meeting = require("../models/meetings");
+const Event = require("../models/events");
+
 
 const authenticate = require("../middlewares/auth");
+const { TEMPLATE_KEYS } = require("../services/emailTemplates");
+
+function getReminderOffsetMinutes(reminderTiming, customReminderOffsetMinutes) {
+  if (reminderTiming === "custom") {
+    const value = Number(customReminderOffsetMinutes);
+    if (!Number.isNaN(value) && value >= 0) return value;
+    return 30;
+  }
+
+  if (reminderTiming === "15min") return 15;
+  if (reminderTiming === "1hr") return 60;
+  return 30;
+}
+
+function buildReminderLabel(diffMinutes) {
+  if (diffMinutes <= 1) return "less than a minute left";
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} left`;
+
+  const hours = Math.ceil(diffMinutes / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} left`;
+
+  const days = Math.ceil(hours / 24);
+  return `${days} day${days > 1 ? "s" : ""} left`;
+}
+
+function isReminderTemplate(templateKey) {
+  return [
+    TEMPLATE_KEYS.MEETING_SCHEDULED,
+    TEMPLATE_KEYS.FOLLOWUP_SCHEDULED,
+    TEMPLATE_KEYS.EVENT_ATTENDEE_INVITATION,
+  ].includes(templateKey);
+}
 
 function getReminderOffsetMinutes(settings) {
   if (!settings) return 48 * 60;
@@ -170,8 +205,7 @@ router.post("/", authenticate, async (req, res) => {
 
   try {
 
-    const notification =
-      await Notification.create({
+    const notification = await Notification.create({
 
         userId: req.user._id,
 
@@ -179,7 +213,9 @@ router.post("/", authenticate, async (req, res) => {
 
         message: req.body.message,
 
-        type: req.body.type || "info"
+        type: req.body.type || "info",
+        relatedId: req.body.relatedId || null,
+        relatedType: req.body.relatedType || null
 
       });
 

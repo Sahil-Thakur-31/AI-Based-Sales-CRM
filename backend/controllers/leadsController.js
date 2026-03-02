@@ -9,6 +9,7 @@ const Industry = require("../models/industries");
 const User = require("../models/users");
 const DealStageHistory = require("../models/dealStageHistory");
 const Notification = require("../models/notifications");
+const { processPendingNotificationEmails } = require("../services/notificationEmailWorker");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
@@ -549,12 +550,13 @@ exports.getLeadById = async (req, res) => {
 exports.createLead = async (req, res) => {
   try {
     const userRole = (req.user?.role || "").toLowerCase();
+    const actorId = req.user?._id || null;
     await normalizeLegacyLeadFlagsOnce();
     const locationId = await resolveLocationId(req.body);
     const leadPayload = applyLeadDerivations(stripLeadPayloadFields(req.body));
 
     if (userRole !== "admin" && userRole !== "manager") {
-      delete leadPayload.assigned_to;
+      leadPayload.assigned_to = actorId;
     }
 
     if (locationId) {
@@ -585,9 +587,17 @@ exports.createLead = async (req, res) => {
           relatedId: lead._id,
           relatedType: "Lead",
         });
+        processPendingNotificationEmails().catch((err) => {
+          console.error("lead assignment email dispatch error:", err);
+        });
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);
       }
+    }
+
+    if (req.query.create_as_deal === "true") {
+      req.params.id = String(lead._id);
+      return exports.convertLeadToDeal(req, res);
     }
 
     res.status(201).json(lead);
@@ -653,6 +663,9 @@ exports.updateLead = async (req, res) => {
           type: "info",
           relatedId: lead._id,
           relatedType: "Lead",
+        });
+        processPendingNotificationEmails().catch((err) => {
+          console.error("lead reassignment email dispatch error:", err);
         });
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);

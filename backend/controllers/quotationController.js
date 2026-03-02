@@ -272,6 +272,7 @@ exports.createQuotation = async (req, res) => {
   try {
     const {
       dealId,
+      baseQuotationId,
       quoteDate,
       validUntil,
       notes,
@@ -313,8 +314,31 @@ exports.createQuotation = async (req, res) => {
       is_deleted: false
     })
       .sort({ version: -1 })
-      .select("version status")
+      .select("_id version status")
       .lean();
+
+    if (latestQuoteForDeal && !baseQuotationId) {
+      return res.status(400).json({
+        message:
+          "Quotation already exists for this deal. Use New Version from quotation details."
+      });
+    }
+
+    if (latestQuoteForDeal && baseQuotationId) {
+      const baseQuotation = await Quotation.findOne({
+        _id: baseQuotationId,
+        dealId,
+        is_deleted: false
+      })
+        .select("_id")
+        .lean();
+
+      if (!baseQuotation) {
+        return res.status(400).json({
+          message: "Invalid base quotation selected for version creation"
+        });
+      }
+    }
 
     if (
       latestQuoteForDeal &&

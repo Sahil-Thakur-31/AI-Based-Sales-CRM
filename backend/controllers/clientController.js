@@ -10,11 +10,35 @@ function parseNumber(value, fallback = 0) {
 
 exports.getClients = async (req, res) => {
   try {
-    const clients = await Client.find({ is_deleted: false })
+    const deletedOnly = String(req.query?.deleted_only || "").toLowerCase() === "true";
+
+    const clients = await Client.find({ is_deleted: deletedOnly })
       .populate("industry", "name")
       .populate("source", "name")
       .sort({ createdAt: -1 })
       .lean();
+
+    const clientIds = clients.map((client) => String(client._id));
+    const contactsAgg = clientIds.length
+      ? await ClientContact.aggregate([
+          {
+            $match: {
+              client_id: { $in: clientIds },
+              is_active: { $ne: false }
+            }
+          },
+          {
+            $group: {
+              _id: "$client_id",
+              count: { $sum: 1 }
+            }
+          }
+        ])
+      : [];
+
+    const contactsCountMap = new Map(
+      contactsAgg.map((item) => [String(item._id), item.count])
+    );
 
     const data = clients.map((client) => ({
       _id: client._id,
@@ -28,7 +52,8 @@ exports.getClients = async (req, res) => {
       source: client.source?._id || client.source || "",
       sourceName: client.source?.name || "-",
       deal_count: client.deal_count || 0,
-      GST_no: client.GST_no || ""
+      GST_no: client.GST_no || "",
+      contactsCount: contactsCountMap.get(String(client._id)) || 0
     }));
 
     res.json(data);
@@ -158,6 +183,35 @@ exports.createClient = async (req, res) => {
       Other_docs: req.body.Other_docs || "",
       location: req.body.location || null
     });
+
+    const contacts = Array.isArray(req.body.contacts) ? req.body.contacts : [];
+    const contactRows = contacts
+      .map((contact) => ({
+        name: String(contact?.name || "").trim(),
+        designation: String(contact?.designation || "").trim(),
+        phone: String(contact?.phone || "").trim(),
+        email: String(contact?.email || "").trim(),
+        linkedin: String(contact?.linkedin || "").trim(),
+        is_active: contact?.is_active !== false
+      }))
+      .filter((contact) => contact.name || contact.phone || contact.email);
+
+    if (contactRows.length) {
+      await ClientContact.insertMany(
+        contactRows.map((contact) => ({
+          client_id: String(client._id),
+          name: contact.name || "Unnamed Contact",
+          designation: contact.designation,
+          phone: contact.phone,
+          email: contact.email,
+          linkedin: contact.linkedin,
+          createdBy: req.user._id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          is_active: contact.is_active
+        }))
+      );
+    }
 
     res.status(201).json(client);
   } catch (err) {

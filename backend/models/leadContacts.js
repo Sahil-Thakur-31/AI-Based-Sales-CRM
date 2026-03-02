@@ -44,4 +44,7 @@ const leadContactsSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("LeadContacts", leadContactsSchema);
+// module.exports = mongoose.model("LeadContacts", leadContactsSchema);
+module.exports =
+  mongoose.models.LeadContacts ||
+  mongoose.model("LeadContacts", leadContactsSchema);

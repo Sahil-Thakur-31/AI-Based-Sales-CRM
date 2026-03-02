@@ -1,15 +1,3 @@
-/* ================= GLOBAL ================= */
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: "Inter", "Segoe UI", sans-serif;
-}
-
-body {
-  background-color: #f5f7fb;
-}
 
 .leads-container {
   padding: 7px 30px 7px 30px;
@@ -162,6 +150,10 @@ body {
   margin-bottom: 15px;
 }
 
+.add-deal-btn {
+  margin-left: auto;
+}
+
 .filters input[type="text"] {
   padding: 11px 16px;
   border-radius: 10px;
@@ -199,7 +191,7 @@ body {
   background: #ffffff;
   border: 1px solid #e6ebf2;
   border-radius: 0 0 16px 16px;
-  overflow-x: auto;
+  overflow: hidden;
   min-height: 400px;
   /* Helps avoid jitter when pagination reduces row count */
   display: flex;

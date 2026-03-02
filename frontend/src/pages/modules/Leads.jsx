@@ -294,6 +294,16 @@ function LeadsDashboard({ defaultView = "leads" }) {
               </option>
             ))}
           </select>
+
+          {viewMode === "deals" && (
+            <button
+              className="btn add-deal-btn"
+              type="button"
+              onClick={() => navigate("/leads/new?view=deal")}
+            >
+              + Add Deal
+            </button>
+          )}
         </div>
       </div>
 
@@ -357,9 +367,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
                         className="view-btn"
                         onClick={() => {
                           if (viewMode === "deals") {
-                            const routeId = row.lead_id || row._id;
-                            if (!routeId) return;
-                            navigate(`/leads/${routeId}?view=deal&dealId=${row._id}${activeTab === 'deleted' ? '&deleted=true' : ''}`);
+                            const dealId = String(row._id || row.deal_id || "").trim();
+                            if (!dealId) return;
+                            navigate(`/leads/${dealId}?view=deal&dealId=${dealId}${activeTab === 'deleted' ? '&deleted=true' : ''}`);
                             return;
                           }
                           const leadId = row._id || row.lead_id;
@@ -463,7 +473,31 @@ function LeadsDashboard({ defaultView = "leads" }) {
               </div>
 
               <div className="expense-upload-box">
-                <input type="file" accept="image/*" />
+                <input
+  type="file"
+  accept="image/*"
+  onChange={async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("card", file);
+
+    try {
+      const res = await API.post("/ocr/scan-business-card", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      alert("Lead created successfully!");
+      setShowOcrModal(false);
+      window.location.reload();
+
+    } catch (err) {
+      console.error(err);
+      alert("OCR failed");
+    }
+  }}
+/>
                 <p>Drop file or click to upload</p>
                 <span>Supports: JPG, PNG, PDF</span>
 

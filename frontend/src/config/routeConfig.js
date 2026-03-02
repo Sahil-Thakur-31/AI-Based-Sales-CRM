@@ -10,6 +10,7 @@ export const routeConfig = [
   { path: "/roles", title: "Roles" },
   { path: "/industry", title: "Industry" },
   { path: "/sources", title: "Sources" },
+  { path: "/organization", title: "Organization" },
 
   // Admin
   { path: "/manageusers", title: "Manage Users" },

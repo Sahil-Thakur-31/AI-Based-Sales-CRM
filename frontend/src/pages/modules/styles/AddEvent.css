@@ -1,0 +1,165 @@
+.add-event-page {
+  min-height: calc(100vh - 24px);
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(15, 88, 157, 0.08), transparent 42%),
+    linear-gradient(180deg, #f5f8fc 0%, #edf2f8 100%);
+}
+
+.add-event-header {
+  max-width: 980px;
+  margin: 0 auto 18px;
+}
+
+.add-event-header h2 {
+  margin: 10px 0 8px;
+  font-size: 30px;
+  letter-spacing: 0.2px;
+  color: #0f2744;
+}
+
+.add-event-header p {
+  margin: 0;
+  color: #4c6280;
+  font-size: 14px;
+}
+
+.back-btn {
+  border: 1px solid #d6dfed;
+  background: #fdfefe;
+  color: #12447f;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.add-event-layout {
+  max-width: 980px;
+  margin: 0 auto;
+  display: block;
+}
+
+.add-event-form-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #dde6f3;
+  box-shadow: 0 14px 36px rgba(14, 40, 73, 0.08);
+  padding: 22px;
+}
+
+.add-event-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.form-note {
+  margin: 0 0 14px;
+  color: #536a87;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.add-event-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #1f3551;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.add-event-form input,
+.add-event-form select,
+.add-event-form textarea {
+  border: 1px solid #d2dceb;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #1b2e43;
+  outline: none;
+}
+
+.add-event-form input:focus,
+.add-event-form select:focus,
+.add-event-form textarea:focus {
+  border-color: #1f6fc4;
+  box-shadow: 0 0 0 3px rgba(31, 111, 196, 0.12);
+}
+
+.full-row {
+  grid-column: 1 / -1;
+}
+
+.file-name {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.fee-note {
+  color: #5f738c;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.form-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.secondary-btn,
+.primary-btn,
+.submit-success button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-btn {
+  background: #e7edf6;
+  color: #1a385d;
+}
+
+.primary-btn,
+.submit-success button {
+  background: linear-gradient(135deg, #0a7ac8, #1b4f9c);
+  color: #ffffff;
+}
+
+.submit-success {
+  text-align: center;
+  padding: 28px 12px;
+}
+
+.submit-success h3 {
+  margin: 0 0 10px;
+  color: #0f4a31;
+}
+
+.submit-success p {
+  margin: 0 0 14px;
+  color: #38506d;
+}
+
+@media (max-width: 980px) {
+  .add-event-page {
+    padding: 18px;
+  }
+
+  .add-event-form-card {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .add-event-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

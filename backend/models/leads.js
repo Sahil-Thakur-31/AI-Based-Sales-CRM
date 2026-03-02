@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const leadsSchema = new mongoose.Schema(
   {
+    is_existing_company: {
+      type: Boolean,
+      default: false,
+    },
+
     is_existing_client: {
       type: Boolean,
       default: false,
@@ -72,6 +77,7 @@ const leadsSchema = new mongoose.Schema(
     next_action: {
       type: String,
     },
+
     is_active: {
       type: Boolean,
       default: true,
@@ -95,4 +101,6 @@ const leadsSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Leads", leadsSchema);
+module.exports =
+  mongoose.models.Leads ||
+  mongoose.model("Leads", leadsSchema);
