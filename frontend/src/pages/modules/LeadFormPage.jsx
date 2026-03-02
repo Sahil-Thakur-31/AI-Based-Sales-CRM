@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
 import BackButton from "../../components/BackButton";
 import "./styles/LeadsDashboard.css";
 
-function LeadFormPage() {
+function LeadFormPage({ formMode = "" }) {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -16,6 +16,7 @@ function LeadFormPage() {
   const searchParams = new URLSearchParams(location.search);
   const deletedView = searchParams.get("deleted") === "true";
   const dealView = searchParams.get("view") === "deal";
+  const clientView = formMode === "client" || searchParams.get("view") === "client";
   const dealIdFromQuery = searchParams.get("dealId") || "";
   const shouldStartInEditMode =
     !deletedView && (isNew || searchParams.get("edit") === "true");
@@ -86,6 +87,7 @@ function LeadFormPage() {
   useEffect(() => {
     const loadData = async () => {
       if (isNew) return;
+      if (clientView) return;
 
       try {
         // 🔹 If viewing deal → load deal
@@ -146,7 +148,7 @@ function LeadFormPage() {
     };
 
     loadData();
-  }, [id, isNew, deletedView, dealView, dealIdFromQuery]);
+  }, [id, isNew, deletedView, dealView, dealIdFromQuery, clientView]);
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
@@ -170,11 +172,7 @@ function LeadFormPage() {
       }
 
       if (industriesRes.status === "fulfilled") {
-        setIndustries(
-          (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
-            .map((item) => item?.name)
-            .filter(Boolean)
-        );
+        setIndustries(Array.isArray(industriesRes.value.data) ? industriesRes.value.data : []);
       } else {
         console.error("industries load error", industriesRes.reason);
       }
@@ -289,19 +287,47 @@ function LeadFormPage() {
       return;
     }
 
-    const payload = {
-      ...lead,
-      contacts,
-    };
-
     try {
-      const response = isNew
-        ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
-        : await API.put(`/leads/${id}`, payload);
+      let response;
+
+      if (clientView) {
+        const payload = {
+          name: lead.company_name || "",
+          industry: lead.industry || "",
+          Address: lead.Address || "",
+          employeeCount: lead.employee_count || "",
+          turnoverRange: lead.turnover_range || "",
+          website: lead.website || "",
+          source: lead.source || "",
+          deal_count: 0,
+          location: selectedLocationId || null,
+          contacts: contacts.map((contact) => ({
+            name: contact.name || "",
+            designation: contact.designation || "",
+            phone: contact.phone || "",
+            email: contact.email || "",
+            linkedin: contact.linkedin || "",
+            is_active: contact.is_active !== false
+          }))
+        };
+
+        response = await API.post("/clients", payload);
+      } else {
+        const payload = {
+          ...lead,
+          contacts,
+        };
+
+        response = isNew
+          ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
+          : await API.put(`/leads/${id}`, payload);
+      }
 
       const data = response.data;
       if (isNew) {
-        if (dealView && data.deal) {
+        if (clientView) {
+          navigate("/clients");
+        } else if (dealView && data.deal) {
           navigate(`/leads/${data.lead._id}?view=deal&dealId=${data.deal._id}`);
         } else {
           navigate(`/leads/${data._id || data.lead?._id}`);
@@ -342,33 +368,34 @@ function LeadFormPage() {
     ),
   ];
 
-  const asDateInputValue = (value) => {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toISOString().slice(0, 10);
-  };
-
-  const asDateTimeInputValue = (value) => {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toISOString().slice(0, 16);
-  };
-
-  const handleFollowUpCompleted = (index, checked) => {
-    setLead((prev) => {
-      const history = Array.isArray(prev.contact_history)
-        ? [...prev.contact_history]
-        : [];
-      history[index] = {
-        ...(history[index] || {}),
-        is_completed: checked,
-        completed_at: checked ? new Date().toISOString() : "",
-      };
-      return { ...prev, contact_history: history };
+  const industryNameMap = useMemo(() => {
+    const map = new Map();
+    industries.forEach((item) => {
+      if (item?._id) map.set(String(item._id), item.name || "");
+      if (item?.name) map.set(String(item.name), item.name);
     });
-  };
+    return map;
+  }, [industries]);
+
+  const selectedLocationId = useMemo(() => {
+    if (!locations.length) return null;
+    const exact = locations.find(
+      (item) =>
+        item.country === lead.country &&
+        item.State === lead.State &&
+        item.city === lead.city &&
+        item.zone === lead.zone
+    );
+    if (exact?._id) return exact._id;
+
+    const fallback = locations.find(
+      (item) =>
+        item.country === lead.country &&
+        item.State === lead.State &&
+        item.city === lead.city
+    );
+    return fallback?._id || null;
+  }, [locations, lead.country, lead.State, lead.city, lead.zone]);
 
   const closePopup = () => {
     setDealDeleteReason("");
@@ -562,7 +589,17 @@ function LeadFormPage() {
     <div className="lead-page">
       <div className="lead-header">
         <h2>
-          {isNew ? (dealView ? "Add Deal" : "Add Lead") : dealView ? `Deal - ${lead.company_name || "Details"}` : lead.company_name}
+          {isNew
+            ? clientView
+              ? "Add Client"
+              : dealView
+                ? "Add Deal"
+                : "Add Lead"
+            : clientView
+              ? `Client - ${lead.company_name || "Details"}`
+              : dealView
+                ? `Deal - ${lead.company_name || "Details"}`
+                : lead.company_name}
         </h2>
         <BackButton />
       </div>
@@ -570,14 +607,14 @@ function LeadFormPage() {
       {deletedView && (
         <div className="deleted-banner" style={{ background: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', margin: '20px 0', fontSize: '15px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fecaca' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          This {dealView ? "deal" : "lead"} is currently deleted and is read-only. Please restore it to make edits.
+          This {clientView ? "client" : dealView ? "deal" : "lead"} is currently deleted and is read-only. Please restore it to make edits.
         </div>
       )}
 
       {!deletedView && (lead.is_active === false || lead.isActive === false) && (
         <div className="inactive-banner" style={{ background: '#fef3c7', color: '#b45309', padding: '12px 16px', borderRadius: '8px', margin: '20px 0', fontSize: '15px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fde68a' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          This {dealView ? "deal" : "lead"} is currently inactive. You cannot generate quotes for inactive sales records.
+          This {clientView ? "client" : dealView ? "deal" : "lead"} is currently inactive. You cannot generate quotes for inactive sales records.
         </div>
       )}
 
@@ -594,7 +631,7 @@ function LeadFormPage() {
                 autoComplete="off"
                 onChange={(e) => {
                   handleLeadChange(e);
-                  if (isNew) {
+                  if (isNew && !clientView) {
                     const val = e.target.value.trim();
                     if (companySearchTimer.current) clearTimeout(companySearchTimer.current);
                     if (val.length < 2) {
@@ -620,7 +657,7 @@ function LeadFormPage() {
                   setTimeout(() => setShowSuggestions(false), 200);
                 }}
               />
-              {showSuggestions && companySuggestions.length > 0 && (
+              {!clientView && showSuggestions && companySuggestions.length > 0 && (
                 <ul className="company-suggestions">
                   {companySuggestions.map((s) => (
                     <li
@@ -669,18 +706,20 @@ function LeadFormPage() {
             <select name="industry" value={lead.industry || ""} onChange={handleLeadChange}>
               <option value="">Select Industry</option>
               {industries.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+                <option key={item?._id || item?.name} value={clientView ? item?._id : item?.name}>
+                  {item?.name}
                 </option>
               ))}
             </select>
           ) : (
-            <p>{lead.industry || "-"}</p>
+            <p>{industryNameMap.get(String(lead.industry || "")) || lead.industry || "-"}</p>
           )}
         </div>
         <Field label="Employees" name="employee_count" value={lead.employee_count} onChange={handleLeadChange} editMode={editMode} />
         <Field label="Turnover" name="turnover_range" value={lead.turnover_range} onChange={handleLeadChange} editMode={editMode} />
-        <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
+        {!clientView && (
+          <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
+        )}
         <Field label="Address" name="Address" value={lead.Address} onChange={handleLeadChange} editMode={editMode} />
 
         {/* COUNTRY */}
@@ -768,21 +807,23 @@ function LeadFormPage() {
           )}
         </div>
 
-        <div className="field">
-          <label>Assign Lead To</label>
-          {editMode && isAdminOrManager ? (
-            <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
-              <option value="">Select User</option>
-              {users.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
-          )}
-        </div>
+        {!clientView && (
+          <div className="field">
+            <label>Assign Lead To</label>
+            {editMode && isAdminOrManager ? (
+              <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
+                <option value="">Select User</option>
+                {users.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ================= CONTACTS ================= */}
@@ -820,47 +861,49 @@ function LeadFormPage() {
         )}
       </div>
 
-      <div className="contacts-section">
-        <h3 className="contacts-title">Follow-up History</h3>
-        {historyRows.length === 0 && <p>No follow-up history yet.</p>}
-        {historyRows.map((entry, idx) => (
-          <div key={`done-${idx}`} className="contact-card">
-            <div className="contact-title">
-              {`Follow-up #${idx + 1}`}
+      {!clientView && (
+        <div className="contacts-section">
+          <h3 className="contacts-title">Follow-up History</h3>
+          {historyRows.length === 0 && <p>No follow-up history yet.</p>}
+          {historyRows.map((entry, idx) => (
+            <div key={`done-${idx}`} className="contact-card">
+              <div className="contact-title">
+                {`Follow-up #${idx + 1}`}
+              </div>
+              <div className="contact-grid">
+                <div className="field">
+                  <label>Date</label>
+                  <p>
+                    {(entry.contacted_at || entry.completed_at)
+                      ? new Date(
+                        entry.contacted_at || entry.completed_at
+                      ).toLocaleString("en-IN")
+                      : "-"}
+                  </p>
+                </div>
+                <div className="field">
+                  <label>Status</label>
+                  <p>{entry.is_completed ? "Completed" : "Pending"}</p>
+                </div>
+                <div className="field">
+                  <label>Reply / Outcome</label>
+                  <p>{entry.reply || "-"}</p>
+                </div>
+                <div className="field">
+                  <label>Notes</label>
+                  <p>{entry.notes || "-"}</p>
+                </div>
+              </div>
             </div>
-            <div className="contact-grid">
-              <div className="field">
-                <label>Date</label>
-                <p>
-                  {(entry.contacted_at || entry.completed_at)
-                    ? new Date(
-                      entry.contacted_at || entry.completed_at
-                    ).toLocaleString("en-IN")
-                    : "-"}
-                </p>
-              </div>
-              <div className="field">
-                <label>Status</label>
-                <p>{entry.is_completed ? "Completed" : "Pending"}</p>
-              </div>
-              <div className="field">
-                <label>Reply / Outcome</label>
-                <p>{entry.reply || "-"}</p>
-              </div>
-              <div className="field">
-                <label>Notes</label>
-                <p>{entry.notes || "-"}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="form-actions">
         {deletedView ? (
           isAdminOrManager && (
             <button className="convert-btn restore-btn" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={dealView ? handleRestoreDeal : handleRestoreLead}>
-              Restore {dealView ? "Deal" : "Lead"}
+              Restore {clientView ? "Client" : dealView ? "Deal" : "Lead"}
             </button>
           )
         ) : editMode ? (
@@ -883,12 +926,12 @@ function LeadFormPage() {
                   Create Quote
                 </button>
               )}
-              {!dealView && !isConvertedLead && (
+              {!clientView && !dealView && !isConvertedLead && (
                 <button className="convert-btn" onClick={handleConvertToDeal}>
                   Convert to Deal
                 </button>
               )}
-              {isAdminOrManager && (
+              {isAdminOrManager && !clientView && (
                 <button
                   className="soft-delete-btn"
                   onClick={dealView ? handleDeleteDeal : handleSoftDelete}
