@@ -1,7 +1,10 @@
 const mongoose = require("mongoose");
 const Deal = require("../models/deals");
+const Leads = require("../models/leads");
+const LeadContacts = require("../models/leadContacts");
 const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
+const Location = require("../models/location");
 const DealStageHistory = require("../models/dealStageHistory");
 
 const DEAL_STAGES = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
@@ -13,238 +16,386 @@ function cleanString(value) {
 }
 
 function numberOrNull(value) {
-  if (value === "" || value === null || value === undefined) return null;
-  const n = Number(value);
-  return Number.isNaN(n) ? null : n;
-}
-
-function dateOrNull(value) {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function boolOrNull(value) {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value === "boolean") return value;
-  if (value === "true") return true;
-  if (value === "false") return false;
+  const normalized = String(value).toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
   return Boolean(value);
 }
 
-function safeDateDisplay(value) {
+function dateOrNull(value) {
   if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-async function buildDealDetail(dealDoc) {
-  const deal = dealDoc.toObject ? dealDoc.toObject() : dealDoc;
+function isValidObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(String(value || ""));
+}
 
-  let client = null;
-  if (deal.client_id) {
-    client = await Client.findOne({
-      _id: deal.client_id,
-      is_deleted: { $ne: true }
-    }).lean();
-  }
-
-  let contacts = [];
-  if (deal.client_id) {
-    contacts = await ClientContact.find({
-      client_id: String(deal.client_id),
-      is_active: { $ne: false }
-    })
-    .sort({ createdAt: -1 })
-    .lean();
-  }
-
-  if (contacts.length === 0 && deal.client_contact_Id) {
-    const primaryContact = await ClientContact.findById(deal.client_contact_Id).lean();
-    if (primaryContact) contacts = [primaryContact];
-  }
-
-  const stageHistory = await DealStageHistory.find({
-    dealId: deal._id
-  })
-  .sort({ movedAt: -1 })
-  .lean();
-
+function mapPrimaryContact(row) {
+  if (!row) return null;
   return {
-    deal: {
-      _id: deal._id,
-      client_id: deal.client_id || null,
-      client_contact_Id: deal.client_contact_Id || null,
-      assignedTo: deal.assignedTo || null,
-      stage: deal.stage || "",
-      dealValue: deal.dealValue ?? null,
-      probability: deal.probability ?? null,
-      expectedCloseDate: safeDateDisplay(deal.expectedCloseDate),
-      actualCloseDate: safeDateDisplay(deal.actualCloseDate),
-      status: deal.status || "open",
-      aiRiskScore: deal.aiRiskScore ?? null,
-      lead_id: deal.lead_id || null,
-      isActive: deal.isActive ?? null,
-      isDeleted: deal.is_deleted ?? false,
-      assignedBy: deal.assignedBy || null,
-      createdAt: safeDateDisplay(deal.createdAt),
-      updatedAt: safeDateDisplay(deal.updatedAt)
-    },
-    client: client
-      ? {
-        _id: client._id,
-        name: client.name || "",
-        industry: client.industry || null,
-        Address: client.Address || "",
-        employeeCount: client.employeeCount ?? null,
-        turnoverRange: client.turnoverRange || "",
-        website: client.website || "",
-        source: client.source || null,
-        deal_count: client.deal_count ?? null,
-        GST_no: client.GST_no || "",
-        URD: client.URD || "",
-        Aadhar_doc: client.Aadhar_doc || "",
-        PanCard_doc: client.PanCard_doc || "",
-        Other_docs: client.Other_docs || "",
-        location: client.location || null
-      }
-      : null,
-    contacts: contacts.map((contact) => ({
-      _id: contact._id,
-      client_id: contact.client_id || "",
-      name: contact.name || "",
-      designation: contact.designation || "",
-      phone: contact.phone || "",
-      email: contact.email || "",
-      linkedin: contact.linkedin || "",
-      is_active: contact.is_active ?? true,
-      is_deleted: contact.is_deleted || null,
-      createdAt: safeDateDisplay(contact.createdAt),
-      updatedAt: safeDateDisplay(contact.updatedAt)
-    })),
-    stageHistory: stageHistory.map((h) => ({
-      _id: h._id,
-      dealId: h.dealId,
-      stage: h.stage || "",
-      movedAt: safeDateDisplay(h.movedAt),
-      movedBy: h.movedBy || null
-    }))
+    name: row.name || "",
+    phone: row.phone || "",
+    email: row.email || ""
   };
 }
 
-exports.getDeals = async (req, res) => {
+function buildListRow(deal, leadMap, clientMap, leadContactMap, clientContactMap) {
+  const leadId = deal.lead_id ? String(deal.lead_id) : "";
+  const clientId = deal.client_id ? String(deal.client_id) : "";
 
+  const lead = leadId ? leadMap.get(leadId) : null;
+  const client = clientId ? clientMap.get(clientId) : null;
+
+  const companyName =
+    cleanString(lead?.company_name) ||
+    cleanString(client?.name) ||
+    "Untitled Deal";
+
+  const industry = cleanString(lead?.industry) || cleanString(client?.industry) || "";
+
+  const dealValue =
+    typeof deal.dealValue === "number"
+      ? deal.dealValue
+      : (numberOrNull(lead?.deal_value_estimate) || 0);
+
+  const leadTemperature = cleanString(lead?.lead_temperature) || "";
+  const aiScore = numberOrNull(deal.aiRiskScore);
+
+  return {
+    _id: deal._id,
+    deal_id: deal._id,
+    company_name: companyName,
+    industry,
+    deal_value_estimate: dealValue,
+    ai_score: aiScore,
+    lead_temperature: leadTemperature,
+    last_contact_date: lead?.last_contact_date || deal.updatedAt || deal.createdAt || null,
+    next_action: cleanString(lead?.next_action) || "",
+    next_action_date: lead?.next_action_date || null,
+    status: cleanString(deal.status) || "open",
+    stage: cleanString(deal.stage) || "",
+    converted_to_deal: true,
+    primary_contact:
+      (leadId ? leadContactMap.get(leadId) : null) ||
+      (clientId ? clientContactMap.get(clientId) : null) ||
+      null,
+    lead_id: deal.lead_id || null,
+    client_id: deal.client_id || null,
+    is_deleted: deal.is_deleted === true,
+    deleted: deal.is_deleted === true,
+    delete_reason: cleanString(deal.deleted_reason),
+    isActive: deal.isActive !== false
+  };
+}
+
+function mapContactDetail(row) {
+  return {
+    _id: row?._id || null,
+    name: row?.name || "",
+    designation: row?.designation || "",
+    phone: row?.phone || "",
+    email: row?.email || "",
+    linkedin: row?.linkedin || "",
+    address: row?.address || "",
+    is_primary: row?.is_primary === true,
+    is_active: row?.is_active !== false
+  };
+}
+
+function mapStageHistory(historyRows) {
+  return (historyRows || []).map((row) => ({
+    _id: row._id,
+    dealId: row.dealId,
+    stage: row.stage || "",
+    movedAt: row.movedAt || null,
+    movedBy: row.movedBy || null
+  }));
+}
+
+exports.getDeals = async (req, res) => {
   try {
-    const deletedOnly =
-      req.query.deleted_only === "true" || req.query.deleted_only === true;
+    const deletedOnly = req.query.deleted_only === "true" || req.query.deleted_only === true;
+    const includeDeleted = req.query.include_deleted === "true" || req.query.include_deleted === true;
 
     const filter = deletedOnly
       ? { is_deleted: true }
-      : { is_deleted: { $ne: true } };
+      : includeDeleted
+        ? {}
+        : { is_deleted: { $ne: true } };
 
-    let dealsQuery = Deal.find(filter).sort({ updatedAt: -1 });
-
+    let query = Deal.find(filter).sort({ updatedAt: -1 });
     const limitParam = Number(req.query.limit);
-    if (!Number.isNaN(limitParam) && limitParam > 0) {
-      dealsQuery = dealsQuery.limit(limitParam);
+    if (Number.isFinite(limitParam) && limitParam > 0) query = query.limit(limitParam);
+
+    const deals = await query.lean();
+
+    const leadIds = [...new Set(deals.map((row) => row.lead_id).filter(Boolean).map((id) => String(id)))];
+    const clientIds = [...new Set(deals.map((row) => row.client_id).filter(Boolean).map((id) => String(id)))];
+
+    const [leads, clients, leadContacts, clientContacts] = await Promise.all([
+      leadIds.length ? Leads.find({ _id: { $in: leadIds } }).lean() : [],
+      clientIds.length ? Client.find({ _id: { $in: clientIds } }).lean() : [],
+      leadIds.length
+        ? LeadContacts.find({ lead_id: { $in: leadIds } }).sort({ is_primary: -1, created_at: 1 }).lean()
+        : [],
+      clientIds.length
+        ? ClientContact.find({ client_id: { $in: clientIds }, is_active: { $ne: false } })
+          .sort({ createdAt: -1 })
+          .lean()
+        : []
+    ]);
+
+    const leadMap = new Map((leads || []).map((row) => [String(row._id), row]));
+    const clientMap = new Map((clients || []).map((row) => [String(row._id), row]));
+
+    const leadContactMap = new Map();
+    for (const row of leadContacts || []) {
+      const key = row?.lead_id ? String(row.lead_id) : "";
+      if (!key || leadContactMap.has(key)) continue;
+      leadContactMap.set(key, mapPrimaryContact(row));
     }
 
-    const deals = await dealsQuery.lean();
-
-    const leadIds = deals
-      .map((deal) => deal.lead_id)
-      .filter(Boolean)
-      .map((id) => id.toString());
-
-    const clientIds = [
-      ...new Set(
-        deals
-        .map((deal) => deal.client_id ? String(deal.client_id) : "")
-        .filter(Boolean)
-      )
-    ];
-
-    const leads = uniqueLeadIds.length
-      ? await Leads.find({ _id: { $in: uniqueLeadIds } }).lean()
-      : [];
-    const contacts = uniqueLeadIds.length
-      ? await LeadContacts.find({ lead_id: { $in: uniqueLeadIds } })
-        .sort({ is_primary: -1, created_at: 1 })
-        .lean()
-      : [];
-    const clients = uniqueClientIds.length
-      ? await Client.find({ _id: { $in: uniqueClientIds } }).lean()
-      : [];
-    const clientContacts = uniqueClientIds.length
-      ? await ClientContact.find({
-        client_id: { $in: uniqueClientIds },
-        is_active: true,
-      }).lean()
-      : [];
-
-    const leadMap = new Map(leads.map((lead) => [lead._id.toString(), lead]));
-    const clientMap = new Map(clients.map((client) => [client._id.toString(), client]));
-    const contactMap = new Map();
     const clientContactMap = new Map();
-
-    for (const contact of contacts) {
-      const leadId = contact.lead_id?.toString();
-      if (!leadId || contactMap.has(leadId)) continue;
-      contactMap.set(leadId, {
-        name: contact.name || "",
-        phone: contact.phone || "",
-        email: contact.email || "",
-      });
-    }
-    for (const contact of clientContacts) {
-      const clientId = (contact.client_id || "").toString();
-      if (!clientId || clientContactMap.has(clientId)) continue;
-      clientContactMap.set(clientId, {
-        name: contact.name || "",
-        phone: contact.phone || "",
-        email: contact.email || "",
-      });
+    for (const row of clientContacts || []) {
+      const key = row?.client_id ? String(row.client_id) : "";
+      if (!key || clientContactMap.has(key)) continue;
+      clientContactMap.set(key, mapPrimaryContact(row));
     }
 
-    const response = deals.map((deal) => {
-
-      const clientName = deal.client_id
-        ? (clientMap.get(String(deal.client_id)) || deal.clientName || "Unknown Client")
-        : (deal.clientName || "Unlinked Deal");
-
-      return {
-        _id: deal._id,
-        deal_id: deal._id,
-        company_name: lead?.company_name || client?.name || deal.clientName || "Untitled Deal",
-        industry: lead?.industry || "",
-        deal_value_estimate:
-          typeof deal.dealValue === "number"
-            ? deal.dealValue
-            : lead?.deal_value_estimate || 0,
-        ai_score: temperatureData.ai_score,
-        lead_temperature: temperatureData.lead_temperature,
-        last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
-        next_action: lead?.next_action || "",
-        next_action_date: null,
-        status: deal.status || "open",
-        stage: deal.stage || "",
-        converted_to_deal: true,
-        primary_contact:
-          (leadId ? contactMap.get(leadId) : null) ||
-          (clientId ? clientContactMap.get(clientId) : null) ||
-          null,
-        lead_id: deal.lead_id || null,
-        is_deleted: deal.is_deleted || false,
-        deleted: deal.is_deleted || false,
-        delete_reason: deal.deleted_reason || "",
-        isActive: deal.isActive !== false,
-      };
-
-    });
+    const response = deals.map((deal) =>
+      buildListRow(deal, leadMap, clientMap, leadContactMap, clientContactMap)
+    );
 
     res.json(response);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("getDeals error:", err);
+    res.status(500).json({ message: "Failed to fetch deals" });
   }
 };
+
+exports.getDealById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid deal id" });
+    }
+
+    const includeDeleted = req.query.include_deleted === "true" || req.query.include_deleted === true;
+
+    const deal = await Deal.findOne({
+      _id: id,
+      ...(includeDeleted ? {} : { is_deleted: { $ne: true } })
+    }).lean();
+
+    if (!deal) return res.status(404).json({ message: "Deal not found" });
+
+    const [lead, client, stageHistory] = await Promise.all([
+      deal.lead_id ? Leads.findById(deal.lead_id).lean() : null,
+      deal.client_id ? Client.findById(deal.client_id).lean() : null,
+      DealStageHistory.find({ dealId: deal._id }).sort({ movedAt: -1 }).lean()
+    ]);
+
+    const leadContacts = lead
+      ? await LeadContacts.find({ lead_id: lead._id }).sort({ is_primary: -1, created_at: 1 }).lean()
+      : [];
+
+    const clientContacts = client
+      ? await ClientContact.find({
+        client_id: String(client._id),
+        is_active: { $ne: false }
+      }).sort({ createdAt: -1 }).lean()
+      : [];
+
+    const contacts = (leadContacts.length ? leadContacts : clientContacts).map(mapContactDetail);
+
+    let location = null;
+    const locationId = lead?.location || client?.location;
+    if (locationId && isValidObjectId(locationId)) {
+      location = await Location.findById(locationId).lean();
+    }
+
+    const mappedDeal = {
+      _id: deal._id,
+      company_name: cleanString(lead?.company_name) || cleanString(client?.name) || "Untitled Deal",
+      industry: cleanString(lead?.industry) || cleanString(client?.industry) || "",
+      employee_count: lead?.employee_count ?? client?.employeeCount ?? "",
+      turnover_range: cleanString(lead?.turnover_range) || cleanString(client?.turnoverRange) || "",
+      Address: cleanString(lead?.Address) || cleanString(client?.Address) || "",
+      website: cleanString(lead?.website) || cleanString(client?.website) || "",
+      source: lead?.source || client?.source || "",
+      country: cleanString(location?.country),
+      State: cleanString(location?.State || location?.state),
+      city: cleanString(location?.city),
+      zone: cleanString(location?.zone || location?.area),
+      lead_temperature: cleanString(lead?.lead_temperature),
+      deal_value_estimate:
+        typeof deal.dealValue === "number"
+          ? deal.dealValue
+          : (numberOrNull(lead?.deal_value_estimate) || 0),
+      status: cleanString(deal.status) || "open",
+      next_action: cleanString(lead?.next_action),
+      next_action_date: lead?.next_action_date || null,
+      assigned_to: deal.assignedTo || lead?.assigned_to || "",
+      converted_to_deal: true,
+      isActive: deal.isActive !== false,
+      is_deleted: deal.is_deleted === true,
+      deleted_reason: cleanString(deal.deleted_reason),
+      lead_id: deal.lead_id || null,
+      client_id: deal.client_id || null,
+      stage: cleanString(deal.stage),
+      probability: deal.probability ?? null,
+      expectedCloseDate: deal.expectedCloseDate || null,
+      actualCloseDate: deal.actualCloseDate || null,
+      aiRiskScore: deal.aiRiskScore ?? null
+    };
+
+    res.json({
+      deal: mappedDeal,
+      contacts,
+      stageHistory: mapStageHistory(stageHistory)
+    });
+  } catch (err) {
+    console.error("getDealById error:", err);
+    res.status(500).json({ message: "Failed to fetch deal details" });
+  }
+};
+
+exports.updateDeal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid deal id" });
+    }
+
+    const deal = await Deal.findById(id);
+    if (!deal) return res.status(404).json({ message: "Deal not found" });
+
+    const prevStage = cleanString(deal.stage);
+    const body = req.body || {};
+
+    if (body.client_id !== undefined && isValidObjectId(body.client_id)) deal.client_id = body.client_id;
+    if (body.client_contact_Id !== undefined && isValidObjectId(body.client_contact_Id)) {
+      deal.client_contact_Id = body.client_contact_Id;
+    }
+    if (body.assignedTo !== undefined && isValidObjectId(body.assignedTo)) deal.assignedTo = body.assignedTo;
+    if (body.assignedBy !== undefined && isValidObjectId(body.assignedBy)) deal.assignedBy = body.assignedBy;
+    if (body.lead_id !== undefined && isValidObjectId(body.lead_id)) deal.lead_id = body.lead_id;
+
+    if (body.stage !== undefined) {
+      const nextStage = cleanString(body.stage).toUpperCase();
+      if (!DEAL_STAGES.includes(nextStage)) {
+        return res.status(400).json({ message: "Invalid stage value" });
+      }
+      deal.stage = nextStage;
+    }
+
+    if (body.status !== undefined) {
+      const nextStatus = cleanString(body.status).toLowerCase();
+      if (!DEAL_STATUSES.includes(nextStatus)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+      deal.status = nextStatus;
+    }
+
+    if (body.dealValue !== undefined || body.deal_value_estimate !== undefined) {
+      const value = numberOrNull(body.dealValue ?? body.deal_value_estimate);
+      if (value !== null) deal.dealValue = value;
+    }
+
+    if (body.probability !== undefined) {
+      const probability = numberOrNull(body.probability);
+      if (probability !== null) deal.probability = probability;
+    }
+
+    if (body.aiRiskScore !== undefined || body.ai_score !== undefined) {
+      const ai = numberOrNull(body.aiRiskScore ?? body.ai_score);
+      if (ai !== null) deal.aiRiskScore = ai;
+    }
+
+    if (body.expectedCloseDate !== undefined) deal.expectedCloseDate = dateOrNull(body.expectedCloseDate);
+    if (body.actualCloseDate !== undefined) deal.actualCloseDate = dateOrNull(body.actualCloseDate);
+
+    if (body.isActive !== undefined || body.is_active !== undefined) {
+      const active = boolOrNull(body.isActive ?? body.is_active);
+      if (active !== null) deal.isActive = active;
+    }
+
+    await deal.save();
+
+    if (deal.stage && deal.stage !== prevStage) {
+      await DealStageHistory.create({
+        dealId: deal._id,
+        stage: deal.stage,
+        movedAt: new Date(),
+        movedBy: req.user?._id || null
+      });
+    }
+
+    res.json({ message: "Deal updated successfully", deal });
+  } catch (err) {
+    console.error("updateDeal error:", err);
+    res.status(500).json({ message: "Failed to update deal" });
+  }
+};
+
+exports.deleteDeal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid deal id" });
+    }
+
+    const deal = await Deal.findById(id);
+    if (!deal) return res.status(404).json({ message: "Deal not found" });
+
+    const reason = cleanString(req.body?.reason);
+    if (!reason) {
+      return res.status(400).json({ message: "Delete reason is required" });
+    }
+
+    deal.is_deleted = true;
+    deal.deleted_reason = reason;
+    deal.deleted_at = new Date();
+    deal.isActive = false;
+    await deal.save();
+
+    res.json({ message: "Deal deleted successfully", deal });
+  } catch (err) {
+    console.error("deleteDeal error:", err);
+    res.status(500).json({ message: "Failed to delete deal" });
+  }
+};
+
+exports.restoreDeal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid deal id" });
+    }
+
+    const deal = await Deal.findById(id);
+    if (!deal) return res.status(404).json({ message: "Deal not found" });
+
+    deal.is_deleted = false;
+    deal.deleted_reason = "";
+    deal.deleted_at = null;
+    deal.isActive = true;
+    await deal.save();
+
+    res.json({ message: "Deal restored successfully", deal });
+  } catch (err) {
+    console.error("restoreDeal error:", err);
+    res.status(500).json({ message: "Failed to restore deal" });
+  }
+};
+
