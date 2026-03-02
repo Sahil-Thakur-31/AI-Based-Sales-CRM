@@ -7,7 +7,6 @@ const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const CRMSettings = require("../models/crmSettings");
-const Notification = require("../models/notifications");
 
 function normalizeRole(roleName = "") {
   return String(roleName).trim().toLowerCase();
