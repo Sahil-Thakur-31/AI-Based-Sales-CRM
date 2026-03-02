@@ -296,11 +296,17 @@ function LeadFormPage() {
 
     try {
       const response = isNew
-        ? await API.post("/leads", payload)
+        ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
         : await API.put(`/leads/${id}`, payload);
 
       const data = response.data;
-      if (isNew) navigate(`/leads/${data._id}`);
+      if (isNew) {
+        if (dealView && data.deal) {
+          navigate(`/leads/${data.lead._id}?view=deal&dealId=${data.deal._id}`);
+        } else {
+          navigate(`/leads/${data._id || data.lead?._id}`);
+        }
+      }
       setEditMode(false);
     } catch (err) {
       console.error("save lead error", err);
@@ -556,7 +562,7 @@ function LeadFormPage() {
     <div className="lead-page">
       <div className="lead-header">
         <h2>
-          {isNew ? "Add Lead" : dealView ? `Deal - ${lead.company_name || "Details"}` : lead.company_name}
+          {isNew ? (dealView ? "Add Deal" : "Add Lead") : dealView ? `Deal - ${lead.company_name || "Details"}` : lead.company_name}
         </h2>
         <BackButton />
       </div>

@@ -22,6 +22,7 @@ import NewQuotation from './pages/modules/NewQuotation.jsx';
 import QuotationDetails from './pages/modules/QuotationDetails.jsx';
 // meetings module removed
 import FollowUps from './pages/modules/FollowUps.jsx';
+import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
 import AILeads from './pages/modules/AILeads.jsx';
@@ -89,6 +90,7 @@ function App() {
           <Route path="/quotations/:id" element={<QuotationDetails />} />
 
           <Route path="/followups" element={<FollowUps />} />
+          <Route path="/followups/add" element={<FollowupsAddPage />} />
 
           <Route path="/sales-forecast" element={<SalesForecast />} />
           <Route path="/expenses" element={<Expenses />} />

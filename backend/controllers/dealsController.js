@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Deal = require("../models/deals");
 const Leads = require("../models/leads");
 const LeadContacts = require("../models/leadContacts");
@@ -291,5 +292,43 @@ exports.restoreDeal = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Failed to restore deal" });
+  }
+};
+
+exports.getClientSuggestions = async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 25);
+    const allowedIds = await getAccessibleUserIds(req.user);
+    const assignedObjectIds = allowedIds.map((id) => new mongoose.Types.ObjectId(id));
+
+    const dealClientIds = await Deal.find({
+      is_deleted: { $ne: true },
+      assignedTo: { $in: assignedObjectIds },
+      client_id: { $exists: true, $ne: null },
+    }).distinct("client_id");
+
+    const filter = {
+      is_deleted: { $ne: true },
+      _id: { $in: dealClientIds },
+    };
+    if (q) {
+      filter.name = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    }
+
+    const clients = await Client.find(filter)
+      .select("_id name")
+      .sort({ name: 1 })
+      .limit(limit);
+
+    res.json(
+      clients.map((c) => ({
+        _id: c._id,
+        name: c.name || "",
+      }))
+    );
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch client suggestions" });
   }
 };

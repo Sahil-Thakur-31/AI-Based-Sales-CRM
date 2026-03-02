@@ -28,6 +28,7 @@ export const routeConfig = [
   { path: "/quotations/:id", title: "Quotation Details", dynamic: true },
 
   { path: "/followups", title: "Follow-ups" },
+  { path: "/followups/add", title: "Add Followup and Meeting" },
 
   // Finance
   { path: "/sales-forecast", title: "Sales Forecasting" },

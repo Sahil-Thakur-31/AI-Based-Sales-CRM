@@ -24,6 +24,12 @@ const followupHistorySchema = new mongoose.Schema(
       maxlength: 2000
     },
 
+    performedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      index: true
+    },
+
     is_deleted: {
       type: Boolean,
       default: false,

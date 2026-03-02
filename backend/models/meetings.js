@@ -6,6 +6,20 @@ const meetingsSchema = new mongoose.Schema({
     type: String
   },
 
+  sourceFollowupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Followup",
+    index: true
+  },
+
+  clientName: {
+    type: String
+  },
+
+  actionType: {
+    type: String
+  },
+
   description: {
     type: String
   },
@@ -39,6 +53,11 @@ const meetingsSchema = new mongoose.Schema({
 
   durationMinutes: {
     type: Number
+  },
+
+  priority: {
+    type: String,
+    enum: ["low", "medium", "high", "urgent"]
   },
 
   timezone: {

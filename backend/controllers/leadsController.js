@@ -590,6 +590,11 @@ exports.createLead = async (req, res) => {
       }
     }
 
+    if (req.query.create_as_deal === "true") {
+      req.params.id = String(lead._id);
+      return exports.convertLeadToDeal(req, res);
+    }
+
     res.status(201).json(lead);
   } catch (err) {
     res.status(400).json({ message: err.message });

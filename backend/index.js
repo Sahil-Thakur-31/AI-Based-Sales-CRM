@@ -18,7 +18,11 @@ const dealsRoutes = require("./routes/dealsRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const taxRoutes = require("./routes/taxRoutes");
+const followupsRoutes = require("./routes/followupsRoutes");
+const mongoose = require("mongoose");
+const Meeting = require("./models/meetings");
 const teamRoutes = require("./routes/teamRoutes");
+const ocrRoutes = require("./routes/ocr");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -50,6 +54,19 @@ app.use("/location", locationRoutes);
 app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
-app.use("/teams", teamRoutes);
+app.use("/followups", followupsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/ocr", ocrRoutes);
+
+mongoose.connection.once("open", async () => {
+  try {
+    await Meeting.createCollection();
+    console.log("meetings collection ensured");
+  } catch (err) {
+    if (!String(err?.message || "").toLowerCase().includes("already exists")) {
+      console.error("Failed to ensure meetings collection:", err.message || err);
+    }
+  }
+});
+
 myServer.listen(PORT,()=>console.log('Server started on', PORT));
