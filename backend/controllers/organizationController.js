@@ -6,6 +6,7 @@ const Deal = require("../models/deals");
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const CIN_REGEX = /^[A-Z0-9]{21}$/;
 const GST_REGEX = /^[0-9A-Z]{15}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -15,28 +16,8 @@ function normalizeUpper(value) {
   return normalizeText(value).toUpperCase();
 }
 
-function sanitizeContacts(contacts) {
-  let contactRows = contacts;
-
-  if (typeof contactRows === "string") {
-    try {
-      contactRows = JSON.parse(contactRows);
-    } catch (err) {
-      contactRows = [];
-    }
-  }
-
-  if (!Array.isArray(contactRows)) return [];
-
-  return contactRows
-    .map((contact) => ({
-      name: normalizeText(contact?.name),
-      designation: normalizeText(contact?.designation),
-      phone: normalizeText(contact?.phone),
-      email: normalizeText(contact?.email).toLowerCase(),
-      is_active: contact?.is_active !== false
-    }))
-    .filter((contact) => contact.name || contact.phone || contact.email || contact.designation);
+function normalizeEmail(value) {
+  return normalizeText(value).toLowerCase();
 }
 
 async function buildStats() {
@@ -66,7 +47,9 @@ function mapOrganization(row, stats) {
     panNumber: row.panNumber || "",
     cinNumber: row.cinNumber || "",
     gstNumber: row.gstNumber || "",
-    contacts: Array.isArray(row.contacts) ? row.contacts : [],
+    phoneNumber: row.phoneNumber || "",
+    alternatePhoneNumber: row.alternatePhoneNumber || "",
+    email: row.email || "",
     employeesCount: stats.employeesCount,
     clientsCount: stats.clientsCount,
     dealsCount: stats.dealsCount,
@@ -129,6 +112,7 @@ exports.createOrganization = async (req, res) => {
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
+    const email = normalizeEmail(req.body.email);
 
     if (!name) {
       return res.status(400).json({ message: "Organization name is required" });
@@ -144,6 +128,10 @@ exports.createOrganization = async (req, res) => {
 
     if (gstNumber && !GST_REGEX.test(gstNumber)) {
       return res.status(400).json({ message: "Invalid GST number format" });
+    }
+
+    if (email && !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
     }
 
     const existing = await Organization.findOne({ is_deleted: false })
@@ -177,7 +165,9 @@ exports.createOrganization = async (req, res) => {
       panNumber,
       cinNumber,
       gstNumber,
-      contacts: sanitizeContacts(req.body.contacts),
+      phoneNumber: normalizeText(req.body.phoneNumber),
+      alternatePhoneNumber: normalizeText(req.body.alternatePhoneNumber),
+      email,
       createdBy: req.user?._id || null,
       is_deleted: false
     });
@@ -214,6 +204,7 @@ exports.upsertOrganizationProfile = async (req, res) => {
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
+    const email = normalizeEmail(req.body.email);
 
     if (!name) {
       return res.status(400).json({ message: "Organization name is required" });
@@ -229,6 +220,10 @@ exports.upsertOrganizationProfile = async (req, res) => {
 
     if (gstNumber && !GST_REGEX.test(gstNumber)) {
       return res.status(400).json({ message: "Invalid GST number format" });
+    }
+
+    if (email && !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
     }
 
     const existing = await Organization.findOne({ is_deleted: false })
@@ -264,7 +259,9 @@ exports.upsertOrganizationProfile = async (req, res) => {
       panNumber,
       cinNumber,
       gstNumber,
-      contacts: sanitizeContacts(req.body.contacts),
+      phoneNumber: normalizeText(req.body.phoneNumber),
+      alternatePhoneNumber: normalizeText(req.body.alternatePhoneNumber),
+      email,
       updatedAt: new Date()
     };
 
@@ -327,6 +324,7 @@ exports.updateOrganization = async (req, res) => {
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
+    const email = normalizeEmail(req.body.email);
 
     if (!name) {
       return res.status(400).json({ message: "Organization name is required" });
@@ -342,6 +340,10 @@ exports.updateOrganization = async (req, res) => {
 
     if (gstNumber && !GST_REGEX.test(gstNumber)) {
       return res.status(400).json({ message: "Invalid GST number format" });
+    }
+
+    if (email && !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
     }
 
     const logoUrl = req.file
@@ -375,7 +377,9 @@ exports.updateOrganization = async (req, res) => {
           panNumber,
           cinNumber,
           gstNumber,
-          contacts: sanitizeContacts(req.body.contacts),
+          phoneNumber: normalizeText(req.body.phoneNumber),
+          alternatePhoneNumber: normalizeText(req.body.alternatePhoneNumber),
+          email,
           updatedAt: new Date()
         }
       },

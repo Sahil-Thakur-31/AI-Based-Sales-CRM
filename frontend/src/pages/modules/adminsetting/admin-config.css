@@ -197,46 +197,6 @@
   color: #475569;
 }
 
-.org-contacts-section {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.org-contacts-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.org-contacts-title-row h4 {
-  margin: 0;
-  color: #1f2937;
-}
-
-.org-contact-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr auto;
-  gap: 8px;
-  align-items: center;
-}
-
-.org-contact-row input {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  outline: none;
-  background: #ffffff;
-}
-
-.org-contact-row input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-}
-
 .org-profile-shell {
   border: 1px solid #e6ebf2;
   border-radius: 12px;
@@ -466,27 +426,6 @@
   border-radius: 8px;
   background: #fef2f2;
   color: #b91c1c;
-}
-
-.org-contact-view {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 8px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px 12px;
-  color: #1f2937;
-}
-
-.org-contact-view strong {
-  font-size: 14px;
-}
-
-.org-contact-view span {
-  font-size: 13px;
-  color: #475569;
 }
 
 .org-pincode-wrap {

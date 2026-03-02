@@ -2,17 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import API from "../../../api";
 import "./admin-config.css";
 
-function createEmptyContact() {
-  return {
-    _localId: `contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: "",
-    designation: "",
-    phone: "",
-    email: "",
-    is_active: true
-  };
-}
-
 function createEmptyForm() {
   return {
     name: "",
@@ -27,7 +16,9 @@ function createEmptyForm() {
     panNumber: "",
     cinNumber: "",
     gstNumber: "",
-    contacts: [createEmptyContact()]
+    phoneNumber: "",
+    alternatePhoneNumber: "",
+    email: ""
   };
 }
 
@@ -85,17 +76,9 @@ export default function Organization() {
     panNumber: profile?.panNumber || "",
     cinNumber: profile?.cinNumber || "",
     gstNumber: profile?.gstNumber || "",
-    contacts:
-      Array.isArray(profile?.contacts) && profile.contacts.length
-        ? profile.contacts.map((contact) => ({
-            _localId: contact._id || `contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            name: contact.name || "",
-            designation: contact.designation || "",
-            phone: contact.phone || "",
-            email: contact.email || "",
-            is_active: contact.is_active !== false
-          }))
-        : [createEmptyContact()]
+    phoneNumber: profile?.phoneNumber || "",
+    alternatePhoneNumber: profile?.alternatePhoneNumber || "",
+    email: profile?.email || ""
   });
 
   useEffect(() => {
@@ -153,31 +136,6 @@ export default function Organization() {
       ...prev,
       [field]: value
     }));
-  };
-
-  const updateContact = (index, field, value) => {
-    setForm((prev) => {
-      const next = [...prev.contacts];
-      next[index] = { ...next[index], [field]: value };
-      return { ...prev, contacts: next };
-    });
-  };
-
-  const addContact = () => {
-    setForm((prev) => ({
-      ...prev,
-      contacts: [...prev.contacts, createEmptyContact()]
-    }));
-  };
-
-  const removeContact = (index) => {
-    setForm((prev) => {
-      if (prev.contacts.length === 1) return prev;
-      return {
-        ...prev,
-        contacts: prev.contacts.filter((_, rowIndex) => rowIndex !== index)
-      };
-    });
   };
 
   const lookupPincode = async () => {
@@ -255,18 +213,9 @@ export default function Organization() {
       payload.append("panNumber", form.panNumber || "");
       payload.append("cinNumber", form.cinNumber || "");
       payload.append("gstNumber", form.gstNumber || "");
-      payload.append(
-        "contacts",
-        JSON.stringify(
-          (form.contacts || []).map((contact) => ({
-            name: contact.name || "",
-            designation: contact.designation || "",
-            phone: contact.phone || "",
-            email: contact.email || "",
-            is_active: contact.is_active !== false
-          }))
-        )
-      );
+      payload.append("phoneNumber", form.phoneNumber || "");
+      payload.append("alternatePhoneNumber", form.alternatePhoneNumber || "");
+      payload.append("email", form.email || "");
 
       if (logoFile) payload.append("logo", logoFile);
 
@@ -502,57 +451,33 @@ export default function Organization() {
               </div>
             </div>
 
-            <div className="org-contacts-section">
-              <div className="org-contacts-title-row">
-                <h4>Contact Details</h4>
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Phone Number</label>
                 {isEditing ? (
-                  <button className="admin-config-btn" onClick={addContact}>
-                    + Add Contact
-                  </button>
-                ) : null}
+                  <input value={form.phoneNumber} onChange={(e) => updateField("phoneNumber", e.target.value)} placeholder="Phone number" />
+                ) : (
+                  <p className="org-view-value">{form.phoneNumber || "-"}</p>
+                )}
               </div>
 
-              {(form.contacts || []).map((contact, index) => (
-                <div className="org-contact-row" key={contact._localId || index}>
-                  {isEditing ? (
-                    <>
-                      <input
-                        placeholder="Name"
-                        value={contact.name || ""}
-                        onChange={(e) => updateContact(index, "name", e.target.value)}
-                      />
-                      <input
-                        placeholder="Designation"
-                        value={contact.designation || ""}
-                        onChange={(e) => updateContact(index, "designation", e.target.value)}
-                      />
-                      <input
-                        placeholder="Phone"
-                        value={contact.phone || ""}
-                        onChange={(e) => updateContact(index, "phone", e.target.value)}
-                      />
-                      <input
-                        placeholder="Email"
-                        value={contact.email || ""}
-                        onChange={(e) => updateContact(index, "email", e.target.value)}
-                      />
-                      <button
-                        className="admin-config-btn admin-config-btn-danger"
-                        onClick={() => removeContact(index)}
-                      >
-                        Remove
-                      </button>
-                    </>
-                  ) : (
-                    <div className="org-contact-view">
-                      <strong>{contact.name || "-"}</strong>
-                      <span>{contact.designation || "-"}</span>
-                      <span>{contact.phone || "-"}</span>
-                      <span>{contact.email || "-"}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
+              <div className="org-profile-field">
+                <label>Alternate Phone Number</label>
+                {isEditing ? (
+                  <input value={form.alternatePhoneNumber} onChange={(e) => updateField("alternatePhoneNumber", e.target.value)} placeholder="Alternate phone number" />
+                ) : (
+                  <p className="org-view-value">{form.alternatePhoneNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Email</label>
+                {isEditing ? (
+                  <input value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="Email" />
+                ) : (
+                  <p className="org-view-value">{form.email || "-"}</p>
+                )}
+              </div>
             </div>
           </div>
           </>
