@@ -62,7 +62,6 @@ router.get("/", authenticate, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
-<<<<<<< HEAD
     let settings = await CRMSettings.findOne({ userId: req.user._id }).lean();
     if (!settings) {
       settings = {
@@ -215,9 +214,6 @@ router.get("/", authenticate, async (req, res) => {
       .slice(0, 50);
 
     res.json(combined);
-=======
-    res.json(notifications);
->>>>>>> 3227199e933376f08179b5fb7dd4ef595a944bbb
 
   }
   catch (err) {
