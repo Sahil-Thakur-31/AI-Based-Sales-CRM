@@ -105,24 +105,33 @@ function Navbar() {
   /* Module title */
   const moduleName = useMemo(() => {
 
-  const currentPath = location.pathname;
+    const currentPath = location.pathname;
+    const query = new URLSearchParams(location.search);
 
-  const sortedRoutes = [...routeConfig].sort(
-    (a, b) => b.path.length - a.path.length
-  );
-
-  const route = sortedRoutes.find(r => {
-    if (r.dynamic) {
-      const base = r.path.replace("/:id", "");
-      return currentPath.startsWith(base);
+    if (currentPath === "/leads/new") {
+      return query.get("view") === "deal" ? "Add Deal" : "Add Lead";
     }
 
-    return currentPath === r.path;
-  });
+    if (currentPath.startsWith("/leads/")) {
+      return query.get("view") === "deal" ? "Deal Details" : "Lead Details";
+    }
 
-  return route?.title || "Dashboard";
+    const sortedRoutes = [...routeConfig].sort(
+      (a, b) => b.path.length - a.path.length
+    );
 
-}, [location.pathname]);
+    const route = sortedRoutes.find(r => {
+      if (r.dynamic) {
+        const base = r.path.replace("/:id", "");
+        return currentPath.startsWith(base);
+      }
+
+      return currentPath === r.path;
+    });
+
+    return route?.title || "Dashboard";
+
+  }, [location.pathname, location.search]);
 
   /* Initials fallback */
   const getInitials = (name) => {
@@ -236,14 +245,6 @@ function Navbar() {
       {/* RIGHT */}
       <div className="navbar-right">
 
-        <button
-          className={`nav-refresh-btn ${refreshingApp ? "refreshing" : ""}`}
-          onClick={handleGlobalRefresh}
-          title="Refresh all data"
-          disabled={refreshingApp}
-        >
-          {refreshingApp ? "Refreshing..." : "Refresh"}
-        </button>
 
 
         {/* ADMIN MENU */}
@@ -266,7 +267,7 @@ function Navbar() {
               </div>
 
               <div onClick={() => navigate("/taxes")}>
-                Taxes
+                Tax
               </div>
 
               <div onClick={() => navigate("/roles")}>
@@ -283,6 +284,10 @@ function Navbar() {
 
               <div onClick={() => navigate("/sources")}>
                 Sources
+              </div>
+
+              <div onClick={() => navigate("/organization")}>
+                Organization
               </div>
 
             </div>

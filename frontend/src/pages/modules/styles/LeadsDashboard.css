@@ -1,0 +1,909 @@
+/* ================= GLOBAL ================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+body {
+  background-color: #f5f7fb;
+}
+
+.leads-container {
+  padding: 7px 30px 7px 30px;
+}
+
+/* ================= TOP ACTIONS ================= */
+
+.top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.btn {
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:hover {
+  background: #f0f4ff;
+  border-color: #cfd8ff;
+}
+
+.tag {
+  background: #6c63ff;
+  color: white;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ================= HEADER ================= */
+
+.leads-header {
+  background: #ffffff;
+  padding: 20px 24px 0;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid #e6ebf2;
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.leads-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+=======
+.deleted-header {
+  margin-top: 24px;
+}
+
+.lead-count {
+  font-weight: 500;
+  color: #253b59;
+}
+
+.deleted-toggle-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px 2px 14px;
+}
+
+.deleted-toggle-btn {
+  border: none;
+  background: transparent;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.deleted-toggle-btn:hover {
+  color: #1f2937;
+}
+
+/* ================= STATUS TABS ================= */
+
+.status-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  border-bottom: 2px solid #e6ebf2;
+  width: 100%;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #3f5470;
+}
+
+.tab-btn.active {
+  color: #6d5efc;
+}
+
+.tab-btn.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #6d5efc;
+  border-radius: 2px 2px 0 0;
+}
+
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+.filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.add-deal-btn {
+  margin-left: auto;
+  background: #09a62e;
+  border-color: #09a62e;
+  color: #ffffff;
+}
+
+.add-deal-btn:hover {
+  background: #0b5ed7;
+  border-color: #0b5ed7;
+}
+
+.filters input[type="text"] {
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid #cfd6e4;
+  font-size: 14px;
+  outline: none;
+  transition: 0.2s;
+  min-width: 260px;
+  background: #ffffff;
+}
+
+.filters input[type="text"]:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.filters select {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  outline: none;
+  transition: 0.2s;
+}
+
+.filters select:focus {
+  border-color: #6366f1;
+}
+
+/* ================= TABLE ================= */
+
+.table-wrapper {
+  background: #ffffff;
+  border: 1px solid #e6ebf2;
+  border-radius: 0 0 16px 16px;
+  overflow-x: auto;
+  min-height: 400px;
+  /* Helps avoid jitter when pagination reduces row count */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+thead {
+  background-color: #f3f6fb;
+}
+
+th,
+td {
+  padding: 16px 18px;
+  text-align: left;
+  font-size: 14px;
+}
+
+th {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+th.contact-col,
+td.contact-cell {
+  width: 230px;
+  min-width: 230px;
+  max-width: 230px;
+}
+
+tbody tr {
+  border-top: 1px solid #edf2f7;
+  transition: 0.15s ease;
+}
+
+tbody tr:hover {
+  background-color: #f9fbff;
+}
+
+td {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  color: #374151;
+=======
+  color: #1f3552;
+}
+
+.company-cell {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c3554;
+}
+
+.contact-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1f3552;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-subtext {
+  color: #5f7091;
+  font-size: 13px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ai-chip.hot {
+  background: #f7dfe2;
+  color: #cf4c4c;
+}
+
+.ai-chip.warm {
+  background: #f8e9cb;
+  color: #ce7a1d;
+}
+
+.ai-chip.cold {
+  background: #d5eafb;
+  color: #2b6ead;
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+}
+
+/* ================= BADGES ================= */
+
+.badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.badge.hot {
+  background-color: #ffe4e6;
+  color: #dc2626;
+}
+
+.badge.warm {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.badge.cold {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+/* ================= VIEW BUTTON ================= */
+
+.view-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  padding: 6px 12px;
+  background-color: #eef2ff;
+  color: #4f46e5;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+=======
+  /* Mapped to btn-edit (blue) */
+  padding: 8px 16px;
+  background-color: #007bff;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-weight: 600;
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-btn:hover {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background-color: #6366f1;
+  color: white;
+=======
+  background-color: #0056b3;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.quote-btn {
+  /* Mapped to btn-add/create (green) */
+  background-color: #28a745;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quote-btn:hover {
+  background-color: #218838;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.quote-btn:disabled {
+  background-color: #adb5bd;
+  color: #ffffff;
+  border-color: transparent;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+
+
+/* ================= OVERLAY PANEL ================= */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 1000;
+}
+
+.details-panel {
+  width: 420px;
+  max-width: 100%;
+  height: 100%;
+  background: #ffffff;
+  padding: 24px;
+  overflow-y: auto;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.panel-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.panel-header button {
+  border: none;
+  background: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* ================= DETAILS GRID ================= */
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.details-grid div {
+  background: #f9fafc;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.details-grid strong {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.details-grid p {
+  font-size: 14px;
+  margin-top: 4px;
+  color: #111827;
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 1024px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .leads-container {
+    padding: 16px;
+  }
+
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+
+=======
+  .btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .leads-header h2 {
+    font-size: 24px;
+  }
+
+  .company-cell,
+  .contact-name {
+    font-size: 16px;
+  }
+
+  .contact-subtext,
+  .ai-chip {
+    font-size: 13px;
+  }
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+
+  .filters {
+    width: 100%;
+  }
+
+  .filters input {
+    width: 100%;
+  }
+
+  .filters select {
+    width: 100%;
+  }
+
+  table {
+    min-width: 600px;
+  }
+
+  .details-panel {
+    width: 100%;
+  }
+}
+
+.lead-page {
+  padding: 0 24px 24px;
+  /* 🔥 small top padding */
+  background: #f6f8fc;
+}
+
+
+.lead-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.edit-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background: #eef2ff;
+=======
+  background: #007bff;
+  color: #ffffff;
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+=======
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.edit-btn:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.convert-btn {
+  background: #28a745;
+  color: #ffffff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.convert-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.soft-delete-btn {
+  background: #dc3545;
+  color: #ffffff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.soft-delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+}
+
+.lead-form {
+  background: white;
+  padding: 25px;
+  border-radius: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+
+.field label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.field input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  margin-top: 5px;
+}
+
+.field p {
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.form-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.save-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+=======
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.save-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+}
+
+.cancel-btn {
+  background: #adb5bd;
+  color: #ffffff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+  background: #97a0aa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
+}
+
+@media (max-width: 768px) {
+  .lead-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contacts-section {
+  margin-top: 30px;
+}
+
+.contacts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.add-contact-btn {
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+  background: #eef2ff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+=======
+  background: #28a745;
+  color: #ffffff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.add-contact-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css
+}
+
+.contact-card {
+  background: white;
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  border: 1px solid #e5e7eb;
+}
+
+.contact-title {
+  font-weight: 600;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.remove-contact-btn {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.remove-contact-btn:hover {
+  color: #c82333;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: white;
+}
+<<<<<<< HEAD:frontend/src/pages/modules/LeadsDashboard.css
+=======
+
+.crm-popup-input {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.crm-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 16px;
+}
+
+.crm-popup-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 18px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+.crm-popup-card h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+.crm-popup-card p {
+  font-size: 14px;
+  color: #374151;
+}
+
+.crm-popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.crm-popup-cancel,
+.crm-popup-confirm {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #adb5bd;
+  color: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.crm-popup-cancel:hover {
+  background: #97a0aa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
+}
+
+.crm-popup-confirm {
+  background: #007bff;
+  border-color: #007bff;
+  color: #ffffff;
+}
+
+.crm-popup-confirm:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+/* ================= COMPANY AUTOCOMPLETE ================= */
+
+.company-autocomplete-wrapper {
+  position: relative;
+}
+
+.company-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.company-suggestions li {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #1f2937;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.15s;
+}
+
+.company-suggestions li:last-child {
+  border-bottom: none;
+}
+
+.company-suggestions li:hover {
+  background: #eff6ff;
+}
+
+.suggestion-name {
+  font-weight: 600;
+}
+
+.suggestion-type {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #4338ca;
+}
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd:frontend/src/pages/modules/styles/LeadsDashboard.css

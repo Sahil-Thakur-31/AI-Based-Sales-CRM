@@ -8,6 +8,7 @@ const ClientContact = require("../models/client_contact");
 const Industry = require("../models/industries");
 const User = require("../models/users");
 const DealStageHistory = require("../models/dealStageHistory");
+const Notification = require("../models/notifications");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
@@ -58,6 +59,7 @@ async function resolveLocationId(payload) {
 
 function stripLeadPayloadFields(payload) {
   const cleaned = { ...payload };
+  delete cleaned._id;
   delete cleaned.contacts;
   delete cleaned.country;
   delete cleaned.State;
@@ -263,6 +265,138 @@ async function syncLeadFollowupsFromHistory(lead, history = []) {
   }
 }
 
+exports.searchCompany = async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q || q.length < 2) return res.json([]);
+
+    const regex = new RegExp(escapeRegExp(q), "i");
+
+    // Search in leads (non-deleted)
+    const matchingLeads = await Leads.find({
+      company_name: regex,
+      $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
+    })
+      .sort({ updated_at: -1 })
+      .limit(10)
+      .lean();
+
+    // Search in clients
+    const matchingClients = await Client.find({
+      name: regex,
+      is_deleted: { $ne: true },
+    })
+      .limit(10)
+      .lean();
+
+    // Deduplicate by company name (case insensitive)
+    const seen = new Set();
+    const results = [];
+
+    for (const lead of matchingLeads) {
+      const key = (lead.company_name || "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      let location = null;
+      if (lead.location) {
+        location = await Location.findById(lead.location).lean();
+      }
+
+      // Get lead contacts
+      const leadContacts = await LeadContacts.find({ lead_id: lead._id })
+        .sort({ is_primary: -1, created_at: 1 })
+        .lean();
+
+      results.push({
+        _id: lead._id,
+        type: "lead",
+        company_name: lead.company_name || "",
+        industry: lead.industry || "",
+        employee_count: lead.employee_count || "",
+        turnover_range: lead.turnover_range || "",
+        Address: lead.Address || "",
+        website: lead.website || "",
+        source: lead.source || "",
+        deal_value_estimate: lead.deal_value_estimate || "",
+        lead_temperature: lead.lead_temperature || "cold",
+        assigned_to: lead.assigned_to || "",
+        country: location?.country || "",
+        State: location?.State || "",
+        city: location?.city || "",
+        zone: location?.zone || "",
+        contacts: leadContacts.map((c) => ({
+          name: c.name || "",
+          designation: c.designation || "",
+          phone: c.phone || "",
+          email: c.email || "",
+          linkedin: c.linkedin || "",
+          address: c.address || "",
+          is_primary: Boolean(c.is_primary),
+        })),
+      });
+    }
+
+    for (const client of matchingClients) {
+      const key = (client.name || "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // Resolve location
+      let location = null;
+      if (client.location) {
+        location = await Location.findById(client.location).lean();
+      }
+
+      // Resolve industry name from ObjectId
+      let industryName = "";
+      if (client.industry) {
+        const ind = await Industry.findById(client.industry).select("name").lean();
+        industryName = ind?.name || "";
+      }
+
+      // Get client contacts
+      const clientContacts = await ClientContact.find({
+        client_id: String(client._id),
+        is_active: true,
+      }).lean();
+
+      results.push({
+        _id: client._id,
+        type: "client",
+        company_name: client.name || "",
+        industry: industryName,
+        employee_count: client.employeeCount || "",
+        turnover_range: client.turnoverRange || "",
+        Address: client.Address || "",
+        website: client.website || "",
+        source: client.source || "",
+        deal_value_estimate: "",
+        lead_temperature: "cold",
+        assigned_to: "",
+        country: location?.country || "",
+        State: location?.State || "",
+        city: location?.city || "",
+        zone: location?.zone || "",
+        contacts: clientContacts.map((c) => ({
+          name: c.name || "",
+          designation: c.designation || "",
+          phone: c.phone || "",
+          email: c.email || "",
+          linkedin: c.linkedin || "",
+          address: "",
+          is_primary: true,
+        })),
+      });
+    }
+
+    res.json(results.slice(0, 10));
+  } catch (err) {
+    console.error("searchCompany error", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.getLeads = async (req, res) => {
   try {
     await normalizeLegacyLeadFlagsOnce();
@@ -272,7 +406,10 @@ exports.getLeads = async (req, res) => {
 
     const filter = deletedOnly
       ? { is_deleted: true }
-      : { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] };
+      : {
+        $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
+        converted_to_deal: { $ne: true },
+      };
     let leadsQuery = Leads.find(filter).sort({ updated_at: -1 });
     if (!Number.isNaN(limit) && limit > 0) {
       leadsQuery = leadsQuery.limit(limit);
@@ -293,8 +430,8 @@ exports.getLeads = async (req, res) => {
       : [];
     const contacts = leadIds.length
       ? await LeadContacts.find({ lead_id: { $in: leadIds } })
-          .sort({ is_primary: -1, created_at: 1 })
-          .lean()
+        .sort({ is_primary: -1, created_at: 1 })
+        .lean()
       : [];
 
     const locationMap = new Map(locations.map((loc) => [loc._id.toString(), loc]));
@@ -324,10 +461,10 @@ exports.getLeads = async (req, res) => {
           lead.lead_temperature === "hot"
             ? 90
             : lead.lead_temperature === "warm"
-            ? 70
-            : lead.lead_temperature === "cold"
-            ? 50
-            : null,
+              ? 70
+              : lead.lead_temperature === "cold"
+                ? 50
+                : null,
         country: location?.country || "",
         State: location?.State || "",
         city: location?.city || "",
@@ -411,9 +548,15 @@ exports.getLeadById = async (req, res) => {
 
 exports.createLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    const actorId = req.user?._id || null;
     await normalizeLegacyLeadFlagsOnce();
     const locationId = await resolveLocationId(req.body);
     const leadPayload = applyLeadDerivations(stripLeadPayloadFields(req.body));
+
+    if (userRole !== "admin" && userRole !== "manager") {
+      leadPayload.assigned_to = actorId;
+    }
 
     if (locationId) {
       leadPayload.location = locationId;
@@ -432,6 +575,27 @@ exports.createLead = async (req, res) => {
       );
     }
 
+    // Send notification if lead is assigned to someone
+    if (lead.assigned_to) {
+      try {
+        await Notification.create({
+          userId: lead.assigned_to,
+          title: "New Lead Assigned",
+          message: `You have been assigned a new lead: ${lead.company_name || "Untitled"}`,
+          type: "info",
+          relatedId: lead._id,
+          relatedType: "Lead",
+        });
+      } catch (notifErr) {
+        console.error("Failed to create assignment notification:", notifErr);
+      }
+    }
+
+    if (req.query.create_as_deal === "true") {
+      req.params.id = String(lead._id);
+      return exports.convertLeadToDeal(req, res);
+    }
+
     res.status(201).json(lead);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -440,13 +604,21 @@ exports.createLead = async (req, res) => {
 
 exports.updateLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
     await normalizeLegacyLeadFlagsOnce();
     const locationId = await resolveLocationId(req.body);
     const leadPayload = applyLeadDerivations(stripLeadPayloadFields(req.body));
 
+    if (userRole !== "admin" && userRole !== "manager") {
+      delete leadPayload.assigned_to;
+    }
+
     if (locationId) {
       leadPayload.location = locationId;
     }
+
+    // Fetch old assigned_to before updating
+    const oldLead = await Leads.findById(req.params.id).select("assigned_to company_name").lean();
 
     const lead = await Leads.findOneAndUpdate(
       {
@@ -475,6 +647,24 @@ exports.updateLead = async (req, res) => {
       await syncLeadFollowupsFromHistory(lead, req.body.contact_history);
     }
 
+    // Send notification if assigned_to changed to a different user
+    const oldAssignee = oldLead?.assigned_to ? String(oldLead.assigned_to) : "";
+    const newAssignee = lead.assigned_to ? String(lead.assigned_to) : "";
+    if (newAssignee && newAssignee !== oldAssignee) {
+      try {
+        await Notification.create({
+          userId: lead.assigned_to,
+          title: "Lead Assigned to You",
+          message: `You have been assigned the lead: ${lead.company_name || "Untitled"}`,
+          type: "info",
+          relatedId: lead._id,
+          relatedType: "Lead",
+        });
+      } catch (notifErr) {
+        console.error("Failed to create assignment notification:", notifErr);
+      }
+    }
+
     res.json(lead);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -483,6 +673,11 @@ exports.updateLead = async (req, res) => {
 
 exports.deleteLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    if (userRole !== "admin" && userRole !== "manager") {
+      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can delete leads" });
+    }
+
     await normalizeLegacyLeadFlagsOnce();
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,
@@ -502,6 +697,11 @@ exports.deleteLead = async (req, res) => {
 
 exports.restoreLead = async (req, res) => {
   try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    if (userRole !== "admin" && userRole !== "manager") {
+      return res.status(403).json({ message: "Forbidden: Only Admin or Manager can restore leads" });
+    }
+
     await normalizeLegacyLeadFlagsOnce();
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,
@@ -552,9 +752,9 @@ exports.convertLeadToDeal = async (req, res) => {
     const normalizedCompanyName = (lead.company_name || "").trim();
     let client = normalizedCompanyName
       ? await Client.findOne({
-          name: new RegExp(`^${escapeRegExp(normalizedCompanyName)}$`, "i"),
-          is_deleted: { $ne: true },
-        })
+        name: new RegExp(`^${escapeRegExp(normalizedCompanyName)}$`, "i"),
+        is_deleted: { $ne: true },
+      })
       : null;
 
     if (!client) {
@@ -627,7 +827,6 @@ exports.convertLeadToDeal = async (req, res) => {
 
     const deal = await Deal.create({
       client_id: client._id,
-      client_contact_Id: clientContact?._id || null,
       lead_id: lead._id,
       assignedTo: lead.assigned_to || null,
       assignedBy: actorId,

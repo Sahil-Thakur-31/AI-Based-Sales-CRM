@@ -10,6 +10,7 @@ export const routeConfig = [
   { path: "/roles", title: "Roles" },
   { path: "/industry", title: "Industry" },
   { path: "/sources", title: "Sources" },
+  { path: "/organization", title: "Organization" },
 
   // Admin
   { path: "/manageusers", title: "Manage Users" },
@@ -25,9 +26,10 @@ export const routeConfig = [
   { path: "/deals/:id", title: "Deal Details", dynamic: true },
   { path: "/quotations", title: "Quotations" },
   { path: "/quotations/new", title: "New Quotation" },
+  { path: "/quotations/:id", title: "Quotation Details", dynamic: true },
 
-  { path: "/meetings", title: "Meetings" },
   { path: "/followups", title: "Follow-ups" },
+  { path: "/followups/add", title: "Add Followup and Meeting" },
 
   // Finance
   { path: "/sales-forecast", title: "Sales Forecasting" },
@@ -42,6 +44,7 @@ export const routeConfig = [
 
   // Team
   { path: "/team-dashboard", title: "Team Dashboard" },
+  { path: "/team-setup", title: "Setup Team" },
 
   // System
   { path: "/settings", title: "Settings" },

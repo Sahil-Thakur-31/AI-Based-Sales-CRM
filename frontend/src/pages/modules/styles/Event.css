@@ -127,9 +127,48 @@
   border-left: 5px solid #8e44ad;
 }
 
+<<<<<<< HEAD
 /* =========================================
    EVENT SECTION
 ========================================= */
+=======
+.event-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+  width: 100%;
+}
+
+.event-filters button {
+  width: 100%;
+  background: #d1d5db;
+  border: none;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.event-filters button:hover {
+  background: #9ca3af;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+}
+
+.event-section,
+.event-analytics {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e8edf5;
+  box-shadow: 0 10px 24px rgba(17, 36, 68, 0.06);
+}
+>>>>>>> 49127a7c44e142dd0b4b8d8794229de291fc10dd
 
 .event-section {
   background: #ffffff;
@@ -311,28 +350,33 @@
 }
 
 .event-actions button {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid #dbe4f2;
-  background: #f3f6fb;
+  background: #6c757d;
+  border: none;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
   font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .event-actions button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(17, 36, 68, 0.08);
+  background: #5a6268;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
 }
 
 .event-actions .primary {
-  background: linear-gradient(135deg, #1f7aec, #155cb2);
-  border-color: #1f7aec;
-  color: #ffffff;
+  background: #007bff;
+  border-color: #007bff;
+  color: #fff;
 }
 
 .event-actions .primary:hover {
-  box-shadow: 0 8px 20px rgba(31, 122, 236, 0.35);
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .event-actions .secondary-active {

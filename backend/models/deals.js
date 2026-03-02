@@ -7,16 +7,6 @@ const dealsSchema = new mongoose.Schema(
       ref: "client",
     },
 
-    clientName: {
-      type: String,
-      trim: true,
-    },
-
-    client_contact_Id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "client_contact",
-    },
-
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",
@@ -65,6 +55,17 @@ const dealsSchema = new mongoose.Schema(
     is_deleted: {
       type: Boolean,
       default: false
+    },
+
+    deleted_reason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    deleted_at: {
+      type: Date,
+      default: null,
     },
 
     assignedBy: {

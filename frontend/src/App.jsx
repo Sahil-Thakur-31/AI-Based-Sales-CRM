@@ -8,19 +8,20 @@ import ResetPassword from './pages/Verify/ResetPassword';
 
 import AdminHome from './pages/AdminHome.jsx';
 import ManagerHome from './pages/ManagerHome';
+import UserHome from './pages/UserHome';
 import ManageUsers from './pages/modules/adminsetting/ManageUsers.jsx';
 
 import Leads from './pages/modules/Leads.jsx';
 import LeadFormPage from './pages/modules/LeadFormPage.jsx'
 
 import Clients from './pages/modules/Clients.jsx';
-import Deals from './pages/modules/Deals.jsx';
-import DealDetails from './pages/modules/DealDetails.jsx';
 import ClientDetails from './pages/modules/ClientDetails.jsx';
 import Quotations from './pages/modules/Quotations.jsx';
 import NewQuotation from './pages/modules/NewQuotation.jsx';
-import Meetings from './pages/modules/Meetings.jsx';
+import QuotationDetails from './pages/modules/QuotationDetails.jsx';
+// meetings module removed
 import FollowUps from './pages/modules/FollowUps.jsx';
+import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
 import AILeads from './pages/modules/AILeads.jsx';
@@ -28,6 +29,7 @@ import Events from './pages/modules/Events.jsx';
 import EventRegistration from './pages/modules/EventRegistration.jsx';
 import AddEvent from './pages/modules/AddEvent.jsx';
 import TeamDashboard from './pages/modules/TeamDashboard.jsx';
+import TeamSetup from './pages/modules/TeamSetup.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
@@ -37,6 +39,7 @@ import Roles from './pages/modules/adminsetting/Roles.jsx';
 import Industry from './pages/modules/adminsetting/Industry.jsx';
 import Sources from './pages/modules/adminsetting/Sources.jsx';
 import Taxes from './pages/modules/adminsetting/Taxes.jsx';
+import Organization from './pages/modules/adminsetting/Organization.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -59,7 +62,7 @@ function App() {
 
         {/* Protected routes with Layout */}
         <Route element={
-          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+          <ProtectedRoute allowedRoles={["Admin", "Manager", "User", null]}>
             <Layout />
           </ProtectedRoute>
         }>
@@ -68,8 +71,11 @@ function App() {
           <Route path="/adminhome" element={<ProtectedRoute allowedRoles={["Admin"]}>
             <AdminHome />
           </ProtectedRoute>} />
-          <Route path="/managerhome" element={<ProtectedRoute allowedRoles={["Manager"]}>
+          <Route path="/managerhome" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}>
             <ManagerHome />
+          </ProtectedRoute>} />
+          <Route path="/userhome" element={<ProtectedRoute allowedRoles={["User", "Manager", "Admin", null]}>
+            <UserHome />
           </ProtectedRoute>} />
 
 
@@ -78,14 +84,15 @@ function App() {
           <Route path="/leads/new" element={<LeadFormPage />} />
           <Route path="/leads/:id" element={<LeadFormPage />} />
           <Route path="/clients" element={<Clients />} />
+          <Route path="/clients/new" element={<LeadFormPage formMode="client" />} />
           <Route path="/clients/:id" element={<ClientDetails />} />
-          <Route path="/deals" element={<Deals />} />
-          <Route path="/deals/:id" element={<DealDetails />} />
+          <Route path="/deals" element={<Leads defaultView="deals" />} />
           <Route path="/quotations" element={<Quotations />} />
           <Route path="/quotations/new" element={<NewQuotation />} />
+          <Route path="/quotations/:id" element={<QuotationDetails />} />
 
-          <Route path="/meetings" element={<Meetings />} />
           <Route path="/followups" element={<FollowUps />} />
+          <Route path="/followups/add" element={<FollowupsAddPage />} />
 
           <Route path="/sales-forecast" element={<SalesForecast />} />
           <Route path="/expenses" element={<Expenses />} />
@@ -95,7 +102,8 @@ function App() {
           <Route path="/events/new" element={<AddEvent />} />
           <Route path="/events/register" element={<EventRegistration />} />
 
-          <Route path="/team-dashboard" element={<TeamDashboard />} />
+          <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamDashboard /></ProtectedRoute>} />
+          <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
           <Route path="/reports" element={<Reports />} />
 
           <Route path="/settings" element={<Settings />} />
@@ -103,58 +111,67 @@ function App() {
 
           {/* Admin-only routes */}
           <Route
-  path="/manageusers"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <ManageUsers />
-    </ProtectedRoute>
-  }
-/>
+            path="/manageusers"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <ManageUsers />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/products"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Products />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Products />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/roles"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Roles />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/roles"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Roles />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/industry"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Industry />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/industry"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Industry />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/sources"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Sources />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/sources"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Sources />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="/taxes"
-  element={
-    <ProtectedRoute allowedRoles={["Admin"]}>
-      <Taxes />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/taxes"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Taxes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/organization"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <Organization />
+              </ProtectedRoute>
+            }
+          />
 
         </Route>
 

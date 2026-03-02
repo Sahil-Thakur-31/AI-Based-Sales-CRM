@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const authenticate = require("../middlewares/auth");
-const upload = require("../config/multer");
+const profileUpload = require("../config/profileMulter");
 const { getProfile,
   updateProfile,
   getAllUsers,
@@ -13,7 +13,7 @@ const { getProfile,
 
 
 /* UPDATE PROFILE */
-router.put("/me", authenticate, upload.single("photo"), updateProfile );
+router.put("/me", authenticate, profileUpload.single("photo"), updateProfile );
 
 router.get("/", authenticate, getAllUsers);
 /* GET PROFILE */

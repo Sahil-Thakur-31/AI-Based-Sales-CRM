@@ -82,4 +82,5 @@ const usersSchema = new mongoose.Schema({
 
 });
 
-module.exports = mongoose.model("users", usersSchema);
+// register model as singular 'User' so that ref: "User" works across schemas
+module.exports = mongoose.model("User", usersSchema);

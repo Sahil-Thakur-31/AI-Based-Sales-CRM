@@ -4,10 +4,8 @@ import API from "../../api";
 import "./styles/Quotations.css";
 
 function parseNumber(value, fallback = 0) {
-
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
-
 }
 
 function round2(value) {
@@ -36,17 +34,29 @@ function makeEmptyItem() {
   };
 }
 
-export default function NewQuotation() {
+function getDealDisplayName(deal) {
+  if (!deal) return "";
+  return (
+    deal.company_name ||
+    deal.primary_contact?.name ||
+    deal.stage ||
+    `Deal ${String(deal._id || "").slice(-6)}`
+  );
+}
 
+export default function NewQuotation() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [deals, setDeals] = useState([]);
   const [products, setProducts] = useState([]);
   const [taxes, setTaxes] = useState([]);
+  const [quotedDealIds, setQuotedDealIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [dealSearch, setDealSearch] = useState("");
+  const [showDealSuggestions, setShowDealSuggestions] = useState(false);
 
   const [form, setForm] = useState({
     dealId: "",
@@ -67,6 +77,51 @@ export default function NewQuotation() {
     return params.get("dealId") || "";
   }, [location.search]);
 
+  const initialFromQuoteId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("fromQuoteId") || "";
+  }, [location.search]);
+
+  const isVersionMode = Boolean(initialFromQuoteId);
+
+  const quotedDealIdSet = useMemo(
+    () => new Set((quotedDealIds || []).map((dealId) => String(dealId))),
+    [quotedDealIds]
+  );
+
+  const eligibleDeals = useMemo(() => {
+    return deals.filter((deal) => {
+      const dealId = String(deal._id || "");
+      const isActive = deal.isActive !== false && deal.is_deleted !== true && deal.deleted !== true;
+      if (!isActive) return false;
+
+      if (isVersionMode && String(form.dealId) === dealId) {
+        return true;
+      }
+
+      return !quotedDealIdSet.has(dealId);
+    });
+  }, [deals, quotedDealIdSet, isVersionMode, form.dealId]);
+
+  const filteredDealSuggestions = useMemo(() => {
+    const searchTerm = String(dealSearch || "").trim().toLowerCase();
+    const source = eligibleDeals || [];
+    if (!searchTerm) return source.slice(0, 10);
+
+    return source
+      .filter((deal) => {
+        const dealName = String(getDealDisplayName(deal) || "").toLowerCase();
+        const stage = String(deal.stage || "").toLowerCase();
+        const contact = String(deal.primary_contact?.name || "").toLowerCase();
+        return (
+          dealName.includes(searchTerm) ||
+          stage.includes(searchTerm) ||
+          contact.includes(searchTerm)
+        );
+      })
+      .slice(0, 10);
+  }, [eligibleDeals, dealSearch]);
+
   const selectedDeal = useMemo(
     () => deals.find((deal) => String(deal._id) === String(form.dealId)),
     [deals, form.dealId]
@@ -83,9 +138,7 @@ export default function NewQuotation() {
   );
 
   const calculatedItems = useMemo(() => {
-
     return lineItems.map((item) => {
-
       const quantity = Math.max(1, Math.round(parseNumber(item.quantity, 1)));
       const unitPrice = Math.max(0, parseNumber(item.unitPrice, 0));
       const discountPercent = Math.min(100, Math.max(0, parseNumber(item.discountPercent, 0)));
@@ -109,23 +162,12 @@ export default function NewQuotation() {
         lineTax: round2(tax),
         netTotal: round2(netTotal)
       };
-
     });
-
   }, [lineItems, taxMap]);
 
   const totals = useMemo(() => {
-
-    const subtotal = calculatedItems.reduce(
-      (acc, item) => acc + item.lineSubtotal,
-      0
-    );
-
-    const tax = calculatedItems.reduce(
-      (acc, item) => acc + item.lineTax,
-      0
-    );
-
+    const subtotal = calculatedItems.reduce((acc, item) => acc + item.lineSubtotal, 0);
+    const tax = calculatedItems.reduce((acc, item) => acc + item.lineTax, 0);
     const discountAmount = Math.max(0, parseNumber(form.discountAmount, 0));
     const grandTotal = Math.max(0, round2(subtotal + tax - discountAmount));
 
@@ -135,54 +177,124 @@ export default function NewQuotation() {
       discountAmount: round2(discountAmount),
       grandTotal
     };
-
   }, [calculatedItems, form.discountAmount]);
 
   const loadDependencies = async () => {
-
     try {
-
       setLoading(true);
       setError("");
 
-      const [dealsRes, productsRes, taxesRes] = await Promise.all([
+      const [dealsRes, productsRes, taxesRes, quotationsRes] = await Promise.all([
         API.get("/deals"),
         API.get("/products"),
-        API.get("/taxes")
+        API.get("/taxes"),
+        API.get("/quotations")
       ]);
 
       const dealRows = dealsRes.data || [];
       const productRows = productsRes.data || [];
       const taxRows = taxesRes.data || [];
+      const quotationRows = quotationsRes.data || [];
+      const existingDealIds = [
+        ...new Set(
+          (Array.isArray(quotationRows) ? quotationRows : [])
+            .map((quote) => quote?.dealId)
+            .filter(Boolean)
+            .map((dealId) => String(dealId))
+        )
+      ];
 
       setDeals(dealRows);
       setProducts(productRows);
       setTaxes(taxRows);
+      setQuotedDealIds(existingDealIds);
 
-      if (initialDealId && dealRows.some((deal) => String(deal._id) === initialDealId)) {
+      if (
+        initialDealId &&
+        dealRows.some((deal) => String(deal._id) === initialDealId) &&
+        (isVersionMode || !existingDealIds.includes(String(initialDealId)))
+      ) {
         setForm((prev) => ({
           ...prev,
           dealId: initialDealId
         }));
+        const initialDeal = dealRows.find((deal) => String(deal._id) === String(initialDealId));
+        setDealSearch(getDealDisplayName(initialDeal));
+      } else if (initialDealId && existingDealIds.includes(String(initialDealId)) && !isVersionMode) {
+        setError(
+          "This deal already has a quotation. Please use New Version from quotation details."
+        );
       }
 
-    } catch (err) {
+      // If opening as a new version from an existing quotation, prefill fields
+      if (initialFromQuoteId) {
+        try {
+          const quoteRes = await API.get(`/quotations/${initialFromQuoteId}`);
+          const detail = quoteRes.data || null;
+          if (detail && detail.quotation) {
+            const q = detail.quotation;
 
+            setForm((prev) => ({
+              ...prev,
+              dealId: q.dealId || prev.dealId || initialDealId,
+              quoteDate: q.quoteDate ? q.quoteDate.split("T")[0] : prev.quoteDate,
+              validUntil: q.validUntil ? q.validUntil.split("T")[0] : prev.validUntil,
+              discountAmount: q.discountAmount || prev.discountAmount,
+              notes: q.notes || prev.notes
+            }));
+
+            const prefillDeal = dealRows.find((deal) => String(deal._id) === String(q.dealId || ""));
+            if (prefillDeal) {
+              setDealSearch(getDealDisplayName(prefillDeal));
+            }
+
+            if (Array.isArray(detail.items) && detail.items.length) {
+              const mapped = detail.items.map((it) => ({
+                productId: it.productId || "",
+                quantity: it.quantity || 1,
+                unitPrice: it.unitPrice || 0,
+                discountPercent: it.discountPercent || 0,
+                taxId: ""
+              }));
+
+              // Try to set taxId from products list when available
+              const prodMap = new Map((productRows || []).map((p) => [String(p._id), p]));
+              const withTax = mapped.map((mi) => ({
+                ...mi,
+                taxId: prodMap.get(String(mi.productId))?.taxId || mi.taxId || ""
+              }));
+
+              setLineItems(withTax.length ? withTax : [makeEmptyItem()]);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to prefill from quotation:", err);
+        }
+      }
+    } catch (err) {
       console.error(err);
       setError("Failed to load deals/products");
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
+  useEffect(() => {
+    if (!form.dealId) {
+      if (!showDealSuggestions) {
+        setDealSearch("");
+      }
+      return;
+    }
+
+    const deal = deals.find((row) => String(row._id) === String(form.dealId));
+    if (deal) {
+      setDealSearch(getDealDisplayName(deal));
+    }
+  }, [form.dealId, deals, showDealSuggestions]);
+
   const updateLineItem = (index, key, value) => {
-
     setLineItems((prev) => {
-
       const next = [...prev];
       next[index] = {
         ...next[index],
@@ -190,20 +302,15 @@ export default function NewQuotation() {
       };
 
       if (key === "productId") {
-
         const selectedProduct = productMap.get(String(value));
-
         if (selectedProduct) {
           next[index].unitPrice = selectedProduct.price || 0;
           next[index].taxId = selectedProduct.taxId || "";
         }
-
       }
 
       return next;
-
     });
-
   };
 
   const addLineItem = () => {
@@ -211,16 +318,13 @@ export default function NewQuotation() {
   };
 
   const removeLineItem = (index) => {
-
     setLineItems((prev) => {
       if (prev.length === 1) return prev;
       return prev.filter((_, rowIndex) => rowIndex !== index);
     });
-
   };
 
   const submit = async () => {
-
     const validItems = calculatedItems.filter((item) => item.productId);
 
     if (!form.dealId) {
@@ -234,11 +338,11 @@ export default function NewQuotation() {
     }
 
     try {
-
       setSaving(true);
 
       await API.post("/quotations", {
         dealId: form.dealId,
+        baseQuotationId: initialFromQuoteId || null,
         quoteDate: form.quoteDate,
         validUntil: form.validUntil || null,
         discountAmount: totals.discountAmount,
@@ -247,24 +351,18 @@ export default function NewQuotation() {
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-            discountPercent: item.discountPercent,
-            taxId: item.taxId || null
-          }))
-        });
+          discountPercent: item.discountPercent,
+          taxId: item.taxId || null
+        }))
+      });
 
       navigate("/quotations");
-
     } catch (err) {
-
       console.error(err);
       alert(err.response?.data?.message || "Failed to create quotation");
-
     } finally {
-
       setSaving(false);
-
     }
-
   };
 
   if (loading) {
@@ -272,51 +370,94 @@ export default function NewQuotation() {
   }
 
   return (
-
     <div className="quote-form-page">
-
       <div className="quote-form-card">
-
         <div className="quote-form-header">
-
           <h2>New Quotation</h2>
 
-          <button
-            className="quote-close-btn"
-            onClick={() => navigate("/quotations")}
-          >
-            x
-          </button>
+          <div className="quote-form-header-actions">
+            <button
+              className="quote-add-deal-btn"
+              onClick={() => navigate("/leads/new?view=deal")}
+              type="button"
+            >
+              + Add Deal
+            </button>
 
+            <button className="quote-close-btn" onClick={() => navigate("/quotations")}>
+              x
+            </button>
+          </div>
         </div>
 
-        {error && (
-          <div className="quote-form-error">
-            {error}
-          </div>
-        )}
+        {error && <div className="quote-form-error">{error}</div>}
 
         <div className="quote-form-grid">
-
           <div className="quote-field">
             <label>Link To Deal</label>
-            <select
-              value={form.dealId}
-              onChange={(e) => setForm({ ...form, dealId: e.target.value })}
-            >
-              <option value="">-- Select Deal --</option>
-              {deals.map((deal) => (
-                <option key={deal._id} value={deal._id}>
-                  {deal.label}
-                </option>
-              ))}
-            </select>
+            <div className="quote-deal-search-wrap">
+              <input
+                type="text"
+                value={dealSearch}
+                placeholder="Search active deals by client name..."
+                readOnly={isVersionMode}
+                onFocus={() => {
+                  if (!isVersionMode) setShowDealSuggestions(true);
+                }}
+                onBlur={() => setTimeout(() => setShowDealSuggestions(false), 150)}
+                onChange={(e) => {
+                  if (isVersionMode) return;
+                  const value = e.target.value;
+                  setDealSearch(value);
+                  setForm((prev) => ({ ...prev, dealId: "" }));
+                  setShowDealSuggestions(true);
+                }}
+              />
+
+              {!isVersionMode && showDealSuggestions && (
+                <ul className="quote-deal-suggestions">
+                  {filteredDealSuggestions.length === 0 ? (
+                    <li className="quote-deal-suggestion-empty">
+                      {eligibleDeals.length === 0
+                        ? "No eligible active deals. For existing quotes, use New Version."
+                        : "No matching deals found"}
+                    </li>
+                  ) : (
+                    filteredDealSuggestions.map((deal) => (
+                      <li
+                        key={deal._id}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setForm((prev) => ({
+                            ...prev,
+                            dealId: String(deal._id)
+                          }));
+                          setDealSearch(getDealDisplayName(deal));
+                          setShowDealSuggestions(false);
+                        }}
+                      >
+                        <span className="quote-deal-suggestion-title">
+                          {getDealDisplayName(deal)}
+                        </span>
+                        <span className="quote-deal-suggestion-meta">
+                          {deal.stage || "No stage"} | {String(deal._id).slice(-6)}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
           </div>
 
           <div className="quote-field">
             <label>Client Name</label>
             <input
-              value={selectedDeal?.clientName || ""}
+              value={
+                selectedDeal?.company_name ||
+                selectedDeal?.primary_contact?.name ||
+                ""
+              }
               readOnly
               placeholder="Auto-filled from selected deal"
             />
@@ -339,23 +480,17 @@ export default function NewQuotation() {
               onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
             />
           </div>
-
         </div>
 
         <div className="quote-line-items-card">
-
           <div className="quote-line-items-header">
             <h3>Line Items</h3>
-            <button
-              className="quote-add-product-btn"
-              onClick={addLineItem}
-            >
+            <button className="quote-add-product-btn" onClick={addLineItem}>
               + Add Product
             </button>
           </div>
 
           <div className="quote-line-table">
-
             <div className="quote-line-head">Product</div>
             <div className="quote-line-head">Qty</div>
             <div className="quote-line-head">Unit</div>
@@ -375,13 +510,10 @@ export default function NewQuotation() {
                 canRemove={calculatedItems.length > 1}
               />
             ))}
-
           </div>
-
         </div>
 
         <div className="quote-summary-card">
-
           <div className="quote-summary-row">
             <span>Subtotal</span>
             <span>{formatCurrency(totals.subtotal)}</span>
@@ -406,7 +538,6 @@ export default function NewQuotation() {
             <span>Grand Total</span>
             <strong>{formatCurrency(totals.grandTotal)}</strong>
           </div>
-
         </div>
 
         <div className="quote-field quote-field-full quote-notes-field">
@@ -419,47 +550,23 @@ export default function NewQuotation() {
         </div>
 
         <div className="quote-form-footer">
-
-          <button
-            className="quote-cancel-btn"
-            onClick={() => navigate("/quotations")}
-          >
+          <button className="quote-cancel-btn" onClick={() => navigate("/quotations")}>
             Cancel
           </button>
 
-          <button
-            className="quote-submit-btn"
-            disabled={saving}
-            onClick={submit}
-          >
+          <button className="quote-submit-btn" disabled={saving} onClick={submit}>
             {saving ? "Creating..." : "Create Quote"}
           </button>
-
         </div>
-
       </div>
-
     </div>
-
   );
-
 }
 
-function LineItemRow({
-  item,
-  products,
-  taxes,
-  onChange,
-  onRemove,
-  canRemove
-}) {
-
+function LineItemRow({ item, products, taxes, onChange, onRemove, canRemove }) {
   return (
     <>
-      <select
-        value={item.productId}
-        onChange={(e) => onChange("productId", e.target.value)}
-      >
+      <select value={item.productId} onChange={(e) => onChange("productId", e.target.value)}>
         <option value="">Select Product</option>
         {products.map((product) => (
           <option key={product._id} value={product._id}>
@@ -490,10 +597,7 @@ function LineItemRow({
         onChange={(e) => onChange("discountPercent", e.target.value)}
       />
 
-      <select
-        value={item.taxId || ""}
-        onChange={(e) => onChange("taxId", e.target.value)}
-      >
+      <select value={item.taxId || ""} onChange={(e) => onChange("taxId", e.target.value)}>
         <option value="">0%</option>
         {taxes.map((tax) => (
           <option key={tax._id} value={tax._id}>
@@ -502,18 +606,11 @@ function LineItemRow({
         ))}
       </select>
 
-      <div className="quote-line-net">
-        {formatCurrency(item.netTotal)}
-      </div>
+      <div className="quote-line-net">{formatCurrency(item.netTotal)}</div>
 
-      <button
-        className="quote-remove-row-btn"
-        disabled={!canRemove}
-        onClick={onRemove}
-      >
+      <button className="quote-remove-row-btn" disabled={!canRemove} onClick={onRemove}>
         x
       </button>
     </>
   );
-
 }

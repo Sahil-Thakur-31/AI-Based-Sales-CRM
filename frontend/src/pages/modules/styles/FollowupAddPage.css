@@ -1,0 +1,400 @@
+.fuaPage {
+  padding: 12px;
+  background: #f5f7fb;
+  min-height: 100vh;
+  color: #0f172a;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.fuaTop {
+  background: #ffffff;
+  border: 1px solid #e5ebf3;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
+.fuaTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f2748;
+}
+
+.fuaToolbar {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.fuaScope {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #475569;
+  font-weight: 700;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.fuaToolbarBtn {
+  min-height: 54px;
+  border: 1px solid #d5dce6;
+  background: #f8fafc;
+  color: #0f1f38;
+  border-radius: 16px;
+  padding: 0 20px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.fuaToolbarBtn:hover {
+  transform: translateY(-1px);
+  border-color: #c6d0de;
+  background: #ffffff;
+}
+
+.fuaToolbarIcon {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.fuaToolbarBtn.active {
+  background: #eef2ff;
+  border-color: #cfd8ff;
+  color: #3026c7;
+  box-shadow: inset 0 0 0 1px #dfe5ff;
+}
+
+.fuaPanel {
+  background: #ffffff;
+  border: 1px solid #e5ebf3;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.fuaFormSwitch {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.fuaBtn {
+  border: 1px solid #d8e0ea;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fuaBtn.primary {
+  background: #2ecc71;
+  border-color: #2ecc71;
+  color: #fff;
+}
+
+.fuaBtn.ghost {
+  background: #eef2ff;
+  border-color: #dbe2ff;
+  color: #4338ca;
+}
+
+.fuaBtn.danger {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+
+.fuaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.fuaGrid label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fuaGrid input,
+.fuaGrid select {
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.fuaGrid .full {
+  grid-column: 1 / -1;
+}
+
+.fuaActions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.fuaList {
+  display: grid;
+  gap: 8px;
+}
+
+.fuaCard {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e6ebf2;
+  background: #f8fafc;
+}
+
+.fuaCard .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-top: 6px;
+  background: #9aa4b2;
+}
+
+.fuaCard .dot.high { background: #ef4444; }
+.fuaCard .dot.medium { background: #f59e0b; }
+.fuaCard .dot.low { background: #22c55e; }
+
+.fuaCard .main .title {
+  font-weight: 700;
+}
+
+.fuaCard .main .meta {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #4b5563;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.fuaCard .main {
+  flex: 1;
+}
+
+.fuaCard .actions {
+  display: flex;
+  align-items: center;
+}
+
+.fuaTableWrap {
+  overflow-x: auto;
+}
+
+.fuaTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fuaTable th,
+.fuaTable td {
+  border-bottom: 1px solid #edf2f7;
+  padding: 8px 6px;
+  font-size: 13px;
+}
+
+.fuaTable th {
+  background: #f8fafc;
+  text-align: left;
+}
+
+.fuaTable .right {
+  text-align: right;
+}
+
+.fuaStages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.fuaStageBtn {
+  border: 1px solid #d8e0ea;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fuaStageBtn.active {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.fuaEmpty {
+  text-align: center;
+  color: #64748b;
+  padding: 14px;
+}
+
+.fuaDetails {
+  display: grid;
+  gap: 12px;
+}
+
+.fuaDetailsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fuaDetailsHead h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f2748;
+}
+
+.fuaDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fuaDetailItem {
+  border: 1px solid #e6ebf2;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.fuaDetailItem .key {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.fuaDetailItem .val {
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .fuaGrid {
+    grid-template-columns: 1fr;
+  }
+  .fuaStages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fuaDetailsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* FollowupAddPage.css (ONLY add this block at the end; everything else unchanged) */
+.fuaLocRow{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.fuaLocRow input{
+  flex:1;
+}
+
+.fuaHint {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.fuaSuggestField {
+  position: relative;
+}
+
+.fuaSuggestList {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  border: 1px solid #dbe2ff;
+  border-radius: 8px;
+  background: #ffffff;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+}
+
+.fuaSuggestItem {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #eef2ff;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.fuaSuggestItem:last-child {
+  border-bottom: 0;
+}
+
+.fuaSuggestItem:hover {
+  background: #f3f6ff;
+}
+
+.fuaMapWrap {
+  border: 1px solid #e6ebf2;
+  border-radius: 10px;
+  overflow: hidden;
+  height: 180px;
+}
+
+.fuaMap {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.fuaStatus {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.fuaStatus.completed {
+  background: #e8fff0;
+  color: #137a39;
+  border-color: #c8eed9;
+}
+
+.fuaStatus.pending {
+  background: #fff6e8;
+  color: #a16207;
+  border-color: #fde5c3;
+}

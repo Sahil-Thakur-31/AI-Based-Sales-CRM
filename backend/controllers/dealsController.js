@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Deal = require("../models/deals");
 const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
@@ -135,12 +136,26 @@ async function buildDealDetail(dealDoc) {
 exports.getDeals = async (req, res) => {
 
   try {
+    const deletedOnly =
+      req.query.deleted_only === "true" || req.query.deleted_only === true;
 
-    const deals = await Deal.find({
-      is_deleted: { $ne: true }
-    })
-    .sort({ createdAt: -1 })
-    .select("client_id clientName stage status dealValue");
+    const filter = deletedOnly
+      ? { is_deleted: true }
+      : { is_deleted: { $ne: true } };
+
+    let dealsQuery = Deal.find(filter).sort({ updatedAt: -1 });
+
+    const limitParam = Number(req.query.limit);
+    if (!Number.isNaN(limitParam) && limitParam > 0) {
+      dealsQuery = dealsQuery.limit(limitParam);
+    }
+
+    const deals = await dealsQuery.lean();
+
+    const leadIds = deals
+      .map((deal) => deal.lead_id)
+      .filter(Boolean)
+      .map((id) => id.toString());
 
     const clientIds = [
       ...new Set(
@@ -150,15 +165,47 @@ exports.getDeals = async (req, res) => {
       )
     ];
 
-    const clients = await Client.find({
-      _id: { $in: clientIds },
-      is_deleted: { $ne: true }
-    })
-    .select("name");
+    const leads = uniqueLeadIds.length
+      ? await Leads.find({ _id: { $in: uniqueLeadIds } }).lean()
+      : [];
+    const contacts = uniqueLeadIds.length
+      ? await LeadContacts.find({ lead_id: { $in: uniqueLeadIds } })
+        .sort({ is_primary: -1, created_at: 1 })
+        .lean()
+      : [];
+    const clients = uniqueClientIds.length
+      ? await Client.find({ _id: { $in: uniqueClientIds } }).lean()
+      : [];
+    const clientContacts = uniqueClientIds.length
+      ? await ClientContact.find({
+        client_id: { $in: uniqueClientIds },
+        is_active: true,
+      }).lean()
+      : [];
 
-    const clientMap = new Map(
-      clients.map((client) => [String(client._id), client.name])
-    );
+    const leadMap = new Map(leads.map((lead) => [lead._id.toString(), lead]));
+    const clientMap = new Map(clients.map((client) => [client._id.toString(), client]));
+    const contactMap = new Map();
+    const clientContactMap = new Map();
+
+    for (const contact of contacts) {
+      const leadId = contact.lead_id?.toString();
+      if (!leadId || contactMap.has(leadId)) continue;
+      contactMap.set(leadId, {
+        name: contact.name || "",
+        phone: contact.phone || "",
+        email: contact.email || "",
+      });
+    }
+    for (const contact of clientContacts) {
+      const clientId = (contact.client_id || "").toString();
+      if (!clientId || clientContactMap.has(clientId)) continue;
+      clientContactMap.set(clientId, {
+        name: contact.name || "",
+        phone: contact.phone || "",
+        email: contact.email || "",
+      });
+    }
 
     const response = deals.map((deal) => {
 
@@ -168,243 +215,36 @@ exports.getDeals = async (req, res) => {
 
       return {
         _id: deal._id,
-        stage: deal.stage || "-",
+        deal_id: deal._id,
+        company_name: lead?.company_name || client?.name || deal.clientName || "Untitled Deal",
+        industry: lead?.industry || "",
+        deal_value_estimate:
+          typeof deal.dealValue === "number"
+            ? deal.dealValue
+            : lead?.deal_value_estimate || 0,
+        ai_score: temperatureData.ai_score,
+        lead_temperature: temperatureData.lead_temperature,
+        last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
+        next_action: lead?.next_action || "",
+        next_action_date: null,
         status: deal.status || "open",
-        dealValue: deal.dealValue || 0,
-        clientId: deal.client_id || null,
-        clientName,
-        label: `${deal.stage || "Deal"} - ${clientName}`
+        stage: deal.stage || "",
+        converted_to_deal: true,
+        primary_contact:
+          (leadId ? contactMap.get(leadId) : null) ||
+          (clientId ? clientContactMap.get(clientId) : null) ||
+          null,
+        lead_id: deal.lead_id || null,
+        is_deleted: deal.is_deleted || false,
+        deleted: deal.is_deleted || false,
+        delete_reason: deal.deleted_reason || "",
+        isActive: deal.isActive !== false,
       };
 
     });
 
     res.json(response);
-
   } catch (err) {
-
-    console.error(err);
-    res.status(500).json({
-      message: "Failed to fetch deals"
-    });
-
+    res.status(500).json({ message: err.message });
   }
-
-};
-
-exports.getDealById = async (req, res) => {
-
-  try {
-
-    const deal = await Deal.findOne({
-      _id: req.params.id,
-      is_deleted: { $ne: true }
-    });
-
-    if (!deal) {
-      return res.status(404).json({
-        message: "Deal not found"
-      });
-    }
-
-    const detail = await buildDealDetail(deal);
-    res.json(detail);
-
-  } catch (err) {
-
-    console.error(err);
-    res.status(500).json({
-      message: "Failed to fetch deal details"
-    });
-
-  }
-
-};
-
-exports.updateDeal = async (req, res) => {
-
-  try {
-
-    const { deal: dealInput = {}, client: clientInput = null, contacts: contactsInput = [] } = req.body || {};
-
-    const existingDeal = await Deal.findOne({
-      _id: req.params.id,
-      is_deleted: { $ne: true }
-    });
-
-    if (!existingDeal) {
-      return res.status(404).json({
-        message: "Deal not found"
-      });
-    }
-
-    const previousStage = existingDeal.stage || "";
-    const dealUpdate = {
-      updatedAt: new Date()
-    };
-
-    if (dealInput.stage !== undefined) {
-      const nextStage = cleanString(dealInput.stage);
-      if (nextStage && !DEAL_STAGES.includes(nextStage)) {
-        return res.status(400).json({
-          message: "Invalid stage"
-        });
-      }
-      dealUpdate.stage = nextStage || null;
-    }
-
-    if (dealInput.status !== undefined) {
-      const nextStatus = cleanString(dealInput.status).toLowerCase();
-      if (nextStatus && !DEAL_STATUSES.includes(nextStatus)) {
-        return res.status(400).json({
-          message: "Invalid status"
-        });
-      }
-      dealUpdate.status = nextStatus || null;
-    }
-
-    if (dealInput.dealValue !== undefined)
-      dealUpdate.dealValue = numberOrNull(dealInput.dealValue);
-
-    if (dealInput.probability !== undefined)
-      dealUpdate.probability = numberOrNull(dealInput.probability);
-
-    if (dealInput.expectedCloseDate !== undefined)
-      dealUpdate.expectedCloseDate = dateOrNull(dealInput.expectedCloseDate);
-
-    if (dealInput.actualCloseDate !== undefined)
-      dealUpdate.actualCloseDate = dateOrNull(dealInput.actualCloseDate);
-
-    if (dealInput.aiRiskScore !== undefined)
-      dealUpdate.aiRiskScore = numberOrNull(dealInput.aiRiskScore);
-
-    if (dealInput.assignedTo !== undefined)
-      dealUpdate.assignedTo = dealInput.assignedTo || null;
-
-    if (dealInput.assignedBy !== undefined)
-      dealUpdate.assignedBy = dealInput.assignedBy || null;
-
-    if (dealInput.lead_id !== undefined)
-      dealUpdate.lead_id = dealInput.lead_id || null;
-
-    if (dealInput.client_contact_Id !== undefined)
-      dealUpdate.client_contact_Id = dealInput.client_contact_Id || null;
-
-    if (dealInput.isActive !== undefined)
-      dealUpdate.isActive = boolOrNull(dealInput.isActive);
-
-    if (dealInput.isDeleted !== undefined || dealInput.is_deleted !== undefined) {
-      const deletedValue = dealInput.isDeleted !== undefined
-        ? dealInput.isDeleted
-        : dealInput.is_deleted;
-      dealUpdate.is_deleted = boolOrNull(deletedValue);
-    }
-
-    const updatedDeal = await Deal.findByIdAndUpdate(
-      existingDeal._id,
-      {
-        $set: dealUpdate
-      },
-      {
-        new: true,
-        runValidators: true
-      }
-    );
-
-    if (existingDeal.client_id && clientInput && typeof clientInput === "object") {
-      const clientUpdate = {
-        updatedAt: new Date()
-      };
-
-      if (clientInput.name !== undefined)
-        clientUpdate.name = cleanString(clientInput.name);
-      if (clientInput.industry !== undefined)
-        clientUpdate.industry = clientInput.industry || null;
-      if (clientInput.Address !== undefined)
-        clientUpdate.Address = cleanString(clientInput.Address);
-      if (clientInput.employeeCount !== undefined)
-        clientUpdate.employeeCount = numberOrNull(clientInput.employeeCount);
-      if (clientInput.turnoverRange !== undefined)
-        clientUpdate.turnoverRange = cleanString(clientInput.turnoverRange);
-      if (clientInput.website !== undefined)
-        clientUpdate.website = cleanString(clientInput.website);
-      if (clientInput.source !== undefined)
-        clientUpdate.source = clientInput.source || null;
-      if (clientInput.GST_no !== undefined)
-        clientUpdate.GST_no = cleanString(clientInput.GST_no);
-      if (clientInput.URD !== undefined)
-        clientUpdate.URD = cleanString(clientInput.URD);
-      if (clientInput.Aadhar_doc !== undefined)
-        clientUpdate.Aadhar_doc = cleanString(clientInput.Aadhar_doc);
-      if (clientInput.PanCard_doc !== undefined)
-        clientUpdate.PanCard_doc = cleanString(clientInput.PanCard_doc);
-      if (clientInput.Other_docs !== undefined)
-        clientUpdate.Other_docs = cleanString(clientInput.Other_docs);
-      if (clientInput.location !== undefined)
-        clientUpdate.location = clientInput.location || null;
-
-      if (Object.keys(clientUpdate).length > 1) {
-        await Client.findByIdAndUpdate(
-          existingDeal.client_id,
-          { $set: clientUpdate },
-          { runValidators: false }
-        );
-      }
-    }
-
-    if (Array.isArray(contactsInput)) {
-      for (const contact of contactsInput) {
-        if (!contact || !contact._id) continue;
-
-        const contactUpdate = {
-          updatedAt: new Date()
-        };
-
-        if (contact.name !== undefined)
-          contactUpdate.name = cleanString(contact.name);
-        if (contact.designation !== undefined)
-          contactUpdate.designation = cleanString(contact.designation);
-        if (contact.phone !== undefined)
-          contactUpdate.phone = cleanString(contact.phone);
-        if (contact.email !== undefined)
-          contactUpdate.email = cleanString(contact.email);
-        if (contact.linkedin !== undefined)
-          contactUpdate.linkedin = cleanString(contact.linkedin);
-        if (contact.is_active !== undefined)
-          contactUpdate.is_active = boolOrNull(contact.is_active);
-
-        if (Object.keys(contactUpdate).length > 1) {
-          await ClientContact.findByIdAndUpdate(
-            contact._id,
-            { $set: contactUpdate },
-            { runValidators: false }
-          );
-        }
-      }
-    }
-
-    if (
-      dealUpdate.stage !== undefined &&
-      dealUpdate.stage &&
-      dealUpdate.stage !== previousStage
-    ) {
-      await DealStageHistory.create({
-        dealId: updatedDeal._id,
-        stage: dealUpdate.stage,
-        movedAt: new Date(),
-        movedBy: req.user?._id || null
-      });
-    }
-
-    const detail = await buildDealDetail(updatedDeal);
-    res.json(detail);
-
-  } catch (err) {
-
-    console.error(err);
-    res.status(500).json({
-      message: "Failed to update deal"
-    });
-
-  }
-
 };

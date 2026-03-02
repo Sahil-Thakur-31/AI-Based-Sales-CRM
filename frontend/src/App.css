@@ -1,10 +1,12 @@
+@import './styles/buttons.css';
+
 html, body, #root {
     height: 100%;
     width: 100%;
     margin: 0;
     padding: 0;
     background-color: #f4f7f9; 
-    overflow-y: hidden;
+    overflow: hidden;
 }
 
 .app-search-input {

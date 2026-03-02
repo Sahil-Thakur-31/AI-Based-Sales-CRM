@@ -2,7 +2,7 @@
 //Uses your models:
 
 
-// backend/services/adminDashboard.admin.service.js
+// backend/services/adminDashboardservice.js
 const Deal = require("../models/deals");
 const Lead = require("../models/leads");
 const Followup = require("../models/followUp");

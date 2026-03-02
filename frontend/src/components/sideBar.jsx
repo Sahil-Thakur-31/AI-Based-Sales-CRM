@@ -1,11 +1,13 @@
 import "./sideBar.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
+import { useState } from "react";
 
 export default function Sidebar() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const [hoveredPath, setHoveredPath] = useState("");
 
   // Decode user role from token
   const token = localStorage.getItem("token");
@@ -18,8 +20,9 @@ export default function Sidebar() {
   }
 
   // Dynamic dashboard path
-  const dashboardPath =
-    userRole === "Admin" ? "/adminhome" : "/managerhome";
+  let dashboardPath = "/userhome";
+  if (userRole === "Admin") dashboardPath = "/adminhome";
+  if (userRole === "Manager") dashboardPath = "/managerhome";
 
 
   const menuItems = [
@@ -30,7 +33,6 @@ export default function Sidebar() {
     { name: "Deals", icon: "💼", path: "/deals" },
     { name: "Quotations", icon: "🧾", path: "/quotations" },
 
-    { name: "Meetings", icon: "📅", path: "/meetings" },
     { name: "Follow-ups", icon: "⏰", path: "/followups" },
 
     { name: "Sales Forecasting", icon: "📈", path: "/sales-forecast" },
@@ -39,7 +41,8 @@ export default function Sidebar() {
     { name: "AI Lead Gen", icon: "🤖", path: "/ai-leads" },
     { name: "Events & Expos", icon: "🎪", path: "/events" },
 
-    { name: "Team Dashboard", icon: "👥", path: "/team-dashboard" },
+    // team-related links (visible to managers and admin)
+    ...(userRole === "Manager" || userRole === "Admin" ? [{ name: "Team Dashboard", icon: "👥", path: "/team-dashboard" }] : []),
     { name: "Reports", icon: "📄", path: "/reports" },
     { name: "Settings", icon: "⚙️", path: "/settings" },
   ];
@@ -61,18 +64,44 @@ export default function Sidebar() {
 
         {menuItems.map((item, index) => {
 
-          const isActive =
-            location.pathname === item.path ||
-            location.pathname.startsWith(`${item.path}/`);
+          const isDealView = location.pathname.startsWith("/leads/") && location.search.includes("view=deal");
+
+          let isActive = false;
+          if (item.path === "/deals") {
+            isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`) || isDealView;
+          } else if (item.path === "/leads") {
+            isActive = (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) && !isDealView;
+          } else {
+            isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+          }
+
+          const isFollowups = item.path === "/followups";
+          const isFollowupsAddActive = location.pathname === "/followups/add";
+          const showFollowupsAdd = isFollowups && (hoveredPath === item.path || isActive || isFollowupsAddActive);
 
           return (
             <div
               key={index}
-              className={`sidebar-item ${isActive ? "active" : ""}`}
-              onClick={() => navigate(item.path)}
+              className="sidebar-item-wrap"
+              onMouseEnter={() => setHoveredPath(item.path)}
+              onMouseLeave={() => setHoveredPath("")}
             >
-              <span className="sidebar-icon">{item.icon}</span>
-              <span className="sidebar-text">{item.name}</span>
+              <div
+                className={`sidebar-item ${(isActive || (isFollowups && isFollowupsAddActive)) ? "active" : ""}`}
+                onClick={() => navigate(item.path)}
+              >
+                <span className="sidebar-icon">{item.icon}</span>
+                <span className="sidebar-text">{item.name}</span>
+              </div>
+
+              {showFollowupsAdd && (
+                <div
+                  className={`sidebar-subitem ${isFollowupsAddActive ? "active" : ""}`}
+                  onClick={() => navigate("/followups/add")}
+                >
+                  + Add
+                </div>
+              )}
             </div>
           );
 

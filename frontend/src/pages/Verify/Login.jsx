@@ -1,29 +1,38 @@
-import React, {useState} from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify'; 
-import { handleError, handleSuccess } from '../../utils';
 import API from '../../api'
 import "./verify.css"
 
-function Login(){
-    const [logininfo,setLogininfo] = useState({
-        email:'',
-        password:''
+function Login() {
+    const [logininfo, setLogininfo] = useState({
+        email: '',
+        password: ''
     });
     const [loading, setLoading] = useState(false); // <-- new state
-    
+    const [errorMsg, setErrorMsg] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+
+    const handleError = (msg) => {
+        setErrorMsg(msg);
+        setSuccessMsg('');
+    };
+    const handleSuccess = (msg) => {
+        setSuccessMsg(msg);
+        setErrorMsg('');
+    };
+
 
     const handleChange = (e) => {
-        const {name, value} = e.target;
+        const { name, value } = e.target;
         // console.log(name, value);
-        const copyloginInfo = {...logininfo};
+        const copyloginInfo = { ...logininfo };
         copyloginInfo[name] = value;
         setLogininfo(copyloginInfo);
     }
 
     const navigate = useNavigate();
 
-    const handleLogin = async(e) =>{
+    const handleLogin = async (e) => {
         e.preventDefault()
 
         const { email, password } = logininfo;
@@ -31,64 +40,68 @@ function Login(){
         if (!email || !password) {
             return handleError("All fields are required");
         }
-        
+
         // email format validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
+
         if (!emailRegex.test(email)) {
             return handleError("Invalid email format");
         }
-        
+
         // strong password validation
         const strongPassword =
             /^(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-        
+
         if (!strongPassword.test(password)) {
             return handleError(
                 "Password must be 8+ chars with uppercase, lowercase, number & special character"
             );
         }
-        
+
         if (loading) return;
 
         setLoading(true);
 
         try {
-    const response = await API.post('/auth/login', logininfo);
+            const response = await API.post('/auth/login', logininfo);
 
-    const result = response.data;
+            const result = response.data;
 
-    // backend success = HTTP 200
-    if (response.status === 200) {
+            // backend success = HTTP 200
+            if (response.status === 200) {
 
-        handleSuccess(result.msg);
+                handleSuccess(result.msg);
 
-        localStorage.setItem('token', result.jwtToken);
-        localStorage.setItem('Name', result.name);
-        localStorage.setItem('RoleName', result.rolename);
+                localStorage.setItem('token', result.jwtToken);
+                localStorage.setItem('Name', result.name);
+                localStorage.setItem('RoleName', result.rolename);
 
-        if (result.rolename === 'Manager') {
-            setTimeout(() => navigate('/managerhome'), 1000);
-        } else if (result.rolename === 'Admin') {
-            setTimeout(() => navigate('/adminhome'), 1000);
+                if (result.rolename === 'Manager') {
+                    setTimeout(() => navigate('/managerhome'), 1000);
+                } else if (result.rolename === 'Admin') {
+                    setTimeout(() => navigate('/adminhome'), 1000);
+                } else {
+                    setTimeout(() => navigate('/userhome'), 1000);
+                }
+
+            }
+
+        } catch (err) {
+            console.error(err);
+            handleError(
+                err.response?.data?.msg || "Login failed"
+            );
+        } finally {
+            setLoading(false);
         }
 
     }
-
-} catch (err) {
-    console.error(err);
-    handleError(
-        err.response?.data?.msg || "Login failed"
-    );
-} finally {
-    setLoading(false);
-}
-
-    }
-    return(
+    return (
         <div className="login-wrapper">
             <div className='container'>
                 <h1>login</h1>
+                {errorMsg && <div className="form-message danger">{errorMsg}</div>}
+                {successMsg && <div className="form-message primary">{successMsg}</div>}
                 <form onSubmit={handleLogin}>
                     <div>
                         <label>Email</label>
@@ -96,15 +109,13 @@ function Login(){
                     </div>
                     <div>
                         <label>Password</label>
-                        <input type='password' onChange={handleChange} name='password' value={logininfo.password} placeholder='Enter Your Password...'  />
+                        <input type='password' onChange={handleChange} name='password' value={logininfo.password} placeholder='Enter Your Password...' />
                     </div>
                     <button type='Submit' disabled={loading}>login</button>
                     <span>
                         <Link to='/forgot-password'> Forgot password</Link>
                     </span>
                 </form>
-                
-                <ToastContainer />
             </div>
         </div>
     )

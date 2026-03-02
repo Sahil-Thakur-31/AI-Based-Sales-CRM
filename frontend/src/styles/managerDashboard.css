@@ -4,6 +4,7 @@
   min-height: 100vh;
   background: #f5f7fb;
 }
+
 /* PANEL STYLE */
 
 .ManagerDashboard .panel {
@@ -100,7 +101,7 @@
 .ManagerDashboard .insight.red { background: #fef2f2; }
 .ManagerDashboard .insight.green { background: #ecfdf5; }
 
-/* MOBILE IMPROVEMENTS */
+/* MOBILE */
 
 @media (max-width: 768px) {
 
@@ -116,6 +117,5 @@
   .ManagerDashboard .follow-item .right {
     text-align: left;
   }
+
 }
-
-

@@ -1,21 +1,44 @@
+.login-wrapper {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f4f6fb;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    padding: 1rem;
+}
+
 .login-wrapper .container {
     background-color: #ffffff;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    padding: 2.5rem 2.5rem;
+    border-radius: 16px;
+    border: 1px solid #e8ecf5;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
     width: 100%;
-    max-width: 500px; /* Limits width on desktop */
+    max-width: 420px;
+    box-sizing: border-box;
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .login-wrapper h1 {
-    margin-bottom: 1.5rem;
+    margin: 0 0 1.5rem 0;
     text-align: center;
-    color: #2c3e50;
-    font-family: Arial, Helvetica, sans-serif;
+    color: #0f172a;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.login-wrapper form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
 }
 
 .login-wrapper form div {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     width: 100%;
 }
 
@@ -23,57 +46,104 @@
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 600;
-    font-family: Arial, Helvetica, sans-serif;
+    color: #0f172a;
+    font-size: 14px;
 }
-
 
 .login-wrapper input {
-    width: 350px;
-    padding: 0.75rem;
-    border:none;
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #1f2937;
+    background: #ffffff;
     outline: none;
-    border-bottom: 2px solid black;
-    font-size: 1rem;
-    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 1.25rem;
 }
-.login-wrapper ::placeholder{
-  font-family: cursive;
-  font-size: small;
+
+.login-wrapper form div input {
+    margin-bottom: 0;
+}
+
+.login-wrapper input::placeholder {
+    color: #9ca3af;
+    font-family: inherit;
+    font-size: 14px;
 }
 
 .login-wrapper input:focus {
-    outline: none;
-    border-color: #e24a87; /* Blue focus ring */
+    border-color: #6d5efc;
+    box-shadow: 0 0 0 4px rgba(109, 94, 252, 0.12);
 }
 
-.login-wrapper button {
+.login-wrapper button:not(.back-button) {
     width: 100%;
-    padding: 0.75rem;
-    background-color: #e24a87;
+    padding: 12px 16px;
+    background-color: #6d5efc;
     color: white;
     border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-weight: 600;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: all 0.2s ease;
+    margin-top: 0.5rem;
 }
 
-.login-wrapper button:hover {
-    background-color: #357abd;
+.login-wrapper button:not(.back-button):hover:not(:disabled) {
+    background-color: #5b4cf5;
+    box-shadow: 0 4px 12px rgba(109, 94, 252, 0.3);
+    transform: translateY(-1px);
+}
+
+.login-wrapper button:not(.back-button):disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .login-wrapper span {
     display: block;
-    margin-top: 1rem;
+    margin-top: 1.5rem;
     text-align: center;
-    font-size: 0.9rem;
+    font-size: 14px;
 }
 
-.login-wrapper {
-    min-height: 100vh;
+.login-wrapper a {
+    color: #6d5efc;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+    display: inline-block;
+}
 
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.login-wrapper a:hover {
+    color: #5b4cf5;
+    text-decoration: underline;
+}
+
+/* Form Messages */
+.form-message {
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-message.danger {
+    background-color: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fca5a5;
+}
+
+.form-message.primary {
+    background-color: #f5f3ff;
+    color: #6d5efc;
+    border: 1px solid #c4bbfd;
 }

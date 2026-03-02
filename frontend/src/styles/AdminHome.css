@@ -88,15 +88,15 @@
 .adminHome .btn-light.btnGhost {
   padding: 10px 14px;
   border-radius: var(--r12);
-  border: 1px solid var(--border) !important;
+  border: 1px solid #d1d5db !important;
   background: #fff !important;
-  color: #0f172a !important;
+  color: #374151 !important;
   cursor: pointer;
   transition: 0.2s ease;
 }
 .btnGhost:hover {
-  background: rgba(109,94,252,0.06) !important;
-  border-color: rgba(109,94,252,0.25) !important;
+  background: #f3f4f6 !important;
+  border-color: #9ca3af !important;
 }
 .btnCenter { margin: 0 auto; display: block; }
 
@@ -104,16 +104,16 @@
 .adminHome .btn-primary.btnNeon {
   padding: 8px 14px;
   border-radius: var(--r12);
-  background: var(--primary) !important;
-  border-color: var(--primary) !important;
+  background: #007bff !important;
+  border-color: #007bff !important;
   color: #fff !important;
   font-weight: 700;
   font-size: 13px;
   transition: 0.2s ease;
 }
 .btnNeon:hover {
-  background: var(--primary2) !important;
-  box-shadow: 0 6px 18px rgba(109,94,252,0.25);
+  background: #0056b3 !important;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 /* ─── AI badge (custom, not CoreUI) ─── */
