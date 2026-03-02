@@ -6,8 +6,9 @@ import Pagination from "../../components/Pagination";
 import "./styles/LeadsDashboard.css";
 import "./styles/Expense.css";
 
-function LeadsDashboard({ defaultView = "leads" }) {
+function Leads({ defaultView = "leads" }) {
   const navigate = useNavigate();
+
   const [viewMode, setViewMode] = useState(defaultView === "deals" ? "deals" : "leads");
   const [leads, setLeads] = useState([]);
   const [deals, setDeals] = useState([]);
@@ -15,7 +16,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingDeals, setLoadingDeals] = useState(true);
   const [loadingDeleted, setLoadingDeleted] = useState(true);
-  const [showDeletedLeads, setShowDeletedLeads] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
   const [search, setSearch] = useState("");
   const [industryFilter, setIndustryFilter] = useState("All");
   const [temperatureFilter, setTemperatureFilter] = useState("All");
@@ -802,5 +803,5 @@ function LeadsDashboard({ defaultView = "leads" }) {
   );
 }
 
-export default LeadsDashboard;
+export default Leads;
 

@@ -10,7 +10,10 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const rolesRoutes = require("./routes/roleRoutes");
 const sourcesRoutes = require("./routes/sourcesRoutes");
 const industriesRoutes = require("./routes/industriesRoutes");
+<<<<<<< HEAD
 const leadsRoutes = require("./routes/leadsRoutes");
+=======
+>>>>>>> b4bfd4f179cd89596bdde0f2873b761f2c4d6adc
 const expenseRoutes = require("./routes/expenseRoutes");
 const dealsRoutes = require("./routes/dealsRoutes");
 const clientRoutes = require("./routes/clientRoutes");
@@ -46,7 +49,10 @@ app.use("/notifications", notificationRoutes);
 app.use("/roles", rolesRoutes);
 app.use("/sources", sourcesRoutes);
 app.use("/industries", industriesRoutes);
+<<<<<<< HEAD
 app.use("/leads", leadsRoutes);
+=======
+>>>>>>> b4bfd4f179cd89596bdde0f2873b761f2c4d6adc
 app.use("/api/expenses", expenseRoutes);
 app.use("/deals", dealsRoutes);
 app.use("/clients", clientRoutes);
