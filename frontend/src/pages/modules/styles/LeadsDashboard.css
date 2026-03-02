@@ -241,6 +241,13 @@ th {
   color: #3f5470;
 }
 
+th.contact-col,
+td.contact-cell {
+  width: 230px;
+  min-width: 230px;
+  max-width: 230px;
+}
+
 tbody tr {
   border-top: 1px solid #edf2f7;
   transition: 0.15s ease;
@@ -264,11 +271,18 @@ td {
   font-size: 16px;
   font-weight: 500;
   color: #1f3552;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .contact-subtext {
   color: #5f7091;
   font-size: 13px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ai-chip {
