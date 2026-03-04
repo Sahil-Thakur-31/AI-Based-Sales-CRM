@@ -42,6 +42,7 @@ import Industry from './pages/modules/adminsetting/Industry.jsx';
 import Sources from './pages/modules/adminsetting/Sources.jsx';
 import Taxes from './pages/modules/adminsetting/Taxes.jsx';
 import Organization from './pages/modules/adminsetting/Organization.jsx';
+import QuotationClauses from './pages/modules/adminsetting/QuotationClauses.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -173,6 +174,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["Admin"]}>
                 <Organization />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/quotation-clauses"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <QuotationClauses />
               </ProtectedRoute>
             }
           />

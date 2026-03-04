@@ -11,6 +11,7 @@ export const routeConfig = [
   { path: "/industry", title: "Industry" },
   { path: "/sources", title: "Sources" },
   { path: "/organization", title: "Organization" },
+  { path: "/quotation-clauses", title: "Quotation Clauses" },
 
   // Admin
   { path: "/manageusers", title: "Manage Users" },

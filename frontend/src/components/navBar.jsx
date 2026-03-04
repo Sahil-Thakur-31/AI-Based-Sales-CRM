@@ -40,6 +40,8 @@ function Navbar() {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [refreshingApp, setRefreshingApp] = useState(false);
   const [seenNotificationIds, setSeenNotificationIds] = useState(() => getSeenNotificationIds());
+  const roleName = String(user?.role?.name || user?.role || "").trim().toLowerCase();
+  const isAdmin = roleName === "admin";
 
   /* timers */
   const profileMenuTimer = useRef(null);
@@ -310,7 +312,7 @@ function Navbar() {
 
 
         {/* ADMIN MENU */}
-        {user.role?.name === "Admin" && (
+        {isAdmin && (
 
           <div
             className="admin-menu-container"
@@ -319,7 +321,7 @@ function Navbar() {
           >
 
             <button className="nav-icon-btn">
-              ⚙️
+              {"\u2699\uFE0F"}
             </button>
 
             <div className={`admin-dropdown ${showAdminMenu ? "visible" : "hidden"}`}>
@@ -350,6 +352,10 @@ function Navbar() {
 
               <div onClick={() => navigate("/organization")}>
                 Organization
+              </div>
+
+              <div onClick={() => navigate("/quotation-clauses")}>
+                Quotation Clauses
               </div>
 
             </div>
@@ -484,3 +490,4 @@ function Navbar() {
 }
 
 export default Navbar;
+
