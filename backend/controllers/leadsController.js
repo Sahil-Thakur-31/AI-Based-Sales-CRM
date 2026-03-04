@@ -17,17 +17,20 @@ let legacyLeadFlagsNormalizationPromise = null;
 function normalizeContacts(contacts = []) {
   if (!Array.isArray(contacts)) return [];
 
-  return contacts
-    .filter((contact) => contact && (contact.name || contact.phone || contact.email))
-    .map((contact, index) => ({
-      name: contact.name || "",
-      designation: contact.designation || "",
-      phone: normalizePhone(contact.phone) || "",
-      email: contact.email || "",
-      linkedin: contact.linkedin || "",
-      address: contact.address || "",
-      is_primary: index === 0 ? true : Boolean(contact.is_primary),
-    }));
+  const validContacts = contacts.filter((contact) => contact && (contact.name || contact.phone || contact.email));
+  const hasPrimary = validContacts.some(contact => contact.is_primary === true || contact.is_primary === "true");
+
+  return validContacts.map((contact, index) => ({
+    name: contact.name || "",
+    designation: contact.designation || "",
+    phone: normalizePhone(contact.phone) || "",
+    email: contact.email || "",
+    linkedin: contact.linkedin || "",
+    address: contact.address || "",
+    is_primary: hasPrimary
+      ? (contact.is_primary === true || contact.is_primary === "true")
+      : (index === 0),
+  }));
 }
 
 async function resolveLocationId(payload) {

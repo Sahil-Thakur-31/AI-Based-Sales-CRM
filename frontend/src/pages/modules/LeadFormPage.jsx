@@ -896,8 +896,27 @@ function LeadFormPage({ formMode = "" }) {
 
         {contacts.map((c, i) => (
           <div key={i} className="contact-card">
-            <div className="contact-title">
-              {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
+            <div className="contact-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
+                {editMode && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', fontWeight: 'normal', cursor: 'pointer', marginLeft: '10px' }}>
+                    <input
+                      type="radio"
+                      name="primary_contact_lead"
+                      checked={Boolean(c.is_primary)}
+                      onChange={() => {
+                        const updated = contacts.map((contact, idx) => ({
+                          ...contact,
+                          is_primary: idx === i
+                        }));
+                        setContacts(updated);
+                      }}
+                    />
+                    Set as Primary
+                  </label>
+                )}
+              </div>
               {editMode && contacts.length > 1 && (
                 <button className="remove-contact-btn" onClick={() => removeContact(i)}>
                   X

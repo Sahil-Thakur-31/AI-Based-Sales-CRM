@@ -52,6 +52,11 @@ const clientContactSchema = new mongoose.Schema({
   is_active: {
     type: Boolean,
     default: true
+  },
+
+  is_primary: {
+    type: Boolean,
+    default: false
   }
 
 }, {

@@ -114,7 +114,8 @@ export default function ClientDetails() {
           phone: contact.phone || "",
           email: contact.email || "",
           linkedin: contact.linkedin || "",
-          is_active: contact.is_active
+          is_active: contact.is_active,
+          is_primary: contact.is_primary
         }))
       };
 
@@ -241,6 +242,25 @@ export default function ClientDetails() {
                             onChange={(e) => updateContactField(index, "is_active", e.target.checked)}
                           />
                           Active Contact
+                        </label>
+                      </div>
+                      <div className="clients-field clients-checkbox-field">
+                        <label>
+                          <input
+                            type="radio"
+                            name="primary_contact_client"
+                            checked={Boolean(contact.is_primary)}
+                            onChange={() => {
+                              setForm(prev => {
+                                const newContacts = (prev.contacts || []).map((c, i) => ({
+                                  ...c,
+                                  is_primary: i === index
+                                }));
+                                return { ...prev, contacts: newContacts };
+                              });
+                            }}
+                          />
+                          Primary Contact
                         </label>
                       </div>
                     </div>

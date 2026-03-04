@@ -193,6 +193,18 @@ const followupSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       index: true
+    },
+
+    whatsappReminder24hSent: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+
+    whatsappReminder1hSent: {
+      type: Boolean,
+      default: false,
+      index: true
     }
 
   },

@@ -25,6 +25,7 @@ const teamRoutes = require("./routes/teamRoutes");
 const ocrRoutes = require("./routes/ocr");
 const eventsRoutes = require("./routes/eventsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
+const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 
 require('./config/db');
@@ -40,7 +41,7 @@ const PORT = process.env.PORT || 8080;
 app.use(bodyparser.json());
 app.use(cors());
 
-app.use('/auth',authRoute);
+app.use('/auth', authRoute);
 app.use("/users", userRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/crm-settings", crmSettingsRoutes);
@@ -80,5 +81,6 @@ mongoose.connection.once("open", async () => {
   }
 });
 
-myServer.listen(PORT,()=>console.log('Server started on', PORT));
+myServer.listen(PORT, () => console.log('Server started on', PORT));
 startNotificationEmailWorker();
+startWhatsAppMeetingWorker();

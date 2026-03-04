@@ -116,6 +116,7 @@ exports.getClientById = async (req, res) => {
         linkedin: contact.linkedin || "",
         is_active: contact.is_active ?? true,
         is_deleted: contact.is_deleted || null,
+        is_primary: Boolean(contact.is_primary),
         createdAt: contact.createdAt || null,
         updatedAt: contact.updatedAt || null
       }))
@@ -193,9 +194,15 @@ exports.createClient = async (req, res) => {
         phone: normalizePhone(contact?.phone) || "",
         email: String(contact?.email || "").trim(),
         linkedin: String(contact?.linkedin || "").trim(),
-        is_active: contact?.is_active !== false
+        is_active: contact?.is_active !== false,
+        is_primary: contact?.is_primary === true || contact?.is_primary === "true"
       }))
       .filter((contact) => contact.name || contact.phone || contact.email);
+
+    // If no one is marked primary, default first to primary
+    if (contactRows.length > 0 && !contactRows.some(c => c.is_primary)) {
+      contactRows[0].is_primary = true;
+    }
 
     if (contactRows.length) {
       await ClientContact.insertMany(
@@ -209,7 +216,8 @@ exports.createClient = async (req, res) => {
           createdBy: req.user._id,
           createdAt: new Date(),
           updatedAt: new Date(),
-          is_active: contact.is_active
+          is_active: contact.is_active,
+          is_primary: contact.is_primary
         }))
       );
     }
@@ -227,20 +235,22 @@ exports.updateClient = async (req, res) => {
       updatedAt: new Date()
     };
 
-    if (req.body.name !== undefined) updateData.name = String(req.body.name || "").trim();
-    if (req.body.industry !== undefined) updateData.industry = req.body.industry || null;
-    if (req.body.Address !== undefined) updateData.Address = req.body.Address || "";
-    if (req.body.employeeCount !== undefined) updateData.employeeCount = parseNumber(req.body.employeeCount, 0);
-    if (req.body.turnoverRange !== undefined) updateData.turnoverRange = req.body.turnoverRange || "";
-    if (req.body.website !== undefined) updateData.website = req.body.website || "";
-    if (req.body.source !== undefined) updateData.source = req.body.source || null;
-    if (req.body.deal_count !== undefined) updateData.deal_count = parseNumber(req.body.deal_count, 0);
-    if (req.body.GST_no !== undefined) updateData.GST_no = req.body.GST_no || "";
-    if (req.body.URD !== undefined) updateData.URD = req.body.URD || "";
-    if (req.body.Aadhar_doc !== undefined) updateData.Aadhar_doc = req.body.Aadhar_doc || "";
-    if (req.body.PanCard_doc !== undefined) updateData.PanCard_doc = req.body.PanCard_doc || "";
-    if (req.body.Other_docs !== undefined) updateData.Other_docs = req.body.Other_docs || "";
-    if (req.body.location !== undefined) updateData.location = req.body.location || null;
+    const clientData = req.body.client || req.body;
+
+    if (clientData.name !== undefined) updateData.name = String(clientData.name || "").trim();
+    if (clientData.industry !== undefined) updateData.industry = clientData.industry || null;
+    if (clientData.Address !== undefined) updateData.Address = clientData.Address || "";
+    if (clientData.employeeCount !== undefined) updateData.employeeCount = parseNumber(clientData.employeeCount, 0);
+    if (clientData.turnoverRange !== undefined) updateData.turnoverRange = clientData.turnoverRange || "";
+    if (clientData.website !== undefined) updateData.website = clientData.website || "";
+    if (clientData.source !== undefined) updateData.source = clientData.source || null;
+    if (clientData.deal_count !== undefined) updateData.deal_count = parseNumber(clientData.deal_count, 0);
+    if (clientData.GST_no !== undefined) updateData.GST_no = clientData.GST_no || "";
+    if (clientData.URD !== undefined) updateData.URD = clientData.URD || "";
+    if (clientData.Aadhar_doc !== undefined) updateData.Aadhar_doc = clientData.Aadhar_doc || "";
+    if (clientData.PanCard_doc !== undefined) updateData.PanCard_doc = clientData.PanCard_doc || "";
+    if (clientData.Other_docs !== undefined) updateData.Other_docs = clientData.Other_docs || "";
+    if (clientData.location !== undefined) updateData.location = clientData.location || null;
 
     if (updateData.industry) {
       const industryExists = await Industry.findOne({
@@ -270,6 +280,46 @@ exports.updateClient = async (req, res) => {
 
     if (!client) {
       return res.status(404).json({ message: "Client not found" });
+    }
+
+    if (Array.isArray(req.body.contacts)) {
+      await ClientContact.deleteMany({ client_id: req.params.id });
+
+      const contacts = req.body.contacts;
+      const contactRows = contacts
+        .map((contact) => ({
+          name: String(contact?.name || "").trim(),
+          designation: String(contact?.designation || "").trim(),
+          phone: normalizePhone(contact?.phone) || "",
+          email: String(contact?.email || "").trim(),
+          linkedin: String(contact?.linkedin || "").trim(),
+          is_active: contact?.is_active !== false,
+          is_primary: contact?.is_primary === true || contact?.is_primary === "true"
+        }))
+        .filter((contact) => contact.name || contact.phone || contact.email);
+
+      // If no one is marked primary, default first to primary
+      if (contactRows.length > 0 && !contactRows.some(c => c.is_primary)) {
+        contactRows[0].is_primary = true;
+      }
+
+      if (contactRows.length > 0) {
+        await ClientContact.insertMany(
+          contactRows.map((contact) => ({
+            client_id: String(client._id),
+            name: contact.name || "Unnamed Contact",
+            designation: contact.designation,
+            phone: contact.phone,
+            email: contact.email,
+            linkedin: contact.linkedin,
+            createdBy: req.user._id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            is_active: contact.is_active,
+            is_primary: contact.is_primary
+          }))
+        );
+      }
     }
 
     res.json(client);
