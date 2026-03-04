@@ -214,8 +214,16 @@ export default function QuotationClauses() {
       <div className="qc-top-grid">
         <section className="org-profile-shell qc-panel qc-payment-panel">
           <div className="qc-panel-head">
-            <h3>Common Payment Terms</h3>
-            <p>This text is shared across all quotations.</p>
+            <div className="qc-panel-head-top">
+              <h3>Payment Terms</h3>
+              <button
+                className="admin-config-btn"
+                onClick={savePaymentTerms}
+                disabled={paymentTermsSaving}
+              >
+                Save
+              </button>
+            </div>
           </div>
 
           <div className="org-profile-field">
@@ -226,22 +234,16 @@ export default function QuotationClauses() {
               placeholder="Enter one common payment terms block"
             />
           </div>
-
-          <div className="qc-panel-footer">
-            <button
-              className="admin-config-btn"
-              onClick={savePaymentTerms}
-              disabled={paymentTermsSaving}
-            >
-              {paymentTermsSaving ? "Saving..." : "Save Payment Terms"}
-            </button>
-          </div>
         </section>
 
         <section className="org-profile-shell qc-panel qc-rules-panel">
           <div className="qc-panel-head">
-            <h3>Clause Rules</h3>
-            <p>Auto-applies by scope and priority. Lower number means higher priority.</p>
+            <div className="qc-panel-head-top">
+              <h3>Clause Rules</h3>
+              <button className="admin-config-btn" onClick={openAddModal}>
+                Add Clause
+              </button>
+            </div>
           </div>
 
           <div className="qc-stats-row">
@@ -270,9 +272,6 @@ export default function QuotationClauses() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
-            <button className="admin-config-btn" onClick={openAddModal}>
-              Add Clause
-            </button>
           </div>
         </section>
       </div>
