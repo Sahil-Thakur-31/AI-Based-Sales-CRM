@@ -24,6 +24,13 @@ function getScopeLabel(row) {
   return "Global";
 }
 
+function getScopeClass(scopeType) {
+  const value = String(scopeType || "").toLowerCase();
+  if (value === "industry") return "qc-scope-industry";
+  if (value === "product_category") return "qc-scope-product";
+  return "qc-scope-global";
+}
+
 export default function QuotationClauses() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,10 +40,11 @@ export default function QuotationClauses() {
   const [filter, setFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({ ...EMPTY_FORM });
   const [globalPaymentTerms, setGlobalPaymentTerms] = useState("");
   const [paymentTermsSaving, setPaymentTermsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     loadData();
@@ -58,9 +66,7 @@ export default function QuotationClauses() {
       const productRows = productsRes.data || [];
 
       const categoryRows = [
-        ...new Set(
-          productRows.map((row) => normalizeText(row.category)).filter(Boolean)
-        )
+        ...new Set(productRows.map((row) => normalizeText(row.category)).filter(Boolean))
       ].sort((a, b) => a.localeCompare(b));
 
       setClauses(clauseRows);
@@ -77,9 +83,10 @@ export default function QuotationClauses() {
 
   function openAddModal() {
     setEditingId("");
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM });
     setModalOpen(true);
     setError("");
+    setNotice("");
   }
 
   function openEditModal(row) {
@@ -93,12 +100,13 @@ export default function QuotationClauses() {
     });
     setModalOpen(true);
     setError("");
+    setNotice("");
   }
 
   function closeModal() {
     setModalOpen(false);
     setEditingId("");
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM });
     setError("");
   }
 
@@ -106,6 +114,7 @@ export default function QuotationClauses() {
     try {
       setSaving(true);
       setError("");
+      setNotice("");
 
       const payload = {
         scopeType: form.scopeType,
@@ -117,8 +126,10 @@ export default function QuotationClauses() {
 
       if (editingId) {
         await API.put(`/quotation-clauses/${editingId}`, payload);
+        setNotice("Clause updated successfully");
       } else {
         await API.post("/quotation-clauses", payload);
+        setNotice("Clause created successfully");
       }
 
       closeModal();
@@ -136,11 +147,14 @@ export default function QuotationClauses() {
     if (!confirmed) return;
 
     try {
+      setError("");
+      setNotice("");
       await API.put(`/quotation-clauses/delete/${id}`);
+      setNotice("Clause deleted successfully");
       loadData();
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to delete quotation clause");
+      setError(err.response?.data?.message || "Failed to delete quotation clause");
     }
   }
 
@@ -148,9 +162,11 @@ export default function QuotationClauses() {
     try {
       setPaymentTermsSaving(true);
       setError("");
+      setNotice("");
       await API.put("/quotation-clauses/payment-terms", {
         paymentTerms: globalPaymentTerms
       });
+      setNotice("Common payment terms saved");
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to save payment terms");
@@ -164,12 +180,7 @@ export default function QuotationClauses() {
     if (!text) return clauses;
 
     return clauses.filter((row) => {
-      const haystack = [
-        row.scopeType,
-        row.industryName,
-        row.productCategory,
-        row.termsAndConditions
-      ]
+      const haystack = [row.scopeType, row.industryName, row.productCategory, row.termsAndConditions]
         .map((value) => normalizeText(value).toLowerCase())
         .join(" ");
 
@@ -177,87 +188,151 @@ export default function QuotationClauses() {
     });
   }, [clauses, filter]);
 
+  const scopeStats = useMemo(() => {
+    const stats = {
+      total: clauses.length,
+      global: 0,
+      industry: 0,
+      product: 0
+    };
+
+    for (const row of clauses) {
+      const scopeType = String(row.scopeType || "global").toLowerCase();
+      if (scopeType === "industry") stats.industry += 1;
+      else if (scopeType === "product_category") stats.product += 1;
+      else stats.global += 1;
+    }
+
+    return stats;
+  }, [clauses]);
+
   return (
-    <div className="admin-config-page">
-      <div className="admin-config-header">
-        <div className="admin-config-actions">
-          <input
-            className="app-search-input admin-search-input"
-            placeholder="Search quotation clauses..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-          <button className="admin-config-btn" onClick={openAddModal}>
-            Add Clause
-          </button>
-        </div>
+    <div className="admin-config-page qc-page">
+      {error ? <div className="quote-form-error">{error}</div> : null}
+      {notice ? <div className="org-success-banner">{notice}</div> : null}
+
+      <div className="qc-top-grid">
+        <section className="org-profile-shell qc-panel qc-payment-panel">
+          <div className="qc-panel-head">
+            <h3>Common Payment Terms</h3>
+            <p>This text is shared across all quotations.</p>
+          </div>
+
+          <div className="org-profile-field">
+            <textarea
+              rows={6}
+              value={globalPaymentTerms}
+              onChange={(e) => setGlobalPaymentTerms(e.target.value)}
+              placeholder="Enter one common payment terms block"
+            />
+          </div>
+
+          <div className="qc-panel-footer">
+            <button
+              className="admin-config-btn"
+              onClick={savePaymentTerms}
+              disabled={paymentTermsSaving}
+            >
+              {paymentTermsSaving ? "Saving..." : "Save Payment Terms"}
+            </button>
+          </div>
+        </section>
+
+        <section className="org-profile-shell qc-panel qc-rules-panel">
+          <div className="qc-panel-head">
+            <h3>Clause Rules</h3>
+            <p>Auto-applies by scope and priority. Lower number means higher priority.</p>
+          </div>
+
+          <div className="qc-stats-row">
+            <div className="qc-stat-card">
+              <span>Total</span>
+              <strong>{scopeStats.total}</strong>
+            </div>
+            <div className="qc-stat-card">
+              <span>Global</span>
+              <strong>{scopeStats.global}</strong>
+            </div>
+            <div className="qc-stat-card">
+              <span>Industry</span>
+              <strong>{scopeStats.industry}</strong>
+            </div>
+            <div className="qc-stat-card">
+              <span>Product</span>
+              <strong>{scopeStats.product}</strong>
+            </div>
+          </div>
+
+          <div className="qc-controls-row">
+            <input
+              className="app-search-input admin-search-input"
+              placeholder="Search scope, category, terms..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <button className="admin-config-btn" onClick={openAddModal}>
+              Add Clause
+            </button>
+          </div>
+        </section>
       </div>
 
-      <div className="org-profile-shell">
-        <div className="org-profile-header">
-          <h3>Common Payment Terms</h3>
-        </div>
-        <div className="org-profile-field">
-          <textarea
-            rows={4}
-            value={globalPaymentTerms}
-            onChange={(e) => setGlobalPaymentTerms(e.target.value)}
-            placeholder="This payment terms text is common for all quotations."
-          />
-        </div>
-        <div className="admin-config-modal-actions">
-          <button className="admin-config-btn" onClick={savePaymentTerms} disabled={paymentTermsSaving}>
-            {paymentTermsSaving ? "Saving..." : "Save Payment Terms"}
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="admin-config-empty">Loading quotation clauses...</div>
-      ) : (
-        <table className="admin-config-table">
-          <thead>
-            <tr>
-              <th>Scope</th>
-              <th>Terms & Conditions</th>
-              <th>Priority</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRows.length === 0 ? (
+      <section className="qc-table-shell">
+        {loading ? (
+          <div className="admin-config-empty">Loading quotation clauses...</div>
+        ) : (
+          <table className="admin-config-table qc-table">
+            <thead>
               <tr>
-                <td colSpan={4} className="admin-config-empty">
-                  No quotation clauses found
-                </td>
+                <th>Scope</th>
+                <th>Terms & Conditions</th>
+                <th>Priority</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              filteredRows.map((row) => (
-                <tr key={row._id}>
-                  <td>{getScopeLabel(row)}</td>
-                  <td>{row.termsAndConditions || "-"}</td>
-                  <td>{Number(row.priority || 100)}</td>
-                  <td>
-                    <button className="admin-config-btn" onClick={() => openEditModal(row)}>
-                      Edit
-                    </button>
-                    <button
-                      className="admin-config-btn admin-config-btn-danger"
-                      onClick={() => deleteClause(row._id)}
-                    >
-                      Delete
-                    </button>
+            </thead>
+            <tbody>
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="admin-config-empty">
+                    No quotation clauses found
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      )}
+              ) : (
+                filteredRows.map((row) => (
+                  <tr key={row._id}>
+                    <td>
+                      <span className={`qc-scope-badge ${getScopeClass(row.scopeType)}`}>
+                        {getScopeLabel(row)}
+                      </span>
+                    </td>
+                    <td className="qc-terms-cell">{row.termsAndConditions || "-"}</td>
+                    <td>
+                      <span className="qc-priority-chip">{Number(row.priority || 100)}</span>
+                    </td>
+                    <td>
+                      <div className="qc-action-row">
+                        <button className="admin-config-btn" onClick={() => openEditModal(row)}>
+                          Edit
+                        </button>
+                        <button
+                          className="admin-config-btn admin-config-btn-danger"
+                          onClick={() => deleteClause(row._id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       {modalOpen ? (
         <div className="admin-config-modal">
-          <div className="admin-config-modal-content org-modal">
+          <div className="admin-config-modal-content org-modal qc-modal">
             <h3>{editingId ? "Edit Quotation Clause" : "Add Quotation Clause"}</h3>
 
             <div className="org-three-field-row">
@@ -334,14 +409,14 @@ export default function QuotationClauses() {
                     }))
                   }
                 />
-                <small>Lower number = higher priority (1 is higher than 100).</small>
+                <small className="qc-priority-helper">Lower number = higher priority (1 beats 100).</small>
               </div>
             </div>
 
             <div className="org-profile-field">
               <label>Terms & Conditions</label>
               <textarea
-                rows={6}
+                rows={7}
                 value={form.termsAndConditions}
                 onChange={(e) =>
                   setForm((prev) => ({
@@ -353,13 +428,15 @@ export default function QuotationClauses() {
               />
             </div>
 
-            {error ? <div className="quote-form-error">{error}</div> : null}
-
             <div className="admin-config-modal-actions">
               <button className="admin-config-btn" onClick={saveClause} disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </button>
-              <button className="admin-config-btn org-btn-secondary" onClick={closeModal} disabled={saving}>
+              <button
+                className="admin-config-btn org-btn-secondary"
+                onClick={closeModal}
+                disabled={saving}
+              >
                 Cancel
               </button>
             </div>
