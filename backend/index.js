@@ -25,7 +25,6 @@ const teamRoutes = require("./routes/teamRoutes");
 const ocrRoutes = require("./routes/ocr");
 const eventsRoutes = require("./routes/eventsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
-const whatsappRoutes = require("./routes/whatsappRoutes.js");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -66,8 +65,6 @@ app.use("/events", eventsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/ocr", ocrRoutes);
 app.use("/events", eventsRoutes);
-app.use("/whatsapp", whatsappRoutes);
-
 
 mongoose.connection.once("open", async () => {
   try {
