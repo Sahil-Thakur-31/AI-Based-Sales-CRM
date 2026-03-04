@@ -230,15 +230,6 @@ export default function Settings() {
           />
 
 
-          <MethodCard
-            icon="📱"
-            title="WhatsApp"
-            active={settings.reminderMethodWhatsApp}
-            onClick={()=>update("reminderMethodWhatsApp", !settings.reminderMethodWhatsApp)}
-          />
-
-
-
         </div>
 
 
