@@ -30,6 +30,7 @@ require('./config/db');
 const bodyparser = require('body-parser');
 const cors = require('cors');
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
+const managerDashboardRoutes = require("./routes/managerDashboardRoutes");
 
 const app = express();
 const myServer = http.createServer(app);
@@ -63,6 +64,7 @@ app.use("/teams", teamRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/events", eventsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/manager/dashboard", managerDashboardRoutes);
 app.use("/ocr", ocrRoutes);
 app.use("/events", eventsRoutes);
 

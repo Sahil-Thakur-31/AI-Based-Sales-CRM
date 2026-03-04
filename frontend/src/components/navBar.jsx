@@ -5,6 +5,26 @@ import API from "../api";
 import Logout from "./Logout";
 import "./navBar.css";
 
+const SEEN_NOTIFICATIONS_KEY = "seenNotificationIds";
+
+function getSeenNotificationIds() {
+  try {
+    const raw = localStorage.getItem(SEEN_NOTIFICATIONS_KEY);
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSeenNotificationIds(ids) {
+  try {
+    localStorage.setItem(SEEN_NOTIFICATIONS_KEY, JSON.stringify(ids.slice(-300)));
+  } catch {
+    // ignore storage failures
+  }
+}
+
 function Navbar() {
 
   const location = useLocation();
@@ -19,6 +39,7 @@ function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [refreshingApp, setRefreshingApp] = useState(false);
+  const [seenNotificationIds, setSeenNotificationIds] = useState(() => getSeenNotificationIds());
 
   /* timers */
   const profileMenuTimer = useRef(null);
@@ -93,13 +114,53 @@ function Navbar() {
 
   };
 
+  const unreadCount = useMemo(() => {
+    return notifications.filter((notification) => {
+      const id = String(notification?._id || "");
+      if (!id) return false;
+      if (seenNotificationIds.includes(id)) return false;
+      return notification.isRead !== true;
+    }).length;
+  }, [notifications, seenNotificationIds]);
+
+  const markNotificationsSeen = async (items = []) => {
+    const ids = items
+      .map((item) => String(item?._id || ""))
+      .filter(Boolean);
+
+    if (ids.length === 0) return;
+
+    const mergedIds = Array.from(new Set([...seenNotificationIds, ...ids]));
+    setSeenNotificationIds(mergedIds);
+    saveSeenNotificationIds(mergedIds);
+
+    try {
+      await API.put("/notifications/read-all");
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    } catch (err) {
+      console.error("Failed to mark notifications as read:", err);
+    }
+  };
+
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const intervalId = window.setInterval(() => {
+      fetchNotifications();
+    }, 60000);
+
+    return () => window.clearInterval(intervalId);
+
+  }, []);
+
 
   useEffect(() => {
 
-    if (showNotifications)
-      fetchNotifications();
+    if (showNotifications && unreadCount > 0 && notifications.length > 0)
+      markNotificationsSeen(notifications);
 
-  }, [showNotifications]);
+  }, [showNotifications, notifications, unreadCount]);
 
 
   /* Module title */
@@ -209,6 +270,7 @@ function Navbar() {
       clearTimeout(notificationTimer.current);
 
     setShowNotifications(true);
+    fetchNotifications();
 
   };
 
@@ -305,7 +367,12 @@ function Navbar() {
         >
 
           <button className="nav-icon-btn">
-            🔔
+            {"\uD83D\uDD14"}
+            {unreadCount > 0 ? (
+              <span className="notification-badge">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            ) : null}
           </button>
 
           <div className={`notification-dropdown ${showNotifications ? "visible" : "hidden"}`}>

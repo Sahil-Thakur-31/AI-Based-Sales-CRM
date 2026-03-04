@@ -91,6 +91,16 @@ function getLocalDateISO() {
   return `${y}-${m}-${day}`;
 }
 
+function isOnLocalDate(rawDate, targetDate) {
+  if (!rawDate) return false;
+  const d = new Date(rawDate);
+  if (Number.isNaN(d.getTime())) return false;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}` === targetDate;
+}
+
 function mapDocToMeeting(doc) {
   const dueDateTime = doc.dueDateTime || doc.startTime || doc.meetingDate;
   const followupId = doc.sourceFollowupId || doc.Id || doc.followupId || doc._id;
@@ -151,10 +161,37 @@ function isPhysicalMeetingEvent(eventType = "") {
 }
 
 function inferRecordBucket(doc) {
-  if (doc?.clientId) return "existingClient";
+  if (doc?.clientId) return "deal";
   if (doc?.dealId) return "deal";
   if (doc?.leadId) return "lead";
   return "deal";
+}
+
+function matchesAssigneeFilter({
+  item,
+  selectedEmployeeId,
+  selectedTeamId,
+  currentUserId,
+  teamOptions,
+}) {
+  const assignedToId = String(item?.assignedToId || "");
+
+  if (selectedEmployeeId) {
+    const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
+    return assignedToId === String(targetUserId || "");
+  }
+
+  if (selectedTeamId) {
+    if (selectedTeamId === "__mine__") {
+      return assignedToId === String(currentUserId || "");
+    }
+
+    const team = teamOptions.find((t) => String(t.id) === String(selectedTeamId));
+    const users = (team?.userIds || []).map((id) => String(id));
+    return users.includes(assignedToId);
+  }
+
+  return true;
 }
 
 export default function Followups() {
@@ -195,16 +232,19 @@ export default function Followups() {
     try {
       setLoading(true);
       setError("");
-      const date = getLocalDateISO();
-      const tzOffsetMinutes = new Date().getTimezoneOffset();
-      const [meetingRes, followupMeetingRes, followupRes] = await Promise.all([
-        API.get("/followups/today/meetings", { params: { date, tzOffsetMinutes } }),
-        API.get("/followups", { params: { kind: "meeting", today: "true", date, tzOffsetMinutes } }),
-        API.get("/followups", { params: { kind: "followup", today: "true", date, tzOffsetMinutes } }),
+      const [meetingRes, followupRes] = await Promise.all([
+        API.get("/followups", { params: { kind: "meeting" } }),
+        API.get("/followups", { params: { kind: "followup" } }),
       ]);
 
+      const stageById = new Map(
+        [...(meetingRes.data || []), ...(followupRes.data || [])]
+          .filter((d) => d?._id)
+          .map((d) => [String(d._id), d.stage || ""])
+      );
+
       const assignmentById = new Map(
-        [...(followupMeetingRes.data || []), ...(followupRes.data || [])]
+        [...(meetingRes.data || []), ...(followupRes.data || [])]
           .filter((d) => d?._id)
           .map((d) => [
             String(d._id),
@@ -215,15 +255,9 @@ export default function Followups() {
           ])
       );
 
-      const stageById = new Map(
-        [...(followupMeetingRes.data || []), ...(followupRes.data || [])]
-          .filter((d) => d?._id)
-          .map((d) => [String(d._id), d.stage || ""])
-      );
-
       const meetingLikeFollowups = (followupRes.data || []).filter((d) => isMeetingLikeAction(d.actionType));
 
-      const mergedMeetings = [...(meetingRes.data || []), ...(followupMeetingRes.data || []), ...meetingLikeFollowups]
+      const mergedMeetings = [...(meetingRes.data || []), ...meetingLikeFollowups]
         .map(mapDocToMeeting)
         .map((m) => ({ ...m, stage: m.stage || stageById.get(String(m.id)) || "" }))
         .map((m) => ({ ...m, ...(assignmentById.get(String(m.id)) || {}) }))
@@ -284,22 +318,52 @@ export default function Followups() {
     [followups, recordBucket]
   );
 
+  const assigneeFilteredMeetings = useMemo(
+    () =>
+      bucketedMeetings.filter((m) =>
+        matchesAssigneeFilter({
+          item: m,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [bucketedMeetings, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
+  const assigneeFilteredFollowups = useMemo(
+    () =>
+      bucketedFollowups.filter((f) =>
+        matchesAssigneeFilter({
+          item: f,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [bucketedFollowups, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
   const stageCounts = useMemo(() => {
     const map = Object.fromEntries(visibleStageOptions.map((s) => [s.key, 0]));
-    [...bucketedFollowups, ...bucketedMeetings].forEach((item) => {
+    [...assigneeFilteredFollowups, ...assigneeFilteredMeetings].forEach((item) => {
+      if (!isOnLocalDate(item?.dueDateTime, getLocalDateISO())) return;
       if (!item?.stage || !(item.stage in map)) return;
       map[item.stage] = (map[item.stage] || 0) + 1;
     });
     return map;
-  }, [bucketedFollowups, bucketedMeetings, visibleStageOptions]);
+  }, [assigneeFilteredFollowups, assigneeFilteredMeetings, visibleStageOptions]);
 
   const visibleFollowups = useMemo(
-    () => (useStageFilter ? bucketedFollowups.filter((f) => f.stage === activeStage) : bucketedFollowups),
-    [bucketedFollowups, activeStage, useStageFilter]
+    () => (useStageFilter ? assigneeFilteredFollowups.filter((f) => f.stage === activeStage) : assigneeFilteredFollowups),
+    [assigneeFilteredFollowups, activeStage, useStageFilter]
   );
 
   const filteredMeetings = useMemo(
-    () => bucketedMeetings.filter((m) => {
+    () => assigneeFilteredMeetings.filter((m) => {
+      const todayMatch = isOnLocalDate(m.dueDateTime, getLocalDateISO());
       const statusMatch =
         statusFilter === "completed"
           ? isCompletedStatus(m.status)
@@ -307,48 +371,23 @@ export default function Followups() {
             ? !isCompletedStatus(m.status)
             : true;
       const stageMatch = !useStageFilter || m.stage === activeStage;
-      let assigneeMatch = true;
-      if (selectedEmployeeId) {
-        const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
-        assigneeMatch = String(m.assignedToId || "") === String(targetUserId);
-      } else if (selectedTeamId) {
-        if (selectedTeamId === "__mine__") {
-          assigneeMatch = String(m.assignedToId || "") === String(currentUserId);
-        } else {
-          const team = teamOptions.find((t) => t.id === selectedTeamId);
-          const users = team?.userIds || [];
-          assigneeMatch = users.includes(String(m.assignedToId || ""));
-        }
-      }
-      return statusMatch && stageMatch && assigneeMatch;
+      return todayMatch && statusMatch && stageMatch;
     }),
-    [bucketedMeetings, statusFilter, activeStage, selectedEmployeeId, selectedTeamId, teamOptions, currentUserId, useStageFilter]
+    [assigneeFilteredMeetings, statusFilter, activeStage, useStageFilter]
   );
 
   const filteredFollowupsByStatus = useMemo(
     () => visibleFollowups.filter((f) => {
+      const todayMatch = isOnLocalDate(f.dueDateTime, getLocalDateISO());
       const statusMatch =
         statusFilter === "completed"
           ? isCompletedStatus(f.status)
           : statusFilter === "remaining"
             ? !isCompletedStatus(f.status)
             : true;
-      let assigneeMatch = true;
-      if (selectedEmployeeId) {
-        const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
-        assigneeMatch = String(f.assignedToId || "") === String(targetUserId);
-      } else if (selectedTeamId) {
-        if (selectedTeamId === "__mine__") {
-          assigneeMatch = String(f.assignedToId || "") === String(currentUserId);
-        } else {
-          const team = teamOptions.find((t) => t.id === selectedTeamId);
-          const users = team?.userIds || [];
-          assigneeMatch = users.includes(String(f.assignedToId || ""));
-        }
-      }
-      return statusMatch && assigneeMatch;
+      return todayMatch && statusMatch;
     }),
-    [visibleFollowups, statusFilter, selectedEmployeeId, selectedTeamId, teamOptions, currentUserId]
+    [visibleFollowups, statusFilter]
   );
 
   const meetingTotalPages = useMemo(
@@ -371,16 +410,24 @@ export default function Followups() {
   }, [filteredFollowupsByStatus, followupPage]);
 
   const statusCounts = useMemo(() => {
-    const meetingRemaining = bucketedMeetings.filter((m) => !isCompletedStatus(m.status)).length;
-    const meetingCompleted = bucketedMeetings.filter((m) => isCompletedStatus(m.status)).length;
-    const followupRemaining = visibleFollowups.filter((f) => !isCompletedStatus(f.status)).length;
-    const followupCompleted = visibleFollowups.filter((f) => isCompletedStatus(f.status)).length;
+    const meetingRemaining = assigneeFilteredMeetings.filter(
+      (m) => isOnLocalDate(m.dueDateTime, getLocalDateISO()) && !isCompletedStatus(m.status)
+    ).length;
+    const meetingCompleted = assigneeFilteredMeetings.filter(
+      (m) => isOnLocalDate(m.dueDateTime, getLocalDateISO()) && isCompletedStatus(m.status)
+    ).length;
+    const followupRemaining = visibleFollowups.filter(
+      (f) => isOnLocalDate(f.dueDateTime, getLocalDateISO()) && !isCompletedStatus(f.status)
+    ).length;
+    const followupCompleted = visibleFollowups.filter(
+      (f) => isOnLocalDate(f.dueDateTime, getLocalDateISO()) && isCompletedStatus(f.status)
+    ).length;
     return {
       all: meetingRemaining + meetingCompleted + followupRemaining + followupCompleted,
       remaining: meetingRemaining + followupRemaining,
       completed: meetingCompleted + followupCompleted,
     };
-  }, [bucketedMeetings, visibleFollowups]);
+  }, [assigneeFilteredMeetings, visibleFollowups]);
 
   useEffect(() => {
     if (!useStageFilter) return;
@@ -633,13 +680,6 @@ export default function Followups() {
               onClick={() => setRecordBucket("lead")}
             >
               Lead
-            </button>
-            <button
-              className={cx("fuTopbarBtn", recordBucket === "existingClient" && "active")}
-              type="button"
-              onClick={() => setRecordBucket("existingClient")}
-            >
-              Existing Client
             </button>
             <button
               className={cx("fuTopbarBtn", recordBucket === "deal" && "active")}

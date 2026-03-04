@@ -88,6 +88,14 @@ function getNotificationCompanyName(followup) {
   return String(followup?.clientName || "").trim() || "the selected company";
 }
 
+function getDayBounds(date = new Date()) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
 
 /*
 GET ALL NOTIFICATIONS FOR LOGGED IN USER
@@ -108,12 +116,50 @@ router.get("/", authenticate, async (req, res) => {
     const reminderOffsetMinutes = getReminderOffsetMinutes(settings);
     const now = new Date();
     let leadReminderNotifications = [];
+    let dayStartReminderNotifications = [];
+
+    const { start: dayStart, end: dayEnd } = getDayBounds(now);
+    const todaysFollowups = await Followup.find({
+      is_deleted: false,
+      assignedTo: req.user._id,
+      reminderEnabled: { $ne: false },
+      status: { $in: ["pending", "overdue"] },
+      dueDateTime: { $gte: dayStart, $lt: dayEnd },
+    })
+      .select("title dueDateTime leadId kind clientName actionType")
+      .lean();
+
+    dayStartReminderNotifications = todaysFollowups
+      .map((followup) => {
+        const dueAt = new Date(followup.dueDateTime);
+        if (Number.isNaN(dueAt.getTime())) return null;
+        if (dueAt.getTime() <= now.getTime()) return null;
+
+        const isMeeting = followup.kind === "meeting";
+        const companyName = getNotificationCompanyName(followup);
+        const itemType = getNotificationItemType(followup);
+
+        return {
+          _id: `${isMeeting ? "meeting" : "followup"}-daystart-${followup._id}-${dayStart.getTime()}`,
+          userId: req.user._id,
+          title: isMeeting ? "Today's Meeting Reminder" : "Today's Follow-up Reminder",
+          message: `${itemType} for ${companyName} is scheduled today.`,
+          type: "info",
+          isRead: false,
+          relatedId: followup.leadId || followup._id,
+          relatedType: isMeeting ? "Meeting" : "Followup",
+          createdAt: dayStart,
+          updatedAt: dayStart,
+        };
+      })
+      .filter(Boolean);
 
     if (reminderOffsetMinutes !== null) {
       const reminderCutoff = new Date(now.getTime() + reminderOffsetMinutes * 60 * 1000);
       const followups = await Followup.find({
         is_deleted: false,
         assignedTo: req.user._id,
+        reminderEnabled: { $ne: false },
         status: { $in: ["pending", "overdue"] },
         dueDateTime: { $gte: now, $lte: reminderCutoff },
       })
@@ -150,7 +196,7 @@ router.get("/", authenticate, async (req, res) => {
         .filter(Boolean);
     }
 
-    const combined = [...leadReminderNotifications, ...notifications]
+    const combined = [...dayStartReminderNotifications, ...leadReminderNotifications, ...notifications]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 50);
 
@@ -188,6 +234,41 @@ router.put("/:id/read", authenticate, async (req, res) => {
 
   }
   catch {
+
+    res.status(500).json({
+      message: "Failed"
+    });
+
+  }
+
+});
+
+
+/*
+MARK ALL AS READ
+*/
+router.put("/read-all", authenticate, async (req, res) => {
+
+  try {
+
+    await Notification.updateMany(
+      {
+        userId: req.user._id,
+        isRead: false,
+      },
+      {
+        $set: { isRead: true }
+      }
+    );
+
+    res.json({
+      success: true
+    });
+
+  }
+  catch (err) {
+
+    console.error(err);
 
     res.status(500).json({
       message: "Failed"
