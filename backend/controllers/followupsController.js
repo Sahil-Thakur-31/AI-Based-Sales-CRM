@@ -286,6 +286,30 @@ async function createFollowupNotification(doc, userId, eventType) {
   }
 }
 
+async function createFollowupAssignmentNotification(doc) {
+  if (!doc || !doc.assignedTo) return;
+  const userId = String(doc.assignedTo._id || doc.assignedTo);
+  if (!userId) return;
+
+  const settings = await CRMSettings.findOne({ userId }).lean();
+  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp) return;
+
+  const isMeeting = doc.kind === "meeting";
+  const itemLabel = isMeeting ? "Meeting" : "Follow-up";
+  const companyName = getNotificationCompanyName(doc);
+  const itemType = getNotificationItemType(doc);
+  const dueAt = doc.dueDateTime ? new Date(doc.dueDateTime).toLocaleString("en-IN") : "";
+
+  await Notification.create({
+    userId,
+    title: `${itemLabel} Assigned to You`,
+    message: `${itemType} for ${companyName} has been assigned to you${dueAt ? ` — due ${dueAt}` : ""}.`,
+    type: "info",
+    relatedId: doc._id,
+    relatedType: "Followup",
+  });
+}
+
 exports.list = async (req, res) => {
   try {
     const allowedIds = await getAccessibleUserIds(req.user);

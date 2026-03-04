@@ -35,7 +35,10 @@ async function getRecipientPhone(meeting) {
 
 function constructMessage(meeting, recipientName, timeRemaining) {
     const mode = meeting.actionType || "meeting";
-    const address = meeting.meetingExactLocation || meeting.meetingLocation || meeting.address || "Online/TBD";
+
+    // Prioritize readable string addresses over lat/lng coordinates
+    const address = meeting.meetingLocation || meeting.address || meeting.meetingExactLocation || meeting.exactLocation || "Online/TBD";
+
     const title = meeting.title || "Scheduled Meeting";
     const datetime = new Date(meeting.dueDateTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
@@ -46,6 +49,15 @@ function constructMessage(meeting, recipientName, timeRemaining) {
     if (address && address.toLowerCase() !== "online" && !address.toLowerCase().includes("tbd")) {
         msg += `*Location:* ${address}\n`;
     }
+
+    if (meeting.assignedTo && meeting.assignedTo.name) {
+        msg += `\n*Meeting with:* ${meeting.assignedTo.name}`;
+        if (meeting.assignedTo.phone) {
+            msg += ` (Ph: ${meeting.assignedTo.phone})`;
+        }
+        msg += `\n`;
+    }
+
     msg += `\nWe look forward to speaking with you!`;
 
     return msg;
@@ -58,34 +70,47 @@ async function processMeetingReminders() {
     try {
         const now = new Date();
 
-        const twentyThreeHoursFromNow = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-        // 24 Hours Window: Meetings between now and 24 hours from now
-        const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        // 1 Hour Window: Meetings between now and 1 hour from now
+        // 24h window: catch meetings between 22h and 25h from now
+        // Wide window prevents edge-case misses between 5-minute runs
+        const twentyTwoHoursFromNow = new Date(now.getTime() + 22 * 60 * 60 * 1000);
+        const twentyFiveHoursFromNow = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+        // 1h window: catch meetings from 20 minutes ago up to 1h from now
+        // 20-min lookback handles edge cases where interval slid past the meeting time
+        const twentyMinutesAgo = new Date(now.getTime() - 20 * 60 * 1000);
         const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+        console.log(`[WhatsApp Worker] Running at ${now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`);
+        console.log(`[WhatsApp Worker] 24h window: ${twentyTwoHoursFromNow.toISOString()} → ${twentyFiveHoursFromNow.toISOString()}`);
+        console.log(`[WhatsApp Worker] 1h window:  ${twentyMinutesAgo.toISOString()} → ${oneHourFromNow.toISOString()}`);
 
         // 1. Process 24-hour reminders
         const meetings24h = await Followup.find({
             kind: "meeting",
             status: "pending",
-            is_deleted: false,
-            whatsappReminder24hSent: false,
-            dueDateTime: { $gt: twentyThreeHoursFromNow, $lte: twentyFourHoursFromNow }
-        }).limit(50);
+            is_deleted: { $ne: true },
+            $or: [{ whatsappReminder24hSent: false }, { whatsappReminder24hSent: { $exists: false } }],
+            dueDateTime: { $gt: twentyTwoHoursFromNow, $lte: twentyFiveHoursFromNow }
+        }).populate("assignedTo", "name phone").limit(50);
+
+        console.log(`[WhatsApp Worker] Found ${meetings24h.length} meeting(s) for 24h reminder`);
 
         for (const meeting of meetings24h) {
+            console.log(`[WhatsApp Worker] 24h → Processing meeting "${meeting.title}" (${meeting._id}) due ${meeting.dueDateTime}`);
             const recipient = await getRecipientPhone(meeting);
             if (recipient?.phone) {
+                console.log(`[WhatsApp Worker] 24h → Sending to ${recipient.name} (${recipient.phone})`);
                 const msg = constructMessage(meeting, recipient.name, "24 hours");
                 try {
                     await sendWhatsAppMessage(recipient.phone, msg);
                     meeting.whatsappReminder24hSent = true;
                     await meeting.save();
+                    console.log(`[WhatsApp Worker] 24h → Message sent and flagged for meeting ${meeting._id}`);
                 } catch (err) {
-                    console.error(`Failed to send 24h WA reminder for meeting ${meeting._id}:`, err?.message);
+                    console.error(`[WhatsApp Worker] 24h → Failed to send for meeting ${meeting._id}:`, err?.message);
                 }
             } else {
-                // Mark sent anyway so we don't infinitely retry if no phone
+                console.warn(`[WhatsApp Worker] 24h → No phone found for meeting ${meeting._id} — skipping, marking sent`);
                 meeting.whatsappReminder24hSent = true;
                 await meeting.save();
             }
@@ -95,12 +120,15 @@ async function processMeetingReminders() {
         const meetings1h = await Followup.find({
             kind: "meeting",
             status: "pending",
-            is_deleted: false,
-            whatsappReminder1hSent: false,
-            dueDateTime: { $gt: now, $lte: oneHourFromNow }
-        }).limit(50);
+            is_deleted: { $ne: true },
+            $or: [{ whatsappReminder1hSent: false }, { whatsappReminder1hSent: { $exists: false } }],
+            dueDateTime: { $gt: twentyMinutesAgo, $lte: oneHourFromNow }
+        }).populate("assignedTo", "name phone").limit(50);
+
+        console.log(`[WhatsApp Worker] Found ${meetings1h.length} meeting(s) for 1h reminder`);
 
         for (const meeting of meetings1h) {
+            console.log(`[WhatsApp Worker] 1h → Processing meeting "${meeting.title}" (${meeting._id}) due ${meeting.dueDateTime}`);
             const recipient = await getRecipientPhone(meeting);
             if (recipient?.phone) {
                 const msg = constructMessage(meeting, recipient.name, "1 hour");
