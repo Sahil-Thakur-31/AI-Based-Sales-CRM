@@ -2,8 +2,11 @@ const Quotation = require("../models/quatations");
 const QuotationItem = require("../models/quatation_item");
 const Deal = require("../models/deals");
 const Client = require("../models/client");
+const ClientContact = require("../models/client_contact");
 const Product = require("../models/products");
 const Tax = require("../models/taxes");
+const QuotationClause = require("../models/quotationClauses");
+const QuotationPaymentTerms = require("../models/quotationPaymentTerms");
 
 const MAX_PERCENT = 100;
 const QUOTATION_STATUSES = [
@@ -65,6 +68,93 @@ async function syncExpiredQuotations(extraFilter = {}) {
       }
     }
   );
+}
+
+function asNormalizedCategory(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+async function resolveAutoClauseText({ industryId, productCategories = [] }) {
+  const clauses = await QuotationClause.find({
+    is_deleted: false
+  })
+    .sort({ priority: 1, createdAt: 1 })
+    .lean();
+
+  const normalizedCategories = new Set(
+    (productCategories || []).map((category) => asNormalizedCategory(category)).filter(Boolean)
+  );
+
+  const matched = clauses.filter((clause) => {
+    const scopeType = String(clause.scopeType || "").toLowerCase();
+
+    if (scopeType === "global") return true;
+    if (scopeType === "industry") {
+      return industryId && String(clause.industryId || "") === String(industryId);
+    }
+    if (scopeType === "product_category") {
+      return normalizedCategories.has(asNormalizedCategory(clause.productCategory));
+    }
+
+    return false;
+  });
+
+  const termsAndConditions = matched
+    .map((clause) => String(clause.termsAndConditions || "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+
+  return { termsAndConditions };
+}
+
+async function resolveGlobalPaymentTerms() {
+  const row = await QuotationPaymentTerms.findOne({ is_deleted: false })
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .select("paymentTerms")
+    .lean();
+
+  return String(row?.paymentTerms || "").trim();
+}
+
+async function findBestClientContact(clientId) {
+  if (!clientId) return null;
+
+  const clientIdText = String(clientId);
+  const clientIdRegex = new RegExp(`^${clientIdText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+
+  // First preference: active contact rows for this client
+  const activeContacts = await ClientContact.find({
+    $or: [{ client_id: clientIdText }, { client_id: clientIdRegex }],
+    is_active: { $ne: false }
+  })
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .select("name designation phone email linkedin is_deleted")
+    .lean();
+
+  let selected = activeContacts.find((row) => !row?.is_deleted) || activeContacts[0] || null;
+
+  // Fallback: any contact row for this client
+  if (!selected) {
+    const anyContact = await ClientContact.findOne({
+      $or: [{ client_id: clientIdText }, { client_id: clientIdRegex }]
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .select("name designation phone email linkedin")
+      .lean();
+
+    selected = anyContact || null;
+  }
+
+  if (!selected) return null;
+
+  return {
+    _id: selected._id,
+    name: selected.name || "",
+    designation: selected.designation || "",
+    phone: selected.phone || "",
+    email: selected.email || "",
+    linkedin: selected.linkedin || ""
+  };
 }
 
 exports.getQuotations = async (req, res) => {
@@ -180,7 +270,7 @@ exports.getQuotationById = async (req, res) => {
       });
     }
 
-    const [deal, client, items, latestQuoteForDeal] = await Promise.all([
+    const [deal, client, items, latestQuoteForDeal, globalPaymentTerms] = await Promise.all([
       Deal.findById(quotation.dealId).select("stage client_id").lean(),
       Client.findById(quotation.clientId).select("name website GST_no Address").lean(),
       QuotationItem.find({
@@ -196,8 +286,11 @@ exports.getQuotationById = async (req, res) => {
       })
         .sort({ version: -1, createdAt: -1 })
         .select("_id status")
-        .lean()
+        .lean(),
+      resolveGlobalPaymentTerms()
     ]);
+
+    const clientContact = await findBestClientContact(client?._id || quotation.clientId);
 
     const canCreateNewVersion = latestQuoteForDeal
       ? VERSION_ALLOWED_PREVIOUS_STATUSES.includes(
@@ -236,6 +329,7 @@ exports.getQuotationById = async (req, res) => {
         currency: quotation.currency || "INR",
         notes: quotation.notes || "",
         termsAndConditions: quotation.termsAndConditions || "",
+        paymentTerms: globalPaymentTerms || quotation.paymentTerms || "",
         subtotalAmount: quotation.subtotalAmount || 0,
         taxAmount: quotation.taxAmount || 0,
         discountAmount: quotation.discountAmount || 0,
@@ -255,7 +349,8 @@ exports.getQuotationById = async (req, res) => {
             name: client.name || "Unknown Client",
             website: client.website || "",
             GST_no: client.GST_no || "",
-            Address: client.Address || ""
+            Address: client.Address || "",
+            contact: clientContact
           }
         : null,
       items: itemRows
@@ -276,6 +371,7 @@ exports.createQuotation = async (req, res) => {
       quoteDate,
       validUntil,
       notes,
+      termsAndConditions,
       discountAmount,
       currency,
       items
@@ -306,6 +402,10 @@ exports.createQuotation = async (req, res) => {
         message: "Selected deal is not linked to any client"
       });
     }
+
+    const dealClient = await Client.findById(deal.client_id)
+      .select("industry")
+      .lean();
 
     await syncExpiredQuotations({ dealId });
 
@@ -420,6 +520,7 @@ exports.createQuotation = async (req, res) => {
 
     let subtotalAmount = 0;
     let taxAmount = 0;
+    const selectedProductCategories = products.map((product) => product.category || "");
 
     const normalizedItems = items.map((item) => {
       const product = productMap.get(String(item.productId));
@@ -461,6 +562,14 @@ exports.createQuotation = async (req, res) => {
     const normalizedDiscountAmount = Math.max(0, parseNumber(discountAmount, 0));
     const grandTotal = Math.max(0, round2(subtotalAmount + taxAmount - normalizedDiscountAmount));
 
+    const [autoClauseText, globalPaymentTerms] = await Promise.all([
+      resolveAutoClauseText({
+        industryId: dealClient?.industry || null,
+        productCategories: selectedProductCategories
+      }),
+      resolveGlobalPaymentTerms()
+    ]);
+
     const quotation = await Quotation.create({
       quoteNumber,
       dealId,
@@ -477,6 +586,9 @@ exports.createQuotation = async (req, res) => {
       status: "draft",
       version,
       notes: notes || "",
+      termsAndConditions:
+        String(termsAndConditions || "").trim() || autoClauseText.termsAndConditions || "",
+      paymentTerms: globalPaymentTerms || "",
       isActive: true,
       is_deleted: false
     });

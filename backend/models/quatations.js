@@ -94,6 +94,10 @@ const quotationSchema = new mongoose.Schema(
       type: String
     },
 
+    paymentTerms: {
+      type: String
+    },
+
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users"

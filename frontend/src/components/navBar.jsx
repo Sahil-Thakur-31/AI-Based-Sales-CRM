@@ -290,6 +290,10 @@ function Navbar() {
                 Organization
               </div>
 
+              <div onClick={() => navigate("/quotation-clauses")}>
+                Quotation Clauses
+              </div>
+
             </div>
 
           </div>
