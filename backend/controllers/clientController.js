@@ -1,7 +1,8 @@
 const Client = require("../models/client");
 const Industry = require("../models/industries");
 const Source = require("../models/sources");
-const ClientContact = require("../models/client_contact")
+const ClientContact = require("../models/client_contact");
+const { normalizePhone } = require("../utils/phoneUtils");
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -21,19 +22,19 @@ exports.getClients = async (req, res) => {
     const clientIds = clients.map((client) => String(client._id));
     const contactsAgg = clientIds.length
       ? await ClientContact.aggregate([
-          {
-            $match: {
-              client_id: { $in: clientIds },
-              is_active: { $ne: false }
-            }
-          },
-          {
-            $group: {
-              _id: "$client_id",
-              count: { $sum: 1 }
-            }
+        {
+          $match: {
+            client_id: { $in: clientIds },
+            is_active: { $ne: false }
           }
-        ])
+        },
+        {
+          $group: {
+            _id: "$client_id",
+            count: { $sum: 1 }
+          }
+        }
+      ])
       : [];
 
     const contactsCountMap = new Map(
@@ -82,8 +83,8 @@ exports.getClientById = async (req, res) => {
       client_id: String(client._id),
       is_active: { $ne: false }
     })
-    .sort({ createdAt: -1 })
-    .lean();
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({
       client: {
@@ -189,7 +190,7 @@ exports.createClient = async (req, res) => {
       .map((contact) => ({
         name: String(contact?.name || "").trim(),
         designation: String(contact?.designation || "").trim(),
-        phone: String(contact?.phone || "").trim(),
+        phone: normalizePhone(contact?.phone) || "",
         email: String(contact?.email || "").trim(),
         linkedin: String(contact?.linkedin || "").trim(),
         is_active: contact?.is_active !== false

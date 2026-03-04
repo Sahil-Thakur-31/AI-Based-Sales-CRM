@@ -10,6 +10,7 @@ const User = require("../models/users");
 const DealStageHistory = require("../models/dealStageHistory");
 const Notification = require("../models/notifications");
 const { processPendingNotificationEmails } = require("../services/notificationEmailWorker");
+const { normalizePhone } = require("../utils/phoneUtils");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
@@ -21,7 +22,7 @@ function normalizeContacts(contacts = []) {
     .map((contact, index) => ({
       name: contact.name || "",
       designation: contact.designation || "",
-      phone: contact.phone || "",
+      phone: normalizePhone(contact.phone) || "",
       email: contact.email || "",
       linkedin: contact.linkedin || "",
       address: contact.address || "",

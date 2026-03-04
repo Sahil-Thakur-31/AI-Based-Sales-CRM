@@ -23,7 +23,8 @@ const aiLeadContactsSchema = new mongoose.Schema({
   },
 
   phone: {
-    type: String
+    type: String,
+    match: [/^$|^\d{10,15}$/, "Please enter a valid phone number (10-15 digits)"]
   },
 
   linkedin: {

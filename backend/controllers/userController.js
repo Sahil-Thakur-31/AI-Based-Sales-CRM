@@ -2,6 +2,7 @@ const User = require("../models/users");
 const Role = require("../models/roles");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const { normalizePhone } = require("../utils/phoneUtils");
 
 const resolveRoleId = async (roleValue) => {
 
@@ -15,8 +16,8 @@ const resolveRoleId = async (roleValue) => {
       _id: roleValue,
       is_deleted: false
     })
-    .select("_id")
-    .lean();
+      .select("_id")
+      .lean();
 
     return roleDoc ? roleDoc._id : null;
 
@@ -26,8 +27,8 @@ const resolveRoleId = async (roleValue) => {
     name: roleValue,
     is_deleted: false
   })
-  .select("_id")
-  .lean();
+    .select("_id")
+    .lean();
 
   return roleDoc ? roleDoc._id : null;
 
@@ -42,8 +43,8 @@ const getAllUsers = async (req, res) => {
     const users = await User.find({
       is_deleted: { $ne: true }
     })
-    .populate("role", "name")
-    .sort({ createdAt: -1 });
+      .populate("role", "name")
+      .sort({ createdAt: -1 });
 
 
     const formatted = users.map(user => ({
@@ -248,7 +249,7 @@ const getSingleUser = async (req, res) => {
       is_deleted: { $ne: true }
 
     })
-    .populate("role", "name");
+      .populate("role", "name");
 
 
     if (!user)
@@ -284,10 +285,10 @@ const getProfile = async (req, res) => {
       is_deleted: { $ne: true }
 
     })
-    .populate("role", "name")
-    .select(
-      "name email phone photoUrl joiningDate is_active role address dateOfBirth gender createdAt"
-    );
+      .populate("role", "name")
+      .select(
+        "name email phone photoUrl joiningDate is_active role address dateOfBirth gender createdAt"
+      );
 
 
     if (!user)
@@ -323,7 +324,7 @@ const updateProfile = async (req, res) => {
 
       email: req.body.email,
 
-      phone: req.body.phone,
+      phone: normalizePhone(req.body.phone) || "",
 
       address: req.body.address,
 
@@ -354,7 +355,7 @@ const updateProfile = async (req, res) => {
       }
 
     )
-    .populate("role", "name");
+      .populate("role", "name");
 
 
     res.json(updatedUser);

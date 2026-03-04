@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import "./styles/Clients.css";
 
 function formatDate(value) {
@@ -216,7 +218,12 @@ export default function ClientDetails() {
                       </div>
                       <div className="clients-field">
                         <label>Phone</label>
-                        <input value={contact.phone || ""} onChange={(e) => updateContactField(index, "phone", e.target.value)} />
+                        <PhoneInput
+                          international
+                          defaultCountry="IN"
+                          value={contact.phone || ""}
+                          onChange={(val) => updateContactField(index, "phone", val)}
+                        />
                       </div>
                       <div className="clients-field">
                         <label>Email</label>
