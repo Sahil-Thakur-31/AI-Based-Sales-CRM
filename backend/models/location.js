@@ -57,14 +57,12 @@ const locationSchema = new mongoose.Schema({
 locationSchema.index({ pincode: 1 });
 locationSchema.index({ country: 1, state: 1, city: 1, area: 1 });
 
-locationSchema.pre("save", function syncLegacyAndNewFields(next) {
+locationSchema.pre("save", function syncLegacyAndNewFields() {
   if (this.state && !this.State) this.State = this.state;
   if (this.State && !this.state) this.state = this.State;
 
   if (this.area && !this.zone) this.zone = this.area;
   if (this.zone && !this.area) this.area = this.zone;
-
-  next();
 });
 
 module.exports = mongoose.model("location", locationSchema);

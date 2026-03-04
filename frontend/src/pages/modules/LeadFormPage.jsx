@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import BackButton from "../../components/BackButton";
 import "./styles/LeadsDashboard.css";
 
@@ -902,8 +904,27 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
         {contacts.map((c, i) => (
           <div key={i} className="contact-card">
-            <div className="contact-title">
-              {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
+            <div className="contact-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
+                {editMode && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', fontWeight: 'normal', cursor: 'pointer', marginLeft: '10px' }}>
+                    <input
+                      type="radio"
+                      name="primary_contact_lead"
+                      checked={Boolean(c.is_primary)}
+                      onChange={() => {
+                        const updated = contacts.map((contact, idx) => ({
+                          ...contact,
+                          is_primary: idx === i
+                        }));
+                        setContacts(updated);
+                      }}
+                    />
+                    Set as Primary
+                  </label>
+                )}
+              </div>
               {editMode && contacts.length > 1 && (
                 <button className="remove-contact-btn" onClick={() => removeContact(i)}>
                   X
@@ -914,7 +935,23 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             <div className="contact-grid">
               <InputField label="Name" name="name" value={c.name} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
               <InputField label="Designation" name="designation" value={c.designation} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Phone" name="phone" value={c.phone} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <div className="field">
+                <label>Phone</label>
+                {editMode ? (
+                  <PhoneInput
+                    international
+                    defaultCountry="IN"
+                    value={c.phone || ""}
+                    onChange={(val) => {
+                      const updated = [...contacts];
+                      updated[i].phone = val;
+                      setContacts(updated);
+                    }}
+                  />
+                ) : (
+                  <p>{c.phone || "-"}</p>
+                )}
+              </div>
               <InputField label="Email" name="email" value={c.email} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
               <InputField label="LinkedIn" name="linkedin" value={c.linkedin} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
               <InputField label="Address" name="address" value={c.address} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
