@@ -1,164 +1,196 @@
 import { useEffect, useState } from "react";
-import MeetingsEventsPanel from '../components/MeetingsEventsPanel';
-import StatCard from '../components/StatCard';
-import '../styles/managerDashboard.css';
+import API from "../api";
+import MeetingsEventsPanel from "../components/MeetingsEventsPanel";
+import StatCard from "../components/StatCard";
+import "../styles/managerDashboard.css";
 
 function Dashboard() {
-
   const [dashboardData, setDashboardData] = useState(null);
+  const [error, setError] = useState("");
+  const [range, setRange] = useState("month");
+
+  function formatCurrency(value) {
+    const amount = Number(value || 0);
+    return amount.toLocaleString("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0
+    });
+  }
+
+  function formatTime(value) {
+    if (!value) return "--";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "--";
+
+    return date.toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  }
+
+  function getFollowupColor(priority = "") {
+    const normalized = String(priority).toLowerCase();
+    if (normalized === "high") return "red";
+    if (normalized === "medium") return "orange";
+    return "blue";
+  }
+
+  function getRangeLabel(value) {
+    if (value === "week") {
+      return {
+        followups: "This Week's Follow-ups & Meetings",
+        target: "Current Target"
+      };
+    }
+
+    if (value === "quarter") {
+      return {
+        followups: "This Quarter's Follow-ups & Meetings",
+        target: "Quarterly Target"
+      };
+    }
+
+    return {
+      followups: "This Month's Follow-ups & Meetings",
+      target: "Monthly Target"
+    };
+  }
 
   useEffect(() => {
-    // forr now dummy data
-    const dummyData = {
-      stats: [
-        {
-          title: "Today's Follow-ups",
-          value: 8,
-          sub: "3 high priority",
-          // badge: "AI",
-          icon: "📞",
-          color: "blue"
-        },
-        {
-          title: "Active Deals",
-          value: 12,
-          sub: "+2 this week",
-          icon: "💼",
-          color: "green"
-        },
-        {
-          title: "Monthly Target",
-          value: "₹8.5L",
-          sub: "68% achieved (₹5.78L)",
-          icon: "🎯",
-          color: "orange"
-        },
-        {
-          title: "Win Rate",
-          value: "42%",
-          sub: "Above team avg (38%)",
-          icon: "⭐",
-          color: "purple"
-        }
-      ],
-      pipelineValue: "₹45.8L",
-      
-      //aatta sathi
-      followups: [
+    const controller = new AbortController();
+
+    async function loadDashboard() {
+      try {
+        setError("");
+        const response = await API.get("/api/manager/dashboard", {
+          params: { range },
+          signal: controller.signal
+        });
+        setDashboardData(response.data);
+      } catch (err) {
+        if (err.name === "CanceledError" || err.name === "AbortError") return;
+        setError(err.response?.data?.message || "Failed to load dashboard");
+      }
+    }
+
+    loadDashboard();
+    return () => controller.abort();
+  }, [range]);
+
+  if (!dashboardData) {
+    return <p>{error || "Loading..."}</p>;
+  }
+
+  const labels = getRangeLabel(range);
+  const timelineItems = [
+    ...(dashboardData.followups || []),
+    ...(dashboardData.meetings || [])
+  ].sort((a, b) => new Date(a.dueAt || 0).getTime() - new Date(b.dueAt || 0).getTime());
+  const stats = [
     {
-      id: 1,
-      company: "SolarTech Industries",
-      message: "Follow-up call - Proposal discussion",
-      time: "9:00 AM",
-      priority: "High"
+      title: labels.followups,
+      value: (dashboardData.summary.followupsToday || 0) + (dashboardData.summary.meetingsToday || 0),
+      sub: `${dashboardData.summary.highPriorityFollowups} high priority follow-ups, ${dashboardData.summary.meetingsToday || 0} meetings`,
+      icon: "📞",
+      color: "blue"
     },
     {
-      id: 2,
-      company: "GreenEnergy Solutions",
-      message: "Send revised quotation",
-      time: "11:00 AM",
-      priority: "Medium"
-    }
-  ],
-
-  insights: [
-    {
-      id: 1,
-      type: "Opportunity",
-      message: "SolarTech deal has 85% close probability."
+      title: "Active Deals",
+      value: dashboardData.summary.activeDeals,
+      sub: `+${dashboardData.summary.dealsAddedThisWeek} this week`,
+      icon: "💼",
+      color: "green"
     },
     {
-      id: 2,
-      type: "Risk",
-      message: "3 leads haven't been contacted in 7+ days."
+      title: labels.target,
+      value: formatCurrency(dashboardData.summary.monthlyTarget),
+      sub: `${dashboardData.summary.monthlyAchievedPct}% achieved (${formatCurrency(dashboardData.summary.monthlyAchieved)})`,
+      icon: "🎯",
+      color: "orange"
+    },
+    {
+      title: "Win Rate",
+      value: `${dashboardData.summary.winRate}%`,
+      sub: `${dashboardData.summary.wonDeals} won of ${dashboardData.summary.closedDeals} closed deals`,
+      icon: "⭐",
+      color: "purple"
     }
-  ]
-    };
-
-    // nantar replace karaaych:
-    // fetch("http://localhost:5000/api/dashboard")
-    //   .then(res => res.json())
-    //   .then(data => setDashboardData(data));
-    //   .catch(err => console.error(err));
-
-    setDashboardData(dummyData);
-
-  }, []);
-
-  if (!dashboardData) return <p>Loading...</p>;
+  ];
 
   return (
     <div className="ManagerDashboard">
       <div className="dashboard container-fluid">
+        {error ? <p>{error}</p> : null}
 
-        {/* STATS ROW */}
         <div className="row g-4 mt-2">
-          {dashboardData.stats.map((stat, i) => (
-            <div key={i} className="col-12 col-sm-6 col-lg-3">
+          {stats.map((stat, index) => (
+            <div key={index} className="col-12 col-sm-6 col-lg-3">
               <StatCard {...stat} />
             </div>
           ))}
         </div>
 
-        {/* MEETINGS PANEL */}
         <div className="row mt-4">
           <div className="col-12">
             <div className="panel">
-              <MeetingsEventsPanel />
+              <MeetingsEventsPanel
+                activityData={dashboardData.activity}
+                range={range}
+                onRangeChange={setRange}
+              />
             </div>
           </div>
         </div>
 
-        {/* BOTTOM SECTION */}
         <div className="row mt-4">
-
-          {/* LEFT */}
           <div className="col-12 col-lg-8">
-                <div className="panel">
-    <h3>🔥 Priority Follow-ups Today</h3>
+            <div className="panel">
+              <h3>{labels.followups}</h3>
 
-    {dashboardData.followups.map((item) => (
-      <div key={item.id} className="follow-item">
-        <div>
-          <strong>{item.company}</strong>
-          <p>{item.message}</p>
-        </div>
-        <div className="text-end">
-          <small>{item.time}</small>
-          <div>{item.priority}</div>
-        </div>
-      </div>
-    ))}
-
-  </div>
-
+              {timelineItems.length ? (
+                timelineItems.map((item) => (
+                  <div key={item.id} className={`follow-item ${getFollowupColor(item.priority)}`}>
+                    <div>
+                      <strong>{item.company}</strong>
+                      <div className="follow-item-meta">
+                        <span className={`follow-kind follow-kind--${item.kind || "followup"}`}>
+                          {item.kind === "meeting" ? "Meeting" : "Follow-up"}
+                        </span>
+                      </div>
+                      <p>{item.message}</p>
+                    </div>
+                    <div className="text-end">
+                      <small>{formatTime(item.dueAt)}</small>
+                      <div>{item.priority}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p>No follow-ups or meetings found for this range.</p>
+              )}
+            </div>
           </div>
 
-          {/* RIGHT */}
           <div className="col-12 col-lg-4">
             <div className="panel mb-4">
-              <h3>📊 Pipeline Value</h3>
-              <div className="pipeline-value">
-                {dashboardData.pipelineValue}
-              </div>
+              <h3>Pipeline Value</h3>
+              <div className="pipeline-value">{formatCurrency(dashboardData.summary.pipelineValue)}</div>
             </div>
 
             <div className="panel">
-              <h3>📈 AI Insights</h3>
+              <h3>AI Insights</h3>
 
               {dashboardData.insights.map((insight) => (
-                <div key={insight.id}       className="insight">
-                <strong>{insight.type}</strong>
-              <p>{insight.message}</p>
-              </div>
-            ))}
-
+                <div key={insight.id} className={`insight ${insight.severity || "purple"}`}>
+                  <strong>{insight.type}</strong>
+                  <p>{insight.message}</p>
+                </div>
+              ))}
             </div>
-
           </div>
-
         </div>
-
       </div>
     </div>
   );

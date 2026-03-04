@@ -1,0 +1,13 @@
+start waha
+docker run -it -p 3000:3000 devlikeapro/waha
+
+Run WAHA With Fixed API Key (Stable Setup)
+docker run -it -p 3000:3000 -e WAHA_API_KEY=391f303d91f343c2ac72452df21680c5 -e WAHA_DASHBOARD_USERNAME=admin -e WAHA_DASHBOARD_PASSWORD=60b91417df06479b84317fad355c9426 devlikeapro/waha
+
+docker run -it -p 3000:3000 -v waha_data:/app/data -e WAHA_API_KEY=391f303d91f343c2ac72452df21680c5 -e WAHA_DASHBOARD_USERNAME=admin -e WAHA_DASHBOARD_PASSWORD=60b91417df06479b84317fad355c9426 devlikeapro/waha
+
+docker name
+silly_leakey --> start/run
+localhost 3000 login start
+
+backend\waha-test> node server.js -->localhost/5000/send

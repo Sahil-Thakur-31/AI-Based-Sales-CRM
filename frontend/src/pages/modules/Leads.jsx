@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
@@ -25,6 +25,8 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [deletedDeals, setDeletedDeals] = useState([]);
   const [loadingDeletedDeals, setLoadingDeletedDeals] = useState(true);
   const [showOcrModal, setShowOcrModal] = useState(false);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const csvInputRef = useRef(null);
 
   // Tabs: "active", "inactive", "deleted"
   const [activeTab, setActiveTab] = useState("active");
@@ -39,54 +41,348 @@ function LeadsDashboard({ defaultView = "leads" }) {
     setCurrentPage(1);
   }, [defaultView]);
 
+  const loadDashboardData = useCallback(async () => {
+    const [
+      leadsRes,
+      dealsRes,
+      deletedRes,
+      deletedDealsRes,
+      industriesRes,
+    ] = await Promise.allSettled([
+      API.get("/leads"),
+      API.get("/deals"),
+      API.get("/leads", { params: { deleted_only: true, limit: 10 } }),
+      API.get("/deals", { params: { deleted_only: true, limit: 10 } }),
+      API.get("/industries"),
+    ]);
+
+    if (leadsRes.status === "fulfilled")
+      setLeads(Array.isArray(leadsRes.value.data) ? leadsRes.value.data : []);
+
+    if (dealsRes.status === "fulfilled")
+      setDeals(Array.isArray(dealsRes.value.data) ? dealsRes.value.data : []);
+
+    if (deletedRes.status === "fulfilled")
+      setDeletedLeads(Array.isArray(deletedRes.value.data) ? deletedRes.value.data : []);
+
+    if (deletedDealsRes.status === "fulfilled")
+      setDeletedDeals(
+        Array.isArray(deletedDealsRes.value.data)
+          ? deletedDealsRes.value.data.filter(d => d.deleted === true || d.is_deleted === true)
+          : []
+      );
+
+    if (industriesRes.status === "fulfilled") {
+      setIndustryOptions(
+        (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
+          .map((item) => item?.name)
+          .filter(Boolean)
+      );
+    }
+
+    setLoadingLeads(false);
+    setLoadingDeals(false);
+    setLoadingDeleted(false);
+    setLoadingDeletedDeals(false);
+  }, []);
+
   useEffect(() => {
-    const load = async () => {
-      const [
-        leadsRes,
-        dealsRes,
-        deletedRes,
-        deletedDealsRes,
-        industriesRes,
-      ] = await Promise.allSettled([
-        API.get("/leads"),
-        API.get("/deals"),
-        API.get("/leads", { params: { deleted_only: true, limit: 10 } }),
-        API.get("/deals", { params: { deleted_only: true, limit: 10 } }),
-        API.get("/industries"),
-      ]);
+    loadDashboardData();
+  }, [loadDashboardData]);
 
-      if (leadsRes.status === "fulfilled")
-        setLeads(Array.isArray(leadsRes.value.data) ? leadsRes.value.data : []);
+  const normalizeHeader = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
 
-      if (dealsRes.status === "fulfilled")
-        setDeals(Array.isArray(dealsRes.value.data) ? dealsRes.value.data : []);
+  const parseCsv = (text) => {
+    const rows = [];
+    let current = "";
+    let row = [];
+    let inQuotes = false;
 
-      if (deletedRes.status === "fulfilled")
-        setDeletedLeads(Array.isArray(deletedRes.value.data) ? deletedRes.value.data : []);
+    for (let i = 0; i < text.length; i += 1) {
+      const char = text[i];
+      const next = text[i + 1];
 
-      if (deletedDealsRes.status === "fulfilled")
-        setDeletedDeals(
-          Array.isArray(deletedDealsRes.value.data)
-            ? deletedDealsRes.value.data.filter(d => d.deleted === true || d.is_deleted === true)
-            : []
-        );
-
-      if (industriesRes.status === "fulfilled") {
-        setIndustryOptions(
-          (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
-            .map((item) => item?.name)
-            .filter(Boolean)
-        );
+      if (char === "\"") {
+        if (inQuotes && next === "\"") {
+          current += "\"";
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
       }
 
-      setLoadingLeads(false);
-      setLoadingDeals(false);
-      setLoadingDeleted(false);
-      setLoadingDeletedDeals(false);
+      if (char === "," && !inQuotes) {
+        row.push(current);
+        current = "";
+        continue;
+      }
+
+      if ((char === "\n" || char === "\r") && !inQuotes) {
+        if (char === "\r" && next === "\n") i += 1;
+        row.push(current);
+        rows.push(row);
+        row = [];
+        current = "";
+        continue;
+      }
+
+      current += char;
+    }
+
+    if (current.length > 0 || row.length > 0) {
+      row.push(current);
+      rows.push(row);
+    }
+
+    return rows;
+  };
+
+  const parseNumber = (value) => {
+    const cleaned = String(value ?? "").replace(/[^0-9.-]/g, "");
+    if (!cleaned) return undefined;
+    const numberValue = Number(cleaned);
+    return Number.isNaN(numberValue) ? undefined : numberValue;
+  };
+
+  const parseBoolean = (value, fallback = undefined) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (["true", "1", "yes", "y"].includes(normalized)) return true;
+    if (["false", "0", "no", "n"].includes(normalized)) return false;
+    return fallback;
+  };
+
+  const firstFilled = (source, keys) => {
+    for (const key of keys) {
+      const value = source[key];
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        return String(value).trim();
+      }
+    }
+    return "";
+  };
+
+  const normalizeObjectId = (value) => {
+    const raw = String(value ?? "").trim();
+    return /^[a-f0-9]{24}$/i.test(raw) ? raw : undefined;
+  };
+
+  const normalizeStatus = (value) => {
+    const raw = String(value ?? "").trim().toLowerCase();
+    if (!raw) return undefined;
+
+    const mapped = {
+      new: "new",
+      contacted: "contacted",
+      contact: "contacted",
+      qualified: "qualified",
+      qualify: "qualified",
+      converted: "converted",
+      convert: "converted",
+      rejected: "rejected",
+      reject: "rejected",
     };
 
-    load();
-  }, []);
+    return mapped[raw] || undefined;
+  };
+
+  const mapCsvRowToLeadPayload = (row) => {
+    const companyName = firstFilled(row, [
+      "company_name",
+      "company",
+      "companyname",
+      "organization",
+      "organisation",
+      "business_name",
+      "account_name",
+    ]);
+    const contactName = firstFilled(row, [
+      "contact_name",
+      "contact_person",
+      "person_name",
+      "name",
+      "full_name",
+      "primary_contact",
+    ]);
+    const contactPhone = firstFilled(row, [
+      "contact_phone",
+      "phone",
+      "mobile",
+      "contact_mobile",
+      "contact_number",
+      "phone_number",
+      "mobile_number",
+    ]);
+    const contactEmail = firstFilled(row, [
+      "contact_email",
+      "email",
+      "contact_mail",
+      "mail",
+      "email_id",
+    ]);
+    const contactDesignation = firstFilled(row, [
+      "contact_designation",
+      "designation",
+      "title",
+      "job_title",
+      "role",
+    ]);
+    const contactLinkedin = firstFilled(row, [
+      "contact_linkedin",
+      "linkedin",
+      "linkedin_url",
+      "linked_in",
+    ]);
+    const contactAddress = firstFilled(row, [
+      "contact_address",
+      "address",
+      "contact_location",
+    ]);
+
+    const leadTemperatureRaw = firstFilled(row, ["lead_temperature", "temperature", "lead_temp"]).toLowerCase();
+    const leadTemperature = ["cold", "warm", "hot"].includes(leadTemperatureRaw)
+      ? leadTemperatureRaw
+      : undefined;
+
+    const payload = {
+      company_name: companyName,
+      industry: firstFilled(row, ["industry", "sector", "business_industry"]),
+      employee_count: parseNumber(firstFilled(row, ["employee_count", "employees", "employee", "team_size"])),
+      turnover_range: firstFilled(row, ["turnover_range", "turnover", "revenue_range"]),
+      Address: firstFilled(row, ["address", "company_address", "office_address", "location"]),
+      website: firstFilled(row, ["website", "url", "website_url", "company_website"]),
+      source: normalizeObjectId(firstFilled(row, ["source_id", "source", "lead_source"])),
+      lead_temperature: leadTemperature,
+      deal_value_estimate: parseNumber(
+        firstFilled(row, ["deal_value_estimate", "deal_value", "value", "amount", "deal_amount", "estimated_value"])
+      ),
+      assigned_to: normalizeObjectId(
+        firstFilled(row, ["assigned_to", "owner", "user_id", "assignee", "lead_owner"])
+      ),
+      status: normalizeStatus(firstFilled(row, ["status", "lead_status"])),
+      country: firstFilled(row, ["country", "nation"]),
+      State: firstFilled(row, ["state", "province", "region"]),
+      city: firstFilled(row, ["city", "town"]),
+      zone: firstFilled(row, ["zone", "area", "territory"]),
+      is_active: parseBoolean(firstFilled(row, ["is_active", "active", "enabled"]), undefined),
+    };
+
+    const hasContact = contactName || contactPhone || contactEmail || contactDesignation || contactLinkedin;
+    if (hasContact) {
+      payload.contacts = [
+        {
+          name: contactName,
+          phone: contactPhone,
+          email: contactEmail,
+          designation: contactDesignation,
+          linkedin: contactLinkedin,
+          address: contactAddress,
+          is_primary: true,
+        },
+      ];
+    }
+
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === undefined || payload[key] === "") {
+        delete payload[key];
+      }
+    });
+
+    if (Object.keys(payload).length === 0) return null;
+
+    return payload;
+  };
+
+  const handleImportCsvClick = () => {
+    if (isImportingCsv) return;
+    csvInputRef.current?.click();
+  };
+
+  const handleCsvFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      setIsImportingCsv(true);
+      const text = await file.text();
+      const rawRows = parseCsv(text).filter((cells) =>
+        cells.some((cell) => String(cell || "").trim() !== "")
+      );
+
+      if (rawRows.length < 2) {
+        alert("CSV must include a header row and at least one data row.");
+        return;
+      }
+
+      const headers = rawRows[0].map(normalizeHeader);
+      const payloads = rawRows
+        .slice(1)
+        .map((cells) => {
+          const rowObject = {};
+          headers.forEach((header, index) => {
+            rowObject[header] = cells[index] ?? "";
+          });
+          return mapCsvRowToLeadPayload(rowObject);
+        })
+        .filter(Boolean);
+
+      if (!payloads.length) {
+        alert("No valid rows found. Please include company or contact fields.");
+        return;
+      }
+
+      let successCount = 0;
+      let failedCount = 0;
+      const failedRows = [];
+
+      for (const [index, payload] of payloads.entries()) {
+        const csvRowNumber = index + 2;
+        try {
+          await API.post("/leads", payload);
+          successCount += 1;
+        } catch (err) {
+          failedCount += 1;
+          const responseData = err?.response?.data;
+          const reason =
+            responseData?.message ||
+            responseData?.error ||
+            (typeof responseData === "string" ? responseData : "") ||
+            err?.message ||
+            "Unknown error";
+          failedRows.push({ row: csvRowNumber, reason });
+          console.error(
+            `CSV row ${csvRowNumber} import failed: ${reason}`,
+            { payload, responseData }
+          );
+        }
+      }
+
+      await loadDashboardData();
+      if (failedRows.length) {
+        const summary = failedRows
+          .slice(0, 5)
+          .map((item) => `Row ${item.row}: ${item.reason}`)
+          .join("\n");
+        const more = failedRows.length > 5 ? `\n...and ${failedRows.length - 5} more` : "";
+        alert(
+          `CSV import complete. Success: ${successCount}, Failed: ${failedCount}\n\n${summary}${more}`
+        );
+      } else {
+        alert(`CSV import complete. Success: ${successCount}, Failed: ${failedCount}`);
+      }
+    } catch (err) {
+      console.error("CSV import failed", err);
+      alert("Failed to import CSV.");
+    } finally {
+      setIsImportingCsv(false);
+    }
+  };
 
   const getTemperature = (row) => {
     const raw = (row.lead_temperature || row.temperature || "").toLowerCase();
@@ -218,10 +514,22 @@ function LeadsDashboard({ defaultView = "leads" }) {
             <span className="action-icon">➕</span>
             Add Lead Manually
           </button>
-          <button className="btn" type="button" onClick={() => navigate("")}>
+          <button
+            className="btn"
+            type="button"
+            onClick={handleImportCsvClick}
+            disabled={isImportingCsv}
+          >
             <span className="action-icon">📥</span>
-            Import CSV
+            {isImportingCsv ? "Importing CSV..." : "Import CSV"}
           </button>
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleCsvFileChange}
+            style={{ display: "none" }}
+          />
         </div>
       )}
 

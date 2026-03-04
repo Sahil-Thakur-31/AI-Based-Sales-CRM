@@ -2,6 +2,7 @@ const Organization = require("../models/organization");
 const User = require("../models/users");
 const Client = require("../models/client");
 const Deal = require("../models/deals");
+const { normalizePhone } = require("../utils/phoneUtils");
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const CIN_REGEX = /^[A-Z0-9]{21}$/;
@@ -196,8 +197,8 @@ exports.createOrganization = async (req, res) => {
       panNumber,
       cinNumber,
       gstNumber,
-      phoneNumber: normalizeText(req.body.phoneNumber),
-      alternatePhoneNumber: normalizeText(req.body.alternatePhoneNumber),
+      phoneNumber: normalizePhone(req.body.phoneNumber) || "",
+      alternatePhoneNumber: normalizePhone(req.body.alternatePhoneNumber) || "",
       email,
       paymentAccountName: normalizeText(req.body.paymentAccountName),
       paymentAccountNumber: normalizeText(req.body.paymentAccountNumber),
@@ -308,8 +309,8 @@ exports.upsertOrganizationProfile = async (req, res) => {
       panNumber,
       cinNumber,
       gstNumber,
-      phoneNumber: normalizeText(req.body.phoneNumber),
-      alternatePhoneNumber: normalizeText(req.body.alternatePhoneNumber),
+      phoneNumber: normalizePhone(req.body.phoneNumber) || "",
+      alternatePhoneNumber: normalizePhone(req.body.alternatePhoneNumber) || "",
       email,
       paymentAccountName: normalizeText(req.body.paymentAccountName),
       paymentAccountNumber: normalizeText(req.body.paymentAccountNumber),

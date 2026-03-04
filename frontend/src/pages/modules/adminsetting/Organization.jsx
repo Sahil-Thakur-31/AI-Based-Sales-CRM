@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import API from "../../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import "./admin-config.css";
 
 const ACCOUNT_TYPE_OPTIONS = ["Savings", "Current", "Salary", "OD/CC", "NRE", "NRO"];
@@ -413,116 +415,78 @@ export default function Organization() {
 
         {!loading && (
           <>
-          <div className="org-profile-layout">
-            <aside className="org-logo-column">
-              <div className="org-logo-block org-logo-block-fixed">
-                {logoPreview ? (
-                  <img className="org-logo-preview org-logo-preview-large" src={logoPreview} alt="Organization logo" />
-                ) : (
-                  <div className="org-logo-preview-empty org-logo-preview-empty-large">No logo uploaded</div>
-                )}
-              </div>
-
-              {isEditing && (
-                <div className="org-logo-actions">
-                  <input
-                    ref={fileInputRef}
-                    className="org-logo-hidden-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoFileChange}
-                  />
-                  <button className="admin-config-btn" type="button" onClick={handleChangeLogo}>
-                    Change
-                  </button>
-                  <button className="admin-config-btn admin-config-btn-danger" type="button" onClick={handleDeleteLogo}>
-                    Delete
-                  </button>
-                </div>
-              )}
-            </aside>
-
-            <section className="org-details-column">
-              <div className="org-profile-grid">
-                <div className="org-profile-field org-profile-field-full">
-                  <label>Company Name</label>
-                  {isEditing ? (
-                    <input
-                      value={form.name}
-                      onChange={(e) => updateField("name", e.target.value)}
-                      placeholder="Enter organization name"
-                    />
+            <div className="org-profile-layout">
+              <aside className="org-logo-column">
+                <div className="org-logo-block org-logo-block-fixed">
+                  {logoPreview ? (
+                    <img className="org-logo-preview org-logo-preview-large" src={logoPreview} alt="Organization logo" />
                   ) : (
-                    <p className="org-view-value">{form.name || "-"}</p>
+                    <div className="org-logo-preview-empty org-logo-preview-empty-large">No logo uploaded</div>
                   )}
                 </div>
 
-                <div className="org-profile-field org-profile-field-full">
-                  <label>Address</label>
-                  {isEditing ? (
-                    <textarea
-                      rows={2}
-                      value={form.address}
-                      onChange={(e) => updateField("address", e.target.value)}
-                      placeholder="Enter address"
-                    />
-                  ) : (
-                    <p className="org-view-value">{form.address || "-"}</p>
-                  )}
-                </div>
-
-                <div className="org-profile-field org-profile-field-full">
-                  <label>Website</label>
-                  {isEditing ? (
+                {isEditing && (
+                  <div className="org-logo-actions">
                     <input
-                      value={form.website}
-                      onChange={(e) => updateField("website", e.target.value)}
-                      placeholder="https://example.com"
+                      ref={fileInputRef}
+                      className="org-logo-hidden-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoFileChange}
                     />
-                  ) : (
-                    <p className="org-view-value">{form.website || "-"}</p>
-                  )}
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <div className="org-below-section">
-            <div className="org-three-field-row">
-              <div className="org-profile-field">
-                <label>Area</label>
-                {isEditing ? (
-                  <input value={form.area} onChange={(e) => updateField("area", e.target.value)} placeholder="Area" />
-                ) : (
-                  <p className="org-view-value">{form.area || "-"}</p>
-                )}
-              </div>
-
-              <div className="org-profile-field">
-                <label>City</label>
-                {isEditing ? (
-                  <input value={form.city} onChange={(e) => updateField("city", e.target.value)} placeholder="City" />
-                ) : (
-                  <p className="org-view-value">{form.city || "-"}</p>
-                )}
-              </div>
-
-              <div className="org-profile-field">
-                <label>Pin Code</label>
-                {isEditing ? (
-                  <div className="org-pincode-wrap">
-                    <input
-                      value={form.pincode}
-                      onChange={(e) => updateField("pincode", e.target.value)}
-                      onBlur={lookupPincode}
-                      placeholder="Pin code"
-                    />
-                    {pincodeLoading ? <span className="org-pincode-status">Fetching...</span> : null}
+                    <button className="admin-config-btn" type="button" onClick={handleChangeLogo}>
+                      Change
+                    </button>
+                    <button className="admin-config-btn admin-config-btn-danger" type="button" onClick={handleDeleteLogo}>
+                      Delete
+                    </button>
                   </div>
-                ) : (
-                  <p className="org-view-value">{form.pincode || "-"}</p>
                 )}
-              </div>
+              </aside>
+
+              <section className="org-details-column">
+                <div className="org-profile-grid">
+                  <div className="org-profile-field org-profile-field-full">
+                    <label>Company Name</label>
+                    {isEditing ? (
+                      <input
+                        value={form.name}
+                        onChange={(e) => updateField("name", e.target.value)}
+                        placeholder="Enter organization name"
+                      />
+                    ) : (
+                      <p className="org-view-value">{form.name || "-"}</p>
+                    )}
+                  </div>
+
+                  <div className="org-profile-field org-profile-field-full">
+                    <label>Address</label>
+                    {isEditing ? (
+                      <textarea
+                        rows={2}
+                        value={form.address}
+                        onChange={(e) => updateField("address", e.target.value)}
+                        placeholder="Enter address"
+                      />
+                    ) : (
+                      <p className="org-view-value">{form.address || "-"}</p>
+                    )}
+                  </div>
+
+                  <div className="org-profile-field org-profile-field-full">
+                    <label>Website</label>
+                    {isEditing ? (
+                      <input
+                        value={form.website}
+                        onChange={(e) => updateField("website", e.target.value)}
+                        placeholder="https://example.com"
+                      />
+                    ) : (
+                      <p className="org-view-value">{form.website || "-"}</p>
+                    )}
+                  </div>
+                </div>
+              </section>
             </div>
 
             <div className="org-three-field-row">
@@ -772,71 +736,212 @@ export default function Organization() {
                       alt="Organization signature"
                     />
                   ) : (
-                    <div className="org-logo-preview-empty org-sign-preview-empty">
-                      No signature uploaded
-                    </div>
+                    <p className="org-view-value">{form.area || "-"}</p>
                   )}
                 </div>
-                {isEditing ? (
-                  <div className="org-logo-actions">
-                    <input
-                      ref={signatureInputRef}
-                      className="org-logo-hidden-input"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleSignatureFileChange}
-                    />
-                    <button className="admin-config-btn" type="button" onClick={handleChangeSignature}>
-                      Change
-                    </button>
-                    <button
-                      className="admin-config-btn admin-config-btn-danger"
-                      type="button"
-                      onClick={handleDeleteSignature}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ) : null}
+
+                <div className="org-profile-field">
+                  <label>City</label>
+                  {isEditing ? (
+                    <input value={form.city} onChange={(e) => updateField("city", e.target.value)} placeholder="City" />
+                  ) : (
+                    <p className="org-view-value">{form.city || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Pin Code</label>
+                  {isEditing ? (
+                    <div className="org-pincode-wrap">
+                      <input
+                        value={form.pincode}
+                        onChange={(e) => updateField("pincode", e.target.value)}
+                        onBlur={lookupPincode}
+                        placeholder="Pin code"
+                      />
+                      {pincodeLoading ? <span className="org-pincode-status">Fetching...</span> : null}
+                    </div>
+                  ) : (
+                    <p className="org-view-value">{form.pincode || "-"}</p>
+                  )}
+                </div>
               </div>
 
-              <div className="org-sign-asset-card">
-                <label>Stamp</label>
-                <div className="org-logo-block">
-                  {stampPreview ? (
-                    <img
-                      className="org-logo-preview org-sign-preview"
-                      src={stampPreview}
-                      alt="Organization stamp"
-                    />
+              <div className="org-three-field-row">
+                <div className="org-profile-field">
+                  <label>District</label>
+                  {isEditing ? (
+                    <input value={form.district} onChange={(e) => updateField("district", e.target.value)} placeholder="District" />
                   ) : (
-                    <div className="org-logo-preview-empty org-sign-preview-empty">No stamp uploaded</div>
+                    <p className="org-view-value">{form.district || "-"}</p>
                   )}
                 </div>
-                {isEditing ? (
-                  <div className="org-logo-actions">
-                    <input
-                      ref={stampInputRef}
-                      className="org-logo-hidden-input"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleStampFileChange}
+
+                <div className="org-profile-field">
+                  <label>State</label>
+                  {isEditing ? (
+                    <input value={form.state} onChange={(e) => updateField("state", e.target.value)} placeholder="State" />
+                  ) : (
+                    <p className="org-view-value">{form.state || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Country</label>
+                  {isEditing ? (
+                    <input value={form.country} onChange={(e) => updateField("country", e.target.value)} placeholder="Country" />
+                  ) : (
+                    <p className="org-view-value">{form.country || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="org-three-field-row">
+                <div className="org-profile-field">
+                  <label>CIN Number</label>
+                  {isEditing ? (
+                    <input value={form.cinNumber} onChange={(e) => updateField("cinNumber", e.target.value)} placeholder="CIN number" />
+                  ) : (
+                    <p className="org-view-value">{form.cinNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>PAN Number</label>
+                  {isEditing ? (
+                    <input value={form.panNumber} onChange={(e) => updateField("panNumber", e.target.value)} placeholder="PAN number" />
+                  ) : (
+                    <p className="org-view-value">{form.panNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>GST Number</label>
+                  {isEditing ? (
+                    <input value={form.gstNumber} onChange={(e) => updateField("gstNumber", e.target.value)} placeholder="GST number" />
+                  ) : (
+                    <p className="org-view-value">{form.gstNumber || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="org-three-field-row">
+                <div className="org-profile-field">
+                  <label>Phone Number</label>
+                  {isEditing ? (
+                    <PhoneInput
+                      international
+                      defaultCountry="IN"
+                      value={form.phoneNumber || ""}
+                      onChange={(val) => updateField("phoneNumber", val)}
+                      placeholder="Phone number"
                     />
-                    <button className="admin-config-btn" type="button" onClick={handleChangeStamp}>
-                      Change
-                    </button>
-                    <button
-                      className="admin-config-btn admin-config-btn-danger"
-                      type="button"
-                      onClick={handleDeleteStamp}
-                    >
-                      Delete
-                    </button>
+                  ) : (
+                    <p className="org-view-value">{form.phoneNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Alternate Phone Number</label>
+                  {isEditing ? (
+                    <PhoneInput
+                      international
+                      defaultCountry="IN"
+                      value={form.alternatePhoneNumber || ""}
+                      onChange={(val) => updateField("alternatePhoneNumber", val)}
+                      placeholder="Alternate phone number"
+                    />
+                  ) : (
+                    <p className="org-view-value">{form.alternatePhoneNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Email</label>
+                  {isEditing ? (
+                    <input value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="Email" />
+                  ) : (
+                    <p className="org-view-value">{form.email || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="org-sign-assets-row">
+                <div className="org-sign-asset-card">
+                  <label>Signature</label>
+                  <div className="org-logo-block">
+                    {signaturePreview ? (
+                      <img
+                        className="org-logo-preview org-sign-preview"
+                        src={signaturePreview}
+                        alt="Organization signature"
+                      />
+                    ) : (
+                      <div className="org-logo-preview-empty org-sign-preview-empty">
+                        No signature uploaded
+                      </div>
+                    )}
                   </div>
-                ) : null}
+                  {isEditing ? (
+                    <div className="org-logo-actions">
+                      <input
+                        ref={signatureInputRef}
+                        className="org-logo-hidden-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSignatureFileChange}
+                      />
+                      <button className="admin-config-btn" type="button" onClick={handleChangeSignature}>
+                        Change
+                      </button>
+                      <button
+                        className="admin-config-btn admin-config-btn-danger"
+                        type="button"
+                        onClick={handleDeleteSignature}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="org-sign-asset-card">
+                  <label>Stamp</label>
+                  <div className="org-logo-block">
+                    {stampPreview ? (
+                      <img
+                        className="org-logo-preview org-sign-preview"
+                        src={stampPreview}
+                        alt="Organization stamp"
+                      />
+                    ) : (
+                      <div className="org-logo-preview-empty org-sign-preview-empty">No stamp uploaded</div>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <div className="org-logo-actions">
+                      <input
+                        ref={stampInputRef}
+                        className="org-logo-hidden-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleStampFileChange}
+                      />
+                      <button className="admin-config-btn" type="button" onClick={handleChangeStamp}>
+                        Change
+                      </button>
+                      <button
+                        className="admin-config-btn admin-config-btn-danger"
+                        type="button"
+                        onClick={handleDeleteStamp}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
           </>
         )}
       </div>

@@ -40,7 +40,7 @@ async function getAccessibleUserIds(reqUser) {
   if (isSales(roleName)) return [myId];
 
   if (isManager(roleName)) {
-    const teams = await Team.find({ "teamLead.userId": reqUser._id }).select("members.userId");
+    const teams = await Team.find({ "teamLeads.userId": reqUser._id }).select("members.userId");
     const memberIds = teams.flatMap((t) =>
       (t.members || []).map((m) => String(m.userId)).filter(Boolean)
     );
@@ -248,6 +248,7 @@ function getNotificationCompanyName(doc) {
 
 async function createFollowupNotification(doc, userId, eventType) {
   if (!doc || !userId) return;
+  if (doc.reminderEnabled === false && eventType === "created") return;
   const settings = await CRMSettings.findOne({ userId }).lean();
   if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp) return;
 
@@ -259,6 +260,7 @@ async function createFollowupNotification(doc, userId, eventType) {
   if (eventType === "created") {
     const offsetMinutes = getReminderOffsetMinutes(settings);
     const dueAt = new Date(doc.dueDateTime);
+    if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() <= Date.now()) return;
     const scheduledText = Number.isNaN(dueAt.getTime()) ? "" : dueAt.toLocaleString("en-IN");
 
     await Notification.create({
@@ -461,6 +463,7 @@ exports.create = async (req, res) => {
       priority: req.body.priority || "medium",
       status: req.body.status || "pending",
       dueDateTime: new Date(req.body.dueDateTime),
+      reminderEnabled: req.body.reminderEnabled !== false,
       assignedTo: new mongoose.Types.ObjectId(assignedTo),
       durationMinutes: req.body.durationMinutes || undefined,
       agenda: req.body.agenda || "",
@@ -548,6 +551,7 @@ exports.update = async (req, res) => {
       priority: req.body.priority ?? current.priority,
       status: req.body.status ?? current.status,
       dueDateTime: req.body.dueDateTime ? new Date(req.body.dueDateTime) : current.dueDateTime,
+      reminderEnabled: req.body.reminderEnabled ?? current.reminderEnabled,
       assignedTo: new mongoose.Types.ObjectId(nextAssigned),
       durationMinutes: req.body.durationMinutes ?? current.durationMinutes,
       agenda: req.body.agenda ?? current.agenda,

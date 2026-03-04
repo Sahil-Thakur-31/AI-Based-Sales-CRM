@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import API from "../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import "./styles/profile.css";
 
 function formatDateForInput(value) {
@@ -296,10 +298,12 @@ export default function Profile() {
 
             <div className="profile-field">
               <label>Phone</label>
-              <input
+              <PhoneInput
+                international
+                defaultCountry="IN"
                 value={user.phone || ""}
                 disabled={!editing}
-                onChange={(e) => setUser({ ...user, phone: e.target.value })}
+                onChange={(val) => setUser({ ...user, phone: val })}
               />
             </div>
 

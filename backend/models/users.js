@@ -29,7 +29,8 @@ const usersSchema = new mongoose.Schema({
 
   phone: {
     type: String,
-    trim: true
+    trim: true,
+    match: [/^$|^\d{10,15}$/, "Please enter a valid phone number (10-15 digits)"]
   },
 
   photoUrl: {

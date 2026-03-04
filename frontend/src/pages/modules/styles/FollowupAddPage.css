@@ -128,15 +128,38 @@
 }
 
 .fuaGrid input,
-.fuaGrid select {
+.fuaGrid select,
+.fuaGrid textarea {
   border: 1px solid #cfd8e3;
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
 }
 
+.fuaGrid textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
 .fuaGrid .full {
   grid-column: 1 / -1;
+}
+
+.fuaInlineField {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.fuaInlineFieldLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fuaInlineFieldContent {
+  min-width: 0;
 }
 
 .fuaBinaryRow {
@@ -147,16 +170,25 @@
   min-height: 40px;
 }
 
-.fuaBinaryOption {
+.fuaGrid .fuaBinaryOption {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
+  grid-template-columns: none;
 }
 
-.fuaBinaryOption input {
+.fuaGrid .fuaBinaryOption input {
   margin: 0;
+}
+
+.fuaInlineCreateActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .fuaRedirectBox {
@@ -333,6 +365,209 @@
   font-weight: 700;
 }
 
+.fuaModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+  overflow-y: auto;
+}
+
+.fuaModal {
+  width: min(1040px, 100%);
+  max-height: calc(100vh - 40px);
+  margin: auto 0;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #dbe2ff;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.24);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.fuaModalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eef2ff;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  flex: 0 0 auto;
+}
+
+.fuaModalHead h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f2748;
+}
+
+.fuaModalTitleWrap {
+  min-width: 0;
+}
+
+.fuaModalSubtext {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.fuaModalHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.fuaModalError {
+  padding: 12px 18px 0;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fuaModalScroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.fuaEmbeddedFormWrap {
+  padding: 18px;
+}
+
+.fuaEmbeddedFormWrap .embedded-lead-page {
+  padding: 0;
+}
+
+.fuaModalClose {
+  border: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.fuaModalClose:hover {
+  background: #dfe5ff;
+}
+
+.fuaModalBody {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.fuaModalGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fuaModalContactGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+}
+
+.fuaModalBody label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fuaModalBody input,
+.fuaModalBody select,
+.fuaModalBody textarea {
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  width: 100%;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.fuaModalBody textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.fuaModalBody input:focus,
+.fuaModalBody select:focus,
+.fuaModalBody textarea:focus {
+  outline: none;
+  border-color: #8ba4ff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.fuaModalBody .full {
+  grid-column: 1 / -1;
+}
+
+.fuaModalSection {
+  padding: 0 18px 18px;
+}
+
+.fuaModalSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.fuaModalSectionHead h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #0f2748;
+}
+
+.fuaModalContactList {
+  display: grid;
+  gap: 12px;
+}
+
+.fuaModalContactCard {
+  border: 1px solid #e6ebf2;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.fuaModalContactHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.fuaModalInlineBtn {
+  border: 0;
+  background: transparent;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fuaModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid #eef2ff;
+  background: #ffffff;
+  flex: 0 0 auto;
+}
+
 @media (max-width: 900px) {
   .fuaGrid {
     grid-template-columns: 1fr;
@@ -341,6 +576,22 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .fuaDetailsGrid {
+    grid-template-columns: 1fr;
+  }
+  .fuaModal {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+  }
+  .fuaModalHead {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .fuaModalHeaderActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .fuaModalGrid,
+  .fuaModalContactGrid {
     grid-template-columns: 1fr;
   }
 }
@@ -367,6 +618,11 @@
 
 .fuaSuggestField {
   position: relative;
+  width: 100%;
+}
+
+.fuaSuggestField input {
+  width: 100%;
 }
 
 .fuaSuggestList {
@@ -501,6 +757,12 @@
 }
 
 @media (max-width: 900px) {
+  .fuaInlineField {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 6px;
+  }
+
   .fuaSelectedGrid {
     grid-template-columns: 1fr;
   }

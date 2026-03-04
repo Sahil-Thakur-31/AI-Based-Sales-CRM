@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import BackButton from "../../components/BackButton";
 import "./styles/LeadsDashboard.css";
 
@@ -18,7 +20,7 @@ function getUserIdFromToken() {
   }
 }
 
-function LeadFormPage({ formMode = "" }) {
+function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCancel = null, onSaved = null }) {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,14 +29,15 @@ function LeadFormPage({ formMode = "" }) {
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
   const currentUserId = getUserIdFromToken();
 
-  const isNew = id === "new" || !id;
+  const isNew = embedded ? true : id === "new" || !id;
   const searchParams = new URLSearchParams(location.search);
-  const deletedView = searchParams.get("deleted") === "true";
-  const dealView = searchParams.get("view") === "deal";
+  const deletedView = embedded ? false : searchParams.get("deleted") === "true";
+  const dealView = embedded ? forcedView === "deal" : searchParams.get("view") === "deal";
   const clientView = formMode === "client" || searchParams.get("view") === "client";
   const dealIdFromQuery = searchParams.get("dealId") || (dealView ? String(id || "") : "");
-  const shouldStartInEditMode =
-    !deletedView && (isNew || searchParams.get("edit") === "true");
+  const shouldStartInEditMode = embedded
+    ? true
+    : !deletedView && (isNew || searchParams.get("edit") === "true");
   const [editMode, setEditMode] = useState(shouldStartInEditMode);
   const [popup, setPopup] = useState({
     open: false,
@@ -411,6 +414,11 @@ function LeadFormPage({ formMode = "" }) {
       }
 
       const data = response.data;
+      if (embedded) {
+        if (typeof onSaved === "function") onSaved(data);
+        return;
+      }
+
       if (isNew) {
         if (clientView) {
           navigate("/clients");
@@ -634,23 +642,25 @@ function LeadFormPage({ formMode = "" }) {
   );
 
   return (
-    <div className="lead-page">
-      <div className="lead-header">
-        <h2>
-          {isNew
-            ? clientView
-              ? "Add Client"
-              : dealView
-                ? "Add Deal"
-                : "Add Lead"
-            : clientView
-              ? `Client - ${lead.company_name || "Details"}`
-              : dealView
-                ? `Deal - ${lead.company_name || "Details"}`
-                : lead.company_name}
-        </h2>
-        <BackButton />
-      </div>
+    <div className={embedded ? "lead-page embedded-lead-page" : "lead-page"}>
+      {!embedded && (
+        <div className="lead-header">
+          <h2>
+            {isNew
+              ? clientView
+                ? "Add Client"
+                : dealView
+                  ? "Add Deal"
+                  : "Add Lead"
+              : clientView
+                ? `Client - ${lead.company_name || "Details"}`
+                : dealView
+                  ? `Deal - ${lead.company_name || "Details"}`
+                  : lead.company_name}
+          </h2>
+          <BackButton />
+        </div>
+      )}
 
       {deletedView && (
         <div className="deleted-banner" style={{ background: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', margin: '20px 0', fontSize: '15px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #fecaca' }}>
@@ -894,8 +904,27 @@ function LeadFormPage({ formMode = "" }) {
 
         {contacts.map((c, i) => (
           <div key={i} className="contact-card">
-            <div className="contact-title">
-              {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
+            <div className="contact-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {c.is_primary ? "Primary Contact" : `Contact ${i + 1}`}
+                {editMode && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', fontWeight: 'normal', cursor: 'pointer', marginLeft: '10px' }}>
+                    <input
+                      type="radio"
+                      name="primary_contact_lead"
+                      checked={Boolean(c.is_primary)}
+                      onChange={() => {
+                        const updated = contacts.map((contact, idx) => ({
+                          ...contact,
+                          is_primary: idx === i
+                        }));
+                        setContacts(updated);
+                      }}
+                    />
+                    Set as Primary
+                  </label>
+                )}
+              </div>
               {editMode && contacts.length > 1 && (
                 <button className="remove-contact-btn" onClick={() => removeContact(i)}>
                   X
@@ -906,7 +935,23 @@ function LeadFormPage({ formMode = "" }) {
             <div className="contact-grid">
               <InputField label="Name" name="name" value={c.name} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
               <InputField label="Designation" name="designation" value={c.designation} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Phone" name="phone" value={c.phone} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <div className="field">
+                <label>Phone</label>
+                {editMode ? (
+                  <PhoneInput
+                    international
+                    defaultCountry="IN"
+                    value={c.phone || ""}
+                    onChange={(val) => {
+                      const updated = [...contacts];
+                      updated[i].phone = val;
+                      setContacts(updated);
+                    }}
+                  />
+                ) : (
+                  <p>{c.phone || "-"}</p>
+                )}
+              </div>
               <InputField label="Email" name="email" value={c.email} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
               <InputField label="LinkedIn" name="linkedin" value={c.linkedin} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
               <InputField label="Address" name="address" value={c.address} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
@@ -923,7 +968,7 @@ function LeadFormPage({ formMode = "" }) {
         )}
       </div>
 
-      {!clientView && (
+      {!clientView && !embedded && (
         <div className="contacts-section">
           <h3 className="contacts-title">Follow-up History</h3>
           {historyRows.length === 0 && <p>No follow-up history yet.</p>}
@@ -969,9 +1014,16 @@ function LeadFormPage({ formMode = "" }) {
             </button>
           )
         ) : editMode ? (
-          <button className="save-btn" onClick={handleSave}>
-            Save
-          </button>
+          <>
+            <button className="save-btn" onClick={handleSave}>
+              Save
+            </button>
+            {embedded && (
+              <button className="edit-btn" onClick={() => onCancel?.()}>
+                Back
+              </button>
+            )}
+          </>
         ) : (
           !isNew && (
             <>

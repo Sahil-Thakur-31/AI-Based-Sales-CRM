@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import API from "../../api";
+import LeadFormPage from "./LeadFormPage";
 import "./styles/FollowupAddPage.css";
 
 const STAGES = [
@@ -14,7 +14,9 @@ const STAGES = [
 ];
 
 const EMPTY_FORM = {
-  sourceType: "existingClient",
+  sourceType: "lead",
+  assignedTo: "",
+  reminderEnabled: "yes",
   eventType: "",
   date: "",
   time: "",
@@ -93,10 +95,20 @@ function normalizeValue(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function userIdLabel(user, currentUserId) {
+  const name = user?.name || "Unknown";
+  const role = String(user?.role || "").trim();
+  if (String(user?.id || "") === String(currentUserId || "")) {
+    return role ? `${name} (Me • ${role})` : `${name} (Me)`;
+  }
+  return role ? `${name} (${role})` : name;
+}
+
 function inferSourceTypeFromDoc(doc) {
   if (doc?.dealId) return "deal";
   if (doc?.leadId) return "lead";
-  return "existingClient";
+  if (doc?.clientId) return "deal";
+  return "lead";
 }
 
 function mapDocToMeeting(doc) {
@@ -105,12 +117,14 @@ function mapDocToMeeting(doc) {
     leadId: doc.leadId || "",
     dealId: doc.dealId || "",
     clientId: doc.clientId || "",
+    stage: doc.stage || "P1",
     clientName: doc.clientName || "N/A",
     eventType: doc.actionType || "Meeting",
     time: formatTime(doc.dueDateTime),
     dueDateTime: doc.dueDateTime,
     status: doc.status || "pending",
     priority: doc.priority || "medium",
+    reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
     notes: doc.notes || "",
     durationMinutes: doc.durationMinutes || "",
     agenda: doc.agenda || "",
@@ -136,6 +150,7 @@ function mapDocToFollowup(doc) {
     due: formatDate(doc.dueDateTime),
     dueDateTime: doc.dueDateTime,
     priority: doc.priority || "medium",
+    reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
     eventType: doc.actionType || "Follow Up Phone Call",
     time: formatTime(doc.dueDateTime),
     notes: doc.notes || "",
@@ -156,7 +171,6 @@ function isMeetingEventType(eventType = "") {
 }
 
 export default function FollowupsAddPage() {
-  const navigate = useNavigate();
   const [activeAction, setActiveAction] = useState("add");
   const [activeStage, setActiveStage] = useState("P1");
   const [formTarget, setFormTarget] = useState("followup");
@@ -186,6 +200,7 @@ export default function FollowupsAddPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [recordScope, setRecordScope] = useState("mine");
   const [hasExistingClient, setHasExistingClient] = useState("yes");
+  const [quickCreateType, setQuickCreateType] = useState("");
 
   const visibleFollowups = useMemo(
     () =>
@@ -242,6 +257,18 @@ export default function FollowupsAddPage() {
     return employeeOptions.filter((user) => userIds.includes(String(user.id)));
   }, [employeeOptions, selectedTeamId, teamOptions]);
 
+  const assignableEmployeeOptions = useMemo(() => {
+    if (currentRole === "admin") return employeeOptions;
+    if (currentRole === "manager") {
+      return employeeOptions.filter((user) => {
+        const userId = String(user.id || "");
+        if (userId === String(currentUserId || "")) return true;
+        return user.role !== "admin" && user.role !== "manager";
+      });
+    }
+    return [];
+  }, [currentRole, currentUserId, employeeOptions]);
+
   const selectedSourceInfo = useMemo(() => {
     if (!selectedSourceId) return null;
 
@@ -285,13 +312,8 @@ export default function FollowupsAddPage() {
         }));
     }
 
-    const onlyExistingClient = formData.sourceType === "existingClient";
     return dealRows
-      .filter((deal) => {
-        const isExistingClientDeal = !deal.lead_id;
-        if (onlyExistingClient && !isExistingClientDeal) return false;
-        return normalizeValue(deal.company_name).includes(query);
-      })
+      .filter((deal) => normalizeValue(deal.company_name).includes(query))
       .slice(0, 8)
       .map((deal) => ({
         id: String(deal._id),
@@ -299,7 +321,7 @@ export default function FollowupsAddPage() {
         sourceType: formData.sourceType,
         stage: deal.stage || "P1",
         dealId: String(deal._id),
-        clientId: onlyExistingClient ? String(deal.clientId || deal.client_id || "") : "",
+        clientId: String(deal.clientId || deal.client_id || ""),
         leadId: deal.lead_id ? String(deal.lead_id) : "",
       }));
   }, [dealRows, formData.searchClient, formData.sourceType, leadRows, selectedSourceId]);
@@ -352,14 +374,52 @@ export default function FollowupsAddPage() {
     })();
   }, [currentRole]);
 
+  useEffect(() => {
+    if (!currentUserId) return;
+    setFormData((prev) => (prev.assignedTo ? prev : { ...prev, assignedTo: currentUserId }));
+  }, [currentUserId]);
+
   const resetForm = () => {
-    setFormData({ ...EMPTY_FORM });
+    setFormData({ ...EMPTY_FORM, assignedTo: currentUserId || "" });
     setFormError("");
     setEditingRecord(null);
     setSelectedSourceId("");
     setHasExistingClient("yes");
     setClientSuggestions([]);
     setLocationSuggestions([]);
+  };
+
+  const openQuickCreateModal = (type) => {
+    setQuickCreateType(type);
+  };
+
+  const closeQuickCreateModal = () => {
+    setQuickCreateType("");
+  };
+
+  const handleQuickCreateSaved = async (data) => {
+    const createdLead = data?.lead || data || {};
+    const createdDeal = data?.deal || null;
+    const nextType = quickCreateType === "deal" ? "deal" : "lead";
+    const nextId = String(
+      quickCreateType === "deal"
+        ? createdDeal?._id || createdLead?._id || ""
+        : createdLead?._id || data?._id || ""
+    );
+    const nextLabel = createdLead?.company_name || createdDeal?.company_name || "";
+    const nextStage = createdDeal?.stage || createdLead?.stage || "P1";
+
+    await loadData();
+
+    setHasExistingClient("yes");
+    setSelectedSourceId(nextId);
+    setFormData((prev) => ({
+      ...prev,
+      sourceType: nextType,
+      searchClient: nextLabel,
+      stage: nextStage,
+    }));
+    closeQuickCreateModal();
   };
 
   const applyClientSelection = (item) => {
@@ -450,14 +510,18 @@ export default function FollowupsAddPage() {
     if (!selectedSourceId) return "Select an item from suggestions";
     if (!(formData.taskDescription || formData.purpose).trim()) return "Purpose/Task description is required";
     if (!formData.date) return "Date is required";
-    const selectedAt = new Date(`${formData.date}T${formData.time}:00`);
-    if (!Number.isNaN(selectedAt.getTime()) && selectedAt < new Date()) {
-      return "Past date/time is not allowed";
+    if ((currentRole === "admin" || currentRole === "manager") && !formData.assignedTo) {
+      return "Assigned To is required";
     }
     if (!formData.stage) return "Stage is required";
     if (!formData.agenda.trim()) return "Agenda of meeting is required";
-    if (formData.eventType === "Physical Meeting" && !formData.currentLocation.trim()) return "Current location is required";
-    if (formData.eventType === "Physical Meeting" && !formData.meetingExactLocation.trim()) return "Select a meeting location from suggestions";
+    if (
+      formData.eventType === "Physical Meeting" &&
+      !formData.currentLocation.trim() &&
+      !formData.meetingExactLocation.trim()
+    ) {
+      return "Provide either current location or meeting location";
+    }
     return "";
   };
 
@@ -471,13 +535,13 @@ export default function FollowupsAddPage() {
     const { type, item } = selectedRecord;
     const existingName = type === "meeting" ? item.clientName : item.client;
     const matchedDeal = (dealRows || []).find((d) => normalizeValue(d.company_name) === normalizeValue(existingName));
-    const inferredSourceType = item.sourceType || (matchedDeal ? "deal" : "existingClient");
+    const inferredSourceType = item.sourceType || (matchedDeal || item.clientId ? "deal" : "lead");
     const matchedSourceId =
       inferredSourceType === "lead"
         ? String(item.leadId || "")
         : inferredSourceType === "deal"
           ? String(item.dealId || matchedDeal?._id || "")
-          : String(item.clientId || matchedDeal?._id || "");
+          : "";
     const matchedStage = item.stage || matchedDeal?.stage || "P1";
 
     setFormTarget(type);
@@ -493,6 +557,8 @@ export default function FollowupsAddPage() {
         purpose: item.notes || "",
         taskDescription: item.notes || "",
         priority: item.priority || "medium",
+        assignedTo: item.assignedToId || currentUserId || "",
+        reminderEnabled: item.reminderEnabled || "yes",
         durationMinutes: item.durationMinutes || "",
         agenda: item.agenda || "",
         currentLocation: item.currentLocation || "",
@@ -513,6 +579,8 @@ export default function FollowupsAddPage() {
         purpose: item.title || "",
         taskDescription: item.title || "",
         priority: item.priority || "medium",
+        assignedTo: item.assignedToId || currentUserId || "",
+        reminderEnabled: item.reminderEnabled || "yes",
         agenda: item.agenda || "",
         stage: matchedStage,
       });
@@ -533,6 +601,10 @@ export default function FollowupsAddPage() {
     try {
       const resolvedTarget = editingRecord?.type || (isMeetingEventType(formData.eventType) ? "meeting" : "followup");
       const dueDateTime = new Date(`${formData.date}T${formData.time}:00`).toISOString();
+      const resolvedStage =
+        resolvedTarget === "meeting" && formData.sourceType === "lead"
+          ? "P2"
+          : (formData.stage || activeStage);
       const selectedDealRow =
         formData.sourceType === "existingClient" || formData.sourceType === "deal"
           ? (dealRows || []).find((row) => String(row._id) === String(selectedSourceId))
@@ -542,7 +614,7 @@ export default function FollowupsAddPage() {
         actionType: formData.eventType,
         title: (formData.taskDescription || formData.purpose).trim(),
         clientName: formData.searchClient.trim(),
-        stage: formData.stage || activeStage,
+        stage: resolvedStage,
         leadId: formData.sourceType === "lead" ? selectedSourceId : undefined,
         dealId: formData.sourceType === "deal" ? selectedSourceId : undefined,
         clientId:
@@ -550,6 +622,9 @@ export default function FollowupsAddPage() {
             ? (selectedDealRow?.clientId || selectedDealRow?.client_id || selectedSourceId)
             : undefined,
         dueDateTime,
+        assignedTo: formData.assignedTo || currentUserId || undefined,
+        reminderEnabled: formData.reminderEnabled !== "no",
+        status: new Date(dueDateTime) < new Date() ? "completed" : "pending",
         priority: formData.priority || "medium",
         notes: formData.purpose || formData.taskDescription,
         durationMinutes: formData.durationMinutes || undefined,
@@ -591,50 +666,12 @@ export default function FollowupsAddPage() {
   const renderForm = () => (
     (() => {
       const selectedLatLng = parseLatLng(formData.meetingExactLocation);
-      const todayISO = getTodayISO();
-      const minTime = formData.date === todayISO ? getNowTimeHHMM() : undefined;
+      const selectedAt = formData.date && formData.time ? new Date(`${formData.date}T${formData.time}:00`) : null;
+      const isPastSelected = selectedAt && !Number.isNaN(selectedAt.getTime()) && selectedAt < new Date();
       return (
         <form className="fuaForm" onSubmit={submitForm}>
           {formError && <div className="fuaEmpty">{formError}</div>}
           <div className="fuaGrid">
-        <label className="full">
-          Client Type*
-          <div className="fuaBinaryRow">
-            <label className="fuaBinaryOption">
-              <input
-                type="radio"
-                name="clientType"
-                checked={hasExistingClient === "yes"}
-                onChange={() => {
-                  setHasExistingClient("yes");
-                  setSelectedSourceId("");
-                  setClientSuggestions([]);
-                  setFormData((p) => ({
-                    ...EMPTY_FORM,
-                    sourceType: "existingClient",
-                    eventType: p.eventType,
-                    date: p.date,
-                    time: p.time,
-                    priority: p.priority,
-                  }));
-                }}
-              />
-              <span>Existing Client/Project</span>
-            </label>
-            <label className="fuaBinaryOption">
-              <input
-                type="radio"
-                name="clientType"
-                checked={hasExistingClient === "no"}
-                onChange={() => setHasExistingClient("no")}
-              />
-              <span>Add New Lead/Project</span>
-            </label>
-          </div>
-        </label>
-
-        {hasExistingClient === "yes" ? (
-          <>
         <label className="full">
           Follow-up For*
           <select
@@ -646,6 +683,7 @@ export default function FollowupsAddPage() {
               setFormData((p) => ({
                 ...EMPTY_FORM,
                 sourceType: nextSourceType,
+                assignedTo: p.assignedTo || currentUserId || "",
                 eventType: p.eventType,
                 date: p.date,
                 time: p.time,
@@ -670,20 +708,114 @@ export default function FollowupsAddPage() {
 
         <label>
           Time*
-          <input type="time" min={minTime} value={formData.time} onChange={(e) => setFormData((p) => ({ ...p, time: e.target.value }))} />
+          <input type="time" value={formData.time} onChange={(e) => setFormData((p) => ({ ...p, time: e.target.value }))} />
         </label>
 
         <label>
           Date*
-          <input type="date" min={todayISO} value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} />
+          <input type="date" value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} />
         </label>
 
+        {(currentRole === "admin" || currentRole === "manager") && (
+          <label>
+            Assigned To*
+            <select
+              value={formData.assignedTo || currentUserId || ""}
+              onChange={(e) => setFormData((p) => ({ ...p, assignedTo: e.target.value }))}
+            >
+              <option value="">--Please Select--</option>
+              {assignableEmployeeOptions.map((user) => (
+                <option key={String(user.id)} value={String(user.id)}>
+                  {userIdLabel(user, currentUserId)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <div className="full fuaInlineField">
+          <div className="fuaInlineFieldLabel">Reminder</div>
+          <div className="fuaInlineFieldContent">
+            <div className="fuaBinaryRow">
+              <label className="fuaBinaryOption">
+                <input
+                  type="radio"
+                  name="reminderEnabled"
+                  checked={formData.reminderEnabled !== "no"}
+                  onChange={() => setFormData((p) => ({ ...p, reminderEnabled: "yes" }))}
+                />
+                <span>Yes</span>
+              </label>
+              <label className="fuaBinaryOption">
+                <input
+                  type="radio"
+                  name="reminderEnabled"
+                  checked={formData.reminderEnabled === "no"}
+                  onChange={() => setFormData((p) => ({ ...p, reminderEnabled: "no" }))}
+                />
+                <span>No</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="full fuaInlineField">
+          <div className="fuaInlineFieldLabel">Client Type*</div>
+          <div className="fuaInlineFieldContent">
+            <div className="fuaBinaryRow">
+              <label className="fuaBinaryOption">
+                <input
+                  type="radio"
+                  name="clientType"
+                  checked={hasExistingClient === "yes"}
+                  onChange={() => {
+                    setHasExistingClient("yes");
+                    setSelectedSourceId("");
+                  setClientSuggestions([]);
+                  setFormData((p) => ({
+                    ...EMPTY_FORM,
+                    sourceType: p.sourceType === "deal" ? "deal" : "lead",
+                    assignedTo: p.assignedTo || currentUserId || "",
+                    eventType: p.eventType,
+                    date: p.date,
+                    time: p.time,
+                    priority: p.priority,
+                    }));
+                  }}
+                />
+                <span>Existing Client/Lead</span>
+              </label>
+              <label className="fuaBinaryOption">
+                <input
+                  type="radio"
+                  name="clientType"
+                  checked={hasExistingClient === "no"}
+                  onChange={() => setHasExistingClient("no")}
+                />
+                <span>Add New Client/Lead</span>
+              </label>
+              {hasExistingClient === "no" && (
+                <div className="fuaInlineCreateActions">
+                  <button className="fuaBtn ghost" type="button" onClick={() => openQuickCreateModal("lead")}>
+                    Add New Lead
+                  </button>
+                  <button className="fuaBtn ghost" type="button" onClick={() => openQuickCreateModal("deal")}>
+                    Add New Deal
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {hasExistingClient === "yes" ? (
+          <>
         <label>
-          {formData.sourceType === "lead" ? "Search Lead*" : formData.sourceType === "deal" ? "Search Deal*" : "Search Existing Client*"}
+          {formData.sourceType === "lead" ? "Search Existing Lead*" : "Search Existing Client*"}
           <div className="fuaSuggestField">
             <input
               type="text"
-              placeholder={formData.sourceType === "lead" ? "Type lead name" : formData.sourceType === "deal" ? "Type deal name" : "Type client name"}
+              placeholder={formData.sourceType === "lead" ? "Type Lead Name" : "Type Client Name"}
               value={formData.searchClient}
               onChange={(e) => {
                 const next = e.target.value;
@@ -707,7 +839,7 @@ export default function FollowupsAddPage() {
           <div className="fuaSelectedInfo full">
             <div className="fuaSelectedGrid">
               <div className="fuaSelectedItem">
-                <div className="key">{formData.sourceType === "lead" ? "Lead Name" : formData.sourceType === "deal" ? "Deal Name" : "Client Name"}</div>
+                <div className="key">{formData.sourceType === "lead" ? "Lead Name" : "Client Name"}</div>
                 <div className="val">{selectedSourceInfo.title}</div>
               </div>
               <div className="fuaSelectedItem">
@@ -725,6 +857,8 @@ export default function FollowupsAddPage() {
             </div>
           </div>
         )}
+          </>
+        ) : null}
 
         <label className="full">
           Purpose / Task Description*
@@ -732,9 +866,21 @@ export default function FollowupsAddPage() {
         </label>
 
         <label className="full">
-          Agenda of Meeting*
-          <input type="text" placeholder="Enter agenda of meeting" value={formData.agenda} onChange={(e) => setFormData((p) => ({ ...p, agenda: e.target.value }))} />
+          {isPastSelected ? "MOM*" : "Agenda of Meeting*"}
+          <input
+            type="text"
+            placeholder={isPastSelected ? "Enter MOM" : "Enter agenda of meeting"}
+            value={formData.agenda}
+            onChange={(e) => setFormData((p) => ({ ...p, agenda: e.target.value }))}
+          />
         </label>
+
+        {isPastSelected && (
+          <label>
+            Status
+            <input type="text" value="Completed" readOnly />
+          </label>
+        )}
 
         {formData.sourceType !== "existingClient" && (
           <label>
@@ -763,8 +909,9 @@ export default function FollowupsAddPage() {
 
         {formData.eventType === "Physical Meeting" && (
           <>
+            <div className="fuaHint full">Provide either Current Location or Meeting Location.</div>
             <label className="full">
-              Current Location*
+              Current Location
               <div className="fuaSuggestField">
                 <input
                   type="text"
@@ -787,7 +934,7 @@ export default function FollowupsAddPage() {
               />
             </label> */}
             <label className="full">
-              Meeting Location 
+              Meeting Location
               <div className="fuaSuggestField">
                 <input
                   type="text"
@@ -832,32 +979,47 @@ export default function FollowupsAddPage() {
             )}
           </>
         )}
-          </>
-        ) : (
-          <div className="fuaRedirectBox full">
-            <div className="fuaRedirectTitle">Add a new record before creating the follow-up.</div>
-            <div className="fuaRedirectActions">
-              <button className="fuaBtn primary" type="button" onClick={() => navigate("/leads/new")}>
-                Add New Lead
-              </button>
-              <button className="fuaBtn ghost" type="button" onClick={() => navigate("/deals")}>
-                Open Deals
-              </button>
-            </div>
-          </div>
-        )}
           </div>
 
-          {hasExistingClient === "yes" && (
-            <div className="fuaActions">
-              <button className="fuaBtn primary" type="submit">{editingRecord ? "Update" : "Submit"}</button>
-              <button className="fuaBtn danger" type="button" onClick={resetForm}>Cancel</button>
-            </div>
-          )}
+          <div className="fuaActions">
+            <button className="fuaBtn primary" type="submit">{editingRecord ? "Update" : "Submit"}</button>
+            <button className="fuaBtn danger" type="button" onClick={resetForm}>Cancel</button>
+          </div>
         </form>
       );
     })()
   );
+
+  const renderQuickCreateModal = () => {
+    if (!quickCreateType) return null;
+
+    return (
+      <div className="fuaModalOverlay" onClick={closeQuickCreateModal}>
+        <div className="fuaModal" onClick={(e) => e.stopPropagation()}>
+          <div className="fuaModalHead">
+            <div className="fuaModalTitleWrap">
+              <h3>{quickCreateType === "lead" ? "Add New Lead" : "Add New Deal"}</h3>
+            </div>
+            <div className="fuaModalHeaderActions">
+              <button className="fuaBtn ghost" type="button" onClick={closeQuickCreateModal}>
+                Back
+              </button>
+            </div>
+          </div>
+          <div className="fuaModalScroll">
+            <div className="fuaEmbeddedFormWrap">
+              <LeadFormPage
+                embedded
+                forcedView={quickCreateType}
+                onCancel={closeQuickCreateModal}
+                onSaved={handleQuickCreateSaved}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderFollowups = (items) => (
     <div className="fuaList">
@@ -956,7 +1118,6 @@ export default function FollowupsAddPage() {
 
   return (
     <div className="fuaPage">
-      <div className="fuaScope">{scopeLabel}</div>
       <div className="fuaToolbar">
         <button className={cx("fuaToolbarBtn", activeAction === "add" && "active")} type="button" onClick={() => { setFormTarget("followup"); setActiveAction("add"); }}>
           <span className="fuaToolbarIcon">✚</span>
@@ -1054,6 +1215,7 @@ export default function FollowupsAddPage() {
           </>
         )}
       </section>
+      {renderQuickCreateModal()}
     </div>
   );
 }

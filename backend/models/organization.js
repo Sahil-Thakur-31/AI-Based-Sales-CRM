@@ -83,12 +83,14 @@ const organizationSchema = new mongoose.Schema(
     phoneNumber: {
       type: String,
       trim: true,
-      default: ""
+      default: "",
+      match: [/^$|^\d{10,15}$/, "Please enter a valid phone number (10-15 digits)"]
     },
     alternatePhoneNumber: {
       type: String,
       trim: true,
-      default: ""
+      default: "",
+      match: [/^$|^\d{10,15}$/, "Please enter a valid alternate phone number (10-15 digits)"]
     },
     email: {
       type: String,

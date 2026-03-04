@@ -34,6 +34,7 @@ export default function Sidebar() {
     { name: "Quotations", icon: "🧾", path: "/quotations" },
 
     { name: "Follow-ups", icon: "⏰", path: "/followups" },
+    { name: "Daily Closing", icon: "🗓", path: "/daily-closing" },
 
     { name: "Sales Forecasting", icon: "📈", path: "/sales-forecast" },
     { name: "Expenses", icon: "💰", path: "/expenses" },

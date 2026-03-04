@@ -230,6 +230,11 @@ export default function AdminHome() {
     [pipeline]
   );
 
+  const visibleRecentDeals = useMemo(
+    () => recentDeals.slice(0, 5),
+    [recentDeals]
+  );
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -558,7 +563,7 @@ export default function AdminHome() {
                   </CTableHead>
 
                   <CTableBody>
-                    {recentDeals.map((d) => (
+                    {visibleRecentDeals.map((d) => (
                       <CTableRow key={d.id}>
                         <CTableDataCell className="tbl__client">
                           {d.client}

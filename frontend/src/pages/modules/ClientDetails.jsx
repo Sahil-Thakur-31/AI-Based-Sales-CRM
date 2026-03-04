@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import "./styles/Clients.css";
 
 function formatDate(value) {
@@ -112,7 +114,8 @@ export default function ClientDetails() {
           phone: contact.phone || "",
           email: contact.email || "",
           linkedin: contact.linkedin || "",
-          is_active: contact.is_active
+          is_active: contact.is_active,
+          is_primary: contact.is_primary
         }))
       };
 
@@ -216,7 +219,12 @@ export default function ClientDetails() {
                       </div>
                       <div className="clients-field">
                         <label>Phone</label>
-                        <input value={contact.phone || ""} onChange={(e) => updateContactField(index, "phone", e.target.value)} />
+                        <PhoneInput
+                          international
+                          defaultCountry="IN"
+                          value={contact.phone || ""}
+                          onChange={(val) => updateContactField(index, "phone", val)}
+                        />
                       </div>
                       <div className="clients-field">
                         <label>Email</label>
@@ -234,6 +242,25 @@ export default function ClientDetails() {
                             onChange={(e) => updateContactField(index, "is_active", e.target.checked)}
                           />
                           Active Contact
+                        </label>
+                      </div>
+                      <div className="clients-field clients-checkbox-field">
+                        <label>
+                          <input
+                            type="radio"
+                            name="primary_contact_client"
+                            checked={Boolean(contact.is_primary)}
+                            onChange={() => {
+                              setForm(prev => {
+                                const newContacts = (prev.contacts || []).map((c, i) => ({
+                                  ...c,
+                                  is_primary: i === index
+                                }));
+                                return { ...prev, contacts: newContacts };
+                              });
+                            }}
+                          />
+                          Primary Contact
                         </label>
                       </div>
                     </div>
