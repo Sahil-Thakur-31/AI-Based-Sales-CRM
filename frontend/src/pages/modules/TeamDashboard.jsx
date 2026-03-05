@@ -62,6 +62,9 @@ export default function TeamDashboard() {
   const [error, setError] = useState("");
   const [performancePage, setPerformancePage] = useState(1);
   const [followupPage, setFollowupPage] = useState(1);
+  const [selectedPerformanceRow, setSelectedPerformanceRow] = useState(null);
+  const [selectedFollowupRow, setSelectedFollowupRow] = useState(null);
+  const [showPipelineModal, setShowPipelineModal] = useState(false);
 
   const selectedTeam = useMemo(
     () => teams.find((team) => String(team._id) === String(selectedTeamId)) || null,
@@ -254,6 +257,24 @@ export default function TeamDashboard() {
 
       {error ? <div className="team-dashboard-error">{error}</div> : null}
 
+      <div className="team-active-strip">
+        <div className="team-active-block">
+          <span>Selected Team</span>
+          <strong>{dashboardData.team?.name || selectedTeam?.name || "-"}</strong>
+        </div>
+        <div className="team-active-block">
+          <span>Team Lead</span>
+          <strong>{dashboardData.teamLeads?.[0]?.name || "-"}</strong>
+        </div>
+        <div className="team-active-block">
+          <span>Members</span>
+          <strong>{dashboardData.team?.memberCount || 0}</strong>
+        </div>
+        <button className="team-btn team-btn-secondary" onClick={() => navigate("/team-setup")}>
+          Manage Team
+        </button>
+      </div>
+
       <div className="team-dashboard-summary">
         {kpiCards.map((card) => (
           <div key={card.label} className="team-kpi-card">
@@ -280,8 +301,7 @@ export default function TeamDashboard() {
                     <th>Lost</th>
                     <th>Follow-ups</th>
                     <th>Win Rate</th>
-                    <th>Pipeline</th>
-                    <th>Won Revenue</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -290,13 +310,13 @@ export default function TeamDashboard() {
                       <tr key={row.user._id}>
                         <td>
                           <div className="team-cell-user">
-                            <strong>
+                            <strong title={row.user.name}>
                               {row.user.name}
                               {String(row.user._id) === teamLeadId ? (
                                 <span className="team-lead-badge">Lead</span>
                               ) : null}
                             </strong>
-                            <span>{row.user.email}</span>
+                            <span title={row.user.email}>{row.user.email}</span>
                           </div>
                         </td>
                         <td>{row.openDeals}</td>
@@ -304,13 +324,19 @@ export default function TeamDashboard() {
                         <td>{row.lostDeals}</td>
                         <td>{row.followupsToday}</td>
                         <td>{row.winRate}%</td>
-                        <td>{formatCurrency(row.pipelineValue)}</td>
-                        <td>{formatCurrency(row.wonRevenue)}</td>
+                        <td>
+                          <button
+                            className="team-inline-view-btn"
+                            onClick={() => setSelectedPerformanceRow(row)}
+                          >
+                            View
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="team-table-empty">
+                      <td colSpan={7} className="team-table-empty">
                         No performance data available
                       </td>
                     </tr>
@@ -337,14 +363,24 @@ export default function TeamDashboard() {
                 paginatedFollowups.map((followup) => (
                   <div key={followup._id} className="team-followup-row">
                     <div className="team-followup-main">
-                      <strong>{followup.companyName}</strong>
-                      <p>{followup.message || followup.nextAction || "No note"}</p>
-                      <span>
-                        Owner: {followup.assignedTo?.name || "Unassigned"} | Priority:{" "}
+                      <strong title={followup.companyName}>{followup.companyName}</strong>
+                      <p title={followup.message || followup.nextAction || "No note"}>
+                        {followup.message || followup.nextAction || "No note"}
+                      </p>
+                      <span title={`Assigned To: ${followup.assignedTo?.name || "Unassigned"} | Type: ${followup.temperature || "cold"}`}>
+                        Assigned To: {followup.assignedTo?.name || "Unassigned"} | Type:{" "}
                         {followup.temperature || "cold"}
                       </span>
                     </div>
-                    <div className="team-followup-time">{formatDateTime(followup.lastContactDate)}</div>
+                    <div className="team-followup-side">
+                      <div className="team-followup-time">{formatDateTime(followup.lastContactDate)}</div>
+                      <button
+                        className="team-inline-view-btn"
+                        onClick={() => setSelectedFollowupRow(followup)}
+                      >
+                        View
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -365,6 +401,9 @@ export default function TeamDashboard() {
           <section className="team-panel team-panel-stage">
             <div className="team-panel-head">
               <h3>Pipeline</h3>
+              <button className="team-inline-view-btn" onClick={() => setShowPipelineModal(true)}>
+                View
+              </button>
             </div>
             <div className="team-stage-list">
               {dashboardData.stageDistribution.length ? (
@@ -406,6 +445,166 @@ export default function TeamDashboard() {
           </section>
         </div>
       </div>
+
+      {showPipelineModal ? (
+        <div className="team-modal-overlay" onClick={() => setShowPipelineModal(false)}>
+          <div className="team-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="team-modal-head">
+              <h3>Pipeline Detail</h3>
+              <button className="team-modal-close" onClick={() => setShowPipelineModal(false)}>
+                Close
+              </button>
+            </div>
+            <div className="team-modal-body">
+              <div className="team-modal-grid">
+                <div>
+                  <span className="team-modal-label">Team</span>
+                  <strong className="team-modal-value">{selectedTeam?.name || "-"}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Active Deals</span>
+                  <strong className="team-modal-value">{dashboardData.kpis.activeDeals || 0}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Pipeline Value</span>
+                  <strong className="team-modal-value">
+                    {formatCurrency(dashboardData.kpis.pipelineValue || 0)}
+                  </strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Win Rate</span>
+                  <strong className="team-modal-value">{dashboardData.kpis.winRate || 0}%</strong>
+                </div>
+              </div>
+
+              <div className="team-modal-section">
+                <h4>Stage Distribution</h4>
+                <div className="team-stage-list">
+                  {dashboardData.stageDistribution.length ? (
+                    dashboardData.stageDistribution.map((item) => (
+                      <div key={item.stage} className="team-stage-row">
+                        <span>{item.stage}</span>
+                        <div className="team-stage-bar">
+                          <span style={{ width: `${Math.min(100, (item.count || 0) * 14)}%` }} />
+                        </div>
+                        <strong>{item.count}</strong>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="team-muted">No active stage data</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedPerformanceRow ? (
+        <div className="team-modal-overlay" onClick={() => setSelectedPerformanceRow(null)}>
+          <div className="team-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="team-modal-head">
+              <h3>Member Detail</h3>
+              <button className="team-modal-close" onClick={() => setSelectedPerformanceRow(null)}>
+                Close
+              </button>
+            </div>
+            <div className="team-modal-body">
+              <div className="team-user-line">
+                <strong>
+                  {selectedPerformanceRow.user?.name}
+                  {String(selectedPerformanceRow.user?._id) === teamLeadId ? (
+                    <span className="team-lead-badge">Lead</span>
+                  ) : null}
+                </strong>
+                <span>{selectedPerformanceRow.user?.email}</span>
+              </div>
+
+              <div className="team-modal-grid">
+                <div>
+                  <span className="team-modal-label">Open Deals</span>
+                  <strong className="team-modal-value">{selectedPerformanceRow.openDeals}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Won Deals</span>
+                  <strong className="team-modal-value">{selectedPerformanceRow.wonDeals}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Lost Deals</span>
+                  <strong className="team-modal-value">{selectedPerformanceRow.lostDeals}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Follow-ups Today</span>
+                  <strong className="team-modal-value">{selectedPerformanceRow.followupsToday}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Win Rate</span>
+                  <strong className="team-modal-value">{selectedPerformanceRow.winRate}%</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Pipeline Value</span>
+                  <strong className="team-modal-value">
+                    {formatCurrency(selectedPerformanceRow.pipelineValue)}
+                  </strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Won Revenue</span>
+                  <strong className="team-modal-value">
+                    {formatCurrency(selectedPerformanceRow.wonRevenue)}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedFollowupRow ? (
+        <div className="team-modal-overlay" onClick={() => setSelectedFollowupRow(null)}>
+          <div className="team-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="team-modal-head">
+              <h3>Follow-up Detail</h3>
+              <button className="team-modal-close" onClick={() => setSelectedFollowupRow(null)}>
+                Close
+              </button>
+            </div>
+            <div className="team-modal-body">
+              <div className="team-modal-grid">
+                <div>
+                  <span className="team-modal-label">Company</span>
+                  <strong className="team-modal-value">{selectedFollowupRow.companyName || "-"}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Assigned To</span>
+                  <strong className="team-modal-value">
+                    {selectedFollowupRow.assignedTo?.name || "Unassigned"}
+                  </strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Follow-up Type</span>
+                  <strong className="team-modal-value">{selectedFollowupRow.temperature || "-"}</strong>
+                </div>
+                <div>
+                  <span className="team-modal-label">Last Contact</span>
+                  <strong className="team-modal-value">
+                    {formatDateTime(selectedFollowupRow.lastContactDate)}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="team-modal-section">
+                <h4>Message</h4>
+                <p className="team-modal-text">{selectedFollowupRow.message || "-"}</p>
+              </div>
+
+              <div className="team-modal-section">
+                <h4>Next Action</h4>
+                <p className="team-modal-text">{selectedFollowupRow.nextAction || "-"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
