@@ -3,6 +3,9 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { routeConfig } from "../config/routeConfig";
 import API from "../api";
 import Logout from "./Logout";
+import userIcon from "./user.gif";
+import scheduleIcon from "./schedule.gif";
+import notificationIcon from "./notification.gif";
 import "./navBar.css";
 
 const SEEN_NOTIFICATIONS_KEY = "seenNotificationIds";
@@ -321,7 +324,7 @@ function Navbar() {
           >
 
             <button className="nav-icon-btn">
-              {"\u2699\uFE0F"}
+              <img src={userIcon} alt="settings" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
             </button>
 
             <div className={`admin-dropdown ${showAdminMenu ? "visible" : "hidden"}`}>
@@ -366,9 +369,11 @@ function Navbar() {
 
 
         {/* CALENDAR */}
-        <button className="nav-icon-btn">
-          {"\uD83D\uDCC5"}
-        </button>
+        <div className="calendar-container">
+          <button className="nav-icon-btn">
+            <img src={scheduleIcon} alt="calendar" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
+          </button>
+        </div>
 
 
         {/* NOTIFICATIONS */}
@@ -379,7 +384,7 @@ function Navbar() {
         >
 
           <button className="nav-icon-btn">
-            {"\uD83D\uDD14"}
+            <img src={notificationIcon} alt="notifications" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
             {unreadCount > 0 ? (
               <span className="notification-badge">
                 {unreadCount > 99 ? "99+" : unreadCount}
