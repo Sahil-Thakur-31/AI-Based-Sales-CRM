@@ -2,11 +2,83 @@ const Client = require("../models/client");
 const Industry = require("../models/industries");
 const Source = require("../models/sources");
 const ClientContact = require("../models/client_contact");
+const User = require("../models/users");
+const Event = require("../models/events");
 const { normalizePhone } = require("../utils/phoneUtils");
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeSourceName(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isReferenceLikeSource(sourceName) {
+  const normalized = normalizeSourceName(sourceName);
+  return /(ref|refer|reference|referr|reffe|refee)/.test(normalized);
+}
+
+function isEventExpoLikeSource(sourceName) {
+  const normalized = normalizeSourceName(sourceName);
+  return (
+    (normalized.includes("event") && normalized.includes("expo")) ||
+    normalized.includes("events n expos")
+  );
+}
+
+async function applySourceDependentValidation(payload, sourceDoc) {
+  if (!sourceDoc?._id) {
+    payload.referred_by_user = null;
+    payload.expo_event_id = null;
+    return;
+  }
+
+  if (isReferenceLikeSource(sourceDoc.name)) {
+    if (!payload.referred_by_user) {
+      const err = new Error("Reference source requires selecting a referred user");
+      err.statusCode = 400;
+      throw err;
+    }
+    const referredUser = await User.findOne({
+      _id: payload.referred_by_user,
+      is_deleted: { $ne: true },
+    })
+      .select("_id")
+      .lean();
+    if (!referredUser) {
+      const err = new Error("Invalid referred user selected");
+      err.statusCode = 400;
+      throw err;
+    }
+    payload.expo_event_id = null;
+    return;
+  }
+
+  if (isEventExpoLikeSource(sourceDoc.name)) {
+    if (!payload.expo_event_id) {
+      const err = new Error("Event & Expo source requires selecting an event/expo");
+      err.statusCode = 400;
+      throw err;
+    }
+    const eventDoc = await Event.findOne({
+      _id: payload.expo_event_id,
+      is_deleted: false,
+    })
+      .select("_id")
+      .lean();
+    if (!eventDoc) {
+      const err = new Error("Invalid event/expo selected");
+      err.statusCode = 400;
+      throw err;
+    }
+    payload.referred_by_user = null;
+    return;
+  }
+
+  payload.referred_by_user = null;
+  payload.expo_event_id = null;
 }
 
 exports.getClients = async (req, res) => {
@@ -52,6 +124,8 @@ exports.getClients = async (req, res) => {
       website: client.website || "",
       source: client.source?._id || client.source || "",
       sourceName: client.source?.name || "-",
+      referred_by_user: client.referred_by_user || "",
+      expo_event_id: client.expo_event_id || "",
       deal_count: client.deal_count || 0,
       GST_no: client.GST_no || "",
       contactsCount: contactsCountMap.get(String(client._id)) || 0
@@ -96,6 +170,8 @@ exports.getClientById = async (req, res) => {
         turnoverRange: client.turnoverRange || "",
         website: client.website || "",
         source: client.source || "",
+        referred_by_user: client.referred_by_user || "",
+        expo_event_id: client.expo_event_id || "",
         deal_count: client.deal_count ?? 0,
         GST_no: client.GST_no || "",
         URD: client.URD || "",
@@ -155,15 +231,24 @@ exports.createClient = async (req, res) => {
       return res.status(400).json({ message: "Invalid industry selected" });
     }
 
+    let sourceExists = null;
     if (req.body.source) {
-      const sourceExists = await Source.findOne({
+      sourceExists = await Source.findOne({
         _id: req.body.source,
         is_deleted: false
-      }).lean();
+      })
+        .select("_id name")
+        .lean();
       if (!sourceExists) {
         return res.status(400).json({ message: "Invalid source selected" });
       }
     }
+
+    const sourceLinkedPayload = {
+      referred_by_user: req.body.referred_by_user || null,
+      expo_event_id: req.body.expo_event_id || null,
+    };
+    await applySourceDependentValidation(sourceLinkedPayload, sourceExists);
 
     const client = await Client.create({
       name,
@@ -173,6 +258,8 @@ exports.createClient = async (req, res) => {
       turnoverRange: req.body.turnoverRange || "",
       website: req.body.website || "",
       source: req.body.source || null,
+      referred_by_user: sourceLinkedPayload.referred_by_user,
+      expo_event_id: sourceLinkedPayload.expo_event_id,
       deal_count: parseNumber(req.body.deal_count, 0),
       createdBy: req.user._id,
       createdAt: new Date(),
@@ -225,7 +312,7 @@ exports.createClient = async (req, res) => {
     res.status(201).json(client);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create client" });
+    res.status(err.statusCode || 500).json({ message: err.message || "Failed to create client" });
   }
 };
 
@@ -244,6 +331,8 @@ exports.updateClient = async (req, res) => {
     if (clientData.turnoverRange !== undefined) updateData.turnoverRange = clientData.turnoverRange || "";
     if (clientData.website !== undefined) updateData.website = clientData.website || "";
     if (clientData.source !== undefined) updateData.source = clientData.source || null;
+    if (clientData.referred_by_user !== undefined) updateData.referred_by_user = clientData.referred_by_user || null;
+    if (clientData.expo_event_id !== undefined) updateData.expo_event_id = clientData.expo_event_id || null;
     if (clientData.deal_count !== undefined) updateData.deal_count = parseNumber(clientData.deal_count, 0);
     if (clientData.GST_no !== undefined) updateData.GST_no = clientData.GST_no || "";
     if (clientData.URD !== undefined) updateData.URD = clientData.URD || "";
@@ -262,14 +351,55 @@ exports.updateClient = async (req, res) => {
       }
     }
 
+    let sourceExists = null;
     if (updateData.source) {
-      const sourceExists = await Source.findOne({
+      sourceExists = await Source.findOne({
         _id: updateData.source,
         is_deleted: false
-      }).lean();
+      })
+        .select("_id name")
+        .lean();
       if (!sourceExists) {
         return res.status(400).json({ message: "Invalid source selected" });
       }
+    }
+
+    if (updateData.source !== undefined || updateData.referred_by_user !== undefined || updateData.expo_event_id !== undefined) {
+      const existingClient = await Client.findOne({
+        _id: req.params.id,
+        is_deleted: false
+      })
+        .select("source referred_by_user expo_event_id")
+        .lean();
+      if (!existingClient) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      const effectiveSourceId = updateData.source !== undefined ? updateData.source : existingClient.source;
+      let effectiveSourceDoc = null;
+      if (effectiveSourceId) {
+        effectiveSourceDoc = await Source.findOne({
+          _id: effectiveSourceId,
+          is_deleted: false
+        })
+          .select("_id name")
+          .lean();
+        if (!effectiveSourceDoc) {
+          return res.status(400).json({ message: "Invalid source selected" });
+        }
+      }
+      const sourceLinkedPayload = {
+        referred_by_user:
+          updateData.referred_by_user !== undefined
+            ? updateData.referred_by_user
+            : existingClient.referred_by_user || null,
+        expo_event_id:
+          updateData.expo_event_id !== undefined
+            ? updateData.expo_event_id
+            : existingClient.expo_event_id || null,
+      };
+      await applySourceDependentValidation(sourceLinkedPayload, effectiveSourceDoc);
+      updateData.referred_by_user = sourceLinkedPayload.referred_by_user;
+      updateData.expo_event_id = sourceLinkedPayload.expo_event_id;
     }
 
     const client = await Client.findOneAndUpdate(
@@ -325,7 +455,7 @@ exports.updateClient = async (req, res) => {
     res.json(client);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Update failed" });
+    res.status(err.statusCode || 500).json({ message: err.message || "Update failed" });
   }
 };
 
