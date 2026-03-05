@@ -369,7 +369,7 @@ function Navbar() {
 
 
         {/* CALENDAR */}
-        <div className="calendar-container">
+        <div className="calendar-container" onClick={() => navigate("/calendar")} style={{ cursor: "pointer" }}>
           <button className="nav-icon-btn">
             <img src={scheduleIcon} alt="calendar" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
           </button>

@@ -52,5 +52,6 @@ export const routeConfig = [
   // System
   { path: "/settings", title: "Settings" },
   { path: "/profile", title: "My Profile" },
+  { path: "/calendar", title: "Calendar" },
 
 ];

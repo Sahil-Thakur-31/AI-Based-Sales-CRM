@@ -1,0 +1,631 @@
+/* ---------- GLOBAL LAYOUT ---------- */
+
+.calendar-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 80px);
+    background: #f6f8fc;
+    font-family: "Roboto", sans-serif;
+}
+
+/* ---------- TOP BAR ---------- */
+
+.calendar-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: white;
+    border-bottom: 1px solid #e8eaed;
+}
+
+.calendar-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.calendar-title {
+    font-size: 22px;
+    font-weight: 500;
+    color: #3c4043;
+    margin: 0;
+}
+
+.calendar-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* ---------- BUTTONS ---------- */
+
+.cal-btn {
+    background: white;
+    border: 1px solid #dadce0;
+    border-radius: 24px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #3c4043;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cal-btn:hover {
+    background: #f1f3f4;
+}
+
+.cal-icon-btn {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    color: #5f6368;
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cal-icon-btn:hover {
+    background: #f1f3f4;
+}
+
+/* ---------- SEARCH BOX ---------- */
+
+.cal-search-box {
+    display: flex;
+    align-items: center;
+    background: #f1f3f4;
+    border-radius: 24px;
+    padding: 0 14px;
+    height: 38px;
+    width: 240px;
+}
+
+.cal-search-box input {
+    border: none;
+    outline: none;
+    background: transparent;
+    padding-left: 8px;
+    font-size: 14px;
+    width: 100%;
+}
+
+.search-icon {
+    color: #5f6368;
+}
+
+/* ---------- VIEW SELECT ---------- */
+
+.cal-view-select {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #dadce0;
+    background: white;
+    font-size: 14px;
+}
+
+/* ---------- FILTER DROPDOWN (navbar) ---------- */
+
+.filter-dropdown-wrapper {
+    position: relative;
+}
+
+.filter-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 24px;
+    font-size: 14px;
+}
+
+.filter-toggle-btn.active {
+    background: #e8f0fe;
+    border-color: #4285F4;
+    color: #1a73e8;
+}
+
+.filter-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ea4335;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 2px;
+}
+
+.filter-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    padding: 8px 0;
+    min-width: 220px;
+    z-index: 999;
+    animation: pop-in 0.12s ease;
+}
+
+.filter-drop-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.12s;
+    user-select: none;
+    font-size: 14px;
+    color: #3c4043;
+}
+
+.filter-drop-row:hover {
+    background: #f1f3f4;
+}
+
+.filter-drop-img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+}
+
+.filter-drop-label {
+    flex: 1;
+    font-weight: 500;
+}
+
+/* ---------- BODY ---------- */
+
+.calendar-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.calendar-main {
+    flex: 1;
+    background: white;
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* ─── Year view: keep 4 cols × 3 rows like Google ─── */
+.fc-multimonth {
+    overflow: hidden !important;
+}
+
+.fc-multimonth-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) !important;
+}
+
+/* ---------- FULLCALENDAR GRID ---------- */
+
+.fc-scrollgrid {
+    border: none !important;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+    border-color: #e8eaed;
+}
+
+.fc-daygrid-day {
+    transition: background 0.15s ease;
+}
+
+.fc-daygrid-day:hover {
+    background: #f6f8fc;
+}
+
+/* ---------- DAY LABELS ---------- */
+
+.fc-col-header-cell-cushion {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #70757a;
+    font-weight: 500;
+}
+
+.fc-daygrid-day-number {
+    font-size: 13px;
+    font-weight: 500;
+    color: #3c4043;
+}
+
+/* ---------- TODAY STYLE ---------- */
+
+.fc-day-today {
+    background: #e8f0fe !important;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+    color: #1a73e8;
+    font-weight: 600;
+}
+
+/* ---------- EVENTS ---------- */
+
+.fc-event {
+    border: none;
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.fc-event:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Hide the colored dot in month/day grid timed events */
+.fc-daygrid-event-dot {
+    display: none !important;
+}
+
+/* Override FullCalendar link color on dot-events */
+.fc-daygrid-dot-event {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* ---------- CUSTOM EVENT RENDERER ---------- */
+
+.cal-event-text {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 1px 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.cal-ev-time {
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.cal-ev-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cal-event-chip {
+    display: block;
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* ---------- RIGHT PANEL ---------- */
+
+.calendar-right-panel {
+    width: 64px;
+    background: #f8f9fa;
+    border-left: 1px solid #e8eaed;
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    overflow: visible;
+}
+
+.panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #5f6368;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+/* ---------- CATEGORY BUTTON ---------- */
+
+.panel-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e6e6e6;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.panel-btn::before {
+    content: "";
+    width: 4px;
+    background: var(--btn-color);
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.panel-btn:hover {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.panel-icon {
+    font-size: 18px;
+}
+
+.panel-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.inactive-filter {
+    opacity: 0.45;
+}
+
+.panel-toggle {
+    margin-left: auto;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #ccc;
+}
+
+.panel-toggle.on {
+    background: var(--btn-color);
+    border-color: var(--btn-color);
+}
+
+/* ---------- EVENT POPOVER ---------- */
+
+.event-popover {
+    z-index: 9999;
+    background: white;
+    border-radius: 16px;
+    width: 360px;
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.15),
+        0 4px 12px rgba(0, 0, 0, 0.10);
+    animation: pop-in 0.15s ease;
+}
+
+@keyframes pop-in {
+    from {
+        opacity: 0;
+        transform: scale(.96) translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ---------- POPOVER HEADER ---------- */
+
+.ep-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px;
+}
+
+.ep-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.ep-action-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+.ep-action-btn:hover {
+    background: #f1f3f4;
+}
+
+/* ---------- POPOVER TITLE ---------- */
+
+.ep-title-row {
+    display: flex;
+    gap: 12px;
+    padding: 8px 20px 16px;
+}
+
+.ep-color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    margin-top: 4px;
+}
+
+.ep-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2329;
+}
+
+.ep-date {
+    font-size: 13px;
+    color: #5f6368;
+}
+
+/* ---------- POPOVER DETAILS ---------- */
+
+.ep-detail-row {
+    display: flex;
+    gap: 12px;
+    padding: 6px 20px;
+    font-size: 14px;
+    color: #3c4043;
+}
+
+.ep-detail-icon {
+    width: 20px;
+    text-align: center;
+    color: #5f6368;
+}
+
+/* ---------- EP IMAGE ICON (PNG in popover) ---------- */
+
+.ep-img-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+/* ---------- PANEL DIVIDER ---------- */
+
+.panel-divider {
+    border: none;
+    border-top: 1px solid #e8eaed;
+    margin: 0;
+}
+
+/* ---------- FILTER ROW (checkbox style) ---------- */
+
+.panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 6px 4px;
+    border-radius: 8px;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.filter-row:hover {
+    background: #f1f3f4;
+}
+
+.filter-row--off {
+    opacity: 0.45;
+}
+
+.filter-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.filter-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.filter-label {
+    font-size: 14px;
+    color: #3c4043;
+    font-weight: 500;
+}
+
+/* ---------- ADD-ICON LIST (right panel) ---------- */
+
+.add-icon-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.add-icon-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: white;
+    border: 1px solid #e6e6e6;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    overflow: visible;
+}
+
+.add-icon-btn::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--card-color);
+    border-radius: 4px 0 0 4px;
+}
+
+.add-icon-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.add-icon-img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+}
+
+/* tooltip on left side */
+.add-icon-btn::after {
+    content: attr(data-label);
+    position: absolute;
+    right: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: #3c4043;
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    padding: 5px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 100;
+}
+
+.add-icon-btn:hover::after {
+    opacity: 1;
+}
