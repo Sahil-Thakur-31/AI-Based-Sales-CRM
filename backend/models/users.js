@@ -70,6 +70,12 @@ const usersSchema = new mongoose.Schema({
   is_deleted: {
     type: Boolean,
     default: false
+  },
+
+  googleCalendar: {
+    accessToken: { type: String, default: null },
+    refreshToken: { type: String, default: null },
+    connectedAt: { type: Date, default: null }
   }
 
 }, {

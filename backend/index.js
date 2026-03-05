@@ -28,6 +28,7 @@ const eventsRoutes = require("./routes/eventsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
+const googleAuthRoutes = require("./routes/googleAuthRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -72,6 +73,7 @@ app.use("/api/manager/dashboard", managerDashboardRoutes);
 app.use("/ocr", ocrRoutes);
 app.use("/events", eventsRoutes);
 app.use("/whatsapp", whatsappRoutes);
+app.use("/auth/google", googleAuthRoutes);
 
 
 mongoose.connection.once("open", async () => {

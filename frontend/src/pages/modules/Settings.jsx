@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import API from "../../api";
 import "./styles/Settings.css";
 
@@ -24,9 +25,22 @@ export default function Settings() {
 
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [googleStatus, setGoogleStatus] = useState({ connected: false, connectedAt: null });
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     loadSettings();
+    loadGoogleStatus();
+
+    // Check if redirected back from Google OAuth
+    const params = new URLSearchParams(location.search);
+    const gcResult = params.get("googleCalendar");
+    if (gcResult === "connected") {
+      loadGoogleStatus();
+      // Clean url
+      window.history.replaceState({}, document.title, "/settings");
+    }
   }, []);
 
   const loadSettings = async () => {
@@ -71,6 +85,33 @@ export default function Settings() {
 
     }
 
+  };
+
+
+  const loadGoogleStatus = async () => {
+    try {
+      const res = await API.get("/auth/google/status");
+      setGoogleStatus(res.data);
+    } catch (err) {
+      console.error("Failed to load Google Calendar status", err);
+    }
+  };
+
+  const handleGoogleConnect = () => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+    window.location.href = `http://localhost:8080/auth/google?token=${token}`;
+  };
+
+  const handleGoogleDisconnect = async () => {
+    setGoogleLoading(true);
+    try {
+      await API.delete("/auth/google/disconnect");
+      setGoogleStatus({ connected: false, connectedAt: null });
+    } catch (err) {
+      console.error("Failed to disconnect Google Calendar", err);
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
 
@@ -140,7 +181,7 @@ export default function Settings() {
           title="Smart Follow-up Reminders"
           desc="Automatically suggest optimal follow-up timing"
           value={settings.smartFollowupRemindersEnabled}
-          onChange={(v)=>update("smartFollowupRemindersEnabled", v)}
+          onChange={(v) => update("smartFollowupRemindersEnabled", v)}
         />
 
 
@@ -150,7 +191,7 @@ export default function Settings() {
           title="AI Lead Scoring"
           desc="Automatically prioritize leads based on engagement"
           value={settings.aiLeadScoringEnabled}
-          onChange={(v)=>update("aiLeadScoringEnabled", v)}
+          onChange={(v) => update("aiLeadScoringEnabled", v)}
         />
 
 
@@ -160,19 +201,26 @@ export default function Settings() {
           title="Predictive Analytics"
           desc="Forecast revenue and identify high-probability deals"
           value={settings.predictiveAnalyticsEnabled}
-          onChange={(v)=>update("predictiveAnalyticsEnabled", v)}
+          onChange={(v) => update("predictiveAnalyticsEnabled", v)}
         />
 
 
 
         <ToggleRow
           icon="📅"
-          title="Calendar Sync"
-          desc="Sync reminders and meetings with your calendar"
-          value={settings.calendarSyncEnabled}
-          onChange={(v)=>update("calendarSyncEnabled", v)}
+          title="Google Calendar Sync"
+          desc={
+            googleStatus.connected
+              ? `Connected${googleStatus.connectedAt ? " on " + new Date(googleStatus.connectedAt).toLocaleDateString("en-IN") : ""}`
+              : "Sync reminders and meetings with your calendar"
+          }
+          value={googleStatus.connected}
+          onChange={(v) => {
+            if (v) handleGoogleConnect();
+            else handleGoogleDisconnect();
+            update("calendarSyncEnabled", v);
+          }}
         />
-
 
       </div>
 
@@ -218,7 +266,7 @@ export default function Settings() {
             icon="💬"
             title="In-App"
             active={settings.reminderMethodInApp}
-            onClick={()=>update("reminderMethodInApp", !settings.reminderMethodInApp)}
+            onClick={() => update("reminderMethodInApp", !settings.reminderMethodInApp)}
           />
 
 
@@ -226,7 +274,7 @@ export default function Settings() {
             icon="✉️"
             title="Email"
             active={settings.reminderMethodEmail}
-            onClick={()=>update("reminderMethodEmail", !settings.reminderMethodEmail)}
+            onClick={() => update("reminderMethodEmail", !settings.reminderMethodEmail)}
           />
 
 
@@ -246,35 +294,35 @@ export default function Settings() {
 
           <TimingCard
             title="15 minutes before"
-            active={settings.reminderTiming==="15min"}
-            onClick={()=>update("reminderTiming","15min")}
+            active={settings.reminderTiming === "15min"}
+            onClick={() => update("reminderTiming", "15min")}
           />
 
 
           <TimingCard
             title="30 minutes before"
-            active={settings.reminderTiming==="30min"}
-            onClick={()=>update("reminderTiming","30min")}
+            active={settings.reminderTiming === "30min"}
+            onClick={() => update("reminderTiming", "30min")}
           />
 
 
           <TimingCard
             title="1 hour before"
-            active={settings.reminderTiming==="1hr"}
-            onClick={()=>update("reminderTiming","1hr")}
+            active={settings.reminderTiming === "1hr"}
+            onClick={() => update("reminderTiming", "1hr")}
           />
 
 
           <TimingCard
             title={`Custom (${customReminderHours}h ${customReminderMinutes}m)`}
-            active={settings.reminderTiming==="custom"}
-            onClick={()=>update("reminderTiming","custom")}
+            active={settings.reminderTiming === "custom"}
+            onClick={() => update("reminderTiming", "custom")}
           />
 
 
         </div>
 
-        {settings.reminderTiming==="custom" && (
+        {settings.reminderTiming === "custom" && (
           <CustomTimingPanel
             hours={customReminderHours}
             minutes={customReminderMinutes}
@@ -326,9 +374,9 @@ function ToggleRow({ icon, title, desc, value, onChange }) {
 
       <div
         className={`toggle-switch ${value ? "active" : ""}`}
-        onClick={()=>onChange(!value)}
+        onClick={() => onChange(!value)}
       >
-        <div className="toggle-knob"/>
+        <div className="toggle-knob" />
       </div>
 
 
@@ -364,7 +412,7 @@ function CustomTimingPanel({ hours, minutes, onHoursChange, onMinutesChange }) {
           max="23"
           step="1"
           value={hours}
-          onChange={(e)=>onHoursChange(e.target.value)}
+          onChange={(e) => onHoursChange(e.target.value)}
         />
 
       </div>
@@ -383,7 +431,7 @@ function CustomTimingPanel({ hours, minutes, onHoursChange, onMinutesChange }) {
           max="59"
           step="1"
           value={minutes}
-          onChange={(e)=>onMinutesChange(e.target.value)}
+          onChange={(e) => onMinutesChange(e.target.value)}
         />
 
       </div>
@@ -435,7 +483,7 @@ function TimingCard({ title, active, onClick }) {
     >
 
       <div className="radio">
-        {active && <div className="radio-dot"/>}
+        {active && <div className="radio-dot" />}
       </div>
 
       {title}
