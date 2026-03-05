@@ -86,6 +86,15 @@
   width: 100%;
 }
 
+.qdoc-print-head-wrap,
+.qdoc-print-body-wrap,
+.qdoc-print-foot-wrap,
+.qdoc-print-head-cell,
+.qdoc-print-body-cell,
+.qdoc-print-foot-cell {
+  display: contents;
+}
+
 .qdoc-letterhead {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
@@ -367,6 +376,15 @@
   margin-top: 12px;
 }
 
+.qdoc-print-only {
+  display: none;
+}
+
+.qdoc-keep-together {
+  break-inside: avoid-page;
+  page-break-inside: avoid;
+}
+
 .qdoc-print-footer {
   margin-top: 4px;
 }
@@ -499,6 +517,15 @@
     margin: 10mm;
   }
 
+  html,
+  body,
+  #root,
+  .App {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
   .sidebar,
   .navbar,
   .qdoc-top-actions {
@@ -521,6 +548,10 @@
   }
 
   .qdoc-shell {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
   }
@@ -533,34 +564,105 @@
     box-shadow: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    display: block !important;
+    display: table !important;
+    overflow: visible !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  .qdoc-print-head-wrap {
+    display: table-header-group !important;
+  }
+
+  .qdoc-print-body-wrap {
+    display: table-row-group !important;
+  }
+
+  .qdoc-print-foot-wrap {
+    display: table-footer-group !important;
+  }
+
+  .qdoc-print-head-cell,
+  .qdoc-print-body-cell,
+  .qdoc-print-foot-cell {
+    display: table-row !important;
   }
 
   .qdoc-print-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 10;
+    display: table-cell !important;
+    position: static !important;
     background: #ffffff;
-    padding: 0 10mm 5mm;
+    padding: 0 0 3mm !important;
+    margin: 0 !important;
+    page-break-after: avoid !important;
   }
 
   .qdoc-print-footer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 10;
+    display: table-cell !important;
+    position: static !important;
     background: #ffffff;
-    padding: 2mm 10mm 0;
+    padding: 2mm 0 0 !important;
+    margin: 0 !important;
+    page-break-inside: avoid !important;
   }
 
   .qdoc-main-content {
-    margin-top: 92mm;
-    margin-bottom: 10mm;
-    gap: 6px;
-    padding-top: 2mm;
+    display: table-cell !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .qdoc-logo {
+    max-height: 52px !important;
+    max-width: 200px !important;
+  }
+
+  .qdoc-brand-content h1 {
+    font-size: 15px !important;
+    line-height: 1.2 !important;
+  }
+
+  .qdoc-brand-address,
+  .qdoc-brand-contact {
+    font-size: 11.5px !important;
+    line-height: 1.28 !important;
+    margin-top: 2px !important;
+  }
+
+  .qdoc-title-block h2 {
+    font-size: 16px !important;
+    margin-bottom: 1px !important;
+  }
+
+  .qdoc-title-meta {
+    font-size: 11.5px !important;
+    padding: 0 !important;
+  }
+
+  .qdoc-main-content > section {
+    display: block !important;
+    margin-bottom: 3.2mm !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .qdoc-items-section,
+  .qdoc-totals-row,
+  .qdoc-notes-panel,
+  .qdoc-payment-terms-panel,
+  .qdoc-payment-panel,
+  .qdoc-print-footer {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .qdoc-payment-regards {
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
   }
 
   .qdoc-ref-panel {
@@ -611,10 +713,26 @@
     display: none !important;
   }
 
+  .qdoc-notes-panel:not(.qdoc-print-only) {
+    display: none !important;
+  }
+
+  .qdoc-print-only {
+    display: block !important;
+  }
+
+  .qdoc-keep-together {
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+  }
+
   .qdoc-payment-panel {
-    break-inside: avoid;
-    page-break-inside: avoid;
     margin-top: 2mm;
+  }
+
+  .qdoc-print-only {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
   .qdoc-signoff-content {

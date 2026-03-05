@@ -523,14 +523,33 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
+  align-items: stretch;
 }
 
 .qc-panel {
-  padding: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+}
+
+.qc-payment-panel {
+  padding: 10px;
+}
+
+.qc-payment-panel .qc-panel-head {
+  margin-bottom: 6px;
 }
 
 .qc-panel-head {
   margin-bottom: 10px;
+}
+
+.qc-panel-head-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 
 .qc-panel-head h3 {
@@ -547,6 +566,18 @@
   line-height: 1.3;
 }
 
+.qc-payment-panel .org-profile-field {
+  flex: 1;
+}
+
+.qc-payment-panel textarea {
+  height: 135px;
+  min-height: 135px;
+  max-height: 135px;
+  resize: none;
+  overflow-y: auto;
+}
+
 .qc-panel-footer {
   margin-top: 10px;
   display: flex;
@@ -558,6 +589,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 10px;
+  margin-top: 10px;
 }
 
 .qc-stat-card {
@@ -587,11 +619,14 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  margin-top: 10px;
+  width: 100%;
 }
 
 .qc-controls-row .admin-search-input {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 100%;
+  width: 100%;
   max-width: none;
 }
 
@@ -700,4 +735,5 @@
     align-items: stretch;
   }
 }
+
 

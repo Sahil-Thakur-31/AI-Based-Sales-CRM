@@ -171,197 +171,203 @@ export default function QuotationDetails() {
       </div>
 
       <article className="qdoc-document">
-        <header className="qdoc-print-header">
-          <div className="qdoc-letterhead">
-            <div className="qdoc-brand-block">
-              <div className="qdoc-brand-top">
-                {organization?.logoUrl ? (
-                  <img
-                    className="qdoc-logo"
-                    src={resolveAssetUrl(organization.logoUrl)}
-                    alt="Organization Logo"
-                  />
-                ) : null}
+        <div className="qdoc-print-head-wrap">
+          <div className="qdoc-print-head-cell">
+            <header className="qdoc-print-header">
+              <div className="qdoc-letterhead">
+                <div className="qdoc-brand-block">
+                  <div className="qdoc-brand-top">
+                    {organization?.logoUrl ? (
+                      <img
+                        className="qdoc-logo"
+                        src={resolveAssetUrl(organization.logoUrl)}
+                        alt="Organization Logo"
+                      />
+                    ) : null}
 
-                <div className="qdoc-brand-content">
-                  <h1>{asReadable(organization?.name)}</h1>
-                  <p className="qdoc-brand-address">{buildOrganizationAddress(organization)}</p>
-                  <p className="qdoc-brand-contact">
-                    {joinReadable([
-                      organization?.phoneNumber,
-                      organization?.alternatePhoneNumber,
-                      organization?.email,
-                      organization?.website
-                    ])}
-                  </p>
+                    <div className="qdoc-brand-content">
+                      <h1>{asReadable(organization?.name)}</h1>
+                      <p className="qdoc-brand-address">{buildOrganizationAddress(organization)}</p>
+                      <p className="qdoc-brand-contact">
+                        {joinReadable([
+                          organization?.phoneNumber,
+                          organization?.alternatePhoneNumber,
+                          organization?.email,
+                          organization?.website
+                        ])}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="qdoc-title-block">
+                  <h2>Quotation</h2>
+                  <div className="qdoc-title-meta">
+                    <span>Quotation No.</span>
+                    <strong>{asReadable(detail.quotation.quoteNumber)}</strong>
+                  </div>
+                  <div className="qdoc-title-meta">
+                    <span>Date</span>
+                    <strong>{formatDate(detail.quotation.quoteDate)}</strong>
+                  </div>
+                  <div className="qdoc-title-meta">
+                    <span>Valid Until</span>
+                    <strong>{formatDate(detail.quotation.validUntil)}</strong>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className="qdoc-title-block">
-              <h2>Quotation</h2>
-              <div className="qdoc-title-meta">
-                <span>Quotation No.</span>
-                <strong>{asReadable(detail.quotation.quoteNumber)}</strong>
-              </div>
-              <div className="qdoc-title-meta">
-                <span>Date</span>
-                <strong>{formatDate(detail.quotation.quoteDate)}</strong>
-              </div>
-              <div className="qdoc-title-meta">
-                <span>Valid Until</span>
-                <strong>{formatDate(detail.quotation.validUntil)}</strong>
-              </div>
-            </div>
+            </header>
           </div>
+        </div>
 
-          <section className="qdoc-info-row">
-            <div className="qdoc-to-panel">
-              <h3>To</h3>
-              <p className="qdoc-field-value">{asReadable(detail.client?.name)}</p>
-              <p className="qdoc-field-value">{buildClientAddress(detail.client)}</p>
-              <p className="qdoc-field-value">
-                {asReadable(detail.client?.contact?.name)}
-                {detail.client?.contact?.designation
-                  ? ` (${detail.client.contact.designation})`
-                  : ""}
-              </p>
-              <p className="qdoc-field-value">
-                {joinReadable([detail.client?.contact?.phone, detail.client?.contact?.email])}
-              </p>
-            </div>
+        <div className="qdoc-print-body-wrap">
+          <div className="qdoc-print-body-cell">
+            <main className="qdoc-main-content">
+              <section className="qdoc-info-row">
+                <div className="qdoc-to-panel">
+                  <h3>To</h3>
+                  <p className="qdoc-field-value">{asReadable(detail.client?.name)}</p>
+                  <p className="qdoc-field-value">{buildClientAddress(detail.client)}</p>
+                  <p className="qdoc-field-value">
+                    {asReadable(detail.client?.contact?.name)}
+                    {detail.client?.contact?.designation
+                      ? ` (${detail.client.contact.designation})`
+                      : ""}
+                  </p>
+                  <p className="qdoc-field-value">
+                    {joinReadable([detail.client?.contact?.phone, detail.client?.contact?.email])}
+                  </p>
+                </div>
 
-            <div className="qdoc-ref-panel">
-              <h3>Reference</h3>
-              <div className="qdoc-title-meta">
-                <span>Deal Stage</span>
-                <strong>{asReadable(detail.deal?.stage)}</strong>
-              </div>
-              <div className="qdoc-title-meta">
-                <span>Currency</span>
-                <strong>{asReadable(detail.quotation.currency || "INR")}</strong>
-              </div>
-              <div className="qdoc-title-meta">
-                <span>Status</span>
-                <strong>{asReadable(detail.quotation.status)}</strong>
-              </div>
-              <div className="qdoc-title-meta">
-                <span>Version</span>
-                <strong>v{asReadable(detail.quotation.version)}</strong>
-              </div>
-            </div>
-          </section>
-        </header>
+                <div className="qdoc-ref-panel">
+                  <h3>Reference</h3>
+                  <div className="qdoc-title-meta">
+                    <span>Deal Stage</span>
+                    <strong>{asReadable(detail.deal?.stage)}</strong>
+                  </div>
+                  <div className="qdoc-title-meta">
+                    <span>Currency</span>
+                    <strong>{asReadable(detail.quotation.currency || "INR")}</strong>
+                  </div>
+                  <div className="qdoc-title-meta">
+                    <span>Status</span>
+                    <strong>{asReadable(detail.quotation.status)}</strong>
+                  </div>
+                  <div className="qdoc-title-meta">
+                    <span>Version</span>
+                    <strong>v{asReadable(detail.quotation.version)}</strong>
+                  </div>
+                </div>
+              </section>
 
-        <main className="qdoc-main-content">
-          <section className="qdoc-items-section">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Product</th>
-                  <th>Qty</th>
-                  <th>Unit Price</th>
-                  <th>Disc%</th>
-                  <th>Tax%</th>
-                  <th>Net Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.items?.length ? (
-                  detail.items.map((item, index) => (
-                    <tr key={item._id}>
-                      <td>{index + 1}</td>
-                      <td>
-                        <strong>{asReadable(item.productName)}</strong>
-                      </td>
-                      <td>{item.quantity}</td>
-                      <td>{formatCurrency(item.unitPrice)}</td>
-                      <td>{item.discountPercent}%</td>
-                      <td>{item.taxRate}%</td>
-                      <td>{formatCurrency(item.netTotal)}</td>
+              <section className="qdoc-items-section">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Product</th>
+                      <th>Qty</th>
+                      <th>Unit Price</th>
+                      <th>Disc%</th>
+                      <th>Tax%</th>
+                      <th>Net Total</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={7} className="qdoc-no-items">
-                      No line items found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </section>
+                  </thead>
+                  <tbody>
+                    {detail.items?.length ? (
+                      detail.items.map((item, index) => (
+                        <tr key={item._id}>
+                          <td>{index + 1}</td>
+                          <td>
+                            <strong>{asReadable(item.productName)}</strong>
+                          </td>
+                          <td>{item.quantity}</td>
+                          <td>{formatCurrency(item.unitPrice)}</td>
+                          <td>{item.discountPercent}%</td>
+                          <td>{item.taxRate}%</td>
+                          <td>{formatCurrency(item.netTotal)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="qdoc-no-items">
+                          No line items found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </section>
 
-          <section className="qdoc-totals-row">
-            <div className="qdoc-amount-panel">
-              <div className="qdoc-total-row">
-                <span>Subtotal</span>
-                <strong>{formatCurrency(totals?.subtotalAmount || 0)}</strong>
-              </div>
-              <div className="qdoc-total-row">
-                <span>Tax</span>
-                <strong>{formatCurrency(totals?.taxAmount || 0)}</strong>
-              </div>
-              <div className="qdoc-total-row">
-                <span>Discount</span>
-                <strong>{formatCurrency(totals?.discountAmount || 0)}</strong>
-              </div>
-              <div className="qdoc-total-row qdoc-grand">
-                <span>Grand Total</span>
-                <strong>{formatCurrency(totals?.grandTotal || 0)}</strong>
-              </div>
-            </div>
-          </section>
+              <section className="qdoc-totals-row">
+                <div className="qdoc-amount-panel">
+                  <div className="qdoc-total-row">
+                    <span>Subtotal</span>
+                    <strong>{formatCurrency(totals?.subtotalAmount || 0)}</strong>
+                  </div>
+                  <div className="qdoc-total-row">
+                    <span>Tax</span>
+                    <strong>{formatCurrency(totals?.taxAmount || 0)}</strong>
+                  </div>
+                  <div className="qdoc-total-row">
+                    <span>Discount</span>
+                    <strong>{formatCurrency(totals?.discountAmount || 0)}</strong>
+                  </div>
+                  <div className="qdoc-total-row qdoc-grand">
+                    <span>Grand Total</span>
+                    <strong>{formatCurrency(totals?.grandTotal || 0)}</strong>
+                  </div>
+                </div>
+              </section>
 
-          <section className="qdoc-notes-panel qdoc-notes-panel-full">
-            <div className="qdoc-notes-private">
-              <h4>Notes</h4>
-              <p>{asReadable(detail.quotation.notes)}</p>
-            </div>
-            <h4>Terms & Conditions</h4>
-            <p>{asReadable(detail.quotation.termsAndConditions)}</p>
-          </section>
+              <section className="qdoc-notes-panel qdoc-notes-panel-full">
+                <h4>Notes</h4>
+                <p className="qdoc-notes-private">{asReadable(detail.quotation.notes)}</p>
+              </section>
 
-          <section className="qdoc-payment-terms-panel">
-            <h4>Payment Terms</h4>
-            <p>{asReadable(detail.quotation.paymentTerms)}</p>
-          </section>
+              <section className="qdoc-notes-panel qdoc-notes-panel-full qdoc-print-only qdoc-keep-together">
+                  <h4>Terms & Conditions</h4>
+                  <p>{asReadable(detail.quotation.termsAndConditions)}</p>
+              </section>
 
-          <section className="qdoc-payment-panel">
-            <h4>Payment Details</h4>
-            <p>
-              For cheque payment: issue a cross cheque in the name of{" "}
-              <strong>{asReadable(organization?.paymentAccountName)}</strong>.
-            </p>
-            <h4>For online payment:</h4>
-            <p>
-              Account Name:<strong> {asReadable(organization?.paymentAccountName)}</strong>
-            </p>
-            <p>
-              Account Number:<strong> {asReadable(organization?.paymentAccountNumber)}</strong>
-            </p>
-            <p>
-              Account Type:<strong> {asReadable(organization?.paymentAccountType)}</strong>
-            </p>
-            <p>
-              Bank:<strong> {asReadable(organization?.paymentBankName)}</strong>
-            </p>
-            <p>
-              IFSC Code:<strong> {asReadable(organization?.paymentIfscCode)}</strong>
-            </p>
-            <p>
-              UPI ID:<strong> {asReadable(organization?.paymentUpiId)}</strong>
-            </p>
-            <div className="qdoc-payment-regards">
-              <p>Regards,</p>
-              <p>{asReadable(organization?.headName)}</p>
-              <p>{asReadable(organization?.headRole)}</p>
-              <p>{asReadable(organization?.name)}</p>
-            </div>
-          </section>
+              <section className="qdoc-payment-terms-panel qdoc-print-only qdoc-keep-together">
+                  <h4>Payment Terms</h4>
+                  <p>{asReadable(detail.quotation.paymentTerms)}</p>
+              </section>
 
-          {/* <section className="qdoc-signoff qdoc-signoff-content">
+              <section className="qdoc-payment-panel qdoc-print-only qdoc-keep-together">
+                  <h4>Payment Details</h4>
+                  <p>
+                    For cheque payment: issue a cross cheque in the name of{" "}
+                    <strong>{asReadable(organization?.paymentAccountName)}</strong>.
+                  </p>
+                  <h4>For online payment:</h4>
+                  <p>
+                    Account Name:<strong> {asReadable(organization?.paymentAccountName)}</strong>
+                  </p>
+                  <p>
+                    Account Number:<strong> {asReadable(organization?.paymentAccountNumber)}</strong>
+                  </p>
+                  <p>
+                    Account Type:<strong> {asReadable(organization?.paymentAccountType)}</strong>
+                  </p>
+                  <p>
+                    Bank:<strong> {asReadable(organization?.paymentBankName)}</strong>
+                  </p>
+                  <p>
+                    IFSC Code:<strong> {asReadable(organization?.paymentIfscCode)}</strong>
+                  </p>
+                  <p>
+                    UPI ID:<strong> {asReadable(organization?.paymentUpiId)}</strong>
+                  </p>
+                  <div className="qdoc-payment-regards">
+                    <p>Regards,</p>
+                    <p>{asReadable(organization?.headName)}</p>
+                    <p>{asReadable(organization?.headRole)}</p>
+                    <p>{asReadable(organization?.name)}</p>
+                  </div>
+              </section>
+              {/* <section className="qdoc-signoff qdoc-signoff-content">
             <div className="qdoc-signatory-block">
               <div className="qdoc-signature-stamp-row">
                 <div className="qdoc-sign-visual">
@@ -392,15 +398,21 @@ export default function QuotationDetails() {
               </div>
             </div>
           </section> */}
-        </main>
-
-        <footer className="qdoc-print-footer">
-          <div className="qdoc-generated-note-row">
-            <p className="qdoc-generated-note">
-              This is a system-generated quotation and does not require a physical signature.
-            </p>
+            </main>
           </div>
-        </footer>
+        </div>
+
+        <div className="qdoc-print-foot-wrap">
+          <div className="qdoc-print-foot-cell">
+            <footer className="qdoc-print-footer">
+              <div className="qdoc-generated-note-row">
+                <p className="qdoc-generated-note">
+                  This is a system-generated quotation and does not require a physical signature.
+                </p>
+              </div>
+            </footer>
+          </div>
+        </div>
       </article>
     </div>
   );

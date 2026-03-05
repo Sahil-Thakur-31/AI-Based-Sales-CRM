@@ -272,7 +272,7 @@ exports.getQuotationById = async (req, res) => {
 
     const [deal, client, items, latestQuoteForDeal, globalPaymentTerms] = await Promise.all([
       Deal.findById(quotation.dealId).select("stage client_id").lean(),
-      Client.findById(quotation.clientId).select("name website GST_no Address").lean(),
+      Client.findById(quotation.clientId).select("name website GST_no Address industry").lean(),
       QuotationItem.find({
         quotationId: quotation._id,
         isActive: true
@@ -313,6 +313,15 @@ exports.getQuotationById = async (req, res) => {
       netTotal: item.netTotal || 0
     }));
 
+    let resolvedTermsAndConditions = String(quotation.termsAndConditions || "").trim();
+    if (!resolvedTermsAndConditions) {
+      const fallbackClause = await resolveAutoClauseText({
+        industryId: client?.industry || null,
+        productCategories: itemRows.map((row) => row.category || "")
+      });
+      resolvedTermsAndConditions = String(fallbackClause?.termsAndConditions || "").trim();
+    }
+
     res.json({
       quotation: {
         _id: quotation._id,
@@ -328,7 +337,7 @@ exports.getQuotationById = async (req, res) => {
         validUntil: quotation.validUntil || null,
         currency: quotation.currency || "INR",
         notes: quotation.notes || "",
-        termsAndConditions: quotation.termsAndConditions || "",
+        termsAndConditions: resolvedTermsAndConditions || "",
         paymentTerms: globalPaymentTerms || quotation.paymentTerms || "",
         subtotalAmount: quotation.subtotalAmount || 0,
         taxAmount: quotation.taxAmount || 0,
