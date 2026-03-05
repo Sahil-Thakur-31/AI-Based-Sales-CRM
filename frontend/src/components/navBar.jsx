@@ -365,6 +365,12 @@ function Navbar() {
         )}
 
 
+        {/* CALENDAR */}
+        <button className="nav-icon-btn">
+          {"\uD83D\uDCC5"}
+        </button>
+
+
         {/* NOTIFICATIONS */}
         <div
           className="notification-container"
