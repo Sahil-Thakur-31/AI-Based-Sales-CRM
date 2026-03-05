@@ -3,7 +3,6 @@ const router = express.Router();
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const User = require("../models/users");
-const { syncExistingMeetingsToGoogle } = require("../services/googleCalendarSync");
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -80,8 +79,8 @@ router.get("/callback", async (req, res) => {
 
         console.log(`[GoogleAuth] Connected Google Calendar for user ${userId}`);
 
-        // Asynchronously sync upcoming meetings for this user
-        syncExistingMeetingsToGoogle(userId, access_token).catch("Ignore async sync error");
+        // Do not bulk-sync existing meetings on connect.
+        // Meetings are synced only when a followup/meeting is created or edited.
 
         // Redirect back to frontend settings page with success flag
         res.redirect(`${FRONTEND_URL}/settings?googleCalendar=connected`);

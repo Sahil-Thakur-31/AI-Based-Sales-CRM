@@ -43,7 +43,8 @@ function Navbar() {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [refreshingApp, setRefreshingApp] = useState(false);
   const [seenNotificationIds, setSeenNotificationIds] = useState(() => getSeenNotificationIds());
-  const roleName = String(user?.role?.name || user?.role || "").trim().toLowerCase();
+  const fallbackRole = localStorage.getItem("RoleName") || "";
+  const roleName = String(user?.role?.name || user?.role || fallbackRole).trim().toLowerCase();
   const isAdmin = roleName === "admin";
 
   /* timers */
@@ -72,6 +73,7 @@ function Navbar() {
     catch (err) {
 
       console.error("Navbar user fetch failed:", err);
+      setUser((prev) => prev || { name: "User", role: { name: fallbackRole } });
 
     }
 
@@ -290,8 +292,7 @@ function Navbar() {
   };
 
 
-  if (!user)
-    return null;
+  const displayUser = user || { name: "User", role: { name: fallbackRole || "Member" } };
 
 
   return (
@@ -451,19 +452,19 @@ function Navbar() {
             <div className="profile-info">
 
               <span className="profile-name">
-                {user.name}
+                {displayUser.name}
               </span>
 
               <span className="profile-role">
-                {user.role?.name}
+                {displayUser.role?.name || displayUser.role || "Member"}
               </span>
 
             </div>
 
-            {user.photoUrl ? (
+            {displayUser.photoUrl ? (
 
               <img
-                src={resolvePhotoUrl(user.photoUrl)}
+                src={resolvePhotoUrl(displayUser.photoUrl)}
                 className="profile-avatar"
                 alt="avatar"
               />
@@ -471,7 +472,7 @@ function Navbar() {
             ) : (
 
               <div className="profile-avatar">
-                {getInitials(user.name)}
+                {getInitials(displayUser.name)}
               </div>
 
             )}

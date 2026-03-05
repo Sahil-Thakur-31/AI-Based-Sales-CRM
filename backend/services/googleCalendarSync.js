@@ -2,6 +2,41 @@ const axios = require("axios");
 const Followup = require("../models/followUp");
 const User = require("../models/users");
 
+function isMeetingLikeRecord(meeting) {
+    if (!meeting) return false;
+    if (String(meeting.kind || "").toLowerCase() === "meeting") return true;
+    const action = String(meeting.actionType || "").toLowerCase();
+    return action.includes("meeting");
+}
+
+function toMinutesBefore(value, unit) {
+    const v = Number(value);
+    if (!Number.isFinite(v) || v < 1) return null;
+    const u = String(unit || "").toLowerCase();
+    if (u === "minutes") return Math.floor(v);
+    if (u === "hours") return Math.floor(v * 60);
+    if (u === "days") return Math.floor(v * 24 * 60);
+    return null;
+}
+
+function buildReminderOverrides(meeting) {
+    if (meeting?.reminderEnabled === false) return [];
+
+    const options = Array.isArray(meeting?.reminderOptions) ? meeting.reminderOptions : [];
+    const mapped = options
+        .map((opt) => toMinutesBefore(opt?.value, opt?.unit))
+        .filter((m) => Number.isFinite(m) && m >= 1)
+        .map((minutes) => ({ method: "popup", minutes }));
+
+    if (mapped.length > 0) return mapped;
+
+    // Fallback defaults if no custom options are present.
+    return [
+        { method: "popup", minutes: 60 },
+        { method: "popup", minutes: 24 * 60 },
+    ];
+}
+
 /**
  * Refreshes the Google Access Token using the stored refresh token
  */
@@ -36,6 +71,9 @@ async function refreshGoogleAccessToken(userId, refreshToken) {
  */
 async function syncSingleMeetingToGoogle(meeting, userId) {
     try {
+        // Sync only meeting-like records (not regular followups).
+        if (!isMeetingLikeRecord(meeting)) return null;
+
         const user = await User.findById(userId).select("googleCalendar").lean();
         const accessToken = user?.googleCalendar?.accessToken;
 
@@ -73,10 +111,7 @@ async function syncSingleMeetingToGoogle(meeting, userId) {
             },
             reminders: {
                 useDefault: false,
-                overrides: [
-                    { method: 'popup', minutes: 60 },
-                    { method: 'popup', minutes: 24 * 60 }, // 1 day
-                ],
+                overrides: buildReminderOverrides(meeting),
             }
         };
 
@@ -143,39 +178,61 @@ async function syncSingleMeetingToGoogle(meeting, userId) {
 }
 
 /**
- * Called on first connection to push all pending meetings
+ * Legacy bulk sync is intentionally disabled.
+ * We sync only when a meeting is created/edited.
  */
 async function syncExistingMeetingsToGoogle(userId, accessToken) {
-    if (!accessToken) return;
+    console.log(`[GoogleCalendarSync] Bulk sync skipped for user ${userId}. Meeting sync is create/edit only.`);
+    return null;
+}
 
+/**
+ * Deletes a single Google Calendar event for a meeting.
+ */
+async function deleteSingleMeetingFromGoogle(meeting, userId) {
     try {
-        console.log(`[GoogleCalendarSync] Starting sync for user ${userId}`);
-        const now = new Date();
+        if (!isMeetingLikeRecord(meeting)) return null;
+        if (!meeting?.googleEventId) return null;
 
-        const meetings = await Followup.find({
-            kind: { $in: ["meeting", "followup"] },
-            status: "pending",
-            is_deleted: { $ne: true },
-            assignedTo: userId,
-            dueDateTime: { $gt: now },
-            googleEventId: null // Only push ones without googleEventId upon full sync
-        }).lean();
+        const user = await User.findById(userId).select("googleCalendar").lean();
+        const accessToken = user?.googleCalendar?.accessToken;
+        if (!accessToken) return null;
 
-        if (!meetings.length) {
-            console.log(`[GoogleCalendarSync] No un-synced upcoming meetings found for user ${userId}`);
-            return;
+        const makeRequest = async (token) => {
+            const headers = {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            };
+
+            return await axios.delete(
+                `https://www.googleapis.com/calendar/v3/calendars/primary/events/${meeting.googleEventId}`,
+                { headers }
+            );
+        };
+
+        try {
+            await makeRequest(accessToken);
+        } catch (err) {
+            if (err?.response?.status === 404) {
+                // Already deleted in Google Calendar.
+            } else if (err?.response?.status === 401) {
+                const refreshToken = user?.googleCalendar?.refreshToken;
+                if (!refreshToken) throw new Error("No refresh token available");
+                const newAccessToken = await refreshGoogleAccessToken(userId, refreshToken);
+                if (!newAccessToken) throw new Error("Could not refresh token");
+                await makeRequest(newAccessToken);
+            } else {
+                throw err;
+            }
         }
 
-        console.log(`[GoogleCalendarSync] Found ${meetings.length} meetings to sync`);
-
-        for (const meeting of meetings) {
-            await syncSingleMeetingToGoogle(meeting, userId);
-        }
-
-        console.log(`[GoogleCalendarSync] Completed sync for user ${userId}`);
+        await Followup.updateOne({ _id: meeting._id }, { $set: { googleEventId: null } });
+        console.log(`[GoogleCalendarSync] Deleted GCal event for meeting ${meeting._id}`);
+        return true;
     } catch (err) {
-        console.error(`[GoogleCalendarSync] Global sync error for user ${userId}:`, err);
+        console.error(`[GoogleCalendarSync] Failed to delete GCal event for meeting ${meeting?._id}:`, err?.response?.data || err?.message);
+        return null;
     }
 }
 
-module.exports = { syncExistingMeetingsToGoogle, syncSingleMeetingToGoogle };
+module.exports = { syncExistingMeetingsToGoogle, syncSingleMeetingToGoogle, deleteSingleMeetingFromGoogle };
