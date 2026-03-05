@@ -211,6 +211,12 @@ const followupSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       index: true
+    },
+
+    googleEventId: {
+      type: String,
+      default: null,
+      index: true
     }
 
   },

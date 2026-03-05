@@ -35,6 +35,7 @@ import TeamSetup from './pages/modules/TeamSetup.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
+import CalendarPage from './pages/modules/CalendarPage.jsx';
 
 import Products from './pages/modules/adminsetting/Products.jsx';
 import Roles from './pages/modules/adminsetting/Roles.jsx';
@@ -113,6 +114,7 @@ function App() {
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/calendar" element={<CalendarPage />} />
 
           {/* Admin-only routes */}
           <Route

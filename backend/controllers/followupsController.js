@@ -7,6 +7,7 @@ const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const CRMSettings = require("../models/crmSettings");
+const { syncSingleMeetingToGoogle } = require("../services/googleCalendarSync");
 
 function normalizeRole(roleName = "") {
   return String(roleName).trim().toLowerCase();
@@ -538,6 +539,13 @@ exports.create = async (req, res) => {
       console.error("followups.create notification error:", notificationErr);
     }
 
+    try {
+      // Sync the newly created followup/meeting to Google Calendar continuously
+      await syncSingleMeetingToGoogle(created, created.assignedTo._id || created.assignedTo);
+    } catch (gcalErr) {
+      console.error("followups.create gcal sync error:", gcalErr);
+    }
+
     res.status(201).json(created);
   } catch (err) {
     console.error("followups.create error:", err);
@@ -631,6 +639,14 @@ exports.update = async (req, res) => {
     } catch (activityErr) {
       console.error("followups.update activity log error:", activityErr);
     }
+
+    try {
+      // Sync the updated followup/meeting to Google Calendar continuously
+      await syncSingleMeetingToGoogle(updated, updated.assignedTo._id || updated.assignedTo);
+    } catch (gcalErr) {
+      console.error("followups.update gcal sync error:", gcalErr);
+    }
+
     res.json(updated);
   } catch (err) {
     console.error("followups.update error:", err);
