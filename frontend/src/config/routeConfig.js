@@ -48,6 +48,7 @@ export const routeConfig = [
   // Team
   { path: "/team-dashboard", title: "Team Dashboard" },
   { path: "/team-setup", title: "Setup Team" },
+  { path: "/team-targets", title: "Assign Team Targets" },
 
   // System
   { path: "/settings", title: "Settings" },

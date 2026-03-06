@@ -9,39 +9,6 @@
   padding: 8px 4px 14px;
 }
 
-.team-active-strip {
-  border: 1px solid #e6ebf2;
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 10px 12px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.team-active-block {
-  min-width: 0;
-}
-
-.team-active-block span {
-  display: block;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: #64748b;
-  font-weight: 700;
-}
-
-.team-active-block strong {
-  display: block;
-  margin-top: 2px;
-  font-size: 14px;
-  color: #0f172a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .team-dashboard-toolbar {
   display: flex;
@@ -145,7 +112,7 @@
 
 .team-dashboard-main {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -575,7 +542,7 @@
 
 .team-modal-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -614,6 +581,15 @@
   line-height: 1.45;
 }
 
+.team-modal-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
 .team-user-line {
   border: 1px solid #edf2f7;
   border-radius: 10px;
@@ -635,6 +611,226 @@
 .team-user-line span {
   color: #64748b;
   font-size: 12px;
+}
+
+.team-member-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.team-target-progress-card {
+  border: 1px solid #e6ebf2;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team-target-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.team-target-progress-head h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.team-target-progress-head small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.team-target-progress-track {
+  height: 9px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.team-target-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5b6fd8 0%, #3b82f6 100%);
+}
+
+.team-target-progress-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.team-target-progress-meta div {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 7px 8px;
+}
+
+.team-target-progress-meta span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.team-target-progress-meta strong {
+  display: block;
+  color: #0f172a;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.team-member-tabs button {
+  border: 1px solid #d9e1ec;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.team-member-tabs button.active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.team-member-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.team-member-section {
+  border: 1px solid #edf2f7;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team-member-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.team-member-section-head h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.team-member-section-head small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.team-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.team-member-deal-row,
+.team-member-followup-row {
+  border: 1px solid #e6ebf2;
+  border-radius: 9px;
+  background: #ffffff;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-member-deal-main,
+.team-member-followup-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.team-member-deal-main strong,
+.team-member-followup-main strong {
+  color: #111827;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-member-deal-main span,
+.team-member-followup-main span {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-member-deal-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.team-member-deal-meta span {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 7px;
+}
+
+.team-member-followup-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.team-member-pill {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  text-transform: capitalize;
+  padding: 3px 7px;
+}
+
+.team-member-pill-completed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.team-member-pill-pending {
+  border-color: #fde68a;
+  background: #fef9c3;
+  color: #854d0e;
 }
 
 .team-modal-list {
@@ -763,13 +959,24 @@
     grid-template-columns: 1fr;
   }
 
-  .team-active-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .team-modal-grid,
   .team-modal-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .team-target-progress-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .team-member-deal-row,
+  .team-member-followup-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .team-member-deal-meta,
+  .team-member-followup-tags {
+    justify-content: flex-start;
   }
 }
 
@@ -793,10 +1000,6 @@
   }
 
   .team-dashboard-main {
-    grid-template-columns: 1fr;
-  }
-
-  .team-active-strip {
     grid-template-columns: 1fr;
   }
 
