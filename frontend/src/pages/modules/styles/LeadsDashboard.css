@@ -191,18 +191,13 @@
   background: #ffffff;
   border: 1px solid #e6ebf2;
   border-radius: 0 0 16px 16px;
-  overflow: hidden;
-  min-height: 400px;
-  /* Helps avoid jitter when pagination reduces row count */
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  overflow-x: auto;   /* allow table scroll only if needed */
+  overflow-y: hidden; /* remove vertical scrollbar */
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
 }
 
 thead {

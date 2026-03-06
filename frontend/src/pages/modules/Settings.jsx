@@ -6,6 +6,8 @@ import reminderIcon from "../../assets/settings/reminder_18312774.png";
 import leadScoreIcon from "../../assets/settings/benchmarking_16744074.png";
 import predictiveIcon from "../../assets/settings/predictive-chart_18263705.png";
 import notifyIcon from "../../assets/settings/notification_6048479.png";
+import layersIcon from "../../assets/settings/layers_18783180.png";
+import mailIcon from "../../assets/settings/mail_10585228.png";
 
 const DEFAULT_REMINDER_OPTIONS = [{ value: 10, unit: "minutes" }];
 
@@ -72,7 +74,7 @@ export default function Settings() {
 
   return (
     <div className="settings-container">
-      <div className="settings-card">
+      <div className="settings-card settings-card--ai">
         <div className="settings-card-header">
           <div className="settings-header-icon">
             <img src={robotIcon} alt="AI automation" />
@@ -108,7 +110,7 @@ export default function Settings() {
         />
       </div>
 
-      <div className="settings-card">
+      <div className="settings-card settings-card--notifications">
         <div className="settings-card-header">
           <div className="settings-header-icon">
             <img src={notifyIcon} alt="Notifications" />
@@ -122,13 +124,13 @@ export default function Settings() {
         <div className="settings-section-label">Reminder Method</div>
         <div className="method-grid">
           <MethodCard
-            icon="App"
+            icon={layersIcon}
             title="In-App"
             active={settings.reminderMethodInApp}
             onClick={() => update("reminderMethodInApp", !settings.reminderMethodInApp)}
           />
           <MethodCard
-            icon="Mail"
+            icon={mailIcon}
             title="Email"
             active={settings.reminderMethodEmail}
             onClick={() => update("reminderMethodEmail", !settings.reminderMethodEmail)}
@@ -136,10 +138,12 @@ export default function Settings() {
         </div>
 
         <div className="settings-section-label">Reminder Offsets</div>
-        <ReminderOptionsEditor
-          options={reminderOptions}
-          onChange={updateReminderOptions}
-        />
+        <div className="settings-reminder-scroll">
+          <ReminderOptionsEditor
+            options={reminderOptions}
+            onChange={updateReminderOptions}
+          />
+        </div>
       </div>
     </div>
   );
@@ -171,7 +175,9 @@ function ToggleRow({ icon, title, desc, value, onChange }) {
 function MethodCard({ icon, title, active, onClick }) {
   return (
     <div className={`method-card ${active ? "active" : ""}`} onClick={onClick}>
-      <div className="method-icon">{icon}</div>
+      <div className="method-icon">
+        <img src={icon} alt={title} />
+      </div>
       <div className="method-title">{title}</div>
     </div>
   );
@@ -203,7 +209,6 @@ function ReminderOptionsEditor({ options, onChange }) {
     <div className="reminder-options-panel">
       {options.map((row, index) => (
         <div className="reminder-option-row" key={`setting-reminder-${index}`}>
-          <div className="reminder-option-label">Notify</div>
           <input
             className="reminder-option-number"
             type="number"
