@@ -44,12 +44,15 @@ export const routeConfig = [
 
   // Analytics
   { path: "/events", title: "Events & Expos" },
+  { path: "/events/new", title: "Add Events & Expos" },
   { path: "/reports", title: "Reports" },
 
   // Team
   { path: "/team-dashboard", title: "Team Dashboard" },
   { path: "/team-setup", title: "Setup Team" },
   { path: "/team-targets", title: "Assign Team Targets" },
+  { path: "/team-targets/admin", title: "Team Targets - Admin" },
+  { path: "/team-targets/manage", title: "Member Targets - Manager" },
 
   // System
   { path: "/settings", title: "Settings" },

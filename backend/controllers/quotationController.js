@@ -1,10 +1,12 @@
 const Quotation = require("../models/quatations");
 const QuotationItem = require("../models/quatation_item");
 const Deal = require("../models/deals");
+const Lead = require("../models/leads");
 const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
 const Product = require("../models/products");
 const Tax = require("../models/taxes");
+const User = require("../models/users");
 const QuotationClause = require("../models/quotationClauses");
 const QuotationPaymentTerms = require("../models/quotationPaymentTerms");
 
@@ -19,6 +21,7 @@ const QUOTATION_STATUSES = [
   "expired"
 ];
 const VERSION_ALLOWED_PREVIOUS_STATUSES = ["expired", "rejected"];
+const QUOTATION_TYPES = new Set(["deal", "lead"]);
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -33,11 +36,40 @@ function round2(value) {
   return Math.round(value * 100) / 100;
 }
 
-function buildQuoteNumber(dealId, quoteDate, version) {
+function buildQuoteNumber(sourceId, quoteDate, version, quoteType = "deal") {
   const year = new Date(quoteDate || Date.now()).getFullYear();
-  const dealToken = String(dealId).slice(-6).toUpperCase();
+  const entityToken = String(sourceId).slice(-6).toUpperCase();
+  const typeToken = String(quoteType || "deal").toLowerCase() === "lead" ? "LD" : "DL";
   const versionToken = String(version).padStart(2, "0");
-  return `QT-${year}-${dealToken}-${versionToken}`;
+  return `QT-${year}-${typeToken}${entityToken}-${versionToken}`;
+}
+
+function normalizeQuoteType(value) {
+  const type = String(value || "").trim().toLowerCase();
+  return QUOTATION_TYPES.has(type) ? type : "deal";
+}
+
+function inferQuoteType(quotation = {}) {
+  if (quotation?.quoteType && QUOTATION_TYPES.has(String(quotation.quoteType).toLowerCase())) {
+    return String(quotation.quoteType).toLowerCase();
+  }
+  return quotation?.leadId ? "lead" : "deal";
+}
+
+function getSourceFilter(quoteType, sourceId, options = {}) {
+  const { includeLegacyDealQuotes = true } = options;
+  if (quoteType === "lead") return { quoteType: "lead", leadId: sourceId };
+  if (!includeLegacyDealQuotes) return { quoteType: "deal", dealId: sourceId };
+  return {
+    dealId: sourceId,
+    $or: [{ quoteType: "deal" }, { quoteType: { $exists: false } }, { quoteType: null }]
+  };
+}
+
+function getDuplicateMessage(quoteType) {
+  return quoteType === "lead"
+    ? "Quotation already exists for this lead. Use New Version from quotation details."
+    : "Quotation already exists for this deal. Use New Version from quotation details.";
 }
 
 function getTodayUtcStartDate() {
@@ -160,6 +192,9 @@ async function findBestClientContact(clientId) {
 exports.getQuotations = async (req, res) => {
   try {
     await syncExpiredQuotations();
+    const quoteTypeFilter = req.query?.quoteType
+      ? normalizeQuoteType(req.query.quoteType)
+      : "";
 
     const quotations = await Quotation.find({
       is_deleted: false
@@ -178,14 +213,33 @@ exports.getQuotations = async (req, res) => {
           .filter(Boolean)
       )
     ];
+    const leadIds = [
+      ...new Set(
+        quotations
+          .map((quote) => (quote.leadId ? String(quote.leadId) : ""))
+          .filter(Boolean)
+      )
+    ];
+    const createdByIds = [
+      ...new Set(
+        quotations
+          .map((quote) => (quote.createdBy ? String(quote.createdBy) : ""))
+          .filter(Boolean)
+      )
+    ];
 
     const quotationIds = quotations.map((quote) => quote._id);
 
-    const [deals, itemCounts] = await Promise.all([
+    const [deals, leads, itemCounts, creators] = await Promise.all([
       Deal.find({
         _id: { $in: dealIds }
       })
-        .select("stage client_id")
+        .select("stage client_id lead_id")
+        .lean(),
+      Lead.find({
+        _id: { $in: leadIds }
+      })
+        .select("company_name status")
         .lean(),
       QuotationItem.aggregate([
         {
@@ -200,13 +254,22 @@ exports.getQuotations = async (req, res) => {
             count: { $sum: 1 }
           }
         }
-      ])
+      ]),
+      User.find({
+        _id: { $in: createdByIds },
+        is_deleted: { $ne: true }
+      })
+        .select("name email")
+        .lean()
     ]);
 
     const clientIds = [
       ...new Set(
-        deals
-          .map((deal) => (deal.client_id ? String(deal.client_id) : ""))
+        quotations
+          .map((quote) => (quote.clientId ? String(quote.clientId) : ""))
+          .concat(
+            deals.map((deal) => (deal.client_id ? String(deal.client_id) : ""))
+          )
           .filter(Boolean)
       )
     ];
@@ -218,20 +281,37 @@ exports.getQuotations = async (req, res) => {
       .lean();
 
     const dealMap = new Map(deals.map((deal) => [String(deal._id), deal]));
+    const leadMap = new Map(leads.map((lead) => [String(lead._id), lead]));
     const clientMap = new Map(clients.map((client) => [String(client._id), client.name]));
     const itemCountMap = new Map(itemCounts.map((entry) => [String(entry._id), entry.count]));
+    const creatorMap = new Map(creators.map((user) => [String(user._id), user]));
 
-    const response = quotations.map((quote) => {
-      const deal = dealMap.get(String(quote.dealId));
-      const clientName = deal?.client_id
-        ? clientMap.get(String(deal.client_id)) || "Unknown Client"
-        : "Unknown Client";
+    const response = quotations
+      .map((quote) => {
+        const quoteType = inferQuoteType(quote);
+        if (quoteTypeFilter && quoteType !== quoteTypeFilter) return null;
 
-      return {
+        const deal = quote.dealId ? dealMap.get(String(quote.dealId)) : null;
+        const leadId = quote.leadId || deal?.lead_id || null;
+        const lead = leadId ? leadMap.get(String(leadId)) : null;
+        const resolvedClientId = quote.clientId || deal?.client_id || null;
+        const clientName = resolvedClientId
+          ? clientMap.get(String(resolvedClientId)) || "Unknown Client"
+          : lead?.company_name || "Unknown Client";
+        const createdBy = quote.createdBy ? creatorMap.get(String(quote.createdBy)) : null;
+
+        return {
         _id: quote._id,
         quoteNumber: quote.quoteNumber,
-        dealId: quote.dealId,
-        refCode: deal?.stage || "-",
+        quoteType,
+        sourceId: quoteType === "lead" ? quote.leadId || null : quote.dealId || null,
+        dealId: quote.dealId || null,
+        leadId: quote.leadId || null,
+        refCode: quoteType === "lead" ? lead?.status || "-" : deal?.stage || "-",
+        sourceLabel:
+          quoteType === "lead"
+            ? lead?.company_name || "Untitled Lead"
+            : lead?.company_name || clientName || "Untitled Deal",
         clientName,
         itemsCount: itemCountMap.get(String(quote._id)) || 0,
         quoteDate: quote.quoteDate || null,
@@ -242,9 +322,12 @@ exports.getQuotations = async (req, res) => {
         validUntil: quote.validUntil || null,
         status: quote.status || "draft",
         version: quote.version || 1,
+        createdByName: createdBy?.name || "Unknown",
+        createdByEmail: createdBy?.email || "",
         createdAt: quote.createdAt || null
-      };
-    });
+        };
+      })
+      .filter(Boolean);
 
     res.json(response);
   } catch (err) {
@@ -270,9 +353,25 @@ exports.getQuotationById = async (req, res) => {
       });
     }
 
-    const [deal, client, items, latestQuoteForDeal, globalPaymentTerms] = await Promise.all([
-      Deal.findById(quotation.dealId).select("stage client_id").lean(),
-      Client.findById(quotation.clientId).select("name website GST_no Address industry").lean(),
+    const quoteType = inferQuoteType(quotation);
+    const deal = quotation.dealId
+      ? await Deal.findById(quotation.dealId).select("stage client_id lead_id").lean()
+      : null;
+    const leadId = quotation.leadId || deal?.lead_id || null;
+    const sourceId = quoteType === "lead" ? leadId : quotation.dealId;
+
+    if (!sourceId) {
+      return res.status(400).json({
+        message: "Quotation source is invalid"
+      });
+    }
+
+    const resolvedClientId = quotation.clientId || deal?.client_id || null;
+    const [lead, client, items, latestQuoteForSource, globalPaymentTerms, createdBy] = await Promise.all([
+      leadId ? Lead.findById(leadId).select("company_name status industry").lean() : null,
+      resolvedClientId
+        ? Client.findById(resolvedClientId).select("name website GST_no Address industry").lean()
+        : null,
       QuotationItem.find({
         quotationId: quotation._id,
         isActive: true
@@ -281,20 +380,23 @@ exports.getQuotationById = async (req, res) => {
         .populate("taxId", "rate")
         .lean(),
       Quotation.findOne({
-        dealId: quotation.dealId,
+        ...getSourceFilter(quoteType, sourceId),
         is_deleted: false
       })
         .sort({ version: -1, createdAt: -1 })
         .select("_id status")
         .lean(),
-      resolveGlobalPaymentTerms()
+      resolveGlobalPaymentTerms(),
+      quotation.createdBy
+        ? User.findById(quotation.createdBy).select("name email").lean()
+        : null
     ]);
 
-    const clientContact = await findBestClientContact(client?._id || quotation.clientId);
+    const clientContact = await findBestClientContact(client?._id || resolvedClientId);
 
-    const canCreateNewVersion = latestQuoteForDeal
+    const canCreateNewVersion = latestQuoteForSource
       ? VERSION_ALLOWED_PREVIOUS_STATUSES.includes(
-          String(latestQuoteForDeal.status || "").toLowerCase()
+          String(latestQuoteForSource.status || "").toLowerCase()
         )
       : true;
 
@@ -316,7 +418,7 @@ exports.getQuotationById = async (req, res) => {
     let resolvedTermsAndConditions = String(quotation.termsAndConditions || "").trim();
     if (!resolvedTermsAndConditions) {
       const fallbackClause = await resolveAutoClauseText({
-        industryId: client?.industry || null,
+        industryId: client?.industry || lead?.industry || null,
         productCategories: itemRows.map((row) => row.category || "")
       });
       resolvedTermsAndConditions = String(fallbackClause?.termsAndConditions || "").trim();
@@ -326,11 +428,14 @@ exports.getQuotationById = async (req, res) => {
       quotation: {
         _id: quotation._id,
         quoteNumber: quotation.quoteNumber,
-        dealId: quotation.dealId,
+        quoteType,
+        dealId: quotation.dealId || null,
+        leadId: quotation.leadId || null,
+        clientId: resolvedClientId || null,
         status: quotation.status || "draft",
         canCreateNewVersion,
-        isLatestVersion: latestQuoteForDeal
-          ? String(latestQuoteForDeal._id) === String(quotation._id)
+        isLatestVersion: latestQuoteForSource
+          ? String(latestQuoteForSource._id) === String(quotation._id)
           : true,
         version: quotation.version || 1,
         quoteDate: quotation.quoteDate || null,
@@ -343,6 +448,13 @@ exports.getQuotationById = async (req, res) => {
         taxAmount: quotation.taxAmount || 0,
         discountAmount: quotation.discountAmount || 0,
         grandTotal: quotation.grandTotal || 0,
+        createdBy: createdBy
+          ? {
+              _id: createdBy._id,
+              name: createdBy.name || "Unknown",
+              email: createdBy.email || ""
+            }
+          : null,
         createdAt: quotation.createdAt || null,
         updatedAt: quotation.updatedAt || null
       },
@@ -350,6 +462,13 @@ exports.getQuotationById = async (req, res) => {
         ? {
             _id: deal._id,
             stage: deal.stage || "-"
+          }
+        : null,
+      lead: lead
+        ? {
+            _id: lead._id,
+            companyName: lead.company_name || "Untitled Lead",
+            status: lead.status || "-"
           }
         : null,
       client: client
@@ -375,7 +494,10 @@ exports.getQuotationById = async (req, res) => {
 exports.createQuotation = async (req, res) => {
   try {
     const {
+      quoteType: requestedQuoteType,
       dealId,
+      leadId,
+      clientId: requestedClientId,
       baseQuotationId,
       quoteDate,
       validUntil,
@@ -385,12 +507,9 @@ exports.createQuotation = async (req, res) => {
       currency,
       items
     } = req.body;
-
-    if (!dealId) {
-      return res.status(400).json({
-        message: "Deal is required"
-      });
-    }
+    const quoteType = normalizeQuoteType(
+      requestedQuoteType || (leadId ? "lead" : "deal")
+    );
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -398,45 +517,96 @@ exports.createQuotation = async (req, res) => {
       });
     }
 
-    const deal = await Deal.findById(dealId).lean();
+    let sourceId = null;
+    let resolvedDealId = null;
+    let resolvedLeadId = null;
+    let resolvedClientId = null;
+    let assignedTo = null;
+    let industryIdForClauses = null;
 
-    if (!deal) {
-      return res.status(404).json({
-        message: "Deal not found"
-      });
+    if (quoteType === "deal") {
+      if (!dealId) {
+        return res.status(400).json({
+          message: "Deal is required"
+        });
+      }
+
+      const deal = await Deal.findById(dealId).lean();
+      if (!deal) {
+        return res.status(404).json({
+          message: "Deal not found"
+        });
+      }
+      if (!deal.client_id) {
+        return res.status(400).json({
+          message: "Selected deal is not linked to any client"
+        });
+      }
+
+      const dealClient = await Client.findById(deal.client_id)
+        .select("industry")
+        .lean();
+
+      sourceId = deal._id;
+      resolvedDealId = deal._id;
+      resolvedClientId = deal.client_id;
+      assignedTo = deal.assignedTo || null;
+      industryIdForClauses = dealClient?.industry || null;
+    } else {
+      if (!leadId) {
+        return res.status(400).json({
+          message: "Lead is required"
+        });
+      }
+
+      const lead = await Lead.findById(leadId)
+        .select("assigned_to industry")
+        .lean();
+      if (!lead) {
+        return res.status(404).json({
+          message: "Lead not found"
+        });
+      }
+
+      const selectedClient = requestedClientId
+        ? await Client.findById(requestedClientId)
+            .select("industry")
+            .lean()
+        : null;
+      if (requestedClientId && !selectedClient) {
+        return res.status(404).json({
+          message: "Selected client not found"
+        });
+      }
+
+      sourceId = lead._id;
+      resolvedLeadId = lead._id;
+      resolvedClientId = selectedClient?._id || null;
+      assignedTo = lead.assigned_to || null;
+      industryIdForClauses = selectedClient?.industry || lead?.industry || null;
     }
 
-    if (!deal.client_id) {
-      return res.status(400).json({
-        message: "Selected deal is not linked to any client"
-      });
-    }
+    const sourceFilter = getSourceFilter(quoteType, sourceId);
+    await syncExpiredQuotations(sourceFilter);
 
-    const dealClient = await Client.findById(deal.client_id)
-      .select("industry")
-      .lean();
-
-    await syncExpiredQuotations({ dealId });
-
-    const latestQuoteForDeal = await Quotation.findOne({
-      dealId,
+    const latestQuoteForSource = await Quotation.findOne({
+      ...sourceFilter,
       is_deleted: false
     })
-      .sort({ version: -1 })
+      .sort({ version: -1, createdAt: -1 })
       .select("_id version status")
       .lean();
 
-    if (latestQuoteForDeal && !baseQuotationId) {
+    if (latestQuoteForSource && !baseQuotationId) {
       return res.status(400).json({
-        message:
-          "Quotation already exists for this deal. Use New Version from quotation details."
+        message: getDuplicateMessage(quoteType)
       });
     }
 
-    if (latestQuoteForDeal && baseQuotationId) {
+    if (latestQuoteForSource && baseQuotationId) {
       const baseQuotation = await Quotation.findOne({
         _id: baseQuotationId,
-        dealId,
+        ...sourceFilter,
         is_deleted: false
       })
         .select("_id")
@@ -450,8 +620,10 @@ exports.createQuotation = async (req, res) => {
     }
 
     if (
-      latestQuoteForDeal &&
-      !VERSION_ALLOWED_PREVIOUS_STATUSES.includes(String(latestQuoteForDeal.status || "").toLowerCase())
+      latestQuoteForSource &&
+      !VERSION_ALLOWED_PREVIOUS_STATUSES.includes(
+        String(latestQuoteForSource.status || "").toLowerCase()
+      )
     ) {
       return res.status(400).json({
         message:
@@ -459,9 +631,9 @@ exports.createQuotation = async (req, res) => {
       });
     }
 
-    const version = (latestQuoteForDeal?.version || 0) + 1;
+    const version = (latestQuoteForSource?.version || 0) + 1;
     const finalQuoteDate = quoteDate ? new Date(quoteDate) : new Date();
-    const quoteNumber = buildQuoteNumber(dealId, finalQuoteDate, version);
+    const quoteNumber = buildQuoteNumber(sourceId, finalQuoteDate, version, quoteType);
 
     const productIds = [
       ...new Set(
@@ -481,7 +653,7 @@ exports.createQuotation = async (req, res) => {
       _id: { $in: productIds },
       is_deleted: false
     })
-      .select("name price taxPercent taxId")
+      .select("name category price taxPercent taxId")
       .lean();
 
     const productMap = new Map(products.map((product) => [String(product._id), product]));
@@ -573,7 +745,7 @@ exports.createQuotation = async (req, res) => {
 
     const [autoClauseText, globalPaymentTerms] = await Promise.all([
       resolveAutoClauseText({
-        industryId: dealClient?.industry || null,
+        industryId: industryIdForClauses || null,
         productCategories: selectedProductCategories
       }),
       resolveGlobalPaymentTerms()
@@ -581,10 +753,12 @@ exports.createQuotation = async (req, res) => {
 
     const quotation = await Quotation.create({
       quoteNumber,
-      dealId,
-      clientId: deal.client_id,
+      quoteType,
+      dealId: resolvedDealId,
+      leadId: resolvedLeadId,
+      clientId: resolvedClientId || null,
       createdBy: req.user._id,
-      assignedTo: deal.assignedTo || null,
+      assignedTo: assignedTo || null,
       quoteDate: finalQuoteDate,
       validUntil: validUntil ? new Date(validUntil) : null,
       subtotalAmount: round2(subtotalAmount),
@@ -613,6 +787,9 @@ exports.createQuotation = async (req, res) => {
     res.status(201).json({
       _id: quotation._id,
       quoteNumber: quotation.quoteNumber,
+      quoteType: quotation.quoteType || quoteType,
+      dealId: quotation.dealId || null,
+      leadId: quotation.leadId || null,
       version: quotation.version,
       grandTotal: quotation.grandTotal
     });
@@ -642,7 +819,7 @@ exports.updateQuotationStatus = async (req, res) => {
       _id: req.params.id,
       is_deleted: false
     })
-      .select("_id dealId version")
+      .select("_id dealId leadId quoteType version")
       .lean();
 
     if (!currentQuotation) {
@@ -651,8 +828,17 @@ exports.updateQuotationStatus = async (req, res) => {
       });
     }
 
-    const latestQuotationForDeal = await Quotation.findOne({
-      dealId: currentQuotation.dealId,
+    const quoteType = inferQuoteType(currentQuotation);
+    const sourceId = quoteType === "lead" ? currentQuotation.leadId : currentQuotation.dealId;
+
+    if (!sourceId) {
+      return res.status(400).json({
+        message: "Quotation source is invalid"
+      });
+    }
+
+    const latestQuotationForSource = await Quotation.findOne({
+      ...getSourceFilter(quoteType, sourceId),
       is_deleted: false
     })
       .sort({ version: -1, createdAt: -1 })
@@ -660,8 +846,8 @@ exports.updateQuotationStatus = async (req, res) => {
       .lean();
 
     if (
-      latestQuotationForDeal &&
-      String(latestQuotationForDeal._id) !== String(currentQuotation._id)
+      latestQuotationForSource &&
+      String(latestQuotationForSource._id) !== String(currentQuotation._id)
     ) {
       return res.status(400).json({
         message: "Previous quotation status is locked; only the latest version can be updated"

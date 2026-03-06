@@ -34,6 +34,8 @@ import AddEvent from './pages/modules/AddEvent.jsx';
 import TeamDashboard from './pages/modules/TeamDashboard.jsx';
 import TeamSetup from './pages/modules/TeamSetup.jsx';
 import TeamTargets from './pages/modules/TeamTargets.jsx';
+import TeamTargetsAdmin from './pages/modules/TeamTargetsAdmin.jsx';
+import TeamTargetsManager from './pages/modules/TeamTargetsManager.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
@@ -128,6 +130,8 @@ function App() {
           <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamDashboard /></ProtectedRoute>} />
           <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
           <Route path="/team-targets" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamTargets /></ProtectedRoute>} />
+          <Route path="/team-targets/admin" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamTargetsAdmin /></ProtectedRoute>} />
+          <Route path="/team-targets/manage" element={<ProtectedRoute allowedRoles={["Manager"]}><TeamTargetsManager /></ProtectedRoute>} />
           <Route
             path="/reports"
             element={

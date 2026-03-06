@@ -111,6 +111,13 @@ const leadsSchema = new mongoose.Schema(
   }
 );
 
-module.exports =
+const LeadsModel =
   mongoose.models.Leads ||
   mongoose.model("Leads", leadsSchema);
+
+// Backward-compatible alias for schemas/controllers that still reference "Lead".
+if (!mongoose.models.Lead) {
+  mongoose.model("Lead", leadsSchema);
+}
+
+module.exports = LeadsModel;
