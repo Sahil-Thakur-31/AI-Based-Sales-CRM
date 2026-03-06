@@ -41,19 +41,59 @@ function isOnLocalDate(rawDate, targetDateISO) {
   return getDateParam(d) === targetDateISO;
 }
 
+function isAllowedReportStatus(item = {}) {
+  const status = String(item?.status || item?.action || "").trim().toLowerCase();
+  return status === "completed" || status === "cancelled" || status === "canceled";
+}
+
+function normalizeStatus(value) {
+  const status = String(value || "").trim().toLowerCase();
+  if (status === "completed") return "completed";
+  if (status === "cancelled" || status === "canceled") return "cancelled";
+  return "";
+}
+
+function MinutesCell({ value, expandByDefault = false, showExpandControl = true }) {
+  const fullText = String(value || "-").trim() || "-";
+  const [expanded, setExpanded] = useState(expandByDefault);
+  const shouldTruncate = fullText.length > 220;
+  const previewText = shouldTruncate ? `${fullText.slice(0, 220).trimEnd()}...` : fullText;
+
+  return (
+    <div className="dailyClosingMinutesCell">
+      <span>{expanded ? fullText : previewText}</span>
+      {shouldTruncate && showExpandControl ? (
+        <button
+          type="button"
+          className="dailyClosingReadMoreBtn"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function ReportTableSection({
   title,
   loading,
   emptyText,
   rows,
-  rowType,
-  getAction,
+  selectedStatus,
+  onStatusChange,
   getTotalEvents,
+  hideStatusToggle = false,
+  expandMinutesByDefault = false,
+  showExpandControl = true,
+  detailsHeader = "Minutes of Meeting",
 }) {
   const getClientLabel = (item = {}) =>
     String(item?.clientName || item?.client || item?.companyName || "").trim();
 
-  const countByClient = rows.reduce((acc, item) => {
+  const filteredRows = rows.filter((item) => normalizeStatus(item?.status) === selectedStatus);
+
+  const countByClient = filteredRows.reduce((acc, item) => {
     const key = getClientLabel(item).toLowerCase() || "__unknown__";
     acc[key] = (acc[key] || 0) + 1;
     return acc;
@@ -61,43 +101,69 @@ function ReportTableSection({
 
   return (
     <section className="dailyClosingReportSection">
-      <h3 className="dailyClosingReportSectionTitle">
-        {title}
-      </h3>
+      <div className="dailyClosingReportSectionHeader">
+        <h3 className="dailyClosingReportSectionTitle">{title}</h3>
+        {hideStatusToggle ? null : (
+          <div className="dailyClosingTopToggle" role="group" aria-label={`${title} status filter`}>
+            <button
+              type="button"
+              className={`dailyClosingTopToggleBtn ${selectedStatus === "completed" ? "isActive isCompleted" : ""}`}
+              onClick={() => onStatusChange("completed")}
+            >
+              Completed
+            </button>
+            <button
+              type="button"
+              className={`dailyClosingTopToggleBtn ${selectedStatus === "cancelled" ? "isActive isCancelled" : ""}`}
+              onClick={() => onStatusChange("cancelled")}
+            >
+              Cancelled
+            </button>
+          </div>
+        )}
+      </div>
       <div className="dailyClosingReportTableWrap">
         <table className="dailyClosingReportTable">
+          <colgroup>
+            <col className="dailyClosingColSr" />
+            <col className="dailyClosingColTotal" />
+            <col className="dailyClosingColClient" />
+            <col className="dailyClosingColMinutes" />
+          </colgroup>
           <thead>
             <tr>
               <th>Sr. No.</th>
-              <th>Events</th>
               <th>Total Events</th>
               <th>Client Name</th>
-              <th>Minutes of Meeting</th>
-              <th>Action</th>
+              <th>{detailsHeader}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6}>Loading...</td>
+                <td colSpan={4}>Loading...</td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={6}>{emptyText}</td>
+                <td colSpan={4}>{emptyText}</td>
               </tr>
             ) : (
-              rows.map((item, index) => (
+              filteredRows.map((item, index) => (
                 <tr key={String(item._id || index)}>
                   <td>{index + 1}</td>
-                  <td>{rowType}</td>
                   <td>
                     {getTotalEvents
                       ? getTotalEvents(item, countByClient)
                       : countByClient[getClientLabel(item).toLowerCase() || "__unknown__"] || 0}
                   </td>
                   <td>{getClientLabel(item) || "-"}</td>
-                  <td>{item.notes || item.title || "-"}</td>
-                  <td>{getAction(item)}</td>
+                  <td>
+                    <MinutesCell
+                      value={item.notes || item.title || "-"}
+                      expandByDefault={expandMinutesByDefault}
+                      showExpandControl={showExpandControl}
+                    />
+                  </td>
                 </tr>
               ))
             )}
@@ -127,8 +193,25 @@ export default function DailyClosingReport() {
   const [employeeName, setEmployeeName] = useState("");
   const [employeeRole, setEmployeeRole] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const pdfContentRef = useRef(null);
+  const screenContentRef = useRef(null);
+  const exportContentRef = useRef(null);
   const selectedDateParam = useMemo(() => getDateParam(selectedDate), [selectedDate]);
+  const completedMeetings = useMemo(
+    () => meetings.filter((item) => normalizeStatus(item?.status) === "completed"),
+    [meetings]
+  );
+  const cancelledMeetings = useMemo(
+    () => meetings.filter((item) => normalizeStatus(item?.status) === "cancelled"),
+    [meetings]
+  );
+  const completedFollowups = useMemo(
+    () => followups.filter((item) => normalizeStatus(item?.status) === "completed"),
+    [followups]
+  );
+  const cancelledFollowups = useMemo(
+    () => followups.filter((item) => normalizeStatus(item?.status) === "cancelled"),
+    [followups]
+  );
 
   useEffect(() => {
     (async () => {
@@ -151,8 +234,8 @@ export default function DailyClosingReport() {
         const todayFollowups = (followupRes.data || []).filter((row) =>
           isOnLocalDate(row?.dueDateTime, selectedDateParam)
         );
-        setMeetings(todayMeetings);
-        setFollowups(todayFollowups);
+        setMeetings(todayMeetings.filter(isAllowedReportStatus));
+        setFollowups(todayFollowups.filter(isAllowedReportStatus));
       } catch (err) {
         console.error(err);
         setError("Failed to load report data");
@@ -179,11 +262,12 @@ export default function DailyClosingReport() {
   }, []);
 
   const handleExportPdf = async () => {
-    if (!pdfContentRef.current || isExporting) return;
+    const exportNode = exportContentRef.current || screenContentRef.current;
+    if (!exportNode || isExporting) return;
 
     try {
       setIsExporting(true);
-      const canvas = await html2canvas(pdfContentRef.current, {
+      const canvas = await html2canvas(exportNode, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#f6f8fc",
@@ -258,13 +342,25 @@ export default function DailyClosingReport() {
       await API.post("/daily-closing/mail-report", {
         selectedDate: selectedDateParam,
         keyHighlights,
-        meetings: meetings.map((m) => ({
+        meetingsCompleted: completedMeetings.map((m) => ({
           clientName: m.clientName || "",
           notes: m.notes || "",
           status: m.status || "",
           type: "Meeting",
         })),
-        followups: followups.map((f) => ({
+        followupsCompleted: completedFollowups.map((f) => ({
+          clientName: f.clientName || "",
+          notes: f.notes || f.title || "",
+          status: f.status || "",
+          type: "Follow-up",
+        })),
+        meetingsCancelled: cancelledMeetings.map((m) => ({
+          clientName: m.clientName || "",
+          notes: m.notes || "",
+          status: m.status || "",
+          type: "Meeting",
+        })),
+        followupsCancelled: cancelledFollowups.map((f) => ({
           clientName: f.clientName || "",
           notes: f.notes || f.title || "",
           status: f.status || "",
@@ -309,23 +405,46 @@ export default function DailyClosingReport() {
         {error ? <div className="dailyClosingSubmitMessage">{error}</div> : null}
         {successMessage ? <div className="dailyClosingSubmitMessage">{successMessage}</div> : null}
 
-        <div className="dailyClosingReportCard" ref={pdfContentRef}>
+        <div className="dailyClosingReportCard" ref={screenContentRef}>
           <ReportTableSection
-            title="Event Details"
+            title="Meeting Details (Completed)"
             loading={loading}
-            emptyText="No events found for this date."
-            rows={meetings}
-            rowType="Meeting"
-            getAction={(item) => item.status || "-"}
+            emptyText="No completed meetings found for this date."
+            rows={completedMeetings}
+            selectedStatus="completed"
+            onStatusChange={() => {}}
+            hideStatusToggle
           />
           <ReportTableSection
-            title="Follow-up Details"
+            title="Follow-up Details (Completed)"
             loading={loading}
-            emptyText="No follow-ups found for this date."
-            rows={followups}
-            rowType="Follow-up"
-            getAction={(item) => item.status || "-"}
+            emptyText="No completed follow-ups found for this date."
+            rows={completedFollowups}
+            selectedStatus="completed"
+            onStatusChange={() => {}}
             getTotalEvents={() => 1}
+            hideStatusToggle
+            detailsHeader="Agenda of Meeting"
+          />
+          <ReportTableSection
+            title="Meeting Details (Cancelled)"
+            loading={loading}
+            emptyText="No cancelled meetings found for this date."
+            rows={cancelledMeetings}
+            selectedStatus="cancelled"
+            onStatusChange={() => {}}
+            hideStatusToggle
+          />
+          <ReportTableSection
+            title="Follow-up Details (Cancelled)"
+            loading={loading}
+            emptyText="No cancelled follow-ups found for this date."
+            rows={cancelledFollowups}
+            selectedStatus="cancelled"
+            onStatusChange={() => {}}
+            getTotalEvents={() => 1}
+            hideStatusToggle
+            detailsHeader="Agenda of Meeting"
           />
 
           <div className="dailyClosingReportHighlights">
@@ -337,6 +456,70 @@ export default function DailyClosingReport() {
             <span>Date: {selectedDateParam}</span>
             <span>Meetings: {meetings.length}</span>
             <span>Follow-ups: {followups.length}</span>
+          </div>
+        </div>
+
+        <div className="dailyClosingPdfExportOnly" ref={exportContentRef}>
+          <div className="dailyClosingReportCard">
+            <ReportTableSection
+              title="Meeting Details (Completed)"
+              loading={false}
+              emptyText="No completed meetings found for this date."
+              rows={completedMeetings}
+              selectedStatus="completed"
+              onStatusChange={() => {}}
+              hideStatusToggle
+              expandMinutesByDefault
+              showExpandControl={false}
+            />
+            <ReportTableSection
+              title="Follow-up Details (Completed)"
+              loading={false}
+              emptyText="No completed follow-ups found for this date."
+              rows={completedFollowups}
+              selectedStatus="completed"
+              onStatusChange={() => {}}
+              getTotalEvents={() => 1}
+              hideStatusToggle
+              expandMinutesByDefault
+              showExpandControl={false}
+              detailsHeader="Agenda of Meeting"
+            />
+            <ReportTableSection
+              title="Meeting Details (Cancelled)"
+              loading={false}
+              emptyText="No cancelled meetings found for this date."
+              rows={cancelledMeetings}
+              selectedStatus="cancelled"
+              onStatusChange={() => {}}
+              hideStatusToggle
+              expandMinutesByDefault
+              showExpandControl={false}
+            />
+            <ReportTableSection
+              title="Follow-up Details (Cancelled)"
+              loading={false}
+              emptyText="No cancelled follow-ups found for this date."
+              rows={cancelledFollowups}
+              selectedStatus="cancelled"
+              onStatusChange={() => {}}
+              getTotalEvents={() => 1}
+              hideStatusToggle
+              expandMinutesByDefault
+              showExpandControl={false}
+              detailsHeader="Agenda of Meeting"
+            />
+
+            <div className="dailyClosingReportHighlights">
+              <strong>Key Highlights</strong>
+              <span>{keyHighlights || "-"}</span>
+            </div>
+
+            <div className="dailyClosingReportMeta">
+              <span>Date: {selectedDateParam}</span>
+              <span>Meetings: {meetings.length}</span>
+              <span>Follow-ups: {followups.length}</span>
+            </div>
           </div>
         </div>
 

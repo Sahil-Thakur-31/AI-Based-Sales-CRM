@@ -22,7 +22,7 @@
 .ManagerDashboard .manager-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.5rem;
+  gap: 0.75rem;
   align-items: stretch;
 }
 

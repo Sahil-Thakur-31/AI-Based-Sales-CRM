@@ -390,6 +390,31 @@
   flex-direction: column;
 }
 
+.fuaModalSm {
+  width: min(520px, 100%);
+}
+
+.fuaCancelModal {
+  width: min(760px, 100%);
+}
+
+.fuaCancelModal .fuaModalScroll {
+  padding: 8px 20px 20px;
+}
+
+.fuaCancelModal .fuaGrid {
+  grid-template-columns: 1fr;
+}
+
+.fuaCancelReason {
+  min-height: 120px;
+}
+
+.fuaCancelActions {
+  justify-content: center;
+  margin-top: 16px;
+}
+
 .fuaModalHead {
   display: flex;
   align-items: center;

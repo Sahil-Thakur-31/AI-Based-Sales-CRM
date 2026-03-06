@@ -49,13 +49,9 @@ async function getAccessibleUserIds(reqUser) {
   }
 
   if (isAdmin(roleName)) {
-    const users = await User.find({ is_deleted: { $ne: true } }).populate("role", "name").select("_id role");
-    const ids = users
-      .filter((u) => {
-        const rn = normalizeRole(u.role?.name || "");
-        return rn === "admin" || rn === "manager" || isSales(rn);
-      })
-      .map((u) => String(u._id));
+    // Admin can access all active users for assignment/filtering.
+    const users = await User.find({ is_deleted: { $ne: true } }).select("_id");
+    const ids = users.map((u) => String(u._id));
     return [...new Set([myId, ...ids])];
   }
 
