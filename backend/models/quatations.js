@@ -10,13 +10,25 @@ const quotationSchema = new mongoose.Schema(
     dealId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "deals",
-      required: true
+      default: null
+    },
+
+    leadId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Leads",
+      default: null
+    },
+
+    quoteType: {
+      type: String,
+      enum: ["deal", "lead"],
+      default: "deal"
     },
 
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "client",
-      required: true
+      default: null
     },
 
     createdBy: {

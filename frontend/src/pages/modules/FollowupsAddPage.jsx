@@ -783,7 +783,11 @@ export default function FollowupsAddPage() {
       resetForm();
     } catch (err) {
       console.error(err);
-      setFormError(err?.response?.data?.errors?.[0] || "Failed to save");
+      setFormError(
+        err?.response?.data?.errors?.[0] ||
+        err?.response?.data?.message ||
+        "Failed to save"
+      );
     }
   };
 

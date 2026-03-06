@@ -16,7 +16,6 @@ import {
   FaBell,
   FaUser,
   FaPenToSquare,
-  FaTrashCan,
   FaBan,
   FaXmark,
 } from "react-icons/fa6";
@@ -55,6 +54,7 @@ const CATEGORIES = ["meeting", "daily_closing", "event_expo"];
 const DEFAULT_REMINDER_OPTIONS = [
   { channel: "notification", value: 10, unit: "minutes" },
 ];
+const EXPO_REMINDER_STORE_KEY = "calendar_event_expo_reminder_v1";
 
 function prettyPriority(priority = "medium") {
   const p = String(priority || "medium");
@@ -125,13 +125,39 @@ function toCalendarEvent(doc) {
   };
 }
 
+function readExpoReminderStore() {
+  try {
+    const raw = localStorage.getItem(EXPO_REMINDER_STORE_KEY);
+    const parsed = JSON.parse(raw || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeExpoReminderStore(map) {
+  try {
+    localStorage.setItem(EXPO_REMINDER_STORE_KEY, JSON.stringify(map || {}));
+  } catch {
+    // ignore storage failures
+  }
+}
+
 function toEventExpoCalendarEvent(doc) {
   const start = doc?.startDate ? new Date(doc.startDate) : null;
   const end = doc?.endDate ? new Date(doc.endDate) : null;
   if (!start || Number.isNaN(start.getTime())) return null;
+  const sourceId = String(doc?._id || "");
+  const reminderStore = readExpoReminderStore();
+  const reminderSaved = reminderStore[sourceId] || {};
+  const reminderChoice = String(reminderSaved.reminderChoice || "yes").toLowerCase();
+  const reminderEnabled = reminderChoice !== "no";
+  const reminderOptions = Array.isArray(reminderSaved.reminderOptions) && reminderSaved.reminderOptions.length
+    ? reminderSaved.reminderOptions
+    : DEFAULT_REMINDER_OPTIONS;
 
   return {
-    id: `event-${String(doc._id)}`,
+    id: `event-${sourceId}`,
     title: doc.name || "Event & Expo",
     start: start.toISOString(),
     end: end && !Number.isNaN(end.getTime()) ? end.toISOString() : undefined,
@@ -144,7 +170,10 @@ function toEventExpoCalendarEvent(doc) {
       address: doc.address || "",
       notes: doc.description || "",
       registrationFee: doc.registrationFee,
-      sourceId: doc._id || null,
+      sourceId,
+      reminderEnabled,
+      reminderChoice,
+      reminderOptions,
     },
   };
 }
@@ -502,11 +531,24 @@ export default function CalendarPage() {
               .filter((opt) => Number.isFinite(opt.value))
           : [];
 
-      await API.put(`/followups/${popover.event.id}`, {
-        reminderEnabled,
-        reminderChoice,
-        reminderOptions: normalizedOptions,
-      });
+      const eventType = String(popover?.event?.extendedProps?.type || "").toLowerCase();
+      if (eventType === "meeting") {
+        await API.put(`/followups/${popover.event.id}`, {
+          reminderEnabled,
+          reminderChoice,
+          reminderOptions: normalizedOptions,
+        });
+      } else if (eventType === "event_expo") {
+        const sourceId = String(popover?.event?.extendedProps?.sourceId || "").trim();
+        if (sourceId) {
+          const reminderStore = readExpoReminderStore();
+          reminderStore[sourceId] = {
+            reminderChoice,
+            reminderOptions: normalizedOptions,
+          };
+          writeExpoReminderStore(reminderStore);
+        }
+      }
 
       setEvents((prev) =>
         prev.map((ev) =>
@@ -558,18 +600,6 @@ export default function CalendarPage() {
       setEditingReminder(false);
     } catch (err) {
       console.error("Cancel meeting failed:", err);
-    }
-  };
-
-  const deleteMeeting = async () => {
-    if (!popover?.event?.id) return;
-    try {
-      await API.delete(`/followups/${popover.event.id}`);
-      setEvents((prev) => prev.filter((ev) => ev.id !== popover.event.id));
-      setPopover(null);
-      setEditingReminder(false);
-    } catch (err) {
-      console.error("Delete meeting failed:", err);
     }
   };
 
@@ -828,13 +858,19 @@ export default function CalendarPage() {
                     >
                       <FaPenToSquare />
                     </button>
-                    <button className="ep-action-btn ep-delete" title="Delete meeting" onClick={deleteMeeting}>
-                      <FaTrashCan />
-                    </button>
                     <button className="ep-action-btn ep-cancel" title="Cancel meeting" onClick={cancelMeeting}>
                       <FaBan />
                     </button>
                   </>
+                )}
+                {props.type === "event_expo" && (
+                  <button
+                    className="ep-action-btn ep-edit"
+                    title="Edit reminder"
+                    onClick={() => setEditingReminder((prev) => !prev)}
+                  >
+                    <FaPenToSquare />
+                  </button>
                 )}
                 {props.type === "daily_closing" && (
                   <button
@@ -962,16 +998,81 @@ export default function CalendarPage() {
                   <span>Venue: {props.venue || "-"}</span>
                 </div>
                 <div className="ep-detail-row">
-                  <FaUser className="ep-detail-icon" />
-                  <span>Address: {props.address || "-"}</span>
-                </div>
-                <div className="ep-detail-row">
                   <FaBolt className="ep-detail-icon" />
                   <span>Fee: {props.registrationFee ?? 0}</span>
                 </div>
                 <div className="ep-detail-row">
                   <FaList className="ep-detail-icon" />
                   <span>Details: {props.notes || "-"}</span>
+                </div>
+                <div className="ep-detail-row ep-reminder-row">
+                  <FaBell className="ep-detail-icon" />
+                  {!editingReminder ? (
+                    <span>
+                      Reminder:{" "}
+                      {props.reminderChoice === "maybe" ? "Maybe" : props.reminderEnabled === false ? "No" : "Yes"}
+                    </span>
+                  ) : (
+                    <div className="ep-reminder-edit">
+                      <select
+                        className="ep-select"
+                        value={reminderChoice}
+                        onChange={(e) => setReminderChoice(e.target.value)}
+                        disabled={savingReminder}
+                      >
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                        <option value="maybe">Maybe</option>
+                      </select>
+                      {reminderChoice === "yes" && (
+                        <div className="ep-notify-options">
+                          {reminderOptions.map((opt, idx) => (
+                            <div className="ep-notify-row" key={`expo-notify-row-${idx}`}>
+                              <div className="ep-notify-label">Notification</div>
+                              <input
+                                className="ep-notify-number"
+                                type="number"
+                                min="1"
+                                value={opt.value}
+                                onChange={(e) => updateReminderOptionRow(idx, "value", e.target.value)}
+                                disabled={savingReminder}
+                              />
+                              <select
+                                className="ep-select"
+                                value={opt.unit}
+                                onChange={(e) => updateReminderOptionRow(idx, "unit", e.target.value)}
+                                disabled={savingReminder}
+                              >
+                                <option value="minutes">minutes</option>
+                                <option value="hours">hours</option>
+                                <option value="days">days</option>
+                              </select>
+                              <button
+                                type="button"
+                                className="ep-action-btn ep-close"
+                                onClick={() => removeReminderOptionRow(idx)}
+                                disabled={savingReminder}
+                                title="Remove notification row"
+                              >
+                                <FaXmark />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="ep-add-reminder-row"
+                            onClick={addReminderOptionRow}
+                            disabled={savingReminder}
+                          >
+                            + Add notification
+                          </button>
+                        </div>
+                      )}
+                      <button className="ep-save-btn" onClick={saveReminderOnly} disabled={savingReminder}>
+                        {savingReminder ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}
