@@ -1,6 +1,7 @@
 const Followup = require("../models/followUp");
 const LeadContacts = require("../models/leadContacts");
 const ClientContact = require("../models/client_contact");
+const mongoose = require("mongoose");
 const { sendWhatsAppMessage } = require("./whatsappService");
 
 let isProcessing = false;
@@ -65,6 +66,7 @@ function constructMessage(meeting, recipientName, timeRemaining) {
 
 async function processMeetingReminders() {
     if (isProcessing) return;
+    if (mongoose.connection.readyState !== 1) return;
     isProcessing = true;
 
     try {

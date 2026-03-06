@@ -91,8 +91,10 @@ mongoose.connection.once("open", async () => {
       console.error("Failed to ensure meetings collection:", err.message || err);
     }
   }
+
+  // Start background workers only after DB is available.
+  startNotificationEmailWorker();
+  startWhatsAppMeetingWorker();
 });
 
 myServer.listen(PORT, () => console.log('Server started on', PORT));
-startNotificationEmailWorker();
-startWhatsAppMeetingWorker();

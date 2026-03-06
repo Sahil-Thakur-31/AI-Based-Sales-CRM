@@ -1,6 +1,7 @@
 const Notification = require("../models/notifications");
 const CRMSettings = require("../models/crmSettings");
 const User = require("../models/users");
+const mongoose = require("mongoose");
 const sendOTPEmail = require("./emailService");
 const {
   buildNotificationEmail,
@@ -154,6 +155,7 @@ async function processNotification(notificationDoc) {
 
 async function processPendingNotificationEmails() {
   if (isProcessing) return;
+  if (mongoose.connection.readyState !== 1) return;
   isProcessing = true;
   try {
     const pending = await Notification.find({
