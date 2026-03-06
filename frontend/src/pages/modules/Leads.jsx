@@ -419,16 +419,21 @@ function LeadsDashboard({ defaultView = "leads" }) {
   };
 
   const loading = viewMode === "deals" ? loadingDeals : loadingLeads;
+  const isRowActive = (row) => {
+    if (!row) return true;
+    if (row.is_active === false || row.isActive === false) return false;
+    return true;
+  };
 
   const tabCounts = useMemo(() => {
     let active = 0, inactive = 0, deleted = 0;
     if (viewMode === "deals") {
-      active = deals.filter(d => d.isActive !== false).length;
-      inactive = deals.filter(d => d.isActive === false).length;
+      active = deals.filter((d) => isRowActive(d)).length;
+      inactive = deals.filter((d) => !isRowActive(d)).length;
       deleted = deletedDeals.length;
     } else {
-      active = leads.filter(l => l.is_active !== false).length;
-      inactive = leads.filter(l => l.is_active === false).length;
+      active = leads.filter((l) => isRowActive(l)).length;
+      inactive = leads.filter((l) => !isRowActive(l)).length;
       deleted = deletedLeads.length;
     }
     return { active, inactive, deleted };
@@ -438,10 +443,10 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const sourceRows = useMemo(() => {
     if (viewMode === "deals") {
       if (activeTab === "deleted") return deletedDeals;
-      return deals.filter(d => activeTab === "active" ? (d.isActive !== false) : (d.isActive === false));
+      return deals.filter((d) => (activeTab === "active" ? isRowActive(d) : !isRowActive(d)));
     } else {
       if (activeTab === "deleted") return deletedLeads;
-      return leads.filter(l => activeTab === "active" ? (l.is_active !== false) : (l.is_active === false));
+      return leads.filter((l) => (activeTab === "active" ? isRowActive(l) : !isRowActive(l)));
     }
   }, [viewMode, activeTab, deals, deletedDeals, leads, deletedLeads]);
   const industries = useMemo(() => {
@@ -696,8 +701,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
                             try {
                               const endpoint = viewMode === "deals" ? `/deals/${row._id}` : `/leads/${row._id}`;
                               await API.put(endpoint, { isActive: true, is_active: true });
-                              // Reload data or locally adjust list
-                              window.location.reload(); // Simple state sync since this handles both deals and leads easily
+                              await loadDashboardData();
                             } catch (err) {
                               console.error("Failed to reactivate:", err);
                               alert("Failed to reactivate record.");

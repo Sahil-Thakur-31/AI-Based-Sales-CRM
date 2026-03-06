@@ -5,12 +5,63 @@ const LeadContacts = require("../models/leadContacts");
 const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
 const User = require("../models/users");
+const Followup = require("../models/followUp");
 
 function mapTemperatureFromLead(lead) {
   const temp = (lead?.lead_temperature || "").toLowerCase();
   if (temp === "hot") return { ai_score: 90, lead_temperature: "hot" };
   if (temp === "warm") return { ai_score: 70, lead_temperature: "warm" };
   return { ai_score: 50, lead_temperature: "cold" };
+}
+
+function toValidDate(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+async function fetchFollowupInsightsByField(fieldName, ids = []) {
+  if (!ids.length) {
+    return { nextMap: new Map(), lastMap: new Map() };
+  }
+
+  const followups = await Followup.find({
+    [fieldName]: { $in: ids },
+    is_deleted: false,
+  })
+    .select(`${fieldName} status dueDateTime lastContactDate completedAt createdAt`)
+    .lean();
+
+  const nextMap = new Map();
+  const lastMap = new Map();
+
+  for (const followup of followups) {
+    const entityId = followup?.[fieldName]?.toString();
+    if (!entityId) continue;
+
+    if (["pending", "overdue"].includes(String(followup.status || "").toLowerCase())) {
+      const existing = nextMap.get(entityId);
+      const currentDue = toValidDate(followup.dueDateTime);
+      const existingDue = toValidDate(existing?.dueDateTime);
+      if (!existing || (currentDue && (!existingDue || currentDue < existingDue))) {
+        nextMap.set(entityId, followup);
+      }
+    }
+
+    const candidates = [
+      toValidDate(followup.lastContactDate),
+      toValidDate(followup.completedAt),
+      toValidDate(followup.createdAt),
+    ].filter(Boolean);
+    if (!candidates.length) continue;
+    const latestForFollowup = new Date(Math.max(...candidates.map((d) => d.getTime())));
+    const previous = toValidDate(lastMap.get(entityId));
+    if (!previous || latestForFollowup > previous) {
+      lastMap.set(entityId, latestForFollowup);
+    }
+  }
+
+  return { nextMap, lastMap };
 }
 
 async function isAdminAssignee(userId) {
@@ -43,6 +94,8 @@ exports.getDeals = async (req, res) => {
     }
 
     const deals = await dealsQuery.lean();
+    const dealIds = deals.map((deal) => deal._id).filter(Boolean);
+    const dealIdStrings = dealIds.map((id) => id.toString());
 
     const leadIds = deals
       .map((deal) => deal.lead_id)
@@ -55,6 +108,11 @@ exports.getDeals = async (req, res) => {
       .filter(Boolean)
       .map((id) => id.toString());
     const uniqueClientIds = [...new Set(clientIds)];
+    const [{ nextMap: nextByDealId, lastMap: lastByDealId }, { nextMap: nextByLeadId, lastMap: lastByLeadId }] =
+      await Promise.all([
+        fetchFollowupInsightsByField("dealId", dealIdStrings),
+        fetchFollowupInsightsByField("leadId", uniqueLeadIds),
+      ]);
 
     const leads = uniqueLeadIds.length
       ? await Leads.find({ _id: { $in: uniqueLeadIds } }).lean()
@@ -135,6 +193,52 @@ exports.getDeals = async (req, res) => {
         isActive: deal.isActive !== false,
       };
     });
+
+    if (!deletedOnly && deals.length) {
+      const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const toDeactivateDealIds = [];
+
+      for (const deal of deals) {
+        if (deal.is_deleted === true || deal.isActive === false) continue;
+
+        const dealId = String(deal._id || "");
+        const leadId = deal.lead_id ? String(deal.lead_id) : "";
+        const relatedLead = leadId ? leadMap.get(leadId) : null;
+
+        const hasNextFollowup = Boolean(
+          nextByDealId.get(dealId) ||
+          (leadId && nextByLeadId.get(leadId)) ||
+          toValidDate(relatedLead?.next_action_date)
+        );
+        if (hasNextFollowup) continue;
+
+        const latestActivityDate = [
+          toValidDate(lastByDealId.get(dealId)),
+          leadId ? toValidDate(lastByLeadId.get(leadId)) : null,
+          toValidDate(relatedLead?.last_contact_date),
+          toValidDate(deal.updatedAt),
+        ]
+          .filter(Boolean)
+          .sort((a, b) => b - a)[0];
+
+        if (latestActivityDate && latestActivityDate <= cutoffDate) {
+          toDeactivateDealIds.push(deal._id);
+        }
+      }
+
+      if (toDeactivateDealIds.length) {
+        const deactivatedIdSet = new Set(toDeactivateDealIds.map((id) => String(id)));
+        await Deal.updateMany(
+          { _id: { $in: toDeactivateDealIds }, is_deleted: { $ne: true } },
+          { $set: { isActive: false } }
+        );
+        for (const row of response) {
+          if (deactivatedIdSet.has(String(row._id))) {
+            row.isActive = false;
+          }
+        }
+      }
+    }
 
     res.json(response);
   } catch (err) {
