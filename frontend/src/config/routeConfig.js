@@ -44,6 +44,10 @@ export const routeConfig = [
 
   // Analytics
   { path: "/events", title: "Events & Expos" },
+  { path: "/events/new", title: "Events & Expos" },
+   { path: "/events/register", title: "Events & Expos" },
+
+
   { path: "/reports", title: "Reports" },
 
   // Team
