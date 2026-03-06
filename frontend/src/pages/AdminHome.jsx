@@ -502,9 +502,11 @@ export default function AdminHome() {
                         <div className="followIcon">{f.icon}</div>
 
                         <div className="followBody">
-                          <div className="followTitle">{f.title}</div>
+                          <div className="followTitle">{f.companyName || f.title}</div>
                           <div className="followMeta">
-                            <span className="muted">{f.owner}</span>
+                            <span className="muted">{f.itemType || "Follow-up"}</span>
+                            <span className="dot" />
+                            <span className="muted">{f.title}</span>
                             <span className="dot" />
                             <span className="muted">Score: {f.score}</span>
                           </div>

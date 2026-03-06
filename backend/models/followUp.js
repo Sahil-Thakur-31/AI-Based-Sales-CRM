@@ -69,6 +69,12 @@ const followupSchema = new mongoose.Schema(
       maxlength: 2000
     },
 
+    cancelReason: {
+      type: String,
+      trim: true,
+      maxlength: 2000
+    },
+
     durationMinutes: {
       type: Number,
       min: 1

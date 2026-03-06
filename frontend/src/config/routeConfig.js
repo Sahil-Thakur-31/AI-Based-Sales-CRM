@@ -33,6 +33,7 @@ export const routeConfig = [
   { path: "/followups/add", title: "Add Followup and Meeting" },
   { path: "/daily-closing", title: "Daily Closing" },
   { path: "/daily-closing/form", title: "Daily Closing Form" },
+  { path: "/daily-closing/report", title: "Daily Closing Report" },
 
   // Finance
   { path: "/sales-forecast", title: "Sales Forecasting" },
@@ -48,6 +49,7 @@ export const routeConfig = [
   // Team
   { path: "/team-dashboard", title: "Team Dashboard" },
   { path: "/team-setup", title: "Setup Team" },
+  { path: "/team-targets", title: "Assign Team Targets" },
 
   // System
   { path: "/settings", title: "Settings" },

@@ -23,7 +23,7 @@ exports.teamPerformance = async (req, res) => {
 
 exports.followups = async (req, res) => {
   const range = req.query.range || "month";
-  const data = await svc.getFollowups(range);
+  const data = await svc.getFollowups(range, req.user?._id);
   res.json(data);
 };
 

@@ -187,6 +187,7 @@ async function syncMeetingMirrorFromFollowup(doc, actorId) {
     Id: doc._id,
     title: doc.title || "",
     description: doc.notes || "",
+    cancelReason: doc.cancelReason || "",
     clientName: doc.clientName || "",
     leadId: doc.leadId || undefined,
     dealId: doc.dealId || undefined,
@@ -279,6 +280,27 @@ function getNotificationItemType(doc) {
 
 function getNotificationCompanyName(doc) {
   return String(doc?.clientName || "").trim() || "the selected company";
+}
+
+async function createFollowupAssignmentNotification(doc) {
+  if (!doc?._id) return;
+
+  const assignedToId = String(doc?.assignedTo?._id || doc?.assignedTo || "").trim();
+  if (!assignedToId || !mongoose.Types.ObjectId.isValid(assignedToId)) return;
+
+  const dueAt = new Date(doc?.dueDateTime);
+  const dueText = Number.isNaN(dueAt.getTime()) ? "the selected time" : dueAt.toLocaleString("en-IN");
+  const companyName = getNotificationCompanyName(doc);
+  const itemType = doc?.kind === "meeting" ? "Meeting" : "Follow-up";
+
+  await Notification.create({
+    userId: new mongoose.Types.ObjectId(assignedToId),
+    title: `${itemType} Assigned`,
+    message: `${itemType} for ${companyName} is assigned to you on ${dueText}.`,
+    type: "info",
+    relatedId: doc._id,
+    relatedType: "Followup",
+  });
 }
 
 async function createFollowupNotification(doc, userId, eventType) {
@@ -519,6 +541,7 @@ exports.create = async (req, res) => {
       clientName: req.body.clientName || "",
       stage: req.body.stage || "P1",
       notes: req.body.notes || "",
+      cancelReason: req.body.cancelReason || "",
       priority: req.body.priority || "medium",
       status: req.body.status || "pending",
       dueDateTime: new Date(req.body.dueDateTime),
@@ -618,6 +641,7 @@ exports.update = async (req, res) => {
       clientName: req.body.clientName ?? current.clientName,
       stage: req.body.stage ?? current.stage,
       notes: req.body.notes ?? current.notes,
+      cancelReason: req.body.cancelReason ?? current.cancelReason,
       priority: req.body.priority ?? current.priority,
       status: req.body.status ?? current.status,
       dueDateTime: req.body.dueDateTime ? new Date(req.body.dueDateTime) : current.dueDateTime,
@@ -731,6 +755,20 @@ exports.updateStatus = async (req, res) => {
       updatePayload.notes = String(req.body.notes || "").trim();
     }
 
+    if (status === "cancelled") {
+      const cancelReasonRaw = req.body.cancelReason ?? req.body.notes ?? "";
+      const cancelReason = String(cancelReasonRaw).trim();
+      if (!cancelReason) {
+        return res.status(400).json({ message: "Cancellation reason is required" });
+      }
+      updatePayload.cancelReason = cancelReason;
+      if (req.body.notes === undefined) {
+        updatePayload.notes = cancelReason;
+      }
+    } else if (req.body.cancelReason !== undefined) {
+      updatePayload.cancelReason = String(req.body.cancelReason || "").trim();
+    }
+
     const allowedIds = await getAccessibleUserIds(req.user);
     const updated = await Followup.findOneAndUpdate(
       {
@@ -752,6 +790,8 @@ exports.updateStatus = async (req, res) => {
       notes:
         status === "completed"
           ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
+          : status === "cancelled"
+            ? `Status changed to cancelled${updated.cancelReason ? ` | Reason: ${updated.cancelReason}` : ""}`
           : `Status changed to ${status}`,
       performedBy: req.user._id,
     });

@@ -33,10 +33,13 @@ const ExpenseDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [editingExpense, setEditingExpense] = useState(null);
   const [viewingExpense, setViewingExpense] = useState(null);
-  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptFiles, setReceiptFiles] = useState([]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const [userSummarySearch, setUserSummarySearch] = useState("");
+  const [userSummaryPage, setUserSummaryPage] = useState(1);
+  const userSummaryPageSize = 5;
 
   const [formData, setFormData] = useState({
     category: "travel",
@@ -60,7 +63,7 @@ const ExpenseDashboard = () => {
       description: "",
     });
     setEditingExpense(null);
-    setReceiptFile(null);
+    setReceiptFiles([]);
   };
 
   const fetchCurrentUser = async () => {
@@ -77,6 +80,12 @@ const ExpenseDashboard = () => {
       const { data } = await API.get("/api/expenses");
 
       const formatted = data.map((exp) => ({
+        receipts:
+          Array.isArray(exp.receipts) && exp.receipts.length > 0
+            ? exp.receipts
+            : exp.receipt?.fileUrl && exp.receipt.fileUrl !== "dummy-url"
+              ? [exp.receipt]
+              : [],
         id: exp._id,
         category: exp.category,
         otherCategory: exp.otherCategory || "",
@@ -195,12 +204,31 @@ const ExpenseDashboard = () => {
   }
 
   const maxUser = Math.max(...userSummary.map((u) => u.total), 1);
+  const filteredUserSummary = userSummary.filter((item) =>
+    item.user.toLowerCase().includes(userSummarySearch.toLowerCase())
+  );
+  const userSummaryTotalPages = Math.max(
+    1,
+    Math.ceil(filteredUserSummary.length / userSummaryPageSize)
+  );
+  const paginatedUserSummary = filteredUserSummary.slice(
+    (userSummaryPage - 1) * userSummaryPageSize,
+    userSummaryPage * userSummaryPageSize
+  );
 
   const totalPages = Math.max(1, Math.ceil(sortedExpenses.length / pageSize));
   const paginatedExpenses = sortedExpenses.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedUser]);
+
+  useEffect(() => {
+    setUserSummaryPage(1);
+  }, [userSummarySearch, selectedUser, expenses]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -230,7 +258,7 @@ const ExpenseDashboard = () => {
       total: String(expense.total),
       description: expense.description || "",
     });
-    setReceiptFile(null);
+    setReceiptFiles([]);
     setShowLogModal(true);
   };
 
@@ -264,10 +292,15 @@ const ExpenseDashboard = () => {
     payload.append("referenceId", editingExpense?.referenceId || currentUser._id);
     payload.append("referenceType", formData.referenceType || "Lead");
 
-    if (receiptFile) {
-      payload.append("receipt", receiptFile);
-    } else if (editingExpense?.receipt?.fileUrl) {
-      payload.append("existingReceiptUrl", editingExpense.receipt.fileUrl);
+    if (receiptFiles.length > 0) {
+      receiptFiles.forEach((file) => payload.append("receipts", file));
+    }
+
+    if (editingExpense) {
+      const existingUrls = (editingExpense.receipts || [])
+        .map((item) => item?.fileUrl)
+        .filter((url) => url && url !== "dummy-url");
+      payload.append("existingReceiptUrls", JSON.stringify(existingUrls));
     }
 
     try {
@@ -375,6 +408,31 @@ const ExpenseDashboard = () => {
     return encodeURI(`${base}${normalizedPath}`);
   };
 
+  const handleReceiptSelect = (event) => {
+    const incoming = Array.from(event.target.files || []);
+    if (incoming.length === 0) return;
+
+    const validFiles = incoming.filter(
+      (file) =>
+        String(file.type || "").startsWith("image/") || file.type === "application/pdf"
+    );
+
+    if (validFiles.length !== incoming.length) {
+      alert("Only image and PDF files are allowed.");
+    }
+
+    setReceiptFiles((prev) => {
+      const map = new Map();
+      [...prev, ...validFiles].forEach((file) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        map.set(key, file);
+      });
+      return Array.from(map.values());
+    });
+
+    event.target.value = "";
+  };
+
   return (
     <div className="expense-dashboard">
       <div className="expense-cards">
@@ -423,23 +481,55 @@ const ExpenseDashboard = () => {
             ))}
           </div>
 
-          <div className="expense-box">
-            <h3>By User (Recent Updates)</h3>
+          <div className="expense-box expense-by-user-box">
+            <div className="expense-box-header">
+              <h3>By User (Recent Updates)</h3>
+              <input
+                type="text"
+                placeholder="Search user..."
+                value={userSummarySearch}
+                onChange={(e) => setUserSummarySearch(e.target.value)}
+                className="expense-by-user-search"
+              />
+            </div>
             <div className="expense-by-user-scroll">
-              {userSummary.map((item, i) => (
-                <div key={i}>
-                  <div className="expense-user-row">
-                    <span>{item.user}</span>
-                    <span>Rs. {item.total.toFixed(2)}</span>
+              {paginatedUserSummary.length > 0 ? (
+                paginatedUserSummary.map((item, i) => (
+                  <div key={`${item.user}-${i}`}>
+                    <div className="expense-user-row">
+                      <span>{item.user}</span>
+                      <span>Rs. {item.total.toFixed(2)}</span>
+                    </div>
+                    <div className="expense-progress">
+                      <div
+                        className="expense-bar blue"
+                        style={{ width: `${(item.total / maxUser) * 100}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="expense-progress">
-                    <div
-                      className="expense-bar blue"
-                      style={{ width: `${(item.total / maxUser) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="expense-user-empty">No users found.</div>
+              )}
+            </div>
+            <div className="expense-by-user-pagination">
+              <button
+                disabled={userSummaryPage === 1}
+                onClick={() => setUserSummaryPage((p) => Math.max(1, p - 1))}
+              >
+                Prev
+              </button>
+              <span>
+                Page {userSummaryPage} of {userSummaryTotalPages}
+              </span>
+              <button
+                disabled={userSummaryPage === userSummaryTotalPages}
+                onClick={() =>
+                  setUserSummaryPage((p) => Math.min(userSummaryTotalPages, p + 1))
+                }
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
@@ -462,6 +552,7 @@ const ExpenseDashboard = () => {
                 {showDropdown && (
                   <div className="expense-dropdown-menu">
                     <input
+                      className="expense-dropdown-search"
                       type="text"
                       placeholder="Search user..."
                       value={search}
@@ -695,15 +786,28 @@ const ExpenseDashboard = () => {
                     className="expense-upload-receipt-btn"
                     onClick={() => document.getElementById("expenseReceiptInput")?.click()}
                   >
-                    Upload Receipt
+                    Upload Receipt(s)
                   </button>
                   <input
                     id="expenseReceiptInput"
                     type="file"
+                    accept="image/*,application/pdf"
+                    multiple
                     style={{ display: "none" }}
-                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                    onChange={handleReceiptSelect}
                   />
-                  <small>{receiptFile ? receiptFile.name : "No file selected"}</small>
+                  <small>
+                    {receiptFiles.length > 0
+                      ? `${receiptFiles.length} file(s) selected`
+                      : "No file selected (Images/PDF only)"}
+                  </small>
+                  {receiptFiles.length > 0 && (
+                    <div className="expense-selected-receipts">
+                      {receiptFiles.map((file, index) => (
+                        <span key={`${file.name}-${file.lastModified}-${index}`}>{file.name}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="expense-form-group expense-full-width">
@@ -796,15 +900,16 @@ const ExpenseDashboard = () => {
                 </div>
                 <div className="expense-view-item">
                   <span>Receipt</span>
-                  {viewingExpense.receipt?.fileUrl &&
-                  viewingExpense.receipt.fileUrl !== "dummy-url" ? (
-                    <a
-                      href={getReceiptUrl(viewingExpense.receipt.fileUrl)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      View Document
-                    </a>
+                  {Array.isArray(viewingExpense.receipts) && viewingExpense.receipts.length > 0 ? (
+                    <div className="expense-receipt-list">
+                      {viewingExpense.receipts.map((item, index) => (
+                        <div className="expense-receipt-item" key={`${item.fileUrl}-${index}`}>
+                          <a href={getReceiptUrl(item.fileUrl)} target="_blank" rel="noreferrer">
+                            View Document {index + 1}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <strong>Not uploaded</strong>
                   )}

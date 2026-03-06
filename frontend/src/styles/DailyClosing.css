@@ -416,6 +416,172 @@
   font-weight: 700;
 }
 
+.dailyClosingSubmitMessageError {
+  background: rgba(239, 68, 68, 0.12);
+  color: #991b1b;
+}
+
+.dailyClosingReportHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.dailyClosingReportActions {
+  justify-content: flex-end;
+}
+
+.dailyClosingReportCard {
+  background: #ffffff;
+  border: 1px solid var(--daily-border);
+  box-shadow: var(--daily-shadow);
+  border-radius: 22px;
+  overflow: hidden;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.dailyClosingPdfHeader {
+  border: 1px solid #dfe6f3;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
+.dailyClosingPdfHeaderTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.dailyClosingPdfCompany {
+  font-size: 20px;
+  font-weight: 800;
+  color: #12284b;
+}
+
+.dailyClosingPdfGenerated {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dailyClosingPdfTitle {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2a44;
+}
+
+.dailyClosingPdfEmployee {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.dailyClosingReportSection {
+  border: 1px solid #e2e8f3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.dailyClosingReportSectionTitle {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1f2a44;
+  background: #f7f9fe;
+}
+
+.dailyClosingReportSectionTitle:first-child {
+  border-top: 0;
+}
+
+.dailyClosingReportSectionTitle + .dailyClosingReportTableWrap {
+  margin-bottom: 0;
+}
+
+.dailyClosingReportTableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dailyClosingReportTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 620px;
+}
+
+.dailyClosingReportTable th,
+.dailyClosingReportTable td {
+  border: 1px solid #e2e8f3;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+  color: #1f2a44;
+}
+
+.dailyClosingReportTable th {
+  background: #eef3fb;
+  font-weight: 800;
+  text-align: left;
+}
+
+.dailyClosingReportTable tbody tr:nth-child(even) {
+  background: #fcfdff;
+}
+
+.dailyClosingReportTable tbody td[colspan] {
+  text-align: center;
+  color: var(--daily-muted);
+  font-style: italic;
+}
+
+.dailyClosingReportHighlights {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  border: 1px solid #e2e8f3;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.dailyClosingReportHighlights strong {
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 800;
+  background: #f4f7ff;
+  border-right: 1px solid var(--daily-border);
+}
+
+.dailyClosingReportHighlights span {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #1f2a44;
+  word-break: break-word;
+}
+
+.dailyClosingReportMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 2px 4px;
+}
+
+.dailyClosingReportMeta span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 @media (max-width: 1100px) {
   .dailyClosingLayout {
     grid-template-columns: 1fr;
@@ -495,5 +661,24 @@
 
   .dailyClosingFormBody {
     padding: 18px 16px 20px;
+  }
+
+  .dailyClosingReportHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dailyClosingReportHighlights {
+    grid-template-columns: 1fr;
+  }
+
+  .dailyClosingReportHighlights strong {
+    border-right: 0;
+    border-bottom: 1px solid var(--daily-border);
+  }
+
+  .dailyClosingPdfHeaderTop {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

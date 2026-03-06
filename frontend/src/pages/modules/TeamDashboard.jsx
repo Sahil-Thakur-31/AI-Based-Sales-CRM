@@ -23,6 +23,15 @@ function formatDateTime(value) {
   });
 }
 
+function formatDate(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
 function emptyDashboard(team = null) {
   return {
     team: team || {
@@ -49,6 +58,28 @@ function emptyDashboard(team = null) {
   };
 }
 
+function emptyMemberDetail() {
+  return {
+    target: null,
+    deals: {
+      open: [],
+      won: [],
+      lost: []
+    },
+    followups: []
+  };
+}
+
+function emptyPipelineDetail() {
+  return {
+    totals: {
+      count: 0,
+      value: 0
+    },
+    stages: []
+  };
+}
+
 export default function TeamDashboard() {
   const navigate = useNavigate();
   const roleName = localStorage.getItem("RoleName") || "";
@@ -65,11 +96,19 @@ export default function TeamDashboard() {
   const [selectedPerformanceRow, setSelectedPerformanceRow] = useState(null);
   const [selectedFollowupRow, setSelectedFollowupRow] = useState(null);
   const [showPipelineModal, setShowPipelineModal] = useState(false);
+  const [pipelineDetailLoading, setPipelineDetailLoading] = useState(false);
+  const [pipelineDetailError, setPipelineDetailError] = useState("");
+  const [pipelineDetailData, setPipelineDetailData] = useState(emptyPipelineDetail());
+  const [memberDetailTab, setMemberDetailTab] = useState("deals");
+  const [memberDetailLoading, setMemberDetailLoading] = useState(false);
+  const [memberDetailError, setMemberDetailError] = useState("");
+  const [memberDetailData, setMemberDetailData] = useState(emptyMemberDetail());
 
   const selectedTeam = useMemo(
     () => teams.find((team) => String(team._id) === String(selectedTeamId)) || null,
     [teams, selectedTeamId]
   );
+  const canAssignTargets = roleName === "Admin" || Boolean(selectedTeam?.canManage);
 
   const loadTeams = useCallback(async () => {
     try {
@@ -135,6 +174,79 @@ export default function TeamDashboard() {
     await loadTeams();
     if (selectedTeamId) {
       await loadDashboard(selectedTeamId);
+    }
+  };
+
+  const closeMemberDetail = () => {
+    setSelectedPerformanceRow(null);
+    setMemberDetailTab("deals");
+    setMemberDetailLoading(false);
+    setMemberDetailError("");
+    setMemberDetailData(emptyMemberDetail());
+  };
+
+  const openMemberDetail = async (row) => {
+    if (!row?.user?._id || !selectedTeamId) return;
+
+    setSelectedPerformanceRow(row);
+    setMemberDetailTab("deals");
+    setMemberDetailLoading(true);
+    setMemberDetailError("");
+    setMemberDetailData(emptyMemberDetail());
+
+    try {
+      const res = await API.get(
+        `/teams/member-detail?teamId=${selectedTeamId}&memberId=${row.user._id}`
+      );
+      const payload = res.data || {};
+
+      setMemberDetailData({
+        target: payload?.target || null,
+        deals: {
+          open: Array.isArray(payload?.deals?.open) ? payload.deals.open : [],
+          won: Array.isArray(payload?.deals?.won) ? payload.deals.won : [],
+          lost: Array.isArray(payload?.deals?.lost) ? payload.deals.lost : []
+        },
+        followups: Array.isArray(payload?.followups) ? payload.followups : []
+      });
+    } catch (err) {
+      console.error(err);
+      setMemberDetailError(err.response?.data?.message || "Failed to load member detail");
+    } finally {
+      setMemberDetailLoading(false);
+    }
+  };
+
+  const closePipelineDetail = () => {
+    setShowPipelineModal(false);
+    setPipelineDetailLoading(false);
+    setPipelineDetailError("");
+    setPipelineDetailData(emptyPipelineDetail());
+  };
+
+  const openPipelineDetail = async () => {
+    if (!selectedTeamId) return;
+
+    setShowPipelineModal(true);
+    setPipelineDetailLoading(true);
+    setPipelineDetailError("");
+    setPipelineDetailData(emptyPipelineDetail());
+
+    try {
+      const res = await API.get(`/teams/pipeline-detail?teamId=${selectedTeamId}`);
+      const payload = res.data || {};
+      setPipelineDetailData({
+        totals: {
+          count: Number(payload?.totals?.count) || 0,
+          value: Number(payload?.totals?.value) || 0
+        },
+        stages: Array.isArray(payload?.stages) ? payload.stages : []
+      });
+    } catch (err) {
+      console.error(err);
+      setPipelineDetailError(err.response?.data?.message || "Failed to load pipeline details");
+    } finally {
+      setPipelineDetailLoading(false);
     }
   };
 
@@ -237,6 +349,15 @@ export default function TeamDashboard() {
         </div>
 
         <div className="team-toolbar-right">
+          {canAssignTargets ? (
+            <button
+              className="team-btn team-btn-primary"
+              onClick={() => navigate(`/team-targets?teamId=${selectedTeamId}`)}
+            >
+              Assign Targets
+            </button>
+          ) : null}
+
           <select
             className="team-dashboard-select"
             value={selectedTeamId}
@@ -256,24 +377,6 @@ export default function TeamDashboard() {
       </div>
 
       {error ? <div className="team-dashboard-error">{error}</div> : null}
-
-      <div className="team-active-strip">
-        <div className="team-active-block">
-          <span>Selected Team</span>
-          <strong>{dashboardData.team?.name || selectedTeam?.name || "-"}</strong>
-        </div>
-        <div className="team-active-block">
-          <span>Team Lead</span>
-          <strong>{dashboardData.teamLeads?.[0]?.name || "-"}</strong>
-        </div>
-        <div className="team-active-block">
-          <span>Members</span>
-          <strong>{dashboardData.team?.memberCount || 0}</strong>
-        </div>
-        <button className="team-btn team-btn-secondary" onClick={() => navigate("/team-setup")}>
-          Manage Team
-        </button>
-      </div>
 
       <div className="team-dashboard-summary">
         {kpiCards.map((card) => (
@@ -327,7 +430,7 @@ export default function TeamDashboard() {
                         <td>
                           <button
                             className="team-inline-view-btn"
-                            onClick={() => setSelectedPerformanceRow(row)}
+                            onClick={() => openMemberDetail(row)}
                           >
                             View
                           </button>
@@ -401,7 +504,7 @@ export default function TeamDashboard() {
           <section className="team-panel team-panel-stage">
             <div className="team-panel-head">
               <h3>Pipeline</h3>
-              <button className="team-inline-view-btn" onClick={() => setShowPipelineModal(true)}>
+              <button className="team-inline-view-btn" onClick={openPipelineDetail}>
                 View
               </button>
             </div>
@@ -447,11 +550,11 @@ export default function TeamDashboard() {
       </div>
 
       {showPipelineModal ? (
-        <div className="team-modal-overlay" onClick={() => setShowPipelineModal(false)}>
-          <div className="team-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="team-modal-overlay" onClick={closePipelineDetail}>
+          <div className="team-modal-card team-modal-card-lg" onClick={(e) => e.stopPropagation()}>
             <div className="team-modal-head">
               <h3>Pipeline Detail</h3>
-              <button className="team-modal-close" onClick={() => setShowPipelineModal(false)}>
+              <button className="team-modal-close" onClick={closePipelineDetail}>
                 Close
               </button>
             </div>
@@ -463,12 +566,12 @@ export default function TeamDashboard() {
                 </div>
                 <div>
                   <span className="team-modal-label">Active Deals</span>
-                  <strong className="team-modal-value">{dashboardData.kpis.activeDeals || 0}</strong>
+                  <strong className="team-modal-value">{pipelineDetailData.totals.count || 0}</strong>
                 </div>
                 <div>
                   <span className="team-modal-label">Pipeline Value</span>
                   <strong className="team-modal-value">
-                    {formatCurrency(dashboardData.kpis.pipelineValue || 0)}
+                    {formatCurrency(pipelineDetailData.totals.value || 0)}
                   </strong>
                 </div>
                 <div>
@@ -477,35 +580,66 @@ export default function TeamDashboard() {
                 </div>
               </div>
 
-              <div className="team-modal-section">
-                <h4>Stage Distribution</h4>
-                <div className="team-stage-list">
-                  {dashboardData.stageDistribution.length ? (
-                    dashboardData.stageDistribution.map((item) => (
-                      <div key={item.stage} className="team-stage-row">
-                        <span>{item.stage}</span>
-                        <div className="team-stage-bar">
-                          <span style={{ width: `${Math.min(100, (item.count || 0) * 14)}%` }} />
-                        </div>
-                        <strong>{item.count}</strong>
+              {pipelineDetailLoading ? (
+                <div className="team-muted">Loading pipeline details...</div>
+              ) : null}
+
+              {!pipelineDetailLoading && pipelineDetailError ? (
+                <div className="team-modal-error">{pipelineDetailError}</div>
+              ) : null}
+
+              {!pipelineDetailLoading && !pipelineDetailError ? (
+                <div className="team-member-sections">
+                  {(pipelineDetailData.stages || []).map((stage) => (
+                    <section key={stage.stage} className="team-member-section">
+                      <div className="team-member-section-head">
+                        <h4>{stage.stage}</h4>
+                        <small>
+                          {stage.count || 0} deal(s) | {formatCurrency(stage.value || 0)}
+                        </small>
                       </div>
-                    ))
-                  ) : (
+
+                      {Array.isArray(stage.deals) && stage.deals.length ? (
+                        <div className="team-member-list">
+                          {stage.deals.map((deal) => (
+                            <div key={deal._id} className="team-member-deal-row">
+                              <div className="team-member-deal-main">
+                                <strong title={deal.companyName}>{deal.companyName || "-"}</strong>
+                                <span>{deal._id ? `Deal ID: ${deal._id}` : "Deal ID: -"}</span>
+                                <span>
+                                  Owner: {deal.assignedTo?.name || "Unassigned"}
+                                  {deal.assignedTo?.email ? ` (${deal.assignedTo.email})` : ""}
+                                </span>
+                              </div>
+                              <div className="team-member-deal-meta">
+                                <span>{formatCurrency(deal.dealValue || 0)}</span>
+                                <span>Prob: {Number(deal.probability) || 0}%</span>
+                                <span>Close: {formatDate(deal.expectedCloseDate)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="team-muted">No deals in {stage.stage}.</div>
+                      )}
+                    </section>
+                  ))}
+                  {!pipelineDetailData.stages?.length ? (
                     <div className="team-muted">No active stage data</div>
-                  )}
+                  ) : null}
                 </div>
-              </div>
+              ) : null}
             </div>
           </div>
         </div>
       ) : null}
-
+ 
       {selectedPerformanceRow ? (
-        <div className="team-modal-overlay" onClick={() => setSelectedPerformanceRow(null)}>
-          <div className="team-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="team-modal-overlay" onClick={closeMemberDetail}>
+          <div className="team-modal-card team-modal-card-lg" onClick={(e) => e.stopPropagation()}>
             <div className="team-modal-head">
               <h3>Member Detail</h3>
-              <button className="team-modal-close" onClick={() => setSelectedPerformanceRow(null)}>
+              <button className="team-modal-close" onClick={closeMemberDetail}>
                 Close
               </button>
             </div>
@@ -520,40 +654,138 @@ export default function TeamDashboard() {
                 <span>{selectedPerformanceRow.user?.email}</span>
               </div>
 
-              <div className="team-modal-grid">
-                <div>
-                  <span className="team-modal-label">Open Deals</span>
-                  <strong className="team-modal-value">{selectedPerformanceRow.openDeals}</strong>
+              {memberDetailData.target ? (
+                <div className="team-target-progress-card">
+                  <div className="team-target-progress-head">
+                    <h4>Target Progress</h4>
+                    <small>Ends: {formatDate(memberDetailData.target.periodEnd)}</small>
+                  </div>
+                  <div className="team-target-progress-track">
+                    <span style={{ width: `${Math.max(0, Math.min(100, memberDetailData.target.progressPercent || 0))}%` }} />
+                  </div>
+                  <div className="team-target-progress-meta">
+                    <div>
+                      <span>Assigned</span>
+                      <strong>{formatCurrency(memberDetailData.target.revenueTarget || 0)}</strong>
+                    </div>
+                    <div>
+                      <span>Achieved</span>
+                      <strong>{formatCurrency(memberDetailData.target.achievedRevenue || 0)}</strong>
+                    </div>
+                    <div>
+                      <span>Progress</span>
+                      <strong>{memberDetailData.target.progressPercent || 0}%</strong>
+                    </div>
+                    <div>
+                      <span>Deals</span>
+                      <strong>
+                        {memberDetailData.target.achievedDeals || 0}/{memberDetailData.target.dealTarget || 0}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="team-modal-label">Won Deals</span>
-                  <strong className="team-modal-value">{selectedPerformanceRow.wonDeals}</strong>
-                </div>
-                <div>
-                  <span className="team-modal-label">Lost Deals</span>
-                  <strong className="team-modal-value">{selectedPerformanceRow.lostDeals}</strong>
-                </div>
-                <div>
-                  <span className="team-modal-label">Follow-ups Today</span>
-                  <strong className="team-modal-value">{selectedPerformanceRow.followupsToday}</strong>
-                </div>
-                <div>
-                  <span className="team-modal-label">Win Rate</span>
-                  <strong className="team-modal-value">{selectedPerformanceRow.winRate}%</strong>
-                </div>
-                <div>
-                  <span className="team-modal-label">Pipeline Value</span>
-                  <strong className="team-modal-value">
-                    {formatCurrency(selectedPerformanceRow.pipelineValue)}
-                  </strong>
-                </div>
-                <div>
-                  <span className="team-modal-label">Won Revenue</span>
-                  <strong className="team-modal-value">
-                    {formatCurrency(selectedPerformanceRow.wonRevenue)}
-                  </strong>
-                </div>
+              ) : (
+                <div className="team-muted">No target assigned for this member.</div>
+              )}
+
+              <div className="team-member-tabs">
+                <button
+                  type="button"
+                  className={memberDetailTab === "deals" ? "active" : ""}
+                  onClick={() => setMemberDetailTab("deals")}
+                >
+                  Deals
+                </button>
+                <button
+                  type="button"
+                  className={memberDetailTab === "followups" ? "active" : ""}
+                  onClick={() => setMemberDetailTab("followups")}
+                >
+                  Today's Follow-ups
+                </button>
               </div>
+
+              {memberDetailLoading ? (
+                <div className="team-muted">Loading member details...</div>
+              ) : null}
+
+              {!memberDetailLoading && memberDetailError ? (
+                <div className="team-modal-error">{memberDetailError}</div>
+              ) : null}
+
+              {!memberDetailLoading && !memberDetailError && memberDetailTab === "deals" ? (
+                <div className="team-member-sections">
+                  {[
+                    { key: "open", label: "Open Deals" },
+                    { key: "won", label: "Won Deals" },
+                    { key: "lost", label: "Lost Deals" }
+                  ].map((section) => {
+                    const deals = memberDetailData.deals?.[section.key] || [];
+                    return (
+                      <section key={section.key} className="team-member-section">
+                        <div className="team-member-section-head">
+                          <h4>{section.label}</h4>
+                          <small>{deals.length}</small>
+                        </div>
+                        {deals.length ? (
+                          <div className="team-member-list">
+                            {deals.map((deal) => (
+                              <div key={deal._id} className="team-member-deal-row">
+                                <div className="team-member-deal-main">
+                                  <strong title={deal.companyName}>{deal.companyName || "-"}</strong>
+                                  <span>{deal._id ? `Deal ID: ${deal._id}` : "Deal ID: -"}</span>
+                                </div>
+                                <div className="team-member-deal-meta">
+                                  <span>{deal.stage || "-"}</span>
+                                  <span>{formatCurrency(deal.dealValue || 0)}</span>
+                                  <span>{formatDate(deal.expectedCloseDate)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="team-muted">No {section.label.toLowerCase()}.</div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {!memberDetailLoading && !memberDetailError && memberDetailTab === "followups" ? (
+                <section className="team-member-section">
+                  <div className="team-member-section-head">
+                    <h4>Follow-ups for Today</h4>
+                    <small>{memberDetailData.followups.length}</small>
+                  </div>
+                  {memberDetailData.followups.length ? (
+                    <div className="team-member-list">
+                      {memberDetailData.followups.map((followup) => (
+                        <div key={followup._id} className="team-member-followup-row">
+                          <div className="team-member-followup-main">
+                            <strong title={followup.title}>{followup.title || "-"}</strong>
+                            <span title={followup.companyName}>{followup.companyName || "-"}</span>
+                            <span>{formatDateTime(followup.dueDateTime)}</span>
+                          </div>
+                          <div className="team-member-followup-tags">
+                            <span className="team-member-pill">{followup.actionType || followup.kind || "-"}</span>
+                            <span className="team-member-pill">{followup.entityType || "-"}</span>
+                            <span
+                              className={`team-member-pill ${
+                                followup.isCompleted ? "team-member-pill-completed" : "team-member-pill-pending"
+                              }`}
+                            >
+                              {followup.isCompleted ? "Completed" : "Pending"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="team-muted">No follow-ups due today for this member.</div>
+                  )}
+                </section>
+              ) : null}
             </div>
           </div>
         </div>

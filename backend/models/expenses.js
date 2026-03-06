@@ -155,6 +155,11 @@ const expenseSchema = new mongoose.Schema(
       required: true
     },
 
+    receipts: {
+      type: [receiptSchema],
+      default: []
+    },
+
     approval: {
       type: approvalSchema,
       default: () => ({})
