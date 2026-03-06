@@ -12,6 +12,17 @@ function parseDateOnlyInput(value) {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
+function parseDateRangeInput(fromValue, toValue) {
+  const from = parseDateOnlyInput(fromValue);
+  const to = parseDateOnlyInput(toValue);
+
+  if (!from || !to) return null;
+  if (to < from) return null;
+
+  const end = new Date(to.getTime() + 24 * 60 * 60 * 1000);
+  return { start: from, end };
+}
+
 function getUtcDayRange(dateValue) {
   const d = new Date(dateValue);
   if (Number.isNaN(d.getTime())) return null;
