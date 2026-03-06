@@ -20,6 +20,10 @@ function getUserIdFromToken() {
   }
 }
 
+function normalizeSourceName(name) {
+  return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCancel = null, onSaved = null }) {
   const { id } = useParams();
   const location = useLocation();
@@ -54,6 +58,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const [showSuggestions, setShowSuggestions] = useState(false);
   const companySearchTimer = useRef(null);
   const suggestionsRef = useRef(null);
+  const sourceMenuRef = useRef(null);
+  const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
+  const [sourceSubmenu, setSourceSubmenu] = useState({ type: "", sourceId: "" });
+  const [sourceSubmenuDirection, setSourceSubmenuDirection] = useState("right");
+  const [sourceSubmenuTop, setSourceSubmenuTop] = useState(0);
 
   useEffect(() => {
     setEditMode(shouldStartInEditMode);
@@ -105,7 +114,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     [sources, lead.source]
   );
   const normalizedSourceName = useMemo(
-    () => String(selectedSource?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
+    () => normalizeSourceName(selectedSource?.name || ""),
     [selectedSource]
   );
   const isReferenceLikeSource = useMemo(
@@ -118,6 +127,54 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       normalizedSourceName.includes("events n expos"),
     [normalizedSourceName]
   );
+  const referenceSources = useMemo(
+    () =>
+      (Array.isArray(sources) ? sources : []).filter((s) =>
+        /(ref|refer|reference|referr|reffe|refee)/.test(normalizeSourceName(s?.name))
+      ),
+    [sources]
+  );
+  const eventExpoSources = useMemo(
+    () =>
+      (Array.isArray(sources) ? sources : []).filter((s) => {
+        const normalized = normalizeSourceName(s?.name);
+        return (
+          (normalized.includes("event") && normalized.includes("expo")) ||
+          normalized.includes("events n expos")
+        );
+      }),
+    [sources]
+  );
+  const sourceDisplayValue = useMemo(() => {
+    const sourceName = selectedSource?.name || "-";
+    if (!lead.source) return "-";
+    if (isReferenceLikeSource) {
+      const userName = users.find((u) => String(u._id) === String(lead.referred_by_user || ""))?.name || "-";
+      return `${sourceName} > ${userName}`;
+    }
+    if (isEventExpoLikeSource) {
+      const eventName = events.find((ev) => String(ev._id) === String(lead.expo_event_id || ""))?.name || "-";
+      return `${sourceName} > ${eventName}`;
+    }
+    return sourceName;
+  }, [
+    selectedSource,
+    lead.source,
+    lead.referred_by_user,
+    lead.expo_event_id,
+    isReferenceLikeSource,
+    isEventExpoLikeSource,
+    users,
+    events,
+  ]);
+  const normalSources = useMemo(() => {
+    const referenceSet = new Set(referenceSources.map((s) => String(s?._id || "")));
+    const eventSet = new Set(eventExpoSources.map((s) => String(s?._id || "")));
+    return (Array.isArray(sources) ? sources : []).filter((s) => {
+      const id = String(s?._id || "");
+      return !referenceSet.has(id) && !eventSet.has(id);
+    });
+  }, [sources, referenceSources, eventExpoSources]);
 
   /* ================= CONTACTS ================= */
   const [contacts, setContacts] = useState([
@@ -327,6 +384,38 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     }));
   }, [isNew, isAdminOrManager, currentUserId]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!sourceMenuRef.current) return;
+      if (!sourceMenuRef.current.contains(event.target)) {
+        setSourceMenuOpen(false);
+        setSourceSubmenu({ type: "", sourceId: "" });
+        setSourceSubmenuTop(0);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!sourceMenuOpen) return;
+    const updateSubmenuDirection = () => {
+      if (!sourceMenuRef.current) return;
+      const rect = sourceMenuRef.current.getBoundingClientRect();
+      const submenuWidth = 240;
+      const spaceOnRight = window.innerWidth - rect.right;
+      const spaceOnLeft = rect.left;
+      if (spaceOnRight < submenuWidth && spaceOnLeft >= submenuWidth) {
+        setSourceSubmenuDirection("left");
+      } else {
+        setSourceSubmenuDirection("right");
+      }
+    };
+    updateSubmenuDirection();
+    window.addEventListener("resize", updateSubmenuDirection);
+    return () => window.removeEventListener("resize", updateSubmenuDirection);
+  }, [sourceMenuOpen]);
+
   /* ================= CHANGE ================= */
   const handleLeadChange = (e) => {
     const { name, value } = e.target;
@@ -357,6 +446,36 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       return updated;
     });
+  };
+
+  const handleSourceMenuSelect = (type, sourceId, nestedId = "") => {
+    setLead((prev) => {
+      if (type === "reference") {
+        return {
+          ...prev,
+          source: sourceId || "",
+          referred_by_user: nestedId || "",
+          expo_event_id: "",
+        };
+      }
+      if (type === "event") {
+        return {
+          ...prev,
+          source: sourceId || "",
+          referred_by_user: "",
+          expo_event_id: nestedId || "",
+        };
+      }
+      return {
+        ...prev,
+        source: sourceId || "",
+        referred_by_user: "",
+        expo_event_id: "",
+      };
+    });
+    setSourceMenuOpen(false);
+    setSourceSubmenu({ type: "", sourceId: "" });
+    setSourceSubmenuTop(0);
   };
 
   const handleContactChange = (i, e) => {
@@ -695,10 +814,38 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       { confirmLabel: "Restore", variant: "success" }
     );
   };
+  const handleActivateRecord = async () => {
+    if (isNew) return;
+    try {
+      if (dealView) {
+        if (!dealId) {
+          showAlert("Activate Failed", "Deal ID is missing.", "error");
+          return;
+        }
+        await API.put(`/deals/${dealId}`, { isActive: true });
+      } else {
+        await API.put(`/leads/${id}`, { is_active: true });
+      }
+      setLead((prev) => ({
+        ...prev,
+        isActive: true,
+        is_active: true,
+      }));
+      showAlert("Activated", `${dealView ? "Deal" : "Lead"} activated successfully.`, "success");
+    } catch (err) {
+      console.error("activate record error", err);
+      showAlert(
+        "Activate Failed",
+        err.response?.data?.message || `Failed to activate ${dealView ? "deal" : "lead"}`,
+        "error"
+      );
+    }
+  };
 
   const followUps = Array.isArray(lead.contact_history) ? lead.contact_history : [];
   const dealId = dealIdFromQuery || lead?.converted_deal_id || "";
   const isConvertedLead = Boolean(lead.converted_to_deal || lead.converted_deal_id);
+  const isInactiveRecord = !deletedView && (lead.is_active === false || lead.isActive === false);
   const historyRows = [...followUps].sort(
     (a, b) =>
       new Date(b?.completed_at || b?.contacted_at || 0) -
@@ -934,62 +1081,141 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         <div className="field">
           <label>Source</label>
           {editMode ? (
-            <select name="source" value={lead.source || ""} onChange={handleLeadChange}>
-              <option value="">Select Source</option>
-              {sources.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <div
+              ref={sourceMenuRef}
+              style={{ position: "relative" }}
+              onMouseLeave={() => {
+                setSourceSubmenu({ type: "", sourceId: "" });
+                setSourceSubmenuTop(0);
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setSourceMenuOpen((prev) => !prev)}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {sourceDisplayValue === "-" ? "Select Source" : sourceDisplayValue}
+              </button>
+              {sourceMenuOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 4px)",
+                    left: 0,
+                    minWidth: "100%",
+                    background: "#fff",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+                    zIndex: 30,
+                  }}
+                >
+                  <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+                    <div
+                      onClick={() => handleSourceMenuSelect("source", "")}
+                      style={{ padding: "8px 12px", cursor: "pointer" }}
+                    >
+                      Select Source
+                    </div>
+                    {normalSources.map((s) => (
+                      <div
+                        key={s._id}
+                        onClick={() => handleSourceMenuSelect("source", String(s._id))}
+                        style={{ padding: "8px 12px", cursor: "pointer" }}
+                      >
+                        {s.name}
+                      </div>
+                    ))}
+                    {referenceSources.map((sourceItem) => (
+                      <div
+                        key={`ref-${sourceItem._id}`}
+                        onMouseEnter={(e) => {
+                          setSourceSubmenu({ type: "reference", sourceId: String(sourceItem._id) });
+                          setSourceSubmenuTop(e.currentTarget.offsetTop);
+                        }}
+                        style={{ position: "relative", padding: "8px 12px", cursor: "pointer" }}
+                      >
+                        <span>{sourceItem.name}</span>
+                        <span style={{ float: "right" }}>{sourceSubmenuDirection === "left" ? "<" : ">"}</span>
+                      </div>
+                    ))}
+                    {eventExpoSources.map((sourceItem) => (
+                      <div
+                        key={`event-${sourceItem._id}`}
+                        onMouseEnter={(e) => {
+                          setSourceSubmenu({ type: "event", sourceId: String(sourceItem._id) });
+                          setSourceSubmenuTop(e.currentTarget.offsetTop);
+                        }}
+                        style={{ position: "relative", padding: "8px 12px", cursor: "pointer" }}
+                      >
+                        <span>{sourceItem.name}</span>
+                        <span style={{ float: "right" }}>{sourceSubmenuDirection === "left" ? "<" : ">"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {!!sourceSubmenu.type && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: sourceSubmenuTop,
+                        left: sourceSubmenuDirection === "right" ? "100%" : "auto",
+                        right: sourceSubmenuDirection === "left" ? "100%" : "auto",
+                        minWidth: "220px",
+                        maxWidth: "260px",
+                        background: "#fff",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+                        zIndex: 31,
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                      }}
+                    >
+                      {sourceSubmenu.type === "reference" &&
+                        (users.length ? (
+                          users.map((u) => (
+                            <div
+                              key={`${sourceSubmenu.sourceId}-${u._id}`}
+                              onClick={() => handleSourceMenuSelect("reference", sourceSubmenu.sourceId, String(u._id))}
+                              style={{ padding: "8px 12px", cursor: "pointer" }}
+                            >
+                              {u.name}
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ padding: "8px 12px", color: "#6b7280" }}>No users found</div>
+                        ))}
+                      {sourceSubmenu.type === "event" &&
+                        (events.length ? (
+                          events.map((ev) => (
+                            <div
+                              key={`${sourceSubmenu.sourceId}-${ev._id}`}
+                              onClick={() => handleSourceMenuSelect("event", sourceSubmenu.sourceId, String(ev._id))}
+                              style={{ padding: "8px 12px", cursor: "pointer" }}
+                            >
+                              {ev.name}
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ padding: "8px 12px", color: "#6b7280" }}>No events found</div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
-            <p>{sources.find((s) => s._id === lead.source)?.name || "-"}</p>
+            <p>{sourceDisplayValue}</p>
           )}
         </div>
-
-        {isReferenceLikeSource && (
-          <div className="field">
-            <label>Reference User</label>
-            {editMode ? (
-              <select
-                name="referred_by_user"
-                value={lead.referred_by_user || ""}
-                onChange={handleLeadChange}
-              >
-                <option value="">Select User</option>
-                {users.map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p>{users.find((u) => String(u._id) === String(lead.referred_by_user || ""))?.name || "-"}</p>
-            )}
-          </div>
-        )}
-
-        {isEventExpoLikeSource && (
-          <div className="field">
-            <label>Event / Expo</label>
-            {editMode ? (
-              <select
-                name="expo_event_id"
-                value={lead.expo_event_id || ""}
-                onChange={handleLeadChange}
-              >
-                <option value="">Select Event / Expo</option>
-                {events.map((ev) => (
-                  <option key={ev._id} value={ev._id}>
-                    {ev.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p>{events.find((ev) => String(ev._id) === String(lead.expo_event_id || ""))?.name || "-"}</p>
-            )}
-          </div>
-        )}
 
         <div className="field">
           <label>{dealView ? "Assign Deal To" : "Assign Lead To"}</label>
@@ -1136,31 +1362,43 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         ) : (
           !isNew && (
             <>
-              <button className="edit-btn" onClick={() => setEditMode(true)}>
-                Edit
-              </button>
-              {dealView && dealId && (
+              {isInactiveRecord ? (
                 <button
-                  className="convert-btn"
-                  onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
-                  disabled={lead.isActive === false}
-                  title={lead.isActive === false ? "Cannot create quotes for inactive deals." : ""}
+                  className="convert-btn restore-btn"
+                  style={{ background: '#10b981', borderColor: '#10b981' }}
+                  onClick={handleActivateRecord}
                 >
-                  Create Quote
+                  Activate
                 </button>
-              )}
-              {!clientView && !dealView && !isConvertedLead && (
-                <button className="convert-btn" onClick={handleConvertToDeal}>
-                  Convert to Deal
-                </button>
-              )}
-              {isAdminOrManager && !clientView && (
-                <button
-                  className="soft-delete-btn"
-                  onClick={dealView ? handleDeleteDeal : handleSoftDelete}
-                >
-                  {dealView ? "Delete Deal" : "Delete"}
-                </button>
+              ) : (
+                <>
+                  <button className="edit-btn" onClick={() => setEditMode(true)}>
+                    Edit
+                  </button>
+                  {dealView && dealId && (
+                    <button
+                      className="convert-btn"
+                      onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
+                      disabled={lead.isActive === false}
+                      title={lead.isActive === false ? "Cannot create quotes for inactive deals." : ""}
+                    >
+                      Create Quote
+                    </button>
+                  )}
+                  {!clientView && !dealView && !isConvertedLead && (
+                    <button className="convert-btn" onClick={handleConvertToDeal}>
+                      Convert to Deal
+                    </button>
+                  )}
+                  {isAdminOrManager && !clientView && (
+                    <button
+                      className="soft-delete-btn"
+                      onClick={dealView ? handleDeleteDeal : handleSoftDelete}
+                    >
+                      {dealView ? "Delete Deal" : "Delete"}
+                    </button>
+                  )}
+                </>
               )}
             </>
           )
