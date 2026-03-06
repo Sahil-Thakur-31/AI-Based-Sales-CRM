@@ -103,6 +103,20 @@ export default function TeamDashboard() {
   const [memberDetailLoading, setMemberDetailLoading] = useState(false);
   const [memberDetailError, setMemberDetailError] = useState("");
   const [memberDetailData, setMemberDetailData] = useState(emptyMemberDetail());
+  const [pipelineFilters, setPipelineFilters] = useState({
+    query: "",
+    stage: "all"
+  });
+  const [memberDealFilters, setMemberDealFilters] = useState({
+    query: "",
+    status: "all",
+    stage: "all"
+  });
+  const [memberFollowupFilters, setMemberFollowupFilters] = useState({
+    query: "",
+    status: "all",
+    entityType: "all"
+  });
 
   const selectedTeam = useMemo(
     () => teams.find((team) => String(team._id) === String(selectedTeamId)) || null,
@@ -183,6 +197,8 @@ export default function TeamDashboard() {
     setMemberDetailLoading(false);
     setMemberDetailError("");
     setMemberDetailData(emptyMemberDetail());
+    setMemberDealFilters({ query: "", status: "all", stage: "all" });
+    setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
   };
 
   const openMemberDetail = async (row) => {
@@ -193,6 +209,8 @@ export default function TeamDashboard() {
     setMemberDetailLoading(true);
     setMemberDetailError("");
     setMemberDetailData(emptyMemberDetail());
+    setMemberDealFilters({ query: "", status: "all", stage: "all" });
+    setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
 
     try {
       const res = await API.get(
@@ -222,6 +240,7 @@ export default function TeamDashboard() {
     setPipelineDetailLoading(false);
     setPipelineDetailError("");
     setPipelineDetailData(emptyPipelineDetail());
+    setPipelineFilters({ query: "", stage: "all" });
   };
 
   const openPipelineDetail = async () => {
@@ -231,6 +250,7 @@ export default function TeamDashboard() {
     setPipelineDetailLoading(true);
     setPipelineDetailError("");
     setPipelineDetailData(emptyPipelineDetail());
+    setPipelineFilters({ query: "", stage: "all" });
 
     try {
       const res = await API.get(`/teams/pipeline-detail?teamId=${selectedTeamId}`);
@@ -314,6 +334,129 @@ export default function TeamDashboard() {
     const start = (followupPage - 1) * followupPageSize;
     return (dashboardData.followups || []).slice(start, start + followupPageSize);
   }, [dashboardData.followups, followupPage]);
+
+  const pipelineFlatDeals = useMemo(
+    () =>
+      (pipelineDetailData.stages || []).flatMap((stage) =>
+        (stage.deals || []).map((deal) => ({ ...deal, stageLabel: stage.stage }))
+      ),
+    [pipelineDetailData.stages]
+  );
+
+  const pipelineStageOptions = useMemo(
+    () => [...new Set(pipelineFlatDeals.map((deal) => deal.stageLabel).filter(Boolean))],
+    [pipelineFlatDeals]
+  );
+
+  const filteredPipelineDeals = useMemo(() => {
+    const query = pipelineFilters.query.trim().toLowerCase();
+    return pipelineFlatDeals.filter((deal) => {
+      const stageOk = pipelineFilters.stage === "all" || (deal.stageLabel || "") === pipelineFilters.stage;
+      if (!stageOk) return false;
+      if (!query) return true;
+
+      const haystack = [
+        deal._id,
+        deal.companyName,
+        deal.assignedTo?.name,
+        deal.assignedTo?.email,
+        deal.stageLabel
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [pipelineFilters, pipelineFlatDeals]);
+
+  const filteredPipelineStageSummary = useMemo(() => {
+    const stageMap = new Map();
+    filteredPipelineDeals.forEach((deal) => {
+      const key = deal.stageLabel || "-";
+      const prev = stageMap.get(key) || { stage: key, dealCount: 0, totalValue: 0 };
+      prev.dealCount += 1;
+      prev.totalValue += Number(deal.dealValue) || 0;
+      stageMap.set(key, prev);
+    });
+    return Array.from(stageMap.values());
+  }, [filteredPipelineDeals]);
+
+  const memberDealSections = useMemo(
+    () => [
+      { key: "open", label: "Open Deals", rows: memberDetailData.deals?.open || [] },
+      { key: "won", label: "Won Deals", rows: memberDetailData.deals?.won || [] },
+      { key: "lost", label: "Lost Deals", rows: memberDetailData.deals?.lost || [] }
+    ],
+    [memberDetailData.deals]
+  );
+
+  const hasMemberDeals = useMemo(
+    () => memberDealSections.some((section) => section.rows.length),
+    [memberDealSections]
+  );
+
+  const memberDealsFlat = useMemo(
+    () =>
+      memberDealSections.flatMap((section) =>
+        section.rows.map((deal) => ({
+          ...deal,
+          dealStatus: section.key
+        }))
+      ),
+    [memberDealSections]
+  );
+
+  const memberDealStageOptions = useMemo(
+    () => [...new Set(memberDealsFlat.map((deal) => deal.stage).filter(Boolean))],
+    [memberDealsFlat]
+  );
+
+  const filteredMemberDeals = useMemo(() => {
+    const query = memberDealFilters.query.trim().toLowerCase();
+    return memberDealsFlat.filter((deal) => {
+      const statusOk = memberDealFilters.status === "all" || deal.dealStatus === memberDealFilters.status;
+      const stageOk = memberDealFilters.stage === "all" || (deal.stage || "") === memberDealFilters.stage;
+      if (!statusOk || !stageOk) return false;
+      if (!query) return true;
+
+      const haystack = [deal._id, deal.companyName, deal.stage, deal.dealStatus]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [memberDealsFlat, memberDealFilters]);
+
+  const memberFollowupEntityOptions = useMemo(
+    () => [...new Set(memberDetailData.followups.map((f) => f.entityType).filter(Boolean))],
+    [memberDetailData.followups]
+  );
+
+  const filteredMemberFollowups = useMemo(() => {
+    const query = memberFollowupFilters.query.trim().toLowerCase();
+    return (memberDetailData.followups || []).filter((followup) => {
+      const statusValue = followup.isCompleted ? "completed" : "pending";
+      const statusOk = memberFollowupFilters.status === "all" || statusValue === memberFollowupFilters.status;
+      const typeOk =
+        memberFollowupFilters.entityType === "all" ||
+        (followup.entityType || "") === memberFollowupFilters.entityType;
+      if (!statusOk || !typeOk) return false;
+      if (!query) return true;
+
+      const haystack = [
+        followup.title,
+        followup.companyName,
+        followup.actionType,
+        followup.kind,
+        followup.entityType
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [memberDetailData.followups, memberFollowupFilters]);
 
   if (loadingTeams) {
     return <div className="team-dashboard-loading">Loading team dashboard...</div>;
@@ -559,25 +702,25 @@ export default function TeamDashboard() {
               </button>
             </div>
             <div className="team-modal-body">
-              <div className="team-modal-grid">
-                <div>
+              <div className="team-modal-summary-grid">
+                <article className="team-modal-summary-item">
                   <span className="team-modal-label">Team</span>
                   <strong className="team-modal-value">{selectedTeam?.name || "-"}</strong>
-                </div>
-                <div>
+                </article>
+                <article className="team-modal-summary-item">
                   <span className="team-modal-label">Active Deals</span>
                   <strong className="team-modal-value">{pipelineDetailData.totals.count || 0}</strong>
-                </div>
-                <div>
+                </article>
+                <article className="team-modal-summary-item">
                   <span className="team-modal-label">Pipeline Value</span>
                   <strong className="team-modal-value">
                     {formatCurrency(pipelineDetailData.totals.value || 0)}
                   </strong>
-                </div>
-                <div>
+                </article>
+                <article className="team-modal-summary-item">
                   <span className="team-modal-label">Win Rate</span>
                   <strong className="team-modal-value">{dashboardData.kpis.winRate || 0}%</strong>
-                </div>
+                </article>
               </div>
 
               {pipelineDetailLoading ? (
@@ -589,45 +732,111 @@ export default function TeamDashboard() {
               ) : null}
 
               {!pipelineDetailLoading && !pipelineDetailError ? (
-                <div className="team-member-sections">
-                  {(pipelineDetailData.stages || []).map((stage) => (
-                    <section key={stage.stage} className="team-member-section">
-                      <div className="team-member-section-head">
-                        <h4>{stage.stage}</h4>
-                        <small>
-                          {stage.count || 0} deal(s) | {formatCurrency(stage.value || 0)}
-                        </small>
-                      </div>
+                <>
+                  <div className="team-modal-filters">
+                    <input
+                      type="text"
+                      className="team-modal-filter-input"
+                      placeholder="Search by deal, company or owner..."
+                      value={pipelineFilters.query}
+                      onChange={(e) =>
+                        setPipelineFilters((prev) => ({
+                          ...prev,
+                          query: e.target.value
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="team-modal-tabs" role="tablist" aria-label="Pipeline stage tabs">
+                    <button
+                      type="button"
+                      className={`team-modal-tab-btn ${pipelineFilters.stage === "all" ? "active" : ""}`}
+                      onClick={() =>
+                        setPipelineFilters((prev) => ({
+                          ...prev,
+                          stage: "all"
+                        }))
+                      }
+                    >
+                      All Stages
+                    </button>
+                    {pipelineStageOptions.map((stage) => (
+                      <button
+                        key={stage}
+                        type="button"
+                        className={`team-modal-tab-btn ${pipelineFilters.stage === stage ? "active" : ""}`}
+                        onClick={() =>
+                          setPipelineFilters((prev) => ({
+                            ...prev,
+                            stage
+                          }))
+                        }
+                      >
+                        {stage}
+                      </button>
+                    ))}
+                  </div>
 
-                      {Array.isArray(stage.deals) && stage.deals.length ? (
-                        <div className="team-member-list">
-                          {stage.deals.map((deal) => (
-                            <div key={deal._id} className="team-member-deal-row">
-                              <div className="team-member-deal-main">
-                                <strong title={deal.companyName}>{deal.companyName || "-"}</strong>
-                                <span>{deal._id ? `Deal ID: ${deal._id}` : "Deal ID: -"}</span>
-                                <span>
-                                  Owner: {deal.assignedTo?.name || "Unassigned"}
-                                  {deal.assignedTo?.email ? ` (${deal.assignedTo.email})` : ""}
-                                </span>
-                              </div>
-                              <div className="team-member-deal-meta">
-                                <span>{formatCurrency(deal.dealValue || 0)}</span>
-                                <span>Prob: {Number(deal.probability) || 0}%</span>
-                                <span>Close: {formatDate(deal.expectedCloseDate)}</span>
-                              </div>
-                            </div>
+                  {filteredPipelineStageSummary.length ? (
+                    <div className="team-modal-table-wrap">
+                      <table className="team-modal-table">
+                        <thead>
+                          <tr>
+                            <th>Stage</th>
+                            <th>Deals</th>
+                            <th>Pipeline Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredPipelineStageSummary.map((stage) => (
+                            <tr key={stage.stage}>
+                              <td>{stage.stage}</td>
+                              <td>{stage.dealCount}</td>
+                              <td>{formatCurrency(stage.totalValue)}</td>
+                            </tr>
                           ))}
-                        </div>
-                      ) : (
-                        <div className="team-muted">No deals in {stage.stage}.</div>
-                      )}
-                    </section>
-                  ))}
-                  {!pipelineDetailData.stages?.length ? (
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
                     <div className="team-muted">No active stage data</div>
-                  ) : null}
-                </div>
+                  )}
+
+                  {filteredPipelineDeals.length ? (
+                    <div className="team-modal-table-wrap">
+                      <table className="team-modal-table">
+                        <thead>
+                          <tr>
+                            <th>Stage</th>
+                            <th>Deal ID</th>
+                            <th>Company</th>
+                            <th>Owner</th>
+                            <th>Value</th>
+                            <th>Probability</th>
+                            <th>Expected Close</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredPipelineDeals.map((deal) => (
+                            <tr key={`${deal._id}-${deal.stageLabel}`}>
+                              <td>{deal.stageLabel || "-"}</td>
+                              <td>{deal._id || "-"}</td>
+                              <td title={deal.companyName}>{deal.companyName || "-"}</td>
+                              <td title={deal.assignedTo?.email || ""}>
+                                {deal.assignedTo?.name || "Unassigned"}
+                              </td>
+                              <td>{formatCurrency(deal.dealValue || 0)}</td>
+                              <td>{Number(deal.probability) || 0}%</td>
+                              <td>{formatDate(deal.expectedCloseDate)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="team-muted">No pipeline deals match current filters.</div>
+                  )}
+                </>
               ) : null}
             </div>
           </div>
@@ -714,42 +923,106 @@ export default function TeamDashboard() {
               ) : null}
 
               {!memberDetailLoading && !memberDetailError && memberDetailTab === "deals" ? (
-                <div className="team-member-sections">
-                  {[
-                    { key: "open", label: "Open Deals" },
-                    { key: "won", label: "Won Deals" },
-                    { key: "lost", label: "Lost Deals" }
-                  ].map((section) => {
-                    const deals = memberDetailData.deals?.[section.key] || [];
-                    return (
-                      <section key={section.key} className="team-member-section">
-                        <div className="team-member-section-head">
-                          <h4>{section.label}</h4>
-                          <small>{deals.length}</small>
-                        </div>
-                        {deals.length ? (
-                          <div className="team-member-list">
-                            {deals.map((deal) => (
-                              <div key={deal._id} className="team-member-deal-row">
-                                <div className="team-member-deal-main">
-                                  <strong title={deal.companyName}>{deal.companyName || "-"}</strong>
-                                  <span>{deal._id ? `Deal ID: ${deal._id}` : "Deal ID: -"}</span>
-                                </div>
-                                <div className="team-member-deal-meta">
-                                  <span>{deal.stage || "-"}</span>
-                                  <span>{formatCurrency(deal.dealValue || 0)}</span>
-                                  <span>{formatDate(deal.expectedCloseDate)}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="team-muted">No {section.label.toLowerCase()}.</div>
-                        )}
-                      </section>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="team-modal-filters">
+                    <input
+                      type="text"
+                      className="team-modal-filter-input"
+                      placeholder="Search by deal ID, company or stage..."
+                      value={memberDealFilters.query}
+                      onChange={(e) =>
+                        setMemberDealFilters((prev) => ({
+                          ...prev,
+                          query: e.target.value
+                        }))
+                      }
+                    />
+                    <select
+                      className="team-modal-filter-select"
+                      value={memberDealFilters.stage}
+                      onChange={(e) =>
+                        setMemberDealFilters((prev) => ({
+                          ...prev,
+                          stage: e.target.value
+                        }))
+                      }
+                    >
+                      <option value="all">All Stages</option>
+                      {memberDealStageOptions.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {stage}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="team-modal-tabs" role="tablist" aria-label="Member deal status tabs">
+                    {[
+                      { key: "all", label: "All" },
+                      { key: "open", label: "Open" },
+                      { key: "won", label: "Won" },
+                      { key: "lost", label: "Lost" }
+                    ].map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        className={`team-modal-tab-btn ${
+                          memberDealFilters.status === tab.key ? "active" : ""
+                        }`}
+                        onClick={() =>
+                          setMemberDealFilters((prev) => ({
+                            ...prev,
+                            status: tab.key
+                          }))
+                        }
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {hasMemberDeals ? (
+                    <div className="team-modal-table-wrap">
+                      <table className="team-modal-table team-modal-table-compact">
+                        <thead>
+                          <tr>
+                            <th>Status</th>
+                            <th>Deal ID</th>
+                            <th>Company</th>
+                            <th>Stage</th>
+                            <th>Value</th>
+                            <th>Expected Close</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredMemberDeals.length ? (
+                            filteredMemberDeals.map((deal) => (
+                              <tr key={`${deal._id}-${deal.dealStatus}`}>
+                                <td>
+                                  <span className="team-member-pill">
+                                    {deal.dealStatus?.toUpperCase() || "-"}
+                                  </span>
+                                </td>
+                                <td>{deal._id || "-"}</td>
+                                <td title={deal.companyName}>{deal.companyName || "-"}</td>
+                                <td>{deal.stage || "-"}</td>
+                                <td>{formatCurrency(deal.dealValue || 0)}</td>
+                                <td>{formatDate(deal.expectedCloseDate)}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="team-table-empty">
+                                No deals match current filters.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="team-muted">No deals found for this member.</div>
+                  )}
+                </>
               ) : null}
 
               {!memberDetailLoading && !memberDetailError && memberDetailTab === "followups" ? (
@@ -759,27 +1032,106 @@ export default function TeamDashboard() {
                     <small>{memberDetailData.followups.length}</small>
                   </div>
                   {memberDetailData.followups.length ? (
-                    <div className="team-member-list">
-                      {memberDetailData.followups.map((followup) => (
-                        <div key={followup._id} className="team-member-followup-row">
-                          <div className="team-member-followup-main">
-                            <strong title={followup.title}>{followup.title || "-"}</strong>
-                            <span title={followup.companyName}>{followup.companyName || "-"}</span>
-                            <span>{formatDateTime(followup.dueDateTime)}</span>
-                          </div>
-                          <div className="team-member-followup-tags">
-                            <span className="team-member-pill">{followup.actionType || followup.kind || "-"}</span>
-                            <span className="team-member-pill">{followup.entityType || "-"}</span>
-                            <span
-                              className={`team-member-pill ${
-                                followup.isCompleted ? "team-member-pill-completed" : "team-member-pill-pending"
-                              }`}
-                            >
-                              {followup.isCompleted ? "Completed" : "Pending"}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="team-member-sections">
+                      <div className="team-modal-filters">
+                        <input
+                          type="text"
+                          className="team-modal-filter-input"
+                          placeholder="Search by title, company or type..."
+                          value={memberFollowupFilters.query}
+                          onChange={(e) =>
+                            setMemberFollowupFilters((prev) => ({
+                              ...prev,
+                              query: e.target.value
+                            }))
+                          }
+                        />
+                        <select
+                          className="team-modal-filter-select"
+                          value={memberFollowupFilters.entityType}
+                          onChange={(e) =>
+                            setMemberFollowupFilters((prev) => ({
+                              ...prev,
+                              entityType: e.target.value
+                            }))
+                          }
+                        >
+                          <option value="all">All Linked Types</option>
+                          {memberFollowupEntityOptions.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="team-modal-tabs" role="tablist" aria-label="Follow-up status tabs">
+                        {[
+                          { key: "all", label: "All" },
+                          { key: "pending", label: "Pending" },
+                          { key: "completed", label: "Completed" }
+                        ].map((tab) => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            className={`team-modal-tab-btn ${
+                              memberFollowupFilters.status === tab.key ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              setMemberFollowupFilters((prev) => ({
+                                ...prev,
+                                status: tab.key
+                              }))
+                            }
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="team-modal-table-wrap">
+                        <table className="team-modal-table team-modal-table-compact">
+                          <thead>
+                            <tr>
+                              <th>Title</th>
+                              <th>Company</th>
+                              <th>Type</th>
+                              <th>Linked To</th>
+                              <th>Due</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredMemberFollowups.length ? (
+                              filteredMemberFollowups.map((followup) => (
+                                <tr key={followup._id}>
+                                  <td title={followup.title}>{followup.title || "-"}</td>
+                                  <td title={followup.companyName}>{followup.companyName || "-"}</td>
+                                  <td>{followup.actionType || followup.kind || "-"}</td>
+                                  <td>{followup.entityType || "-"}</td>
+                                  <td>{formatDateTime(followup.dueDateTime)}</td>
+                                  <td>
+                                    <span
+                                      className={`team-member-pill ${
+                                        followup.isCompleted
+                                          ? "team-member-pill-completed"
+                                          : "team-member-pill-pending"
+                                      }`}
+                                    >
+                                      {followup.isCompleted ? "Completed" : "Pending"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={6} className="team-table-empty">
+                                  No follow-ups match current filters.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : (
                     <div className="team-muted">No follow-ups due today for this member.</div>
