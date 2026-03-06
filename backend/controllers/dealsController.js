@@ -4,12 +4,26 @@ const Leads = require("../models/leads");
 const LeadContacts = require("../models/leadContacts");
 const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
+const User = require("../models/users");
 
 function mapTemperatureFromLead(lead) {
   const temp = (lead?.lead_temperature || "").toLowerCase();
   if (temp === "hot") return { ai_score: 90, lead_temperature: "hot" };
   if (temp === "warm") return { ai_score: 70, lead_temperature: "warm" };
   return { ai_score: 50, lead_temperature: "cold" };
+}
+
+async function isAdminAssignee(userId) {
+  if (!userId) return false;
+  const user = await User.findOne({
+    _id: userId,
+    is_deleted: { $ne: true },
+  })
+    .populate("role", "name")
+    .select("role")
+    .lean();
+  const roleName = String(user?.role?.name || "").toLowerCase();
+  return roleName === "admin";
 }
 
 exports.getDeals = async (req, res) => {
@@ -177,6 +191,8 @@ exports.getDealById = async (req, res) => {
       Address: lead?.Address || client?.Address || "",
       website: lead?.website || client?.website || "",
       source: lead?.source || client?.source || "",
+      referred_by_user: lead?.referred_by_user || "",
+      expo_event_id: lead?.expo_event_id || "",
       deal_value_estimate:
         typeof deal.dealValue === "number"
           ? deal.dealValue
@@ -231,6 +247,11 @@ exports.updateDeal = async (req, res) => {
     if (userRole !== "admin" && userRole !== "manager") {
       delete update.assignedTo;
       delete update.assigned_to;
+    }
+
+    const requestedAssignee = update.assignedTo || update.assigned_to;
+    if (requestedAssignee && (await isAdminAssignee(requestedAssignee))) {
+      return res.status(400).json({ message: "Deal cannot be assigned to an admin user" });
     }
 
     const deal = await Deal.findByIdAndUpdate(req.params.id, update, { returnDocument: "after" }).lean();

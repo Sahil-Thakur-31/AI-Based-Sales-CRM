@@ -35,6 +35,8 @@ const bodyparser = require('body-parser');
 const cors = require('cors');
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const managerDashboardRoutes = require("./routes/managerDashboardRoutes");
+const userDashboardRoutes = require("./routes/userDashboardRoutes");
+const dailyClosingRoutes = require("./routes/dailyClosingRoutes");
 
 const app = express();
 const myServer = http.createServer(app);
@@ -70,6 +72,8 @@ app.use("/taxes", taxRoutes);
 app.use("/events", eventsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/manager/dashboard", managerDashboardRoutes);
+app.use("/api/user/dashboard", userDashboardRoutes);
+app.use("/daily-closing", dailyClosingRoutes);
 app.use("/ocr", ocrRoutes);
 app.use("/events", eventsRoutes);
 app.use("/whatsapp", whatsappRoutes);

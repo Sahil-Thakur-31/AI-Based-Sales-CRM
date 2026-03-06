@@ -7,7 +7,7 @@ const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const CRMSettings = require("../models/crmSettings");
-const { syncSingleMeetingToGoogle } = require("../services/googleCalendarSync");
+const { syncSingleMeetingToGoogle, deleteSingleMeetingFromGoogle } = require("../services/googleCalendarSync");
 
 function normalizeRole(roleName = "") {
   return String(roleName).trim().toLowerCase();
@@ -75,10 +75,44 @@ function validatePayload(body) {
   if (body.kind && !["followup", "meeting"].includes(body.kind)) {
     errors.push("kind must be followup or meeting");
   }
+  if (body.reminderChoice && !["yes", "no", "maybe"].includes(String(body.reminderChoice).toLowerCase())) {
+    errors.push("reminderChoice must be yes, no, or maybe");
+  }
+  if (body.reminderOptions !== undefined) {
+    if (!Array.isArray(body.reminderOptions)) {
+      errors.push("reminderOptions must be an array");
+    } else {
+      for (const opt of body.reminderOptions) {
+        const unit = String(opt?.unit || "").toLowerCase();
+        const value = Number(opt?.value);
+        const channel = String(opt?.channel || "notification").toLowerCase();
+        if (channel !== "notification") errors.push("reminderOptions.channel must be notification");
+        if (!["minutes", "hours", "days"].includes(unit)) errors.push("reminderOptions.unit must be minutes, hours, or days");
+        if (!Number.isFinite(value) || value < 1) errors.push("reminderOptions.value must be a positive number");
+      }
+    }
+  }
   if (body.stage && !["P1", "P2", "P3", "P4", "P5", "P6", "P7"].includes(body.stage)) {
     errors.push("stage must be one of P1-P7");
   }
   return errors;
+}
+
+function normalizeReminderOptions(options = []) {
+  if (!Array.isArray(options)) return [];
+  return options
+    .map((opt) => {
+      const unit = String(opt?.unit || "").toLowerCase();
+      const value = Number(opt?.value);
+      if (!["minutes", "hours", "days"].includes(unit)) return null;
+      if (!Number.isFinite(value) || value < 1) return null;
+      return {
+        channel: "notification",
+        value: Math.max(1, Math.floor(value)),
+        unit,
+      };
+    })
+    .filter(Boolean);
 }
 
 async function appendHistory({ followupId, actionType, notes, performedBy }) {
@@ -153,6 +187,7 @@ async function syncMeetingMirrorFromFollowup(doc, actorId) {
     Id: doc._id,
     title: doc.title || "",
     description: doc.notes || "",
+    cancelReason: doc.cancelReason || "",
     clientName: doc.clientName || "",
     leadId: doc.leadId || undefined,
     dealId: doc.dealId || undefined,
@@ -245,6 +280,27 @@ function getNotificationItemType(doc) {
 
 function getNotificationCompanyName(doc) {
   return String(doc?.clientName || "").trim() || "the selected company";
+}
+
+async function createFollowupAssignmentNotification(doc) {
+  if (!doc?._id) return;
+
+  const assignedToId = String(doc?.assignedTo?._id || doc?.assignedTo || "").trim();
+  if (!assignedToId || !mongoose.Types.ObjectId.isValid(assignedToId)) return;
+
+  const dueAt = new Date(doc?.dueDateTime);
+  const dueText = Number.isNaN(dueAt.getTime()) ? "the selected time" : dueAt.toLocaleString("en-IN");
+  const companyName = getNotificationCompanyName(doc);
+  const itemType = doc?.kind === "meeting" ? "Meeting" : "Follow-up";
+
+  await Notification.create({
+    userId: new mongoose.Types.ObjectId(assignedToId),
+    title: `${itemType} Assigned`,
+    message: `${itemType} for ${companyName} is assigned to you on ${dueText}.`,
+    type: "info",
+    relatedId: doc._id,
+    relatedType: "Followup",
+  });
 }
 
 async function createFollowupNotification(doc, userId, eventType) {
@@ -485,10 +541,13 @@ exports.create = async (req, res) => {
       clientName: req.body.clientName || "",
       stage: req.body.stage || "P1",
       notes: req.body.notes || "",
+      cancelReason: req.body.cancelReason || "",
       priority: req.body.priority || "medium",
       status: req.body.status || "pending",
       dueDateTime: new Date(req.body.dueDateTime),
       reminderEnabled: req.body.reminderEnabled !== false,
+      reminderChoice: String(req.body.reminderChoice || (req.body.reminderEnabled === false ? "no" : "yes")).toLowerCase(),
+      reminderOptions: normalizeReminderOptions(req.body.reminderOptions || []),
       assignedTo: new mongoose.Types.ObjectId(assignedTo),
       durationMinutes: req.body.durationMinutes || undefined,
       agenda: req.body.agenda || "",
@@ -539,11 +598,13 @@ exports.create = async (req, res) => {
       console.error("followups.create notification error:", notificationErr);
     }
 
-    try {
-      // Sync the newly created followup/meeting to Google Calendar continuously
-      await syncSingleMeetingToGoogle(created, created.assignedTo._id || created.assignedTo);
-    } catch (gcalErr) {
-      console.error("followups.create gcal sync error:", gcalErr);
+    if (isMeetingLikeFollowup(created)) {
+      try {
+        // Sync only newly created meetings to Google Calendar.
+        await syncSingleMeetingToGoogle(created, created.assignedTo._id || created.assignedTo);
+      } catch (gcalErr) {
+        console.error("followups.create gcal sync error:", gcalErr);
+      }
     }
 
     res.status(201).json(created);
@@ -580,10 +641,19 @@ exports.update = async (req, res) => {
       clientName: req.body.clientName ?? current.clientName,
       stage: req.body.stage ?? current.stage,
       notes: req.body.notes ?? current.notes,
+      cancelReason: req.body.cancelReason ?? current.cancelReason,
       priority: req.body.priority ?? current.priority,
       status: req.body.status ?? current.status,
       dueDateTime: req.body.dueDateTime ? new Date(req.body.dueDateTime) : current.dueDateTime,
       reminderEnabled: req.body.reminderEnabled ?? current.reminderEnabled,
+      reminderChoice:
+        req.body.reminderChoice !== undefined
+          ? String(req.body.reminderChoice).toLowerCase()
+          : current.reminderChoice || (current.reminderEnabled === false ? "no" : "yes"),
+      reminderOptions:
+        req.body.reminderOptions !== undefined
+          ? normalizeReminderOptions(req.body.reminderOptions)
+          : current.reminderOptions || [],
       assignedTo: new mongoose.Types.ObjectId(nextAssigned),
       durationMinutes: req.body.durationMinutes ?? current.durationMinutes,
       agenda: req.body.agenda ?? current.agenda,
@@ -640,11 +710,18 @@ exports.update = async (req, res) => {
       console.error("followups.update activity log error:", activityErr);
     }
 
-    try {
-      // Sync the updated followup/meeting to Google Calendar continuously
-      await syncSingleMeetingToGoogle(updated, updated.assignedTo._id || updated.assignedTo);
-    } catch (gcalErr) {
-      console.error("followups.update gcal sync error:", gcalErr);
+    if (isMeetingLikeFollowup(updated)) {
+      try {
+        const assigneeId = updated.assignedTo?._id || updated.assignedTo;
+        if (String(updated.status || "").toLowerCase() === "cancelled") {
+          await deleteSingleMeetingFromGoogle(updated, assigneeId);
+        } else {
+          // Sync only updated meetings to Google Calendar.
+          await syncSingleMeetingToGoogle(updated, assigneeId);
+        }
+      } catch (gcalErr) {
+        console.error("followups.update gcal sync error:", gcalErr);
+      }
     }
 
     res.json(updated);
@@ -678,6 +755,20 @@ exports.updateStatus = async (req, res) => {
       updatePayload.notes = String(req.body.notes || "").trim();
     }
 
+    if (status === "cancelled") {
+      const cancelReasonRaw = req.body.cancelReason ?? req.body.notes ?? "";
+      const cancelReason = String(cancelReasonRaw).trim();
+      if (!cancelReason) {
+        return res.status(400).json({ message: "Cancellation reason is required" });
+      }
+      updatePayload.cancelReason = cancelReason;
+      if (req.body.notes === undefined) {
+        updatePayload.notes = cancelReason;
+      }
+    } else if (req.body.cancelReason !== undefined) {
+      updatePayload.cancelReason = String(req.body.cancelReason || "").trim();
+    }
+
     const allowedIds = await getAccessibleUserIds(req.user);
     const updated = await Followup.findOneAndUpdate(
       {
@@ -699,6 +790,8 @@ exports.updateStatus = async (req, res) => {
       notes:
         status === "completed"
           ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
+          : status === "cancelled"
+            ? `Status changed to cancelled${updated.cancelReason ? ` | Reason: ${updated.cancelReason}` : ""}`
           : `Status changed to ${status}`,
       performedBy: req.user._id,
     });
@@ -726,6 +819,19 @@ exports.updateStatus = async (req, res) => {
         await createFollowupNotification(updated, req.user._id, "completed");
       } catch (notificationErr) {
         console.error("followups.updateStatus notification error:", notificationErr);
+      }
+    }
+
+    if (isMeetingLikeFollowup(updated)) {
+      try {
+        const assigneeId = updated.assignedTo?._id || updated.assignedTo;
+        if (status === "cancelled") {
+          await deleteSingleMeetingFromGoogle(updated, assigneeId);
+        } else {
+          await syncSingleMeetingToGoogle(updated, assigneeId);
+        }
+      } catch (gcalErr) {
+        console.error("followups.updateStatus gcal sync error:", gcalErr);
       }
     }
 
@@ -757,6 +863,14 @@ exports.remove = async (req, res) => {
 
     if (existing.kind === "meeting") {
       await softDeleteMeetingMirror(existing._id);
+    }
+
+    if (isMeetingLikeFollowup(existing)) {
+      try {
+        await deleteSingleMeetingFromGoogle(existing, existing.assignedTo);
+      } catch (gcalErr) {
+        console.error("followups.remove gcal delete error:", gcalErr);
+      }
     }
 
     try {

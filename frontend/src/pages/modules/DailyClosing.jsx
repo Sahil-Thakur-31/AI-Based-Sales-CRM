@@ -93,21 +93,6 @@ export default function DailyClosing() {
     [viewDate]
   );
 
-  const selectedLabel = useMemo(
-    () =>
-      selectedDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }),
-    [selectedDate]
-  );
-
-  const maxAllowedTime = isSameDay(selectedDate, today)
-    ? getCurrentTimeValue()
-    : undefined;
-
   const canGoToNextMonth =
     viewDate.getFullYear() < today.getFullYear() ||
     (viewDate.getFullYear() === today.getFullYear() &&
@@ -133,15 +118,6 @@ export default function DailyClosing() {
     setSelectedTime(getCurrentTimeValue());
   };
 
-  const openClosingForm = () => {
-    navigate("/daily-closing/form", {
-      state: {
-        selectedDate: formatLocalDateInput(selectedDate),
-        selectedTime,
-      },
-    });
-  };
-
   useEffect(() => {
     if (!isSameDay(selectedDate, today)) return;
 
@@ -160,15 +136,6 @@ export default function DailyClosing() {
         <div>
           <p className="dailyClosingEyebrow">Daily Closing</p>
           <h1 className="dailyClosingTitle">Calendar</h1>
-          <p className="dailyClosingSubtitle">
-            Choose today or any past date, then set the closing time for the record.
-          </p>
-        </div>
-
-        <div className="dailyClosingSummaryCard">
-          <span className="dailyClosingSummaryLabel">Selected</span>
-          <strong>{selectedLabel}</strong>
-          <span className="dailyClosingSummaryTime">{selectedTime}</span>
         </div>
       </div>
 
@@ -249,9 +216,16 @@ export default function DailyClosing() {
                   onClick={() => {
                     if (item.isFuture) return;
                     setSelectedDate(item.date);
-                    if (isSameDay(item.date, today)) {
-                      setSelectedTime(getCurrentTimeValue());
-                    }
+                    const nextTime = isSameDay(item.date, today)
+                      ? getCurrentTimeValue()
+                      : selectedTime;
+                    setSelectedTime(nextTime);
+                    navigate("/daily-closing/form", {
+                      state: {
+                        selectedDate: formatLocalDateInput(item.date),
+                        selectedTime: nextTime,
+                      },
+                    });
                   }}
                   disabled={item.isFuture}
                 >
@@ -264,64 +238,6 @@ export default function DailyClosing() {
             })}
           </div>
         </section>
-
-        <aside className="dailyClosingSideCard">
-          <div className="dailyClosingFieldBlock">
-            <label className="dailyClosingLabel" htmlFor="daily-closing-date">
-              Closing Date
-            </label>
-            <input
-              id="daily-closing-date"
-              className="dailyClosingInput"
-              type="date"
-              value={formatLocalDateInput(selectedDate)}
-              max={formatLocalDateInput(today)}
-              onChange={(e) => {
-                const next = new Date(`${e.target.value}T00:00:00`);
-                if (Number.isNaN(next.getTime()) || next > today) return;
-                setSelectedDate(next);
-                setViewDate(new Date(next.getFullYear(), next.getMonth(), 1));
-                if (isSameDay(next, today)) {
-                  setSelectedTime(getCurrentTimeValue());
-                }
-              }}
-            />
-          </div>
-
-          <div className="dailyClosingFieldBlock">
-            <label className="dailyClosingLabel" htmlFor="daily-closing-time">
-              Closing Time
-            </label>
-            <input
-              id="daily-closing-time"
-              className="dailyClosingInput"
-              type="time"
-              value={selectedTime}
-              max={maxAllowedTime}
-              onChange={(e) => {
-                const nextTime = e.target.value;
-                if (maxAllowedTime && nextTime > maxAllowedTime) return;
-                setSelectedTime(nextTime);
-              }}
-            />
-          </div>
-
-          <div className="dailyClosingInfoCard">
-            <span className="dailyClosingInfoLabel">Ready For Entry</span>
-            <h3>{selectedLabel}</h3>
-            <p>
-              Future dates are locked. Pick any earlier date or today and proceed with
-              the daily closing flow.
-            </p>
-            <button
-              type="button"
-              className="dailyClosingBtn dailyClosingBtnPrimary dailyClosingOpenBtn"
-              onClick={openClosingForm}
-            >
-              Open Daily Closing Form
-            </button>
-          </div>
-        </aside>
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ import FollowUps from './pages/modules/FollowUps.jsx';
 import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
 import DailyClosing from './pages/modules/DailyClosing.jsx';
 import DailyClosingForm from './pages/modules/DailyClosingForm.jsx';
+import DailyClosingReport from './pages/modules/DailyClosingReport.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
 import AILeads from './pages/modules/AILeads.jsx';
@@ -100,6 +101,7 @@ function App() {
           <Route path="/followups/add" element={<FollowupsAddPage />} />
           <Route path="/daily-closing" element={<DailyClosing />} />
           <Route path="/daily-closing/form" element={<DailyClosingForm />} />
+          <Route path="/daily-closing/report" element={<DailyClosingReport />} />
 
           <Route path="/sales-forecast" element={<SalesForecast />} />
           <Route path="/expenses" element={<Expenses />} />

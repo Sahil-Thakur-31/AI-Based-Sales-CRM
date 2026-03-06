@@ -41,6 +41,16 @@ const leadsSchema = new mongoose.Schema(
       ref: "Source",
     },
 
+    referred_by_user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    expo_event_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "events",
+    },
+
     lead_temperature: {
       type: String,
       enum: ["cold", "warm", "hot"],

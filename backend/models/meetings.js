@@ -43,6 +43,10 @@ const meetingsSchema = new mongoose.Schema({
     type: String
   },
 
+  cancelReason: {
+    type: String
+  },
+
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "users"
