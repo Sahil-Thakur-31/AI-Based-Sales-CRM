@@ -147,6 +147,33 @@ const followupSchema = new mongoose.Schema(
       index: true
     },
 
+    reminderChoice: {
+      type: String,
+      enum: ["yes", "no", "maybe"],
+      default: "yes",
+      index: true
+    },
+
+    reminderOptions: [
+      {
+        channel: {
+          type: String,
+          enum: ["notification"],
+          default: "notification"
+        },
+        value: {
+          type: Number,
+          min: 1,
+          default: 10
+        },
+        unit: {
+          type: String,
+          enum: ["minutes", "hours", "days"],
+          default: "minutes"
+        }
+      }
+    ],
+
     completedAt: {
       type: Date,
       default: null,
@@ -216,6 +243,12 @@ const followupSchema = new mongoose.Schema(
     whatsappReminder1hSent: {
       type: Boolean,
       default: false,
+      index: true
+    },
+
+    googleEventId: {
+      type: String,
+      default: null,
       index: true
     }
 

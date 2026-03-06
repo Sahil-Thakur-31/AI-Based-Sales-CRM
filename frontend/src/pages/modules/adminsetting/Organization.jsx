@@ -4,6 +4,8 @@ import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import "./admin-config.css";
 
+const ACCOUNT_TYPE_OPTIONS = ["Savings", "Current", "Salary", "OD/CC", "NRE", "NRO"];
+
 function createEmptyForm() {
   return {
     name: "",
@@ -23,7 +25,17 @@ function createEmptyForm() {
     gstNumber: "",
     phoneNumber: "",
     alternatePhoneNumber: "",
-    email: ""
+    email: "",
+    paymentAccountName: "",
+    paymentAccountNumber: "",
+    paymentAccountType: "",
+    paymentBankName: "",
+    paymentIfscCode: "",
+    paymentUpiId: "",
+    headName: "",
+    headRole: "",
+    headPhone: "",
+    headEmail: ""
   };
 }
 
@@ -54,6 +66,8 @@ export default function Organization() {
   const [stampFile, setStampFile] = useState(null);
   const [stampRemoved, setStampRemoved] = useState(false);
   const [stampPreview, setStampPreview] = useState("");
+  const hasCustomAccountType =
+    !!form.paymentAccountType && !ACCOUNT_TYPE_OPTIONS.includes(form.paymentAccountType);
 
   const resolveLogoUrl = (value) => {
     const raw = String(value || "").trim();
@@ -94,7 +108,17 @@ export default function Organization() {
     gstNumber: profile?.gstNumber || "",
     phoneNumber: profile?.phoneNumber || "",
     alternatePhoneNumber: profile?.alternatePhoneNumber || "",
-    email: profile?.email || ""
+    email: profile?.email || "",
+    paymentAccountName: profile?.paymentAccountName || "",
+    paymentAccountNumber: profile?.paymentAccountNumber || "",
+    paymentAccountType: profile?.paymentAccountType || "",
+    paymentBankName: profile?.paymentBankName || "",
+    paymentIfscCode: profile?.paymentIfscCode || "",
+    paymentUpiId: profile?.paymentUpiId || "",
+    headName: profile?.headName || "",
+    headRole: profile?.headRole || "",
+    headPhone: profile?.headPhone || "",
+    headEmail: profile?.headEmail || ""
   });
 
   useEffect(() => {
@@ -295,6 +319,16 @@ export default function Organization() {
       payload.append("phoneNumber", form.phoneNumber || "");
       payload.append("alternatePhoneNumber", form.alternatePhoneNumber || "");
       payload.append("email", form.email || "");
+      payload.append("paymentAccountName", form.paymentAccountName || "");
+      payload.append("paymentAccountNumber", form.paymentAccountNumber || "");
+      payload.append("paymentAccountType", form.paymentAccountType || "");
+      payload.append("paymentBankName", form.paymentBankName || "");
+      payload.append("paymentIfscCode", form.paymentIfscCode || "");
+      payload.append("paymentUpiId", form.paymentUpiId || "");
+      payload.append("headName", form.headName || "");
+      payload.append("headRole", form.headRole || "");
+      payload.append("headPhone", form.headPhone || "");
+      payload.append("headEmail", form.headEmail || "");
 
       if (logoFile) payload.append("logo", logoFile);
       if (signatureFile) payload.append("signature", signatureFile);
@@ -455,12 +489,252 @@ export default function Organization() {
               </section>
             </div>
 
-            <div className="org-below-section">
-              <div className="org-three-field-row">
-                <div className="org-profile-field">
-                  <label>Area</label>
-                  {isEditing ? (
-                    <input value={form.area} onChange={(e) => updateField("area", e.target.value)} placeholder="Area" />
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>District</label>
+                {isEditing ? (
+                  <input value={form.district} onChange={(e) => updateField("district", e.target.value)} placeholder="District" />
+                ) : (
+                  <p className="org-view-value">{form.district || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>State</label>
+                {isEditing ? (
+                  <input value={form.state} onChange={(e) => updateField("state", e.target.value)} placeholder="State" />
+                ) : (
+                  <p className="org-view-value">{form.state || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Country</label>
+                {isEditing ? (
+                  <input value={form.country} onChange={(e) => updateField("country", e.target.value)} placeholder="Country" />
+                ) : (
+                  <p className="org-view-value">{form.country || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>CIN Number</label>
+                {isEditing ? (
+                  <input value={form.cinNumber} onChange={(e) => updateField("cinNumber", e.target.value)} placeholder="CIN number" />
+                ) : (
+                  <p className="org-view-value">{form.cinNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>PAN Number</label>
+                {isEditing ? (
+                  <input value={form.panNumber} onChange={(e) => updateField("panNumber", e.target.value)} placeholder="PAN number" />
+                ) : (
+                  <p className="org-view-value">{form.panNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>GST Number</label>
+                {isEditing ? (
+                  <input value={form.gstNumber} onChange={(e) => updateField("gstNumber", e.target.value)} placeholder="GST number" />
+                ) : (
+                  <p className="org-view-value">{form.gstNumber || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Phone Number</label>
+                {isEditing ? (
+                  <input value={form.phoneNumber} onChange={(e) => updateField("phoneNumber", e.target.value)} placeholder="Phone number" />
+                ) : (
+                  <p className="org-view-value">{form.phoneNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Alternate Phone Number</label>
+                {isEditing ? (
+                  <input value={form.alternatePhoneNumber} onChange={(e) => updateField("alternatePhoneNumber", e.target.value)} placeholder="Alternate phone number" />
+                ) : (
+                  <p className="org-view-value">{form.alternatePhoneNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Email</label>
+                {isEditing ? (
+                  <input value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="Email" />
+                ) : (
+                  <p className="org-view-value">{form.email || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-section-title">Payment Information</div>
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Account Name</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentAccountName}
+                    onChange={(e) => updateField("paymentAccountName", e.target.value)}
+                    placeholder="Account holder name"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentAccountName || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Account Number</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentAccountNumber}
+                    onChange={(e) => updateField("paymentAccountNumber", e.target.value)}
+                    placeholder="Account number"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentAccountNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Account Type</label>
+                {isEditing ? (
+                  <select
+                    value={form.paymentAccountType}
+                    onChange={(e) => updateField("paymentAccountType", e.target.value)}
+                  >
+                    <option value="">Select account type</option>
+                    {hasCustomAccountType ? (
+                      <option value={form.paymentAccountType}>{form.paymentAccountType}</option>
+                    ) : null}
+                    {ACCOUNT_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="org-view-value">{form.paymentAccountType || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Bank Name</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentBankName}
+                    onChange={(e) => updateField("paymentBankName", e.target.value)}
+                    placeholder="Bank name"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentBankName || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>IFSC Code</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentIfscCode}
+                    onChange={(e) => updateField("paymentIfscCode", e.target.value)}
+                    placeholder="IFSC code"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentIfscCode || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>UPI ID</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentUpiId}
+                    onChange={(e) => updateField("paymentUpiId", e.target.value)}
+                    placeholder="example@upi"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentUpiId || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-section-title">Company Head</div>
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Head Name</label>
+                {isEditing ? (
+                  <input
+                    value={form.headName}
+                    onChange={(e) => updateField("headName", e.target.value)}
+                    placeholder="Person name"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headName || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Head Role</label>
+                {isEditing ? (
+                  <input
+                    value={form.headRole}
+                    onChange={(e) => updateField("headRole", e.target.value)}
+                    placeholder="CEO / Managing Director / etc."
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headRole || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Head Phone</label>
+                {isEditing ? (
+                  <input
+                    value={form.headPhone}
+                    onChange={(e) => updateField("headPhone", e.target.value)}
+                    placeholder="Phone number"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headPhone || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-three-field-row">
+              <div className="org-profile-field org-profile-field-full">
+                <label>Head Email</label>
+                {isEditing ? (
+                  <input
+                    value={form.headEmail}
+                    onChange={(e) => updateField("headEmail", e.target.value)}
+                    placeholder="Email"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headEmail || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-sign-assets-row">
+              <div className="org-sign-asset-card">
+                <label>Signature</label>
+                <div className="org-logo-block">
+                  {signaturePreview ? (
+                    <img
+                      className="org-logo-preview org-sign-preview"
+                      src={signaturePreview}
+                      alt="Organization signature"
+                    />
                   ) : (
                     <p className="org-view-value">{form.area || "-"}</p>
                   )}

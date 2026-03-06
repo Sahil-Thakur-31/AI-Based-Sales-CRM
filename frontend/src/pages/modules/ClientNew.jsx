@@ -8,6 +8,8 @@ function initialForm() {
     name: "",
     industry: "",
     source: "",
+    referred_by_user: "",
+    expo_event_id: "",
     Address: "",
     website: "",
     employeeCount: "",
@@ -22,24 +24,42 @@ export default function ClientNew() {
   const [form, setForm] = useState(initialForm());
   const [industries, setIndustries] = useState([]);
   const [sources, setSources] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [events, setEvents] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [indRes, srcRes] = await Promise.all([API.get("/industries"), API.get("/sources")]);
+        const [indRes, srcRes, usersRes, eventsRes] = await Promise.all([
+          API.get("/industries"),
+          API.get("/sources"),
+          API.get("/users"),
+          API.get("/events")
+        ]);
         setIndustries(indRes.data || []);
         setSources(srcRes.data || []);
+        setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
+        setEvents(Array.isArray(eventsRes.data) ? eventsRes.data : []);
       } catch (err) {
         console.error(err);
       }
     })();
   }, []);
 
+  const selectedSource = sources.find((s) => String(s?._id) === String(form.source || ""));
+  const normalizedSourceName = String(selectedSource?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const isReferenceLikeSource = /(ref|refer|reference|referr|reffe|refee)/.test(normalizedSourceName);
+  const isEventExpoLikeSource =
+    (normalizedSourceName.includes("event") && normalizedSourceName.includes("expo")) ||
+    normalizedSourceName.includes("events n expos");
+
   const save = async () => {
     if (!form.name.trim()) return alert("Client name is required");
     if (!form.industry) return alert("Industry is required");
+    if (isReferenceLikeSource && !form.referred_by_user) return alert("Please select reference user");
+    if (isEventExpoLikeSource && !form.expo_event_id) return alert("Please select event/expo");
 
     try {
       setSaving(true);
@@ -47,6 +67,8 @@ export default function ClientNew() {
         name: form.name,
         industry: form.industry,
         source: form.source,
+        referred_by_user: form.referred_by_user || null,
+        expo_event_id: form.expo_event_id || null,
         Address: form.Address,
         website: form.website,
         employeeCount: form.employeeCount === "" ? 0 : Number(form.employeeCount),
@@ -105,6 +127,36 @@ export default function ClientNew() {
                 ))}
               </select>
             </div>
+
+            {isReferenceLikeSource && (
+              <div className="clients-field">
+                <label>Reference User</label>
+                <select
+                  value={form.referred_by_user || ""}
+                  onChange={(e) => setForm({ ...form, referred_by_user: e.target.value })}
+                >
+                  <option value="">Select User</option>
+                  {users.map((u) => (
+                    <option key={u._id} value={u._id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {isEventExpoLikeSource && (
+              <div className="clients-field">
+                <label>Event / Expo</label>
+                <select
+                  value={form.expo_event_id || ""}
+                  onChange={(e) => setForm({ ...form, expo_event_id: e.target.value })}
+                >
+                  <option value="">Select Event / Expo</option>
+                  {events.map((ev) => (
+                    <option key={ev._id} value={ev._id}>{ev.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="clients-field">
               <label>Employee Count</label>

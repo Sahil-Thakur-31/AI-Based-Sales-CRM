@@ -67,6 +67,8 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     Address: "",
     website: "",
     source: "",
+    referred_by_user: "",
+    expo_event_id: "",
     country: "",
     State: "",
     city: "",
@@ -90,6 +92,32 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const [zoneOptions, setZoneOptions] = useState([]);
   const [industries, setIndustries] = useState([]);
   const [users, setUsers] = useState([]);
+  const [events, setEvents] = useState([]);
+  const assignableUsers = useMemo(
+    () =>
+      (Array.isArray(users) ? users : []).filter(
+        (u) => String(u?.roleName || "").toLowerCase() !== "admin"
+      ),
+    [users]
+  );
+  const selectedSource = useMemo(
+    () => (Array.isArray(sources) ? sources : []).find((s) => String(s?._id) === String(lead.source || "")) || null,
+    [sources, lead.source]
+  );
+  const normalizedSourceName = useMemo(
+    () => String(selectedSource?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
+    [selectedSource]
+  );
+  const isReferenceLikeSource = useMemo(
+    () => /(ref|refer|reference|referr|reffe|refee)/.test(normalizedSourceName),
+    [normalizedSourceName]
+  );
+  const isEventExpoLikeSource = useMemo(
+    () =>
+      (normalizedSourceName.includes("event") && normalizedSourceName.includes("expo")) ||
+      normalizedSourceName.includes("events n expos"),
+    [normalizedSourceName]
+  );
 
   /* ================= CONTACTS ================= */
   const [contacts, setContacts] = useState([
@@ -99,7 +127,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       phone: "",
       email: "",
       linkedin: "",
-      address: "",
       is_primary: true,
     },
   ]);
@@ -129,6 +156,14 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               loadedDeal?.source?._id ||
               loadedDeal?.source ||
               "",
+            referred_by_user:
+              loadedDeal?.referred_by_user?._id ||
+              loadedDeal?.referred_by_user ||
+              "",
+            expo_event_id:
+              loadedDeal?.expo_event_id?._id ||
+              loadedDeal?.expo_event_id ||
+              "",
             contact_history: Array.isArray(loadedDeal.contact_history)
               ? loadedDeal.contact_history
               : [],
@@ -156,6 +191,14 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             loadedLead?.source?._id ||
             loadedLead?.source ||
             "",
+          referred_by_user:
+            loadedLead?.referred_by_user?._id ||
+            loadedLead?.referred_by_user ||
+            "",
+          expo_event_id:
+            loadedLead?.expo_event_id?._id ||
+            loadedLead?.expo_event_id ||
+            "",
           contact_history: Array.isArray(loadedLead.contact_history)
             ? loadedLead.contact_history
             : [],
@@ -173,11 +216,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
-      const [sourcesRes, locationsRes, industriesRes, usersRes] = await Promise.allSettled([
+      const [sourcesRes, locationsRes, industriesRes, usersRes, eventsRes] = await Promise.allSettled([
         API.get("/sources"),
         API.get("/location"),
         API.get("/industries"),
         API.get("/users"),
+        API.get("/events"),
       ]);
 
       if (sourcesRes.status === "fulfilled") {
@@ -202,6 +246,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         setUsers(Array.isArray(usersRes.value.data) ? usersRes.value.data : []);
       } else {
         console.error("users load error", usersRes.reason);
+      }
+
+      if (eventsRes.status === "fulfilled") {
+        setEvents(Array.isArray(eventsRes.value.data) ? eventsRes.value.data : []);
+      } else {
+        console.error("events load error", eventsRes.reason);
       }
     };
 
@@ -300,6 +350,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         updated.zone = "";
       }
 
+      if (name === "source") {
+        updated.referred_by_user = "";
+        updated.expo_event_id = "";
+      }
+
       return updated;
     });
   };
@@ -357,7 +412,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         phone: "",
         email: "",
         linkedin: "",
-        address: "",
         is_primary: false,
       },
     ]);
@@ -376,6 +430,14 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       showAlert("Validation", "Primary contact required", "error");
       return;
     }
+    if (isReferenceLikeSource && !lead.referred_by_user) {
+      showAlert("Validation", "Please select a referral user", "error");
+      return;
+    }
+    if (isEventExpoLikeSource && !lead.expo_event_id) {
+      showAlert("Validation", "Please select an event/expo", "error");
+      return;
+    }
 
     try {
       let response;
@@ -389,6 +451,8 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           turnoverRange: lead.turnover_range || "",
           website: lead.website || "",
           source: lead.source || "",
+          referred_by_user: lead.referred_by_user || "",
+          expo_event_id: lead.expo_event_id || "",
           deal_count: 0,
           location: selectedLocationId || null,
           contacts: contacts.map((contact) => ({
@@ -731,6 +795,8 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                           Address: s.Address || prev.Address,
                           website: s.website || prev.website,
                           source: s.source || prev.source,
+                          referred_by_user: s.referred_by_user || prev.referred_by_user,
+                          expo_event_id: s.expo_event_id || prev.expo_event_id,
                           deal_value_estimate: s.deal_value_estimate || prev.deal_value_estimate,
                           lead_temperature: s.lead_temperature || prev.lead_temperature,
                           assigned_to: s.assigned_to || prev.assigned_to,
@@ -881,12 +947,56 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           )}
         </div>
 
+        {isReferenceLikeSource && (
+          <div className="field">
+            <label>Reference User</label>
+            {editMode ? (
+              <select
+                name="referred_by_user"
+                value={lead.referred_by_user || ""}
+                onChange={handleLeadChange}
+              >
+                <option value="">Select User</option>
+                {users.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{users.find((u) => String(u._id) === String(lead.referred_by_user || ""))?.name || "-"}</p>
+            )}
+          </div>
+        )}
+
+        {isEventExpoLikeSource && (
+          <div className="field">
+            <label>Event / Expo</label>
+            {editMode ? (
+              <select
+                name="expo_event_id"
+                value={lead.expo_event_id || ""}
+                onChange={handleLeadChange}
+              >
+                <option value="">Select Event / Expo</option>
+                {events.map((ev) => (
+                  <option key={ev._id} value={ev._id}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{events.find((ev) => String(ev._id) === String(lead.expo_event_id || ""))?.name || "-"}</p>
+            )}
+          </div>
+        )}
+
         <div className="field">
-          <label>Assign Lead To</label>
+          <label>{dealView ? "Assign Deal To" : "Assign Lead To"}</label>
           {editMode && isAdminOrManager ? (
             <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
               <option value="">Select User</option>
-              {users.map((u) => (
+              {assignableUsers.map((u) => (
                 <option key={u._id} value={u._id}>
                   {u.name}
                 </option>
@@ -954,7 +1064,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               </div>
               <InputField label="Email" name="email" value={c.email} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
               <InputField label="LinkedIn" name="linkedin" value={c.linkedin} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Address" name="address" value={c.address} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
             </div>
           </div>
         ))}
@@ -968,7 +1077,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         )}
       </div>
 
-      {!clientView && !embedded && (
+      {!clientView && !embedded && !isNew && (
         <div className="contacts-section">
           <h3 className="contacts-title">Follow-up History</h3>
           {historyRows.length === 0 && <p>No follow-up history yet.</p>}

@@ -36,6 +36,7 @@ import TeamSetup from './pages/modules/TeamSetup.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
+import CalendarPage from './pages/modules/CalendarPage.jsx';
 
 import Products from './pages/modules/adminsetting/Products.jsx';
 import Roles from './pages/modules/adminsetting/Roles.jsx';
@@ -43,6 +44,7 @@ import Industry from './pages/modules/adminsetting/Industry.jsx';
 import Sources from './pages/modules/adminsetting/Sources.jsx';
 import Taxes from './pages/modules/adminsetting/Taxes.jsx';
 import Organization from './pages/modules/adminsetting/Organization.jsx';
+import QuotationClauses from './pages/modules/adminsetting/QuotationClauses.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -114,6 +116,7 @@ function App() {
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/calendar" element={<CalendarPage />} />
 
           {/* Admin-only routes */}
           <Route
@@ -175,6 +178,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["Admin"]}>
                 <Organization />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/quotation-clauses"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <QuotationClauses />
               </ProtectedRoute>
             }
           />

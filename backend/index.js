@@ -18,6 +18,7 @@ const clientRoutes = require("./routes/clientRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const taxRoutes = require("./routes/taxRoutes");
 const organizationRoutes = require("./routes/organizationRoutes");
+const quotationClausesRoutes = require("./routes/quotationClausesRoutes");
 const followupsRoutes = require("./routes/followupsRoutes");
 const mongoose = require("mongoose");
 const Meeting = require("./models/meetings");
@@ -27,6 +28,7 @@ const eventsRoutes = require("./routes/eventsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
+const googleAuthRoutes = require("./routes/googleAuthRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -63,6 +65,7 @@ app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/organizations", organizationRoutes);
+app.use("/quotation-clauses", quotationClausesRoutes);
 app.use("/followups", followupsRoutes);
 app.use("/teams", teamRoutes);
 app.use("/taxes", taxRoutes);
@@ -74,6 +77,7 @@ app.use("/daily-closing", dailyClosingRoutes);
 app.use("/ocr", ocrRoutes);
 app.use("/events", eventsRoutes);
 app.use("/whatsapp", whatsappRoutes);
+app.use("/auth/google", googleAuthRoutes);
 
 
 mongoose.connection.once("open", async () => {

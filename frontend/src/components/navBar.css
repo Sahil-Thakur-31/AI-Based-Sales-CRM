@@ -263,7 +263,11 @@
 /* WIDTHS */
 
 .profile-dropdown { width: 180px; }
-.admin-dropdown { width: 180px; }
+.admin-dropdown {
+  width: 220px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
 
 .notification-dropdown {
 

@@ -11,6 +11,7 @@ export const routeConfig = [
   { path: "/industry", title: "Industry" },
   { path: "/sources", title: "Sources" },
   { path: "/organization", title: "Organization" },
+  { path: "/quotation-clauses", title: "Quotation Clauses" },
 
   // Admin
   { path: "/manageusers", title: "Manage Users" },
@@ -52,5 +53,6 @@ export const routeConfig = [
   // System
   { path: "/settings", title: "Settings" },
   { path: "/profile", title: "My Profile" },
+  { path: "/calendar", title: "Calendar" },
 
 ];

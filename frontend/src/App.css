@@ -9,6 +9,11 @@ html, body, #root {
     overflow: hidden;
 }
 
+.App {
+    height: 100%;
+    width: 100%;
+}
+
 .app-search-input {
     border: 1px solid #d1d5db;
     border-radius: 10px;
@@ -28,4 +33,19 @@ html, body, #root {
     outline: none;
     border-color: #5b6fd8;
     box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);
+}
+
+@media print {
+    html, body, #root, .App {
+        height: auto !important;
+        min-height: 0 !important;
+        width: auto !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+    }
+
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
 }

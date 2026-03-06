@@ -98,6 +98,58 @@ const organizationSchema = new mongoose.Schema(
       lowercase: true,
       default: ""
     },
+    paymentAccountName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    paymentAccountNumber: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    paymentAccountType: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    paymentBankName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    paymentIfscCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: ""
+    },
+    paymentUpiId: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    headName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    headRole: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    headPhone: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    headEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: ""
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",

@@ -35,6 +35,16 @@ const clientSchema = new mongoose.Schema({
     ref: "sources"   // FK → sources
   },
 
+  referred_by_user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
+
+  expo_event_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "events"
+  },
+
   deal_count: {
     type: Number,
     default: 0
@@ -91,3 +101,4 @@ const clientSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model("client", clientSchema);
+

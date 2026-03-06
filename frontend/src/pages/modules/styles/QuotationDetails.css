@@ -1,14 +1,17 @@
+
+
+
 .qdoc-shell {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 10px;
+  gap: 10px;
 }
 
 .qdoc-empty {
-  padding: 20px;
+  padding: 18px;
   color: #64748b;
 }
+
 
 .qdoc-top-actions {
   display: flex;
@@ -26,6 +29,7 @@
   gap: 8px;
   justify-content: flex-end;
 }
+
 
 .qdoc-btn {
   border: 1px solid #d1d5db;
@@ -68,23 +72,68 @@
   color: #ffffff;
 }
 
+
 .qdoc-document {
   width: min(920px, 100%);
   margin: 0 auto;
   background: #ffffff;
-  border: none;
   border-radius: 10px;
-  box-shadow: none;
   color: #0f172a;
-  padding: 26px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
 }
+
+
+
+.qdoc-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  margin: 0 auto;
+}
+
+.qdoc-print-table > tbody,
+.qdoc-print-table > tbody > tr {
+  display: block;
+  width: 100%;
+}
+
+.qdoc-print-thead,
+.qdoc-print-tfoot {
+  
+  display: none;
+}
+
+.qdoc-print-th,
+.qdoc-print-td {
+  border: none;
+  display: block;
+  width: 100%;
+  padding: 15px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+
+.qdoc-screen-header {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.qdoc-screen-footer {
+  display: block;
+  margin-top: 4px;
+}
+
 
 .qdoc-letterhead {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: none;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+  padding-bottom: 8px;
 }
 
 .qdoc-brand-block {
@@ -94,7 +143,7 @@
 .qdoc-brand-top {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   align-items: flex-start;
 }
 
@@ -114,46 +163,50 @@
 
 .qdoc-brand-content h1 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.2;
   font-weight: 700;
 }
 
 .qdoc-brand-address,
 .qdoc-brand-contact {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   white-space: pre-line;
   color: #475569;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .qdoc-title-block {
-  border: none;
   border-radius: 8px;
-  padding: 12px;
+  padding: 0 4px;
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .qdoc-title-block h2 {
-  margin: 0 0 8px;
-  font-size: 22px;
+  margin: 30px 0 0;
+  font-size: 20px;
+  font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
+  color: #0b1324;
+}
+
+.qdoc-title-meta-stack {
+  margin-top: 35px;
+  display: flex;
+  flex-direction: column;
 }
 
 .qdoc-title-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  border-bottom: none;
-  font-size: 13px;
-}
-
-.qdoc-title-meta:last-child {
-  border-bottom: none;
+  gap: 4px;
+  padding: 1px 0;
+  font-size: 12px;
 }
 
 .qdoc-title-meta span {
@@ -164,50 +217,50 @@
   color: #0f172a;
 }
 
+
 .qdoc-info-row {
-  margin-top: 16px;
-  padding-top: 12px;
+  margin-top: 1px;
+  padding-top: 4px;
   border-top: 1px solid #cbd5e1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 4px;
 }
 
 .qdoc-to-panel,
 .qdoc-ref-panel {
-  border: none;
   border-radius: 8px;
   background: #ffffff;
-  padding: 12px;
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1px;
 }
 
 .qdoc-to-panel h3,
 .qdoc-ref-panel h3 {
-  margin: 0;
-  font-size: 15px;
+  margin: 0 0 1px;
+  font-size: 14px;
   color: #0f172a;
-}
-
-.qdoc-field-label {
-  margin: 0 0 2px;
-  color: #64748b;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
 }
 
 .qdoc-field-value {
   margin: 0;
   color: #0f172a;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 12.5px;
+  line-height: 1.2;
 }
 
+
+.qdoc-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+
 .qdoc-items-section {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .qdoc-items-section table {
@@ -220,19 +273,20 @@
   background: #f1f5f9;
   color: #334155;
   font-size: 12px;
-  letter-spacing: 0.35px;
+  letter-spacing: 0.25px;
   text-transform: uppercase;
   text-align: left;
-  padding: 10px;
+  padding: 8px 9px;
   border-bottom: 1px solid #cbd5e1;
 }
 
 .qdoc-items-section tbody td {
-  padding: 10px;
+  padding: 8px 9px;
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
   font-size: 13px;
   vertical-align: top;
+  line-height: 1.3;
 }
 
 .qdoc-items-section tbody tr:last-child td {
@@ -241,9 +295,10 @@
 
 .qdoc-item-sub {
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
   color: #64748b;
   font-size: 12px;
+  line-height: 1.2;
 }
 
 .qdoc-no-items {
@@ -251,50 +306,26 @@
   color: #64748b;
 }
 
-.qdoc-footer-grid {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 14px;
+
+.qdoc-totals-row {
+  display: flex;
+  justify-content: flex-end;
 }
 
-.qdoc-notes-panel,
 .qdoc-amount-panel {
-  border: none;
+  width: min(360px, 100%);
   border-radius: 8px;
-  padding: 12px;
+  padding: 8px 10px;
   background: #ffffff;
-}
-
-.qdoc-notes-panel h4 {
-  margin: 0 0 6px;
-  font-size: 14px;
-}
-
-.qdoc-notes-panel p {
-  margin: 0 0 12px;
-  color: #334155;
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre-line;
-}
-
-.qdoc-notes-panel p:last-child {
-  margin-bottom: 0;
 }
 
 .qdoc-total-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: none;
-  font-size: 13px;
-}
-
-.qdoc-total-row:last-child {
-  border-bottom: none;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
 }
 
 .qdoc-total-row span {
@@ -306,85 +337,303 @@
 }
 
 .qdoc-grand {
-  border-top: none;
-  border-bottom: none;
   margin-top: 2px;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .qdoc-grand strong {
   color: #166534;
-  font-size: 20px;
+  font-size: 18px;
 }
+
+
+.qdoc-notes-panel {
+  border-radius: 8px;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.qdoc-notes-panel-full {
+  margin-top: 2px;
+}
+
+.qdoc-notes-panel h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.qdoc-notes-panel p {
+  margin: 0 0 8px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-line;
+}
+
+.qdoc-notes-panel p:last-child {
+  margin-bottom: 0;
+}
+
+.qdoc-notes-private {
+  margin-bottom: 8px;
+}
+
+.qdoc-payment-panel {
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #dbe5f1;
+}
+
+.qdoc-payment-terms-panel {
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #dbe5f1;
+}
+
+.qdoc-payment-terms-panel h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.qdoc-payment-terms-panel p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-line;
+}
+
+.qdoc-payment-panel h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.qdoc-payment-subtitle {
+  margin: 8px 0 4px !important;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: #0f172a;
+}
+
+.qdoc-payment-panel p {
+  margin: 0 0 4px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.qdoc-payment-panel p:last-child {
+  margin-bottom: 0;
+}
+
+.qdoc-payment-regards {
+  margin-top: 12px;
+}
+
+.qdoc-regards-panel {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.qdoc-regards-panel p {
+  margin: 0 0 3px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.qdoc-regards-panel p:last-child {
+  margin-bottom: 0;
+}
+
+.qdoc-notes-panel.qdoc-print-only,
+.qdoc-payment-terms-panel.qdoc-print-only,
+.qdoc-payment-panel.qdoc-print-only {
+  border: 1px solid #d8dee8;
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.qdoc-clause-head {
+  display: block;
+  padding-bottom: 5px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #d8dee8;
+}
+
+.qdoc-clause-head h4 {
+  margin: 0 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.55px;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.qdoc-clause-list {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qdoc-clause-list li {
+  list-style: none;
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.qdoc-legal-list {
+  counter-reset: qdocClause;
+}
+
+.qdoc-legal-list li {
+  position: relative;
+  padding-left: 24px;
+}
+
+.qdoc-legal-list li::before {
+  counter-increment: qdocClause;
+  content: counter(qdocClause, lower-roman) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.qdoc-payment-intro {
+  margin: 0 0 7px !important;
+}
+
+.qdoc-payment-grid {
+  border-top: 1px dashed #cfd6e3;
+  padding-top: 6px;
+  display: grid;
+  gap: 3px;
+}
+
+.qdoc-payment-grid-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 10px;
+}
+
+.qdoc-payment-grid-row span {
+  color: #475569;
+  font-size: 11.5px;
+}
+
+.qdoc-payment-grid-row strong {
+  color: #0f172a;
+  font-size: 12px;
+}
+
+
+.qdoc-print-only {
+  display: none;
+}
+
+
+.qdoc-generated-note {
+  margin: 0;
+  text-align: center;
+  font-size: 11px !important;
+  color: #64748b !important;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.qdoc-generated-note-row {
+  margin-top: 0;
+  padding-top: 3px;
+  border-top: 1px solid #cbd5e1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+.qdoc-keep-together {
+  break-inside: avoid-page;
+  page-break-inside: avoid;
+}
+
 
 .qdoc-signoff {
-  margin-top: 20px;
   border-top: none;
-  padding-top: 14px;
+  padding-top: 4px;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
+  justify-content: flex-start;
+  align-items: end;
+  gap: 8px;
 }
 
-.qdoc-signoff p {
-  margin: 0;
-  font-size: 13px;
-  color: #334155;
+.qdoc-signoff-content {
+  margin-top: 2px;
+  page-break-inside: avoid;
 }
 
 .qdoc-signatory-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .qdoc-signature-stamp-row {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
-  min-height: 86px;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 74px;
 }
 
 .qdoc-sign-visual {
-  min-width: 130px;
-  min-height: 72px;
+  min-width: 112px;
+  min-height: 62px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .qdoc-signature-image {
-  max-width: 180px;
-  max-height: 80px;
+  max-width: 160px;
+  max-height: 72px;
   object-fit: contain;
 }
 
 .qdoc-stamp-image {
-  max-width: 100px;
-  max-height: 100px;
+  max-width: 88px;
+  max-height: 88px;
   object-fit: contain;
 }
 
 .qdoc-sign-placeholder {
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
 }
 
+.qdoc-sign-caption-wrap {
+  width: 100%;
+}
+
 .qdoc-sign-caption {
-  margin-top: 6px !important;
-  font-size: 12px !important;
+  margin-top: 2px !important;
+  font-size: 11px !important;
   color: #64748b !important;
 }
 
-.qdoc-generated-note {
-  max-width: 340px;
-  text-align: right;
-  font-size: 12px !important;
-  color: #64748b !important;
-  line-height: 1.4;
-}
 
 @media screen and (max-width: 900px) {
   .qdoc-top-actions {
@@ -397,8 +646,7 @@
   }
 
   .qdoc-letterhead,
-  .qdoc-info-row,
-  .qdoc-footer-grid {
+  .qdoc-info-row {
     grid-template-columns: 1fr;
   }
 
@@ -407,21 +655,47 @@
     max-width: 100%;
   }
 
+  .qdoc-title-meta-stack {
+    margin-top: 10px;
+  }
+
   .qdoc-signoff {
-    flex-direction: column;
-    align-items: flex-start;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .qdoc-signatory-block {
+    align-items: center;
+  }
+
+  .qdoc-signature-stamp-row {
+    justify-content: center;
   }
 
   .qdoc-generated-note {
-    text-align: left;
-    max-width: 100%;
+    white-space: normal;
   }
 }
 
+
 @media print {
+
+  
   @page {
     size: A4;
-    margin: 10mm;
+    
+    margin: 10mm 10mm 18mm;
+  }
+
+  
+  html,
+  body,
+  #root,
+  .App {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    scroll-behavior: auto !important;
   }
 
   .sidebar,
@@ -443,9 +717,13 @@
     box-shadow: none !important;
     border: none !important;
     gap: 0 !important;
+    transform: none !important;
   }
 
   .qdoc-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
   }
@@ -458,22 +736,235 @@
     box-shadow: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    
+    display: block !important;
+    overflow: visible !important;
   }
 
-  .qdoc-letterhead {
-    grid-template-columns: minmax(0, 1fr) 280px !important;
+  
+  .qdoc-print-table {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
   }
 
+  .qdoc-print-table > tbody {
+    display: table-row-group !important;
+    width: auto !important;
+  }
+
+  .qdoc-print-table > tbody > tr {
+    display: table-row !important;
+    width: auto !important;
+  }
+
+  
+  .qdoc-print-thead {
+    display: table-header-group !important;
+  }
+
+  .qdoc-print-tfoot {
+    display: table-footer-group !important;
+  }
+
+  .qdoc-print-th {
+    display: table-cell !important;
+    padding: 0 !important;
+    border: none !important;
+    text-align: left !important;
+    font-weight: normal !important;
+    vertical-align: top !important;
+  }
+
+  .qdoc-print-td {
+    display: table-cell !important;
+    padding: 0 !important;
+    border: none !important;
+    vertical-align: top !important;
+  }
+
+  
+  .qdoc-print-header-space {
+    padding-bottom: 4mm;
+    background: #ffffff;
+  }
+
+  
+  .qdoc-print-footer-space {
+    padding-top: 2mm;
+    background: #ffffff;
+  }
+
+  
+  .qdoc-screen-header,
+  .qdoc-screen-footer {
+    display: none !important;
+  }
+
+  .qdoc-print-tfoot {
+    display: none !important;
+  }
+
+  
+  .qdoc-logo {
+    max-height: 52px !important;
+    max-width: 200px !important;
+  }
+
+  .qdoc-brand-content h1 {
+    font-size: 15px !important;
+    line-height: 1.2 !important;
+  }
+
+  .qdoc-brand-address,
+  .qdoc-brand-contact {
+    font-size: 11.5px !important;
+    line-height: 1.28 !important;
+    margin-top: 2px !important;
+  }
+
+  .qdoc-title-meta {
+    font-size: 11.5px !important;
+    padding: 0 !important;
+  }
+
+  .qdoc-main-content {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    padding-bottom: 14mm !important;
+  }
+
+  .qdoc-main-content > section {
+    display: block !important;
+    margin-bottom: 3.2mm !important;
+  }
+
+  .qdoc-main-content > .qdoc-totals-row {
+    display: flex !important;
+    justify-content: flex-end !important;
+  }
+
+  .qdoc-main-content > .qdoc-totals-row .qdoc-amount-panel {
+    margin-left: auto !important;
+  }
+
+  
   .qdoc-info-row {
-    grid-template-columns: minmax(0, 1fr) 280px !important;
+    grid-template-columns: 1fr !important;
+    gap: 3px !important;
+    padding-top: 4px !important;
+    margin-top: 0 !important;
   }
 
-  .qdoc-footer-grid {
-    grid-template-columns: minmax(0, 1fr) 300px !important;
+  .qdoc-ref-panel {
+    display: none !important;
   }
 
-  .qdoc-signoff {
-    flex-direction: row !important;
-    align-items: flex-end !important;
+  .qdoc-to-panel {
+    padding: 4px 0 !important;
+  }
+
+  
+  .qdoc-items-section table {
+    border: 1px solid #94a3b8 !important;
+  }
+
+  .qdoc-items-section thead {
+    display: table-header-group !important;
+  }
+
+  .qdoc-items-section tbody {
+    display: table-row-group !important;
+  }
+
+  .qdoc-items-section thead th,
+  .qdoc-items-section tbody td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .qdoc-items-section tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  
+  .qdoc-notes-private {
+    display: none !important;
+  }
+
+  .qdoc-notes-panel:not(.qdoc-print-only) {
+    display: none !important;
+  }
+
+  
+  .qdoc-print-only {
+    display: block !important;
+  }
+
+  
+  .qdoc-keep-together {
+    display: block !important;
+    -webkit-column-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+  }
+
+  
+  .qdoc-payment-panel {
+    margin-top: 2mm;
+  }
+
+  .qdoc-standard-block {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .qdoc-payment-grid-row {
+    page-break-inside: avoid;
+    break-inside: avoid-page;
+  }
+
+  .qdoc-payment-regards {
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+  }
+
+  .qdoc-regards-panel {
+    margin-top: 1.5mm !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  
+  .qdoc-generated-note-row {
+    margin-top: 0 !important;
+    padding-top: 2px !important;
+    justify-content: center !important;
+  }
+
+  .qdoc-generated-note {
+    white-space: nowrap !important;
+    text-align: center !important;
+  }
+
+  .qdoc-screen-footer {
+    display: block !important;
+    position: fixed !important;
+    left: 10mm !important;
+    right: 10mm !important;
+    bottom: 8mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    z-index: 20 !important;
+  }
+
+  
+  .qdoc-signoff-content {
+    justify-content: flex-start !important;
+    align-items: end !important;
   }
 }

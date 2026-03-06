@@ -7,6 +7,10 @@ const User = require("../models/users");
 const ADMIN_ROLE = "Admin";
 const MANAGER_ROLE = "Manager";
 
+function escapeRegex(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function isObjectId(value) {
   return mongoose.Types.ObjectId.isValid(value);
 }
@@ -215,12 +219,21 @@ exports.createTeam = async (req, res) => {
     const selectedLeadId = pickSingleLeadId(req.body || {});
     const normalizedMemberIds = normalizeObjectIdArray(members);
 
-    if (!String(name || "").trim()) {
+    const normalizedName = String(name || "").trim();
+    if (!normalizedName) {
       return res.status(400).json({ message: "Team name is required" });
     }
 
     if (!selectedLeadId) {
       return res.status(400).json({ message: "A team lead is required" });
+    }
+
+    const duplicateTeam = await Team.findOne({
+      name: { $regex: new RegExp(`^${escapeRegex(normalizedName)}$`, "i") }
+    }).select("_id");
+
+    if (duplicateTeam) {
+      return res.status(400).json({ message: "A team with this name already exists" });
     }
 
     const [leadUsers, memberUsers] = await Promise.all([
@@ -268,7 +281,7 @@ exports.createTeam = async (req, res) => {
     const filteredMembers = normalizedMemberIds.filter((id) => !leadIdSet.has(String(id)));
 
     const team = await Team.create({
-      name: String(name).trim(),
+      name: normalizedName,
       teamLeads: [{ userId: selectedLeadId }],
       members: filteredMembers.map((id) => ({ userId: id })),
       createdBy: req.user._id
@@ -285,6 +298,142 @@ exports.createTeam = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Failed to create team" });
+  }
+};
+
+exports.updateTeam = async (req, res) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const teamId = String(req.params?.teamId || "").trim();
+    if (!isObjectId(teamId)) {
+      return res.status(400).json({ message: "Valid team id is required" });
+    }
+
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+
+    if (!canManageTeam(team, req.user)) {
+      return res.status(403).json({ message: "You are not allowed to edit this team" });
+    }
+
+    const { name, members } = req.body || {};
+    const rawLeadIds = normalizeObjectIdArray(req.body?.teamLeadIds);
+    if (rawLeadIds.length > 1) {
+      return res.status(400).json({ message: "Only one team lead is allowed" });
+    }
+
+    const selectedLeadId = pickSingleLeadId(req.body || {});
+    const normalizedMemberIds = normalizeObjectIdArray(members);
+
+    const normalizedName = String(name || "").trim();
+    if (!normalizedName) {
+      return res.status(400).json({ message: "Team name is required" });
+    }
+
+    if (!selectedLeadId) {
+      return res.status(400).json({ message: "A team lead is required" });
+    }
+
+    const duplicateTeam = await Team.findOne({
+      _id: { $ne: team._id },
+      name: { $regex: new RegExp(`^${escapeRegex(normalizedName)}$`, "i") }
+    }).select("_id");
+
+    if (duplicateTeam) {
+      return res.status(400).json({ message: "A team with this name already exists" });
+    }
+
+    const [leadUsers, memberUsers] = await Promise.all([
+      User.find({
+        _id: selectedLeadId,
+        is_deleted: { $ne: true },
+        is_active: true
+      })
+        .populate("role", "name")
+        .select("name email role is_active is_deleted")
+        .lean(),
+      normalizedMemberIds.length
+        ? User.find({
+            _id: { $in: normalizedMemberIds },
+            is_deleted: { $ne: true },
+            is_active: true
+          })
+            .populate("role", "name")
+            .select("name email role is_active is_deleted")
+            .lean()
+        : []
+    ]);
+
+    if (leadUsers.length !== 1) {
+      return res.status(400).json({ message: "Selected team lead is invalid" });
+    }
+
+    const invalidLead = leadUsers.find((user) => roleNameFromUser(user) !== MANAGER_ROLE);
+    if (invalidLead) {
+      return res.status(400).json({
+        message: "Only users with Manager role can be team leads"
+      });
+    }
+
+    if (memberUsers.length !== normalizedMemberIds.length) {
+      return res.status(400).json({ message: "One or more selected members are invalid" });
+    }
+
+    const invalidMember = memberUsers.find((user) => roleNameFromUser(user) === ADMIN_ROLE);
+    if (invalidMember) {
+      return res.status(400).json({ message: "Admin users cannot be team members" });
+    }
+
+    const leadIdSet = new Set([String(selectedLeadId)]);
+    const filteredMembers = normalizedMemberIds.filter((id) => !leadIdSet.has(String(id)));
+
+    team.name = normalizedName;
+    team.teamLeads = [{ userId: selectedLeadId }];
+    team.members = filteredMembers.map((id) => ({ userId: id }));
+    await team.save();
+
+    const usersMap = await loadUsersMap([
+      String(selectedLeadId),
+      ...filteredMembers.map((id) => String(id))
+    ]);
+
+    return res.json(mapTeamForList(team.toObject(), usersMap, req.user));
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Failed to update team" });
+  }
+};
+
+exports.deleteTeam = async (req, res) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const teamId = String(req.params?.teamId || "").trim();
+    if (!isObjectId(teamId)) {
+      return res.status(400).json({ message: "Valid team id is required" });
+    }
+
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
+
+    if (!canManageTeam(team, req.user)) {
+      return res.status(403).json({ message: "You are not allowed to delete this team" });
+    }
+
+    await Team.deleteOne({ _id: team._id });
+    return res.json({ message: "Team deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Failed to delete team" });
   }
 };
 

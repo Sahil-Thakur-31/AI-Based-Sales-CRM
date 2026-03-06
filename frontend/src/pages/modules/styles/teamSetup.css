@@ -38,6 +38,12 @@
   color: #64748b;
 }
 
+.team-setup-mode-note {
+  font-size: 12px !important;
+  color: #475569 !important;
+  font-weight: 600;
+}
+
 .team-setup-card {
   background: #ffffff;
   border: 1px solid #e6ebf2;
@@ -50,6 +56,34 @@
   margin: 0 0 10px;
   font-size: 14px;
   color: #0f172a;
+}
+
+.team-setup-existing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.team-setup-existing-head h3 {
+  margin: 0;
+}
+
+.team-setup-team-search {
+  width: min(320px, 100%);
+  border: 1px solid #d9e1ec;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+
+.team-setup-team-search:focus {
+  border-color: #5b6fd8;
+  box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);
 }
 
 .team-setup-team-list {
@@ -67,6 +101,77 @@
   flex-direction: column;
   gap: 2px;
   min-width: 180px;
+}
+
+.team-setup-team-chip-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-setup-team-chip-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.team-setup-team-chip-title {
+  min-width: 0;
+}
+
+.team-setup-team-chip-title strong {
+  display: block;
+}
+
+.team-setup-team-chip-title small {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.team-setup-icon-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid #d9e1ec;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.team-setup-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.team-setup-icon-btn.edit {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.team-setup-icon-btn.edit:hover {
+  background: #dbeafe;
+}
+
+.team-setup-icon-btn.delete {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.team-setup-icon-btn.delete:hover {
+  background: #ffe4e6;
 }
 
 .team-setup-team-chip strong {
@@ -209,6 +314,8 @@
 .team-setup-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .team-setup-btn {
@@ -218,6 +325,11 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.team-setup-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .team-setup-btn.primary {
@@ -276,5 +388,14 @@
 
   .team-setup-header {
     flex-direction: column;
+  }
+
+  .team-setup-existing-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .team-setup-team-search {
+    width: 100%;
   }
 }
