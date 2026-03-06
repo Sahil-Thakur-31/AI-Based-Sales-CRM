@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API from "../../api";
+import FormErrorSlot from "../../components/FormErrorSlot";
+import { minLength } from "../../utils/formValidation";
 import "../../styles/DailyClosing.css";
 
 function getToday() {
@@ -61,6 +63,11 @@ export default function DailyClosingForm() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const highlightsError = minLength(keyHighlights, 3, "Key highlights");
+    if (highlightsError) {
+      setSubmitError(highlightsError);
+      return;
+    }
     try {
       setIsSubmitting(true);
       setSubmitError("");
@@ -137,9 +144,10 @@ export default function DailyClosingForm() {
                 placeholder="Enter key highlights of the day..."
                 value={keyHighlights}
                 onChange={(e) => setKeyHighlights(e.target.value)}
-                required
               />
             </div>
+
+            <FormErrorSlot message={submitError} className="form-error-slot-global" />
 
             <div className="dailyClosingFormActions">
               <button
@@ -157,12 +165,6 @@ export default function DailyClosingForm() {
                 Back to Main Calendar
               </button>
             </div>
-
-            {submitError ? (
-              <div className="dailyClosingSubmitMessage dailyClosingSubmitMessageError">
-                {submitError}
-              </div>
-            ) : null}
           </div>
         </form>
       </section>

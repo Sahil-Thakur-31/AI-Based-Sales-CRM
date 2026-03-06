@@ -5,7 +5,8 @@ import "../pages/modules/adminsetting/admin-config.css";
 export default function AdminCrud({
   title,
   endpoint,
-  columns
+  columns,
+  rowFilter
 }) {
   const [data, setData] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -105,10 +106,17 @@ export default function AdminCrud({
 
   function toggleSelectAll() {
 
-    if (selected.length === data.length)
+    if (selectableIds.length === 0) {
       setSelected([]);
-    else
-      setSelected(data.map(d => d._id));
+      return;
+    }
+
+    if (selectedSelectableCount === selectableIds.length) {
+      setSelected(prev => prev.filter(id => !selectableIds.includes(id)));
+      return;
+    }
+
+    setSelected(prev => [...new Set([...prev, ...selectableIds])]);
 
   }
 
@@ -130,9 +138,24 @@ export default function AdminCrud({
   }
 
 
+  const visibleData = useMemo(() => {
+    if (typeof rowFilter !== "function") return data;
+    return (data || []).filter((item) => rowFilter(item));
+  }, [data, rowFilter]);
+
+  const selectableIds = useMemo(
+    () => visibleData.map((item) => String(item?._id || "")).filter(Boolean),
+    [visibleData]
+  );
+
+  const selectedSelectableCount = useMemo(
+    () => selectableIds.filter((id) => selected.includes(id)).length,
+    [selectableIds, selected]
+  );
+
   const processed = useMemo(() => {
 
-    let list = [...data];
+    let list = [...visibleData];
 
     if (filter)
       list = list.filter(item =>
@@ -162,7 +185,7 @@ export default function AdminCrud({
 
     return list;
 
-  }, [data, filter, sortField, sortOrder]);
+  }, [visibleData, filter, sortField, sortOrder]);
 
 
   return (
@@ -213,8 +236,8 @@ export default function AdminCrud({
               <input
                 type="checkbox"
                 checked={
-                  selected.length === data.length &&
-                  data.length > 0
+                  selectedSelectableCount === selectableIds.length &&
+                  selectableIds.length > 0
                 }
                 onChange={toggleSelectAll}
               />

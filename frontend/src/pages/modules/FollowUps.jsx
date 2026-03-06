@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../../api";
+import FormErrorSlot from "../../components/FormErrorSlot";
+import { minLength, required } from "../../utils/formValidation";
 import "./styles/Followups.css";
 
 const STAGES = [
@@ -570,11 +572,12 @@ export default function Followups() {
     if (!doneModal.durationMinutes || Number(doneModal.durationMinutes) < 1) {
       return setDoneModalError("Duration of minutes is required");
     }
-    if (!doneModal.minutesOfMeeting.trim()) {
-      return setDoneModalError(
-        doneModal.kind === "meeting" ? "Minutes of Meeting is required" : "Completion notes are required"
-      );
-    }
+    const completionError = minLength(
+      doneModal.minutesOfMeeting,
+      3,
+      doneModal.kind === "meeting" ? "Minutes of meeting" : "Completion notes"
+    );
+    if (completionError) return setDoneModalError(completionError);
     if (doneModal.nextFollowup === "yes" && !doneModal.nextFollowupDate) {
       return setDoneModalError("Next follow-up date is required");
     }
@@ -695,7 +698,8 @@ export default function Followups() {
     const targetId = String(cancelModal.id || "");
     const trimmedReason = String(cancelModal.reason || "").trim();
     if (!targetId) return setCancelModalError("Record id is missing");
-    if (!trimmedReason) return setCancelModalError("Cancellation reason is required");
+    const reasonError = minLength(trimmedReason, 3, "Cancellation reason");
+    if (reasonError) return setCancelModalError(reasonError);
     try {
       setSavingCancel(true);
       const res = await API.patch(`/followups/${targetId}/status`, {
@@ -767,12 +771,16 @@ export default function Followups() {
     e.preventDefault();
     setMeetingFormError("");
 
-    if (!meetingForm.client.trim()) return setMeetingFormError("Client is required");
-    if (!meetingForm.title.trim()) return setMeetingFormError("Task is required");
-    if (!meetingForm.dueDateTime) return setMeetingFormError("Date & time is required");
-    if (isCompletedStatus(meetingForm.status) && !meetingForm.minutesOfMeeting.trim()) {
-      return setMeetingFormError("Minutes of meeting is required for completed meetings");
-    }
+    const meetingChecks = [
+      required(meetingForm.client, "Client"),
+      required(meetingForm.title, "Task"),
+      required(meetingForm.dueDateTime, "Date & time"),
+      isCompletedStatus(meetingForm.status)
+        ? minLength(meetingForm.minutesOfMeeting, 3, "Minutes of meeting")
+        : "",
+    ];
+    const meetingError = meetingChecks.find(Boolean) || "";
+    if (meetingError) return setMeetingFormError(meetingError);
 
     try {
       const payload = {
@@ -802,9 +810,13 @@ export default function Followups() {
     e.preventDefault();
     setFormError("");
 
-    if (!followupForm.client.trim()) return setFormError("Client is required");
-    if (!followupForm.title.trim()) return setFormError("Task is required");
-    if (!followupForm.dueDate) return setFormError("Due date is required");
+    const followupChecks = [
+      required(followupForm.client, "Client"),
+      required(followupForm.title, "Task"),
+      required(followupForm.dueDate, "Due date"),
+    ];
+    const followupError = followupChecks.find(Boolean) || "";
+    if (followupError) return setFormError(followupError);
 
     try {
       const payload = {
@@ -999,7 +1011,6 @@ export default function Followups() {
             ) : meetingMode === "edit" && selectedMeeting ? (
               <form className="fuFormScreen" onSubmit={submitMeetingEdit}>
                 <div className="fuFormTitle">Edit Meeting</div>
-                {meetingFormError && <div className="fuEmptyBox">{meetingFormError}</div>}
                 <div className="fuFormGrid">
                   <label className="fuFormLabel">
                     Client*
@@ -1042,6 +1053,7 @@ export default function Followups() {
                     </label>
                   )}
                 </div>
+                <FormErrorSlot message={meetingFormError} className="form-error-slot-global" />
                 <div className="fuFormActions">
                   <button className="fuBtn fuBtnPrimary" type="submit">Save</button>
                   <button className="fuBtn fuBtnGhost" type="button" onClick={() => setMeetingMode("view")}>Cancel</button>
@@ -1116,8 +1128,6 @@ export default function Followups() {
           </header>
 
           <div className="fuPanelBody">
-            {error && <div className="fuEmptyBox">{error}</div>}
-
             {followupMode === "view" && selectedFollowup ? (
               <div className="fuDetailsWrap">
                 <div className="fuDetailsHead">
@@ -1153,7 +1163,6 @@ export default function Followups() {
             ) : followupMode === "edit" ? (
               <form className="fuFormScreen" onSubmit={submitFollowupEdit}>
                 <div className="fuFormTitle">Edit Follow-up</div>
-                {formError && <div className="fuEmptyBox">{formError}</div>}
                 <div className="fuFormGrid">
                   <label className="fuFormLabel">
                     Client*
@@ -1182,6 +1191,7 @@ export default function Followups() {
                     </select>
                   </label>
                 </div>
+                <FormErrorSlot message={formError} className="form-error-slot-global" />
                 <div className="fuFormActions">
                   <button className="fuBtn fuBtnPrimary" type="submit">Save</button>
                   <button className="fuBtn fuBtnGhost" type="button" onClick={() => setFollowupMode("list")}>Cancel</button>
@@ -1246,7 +1256,6 @@ export default function Followups() {
             <div className="fuModalHead">
               <div className="fuFormTitle">{doneModal.kind === "meeting" ? "Complete Meeting" : "Complete Follow-up"}</div>
             </div>
-            {doneModalError && <div className="fuEmptyBox">{doneModalError}</div>}
             <div className="fuFormGrid">
               <label className="fuFormLabel">
                 Duration of Minutes*
@@ -1317,6 +1326,7 @@ export default function Followups() {
                 </select>
               </label>
             </div>
+            <FormErrorSlot message={doneModalError} className="form-error-slot-global" />
             <div className="fuFormActions">
               <button className="fuBtn fuBtnPrimary" type="submit" disabled={savingDone}>
                 {savingDone ? "Saving..." : doneModal.kind === "meeting" ? "Save & Complete" : "Save & Mark Done"}
@@ -1334,7 +1344,6 @@ export default function Followups() {
             <div className="fuModalHead">
               <div className="fuFormTitle">Cancel {cancelModal.kind === "meeting" ? "Meeting" : "Follow-up"}</div>
             </div>
-            {cancelModalError && <div className="fuEmptyBox">{cancelModalError}</div>}
             <div className="fuFormGrid">
               <label className="fuFormLabel fuFull">
                 Reason for Cancellation*
@@ -1346,6 +1355,7 @@ export default function Followups() {
                 />
               </label>
             </div>
+            <FormErrorSlot message={cancelModalError} className="form-error-slot-global" />
             <div className="fuFormActions">
               <button className="fuBtn fuBtnPrimary" type="submit" disabled={savingCancel}>
                 {savingCancel ? "Saving..." : "Save Cancellation"}

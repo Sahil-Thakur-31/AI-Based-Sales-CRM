@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../../components/BackButton";
+import FormErrorSlot from "../../components/FormErrorSlot";
 import API from "../../api";
+import { validEmail } from "../../utils/formValidation";
 import "./verify.css"
 
 function ForgotPassword() {
@@ -10,6 +12,7 @@ function ForgotPassword() {
   const [loading, setLoading] = useState(false); // <-- new state
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [fieldError, setFieldError] = useState("");
 
   const handleError = (msg) => {
     setErrorMsg(msg);
@@ -24,16 +27,9 @@ function ForgotPassword() {
   const sendOTP = async (e) => {
     e.preventDefault();
 
-    if (!email.trim()) {
-      return handleError("Email required");
-    }
-
-    // simple email format check
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
-      return handleError("Invalid email format");
-    }
+    const emailError = validEmail(email);
+    setFieldError(emailError);
+    if (emailError) return handleError(emailError);
 
     if (loading) return;
 
@@ -65,7 +61,6 @@ function ForgotPassword() {
     <div className="login-wrapper">
       <div className="container">
         <h1>Send OTP</h1>
-        {errorMsg && <div className="form-message danger">{errorMsg}</div>}
         {successMsg && <div className="form-message primary">{successMsg}</div>}
 
         <form onSubmit={sendOTP}>
@@ -75,8 +70,14 @@ function ForgotPassword() {
             type="email"
             value={email}
             placeholder="Enter email..."
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setFieldError("");
+              setErrorMsg("");
+            }}
+            className={fieldError ? "form-field-invalid" : ""}
           />
+          <FormErrorSlot message={errorMsg} className="form-error-slot-global form-error-slot-center" />
 
           <button type="submit" disabled={loading}>
             Send OTP

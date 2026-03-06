@@ -22,6 +22,7 @@ const QUOTATION_STATUSES = [
 ];
 const VERSION_ALLOWED_PREVIOUS_STATUSES = ["expired", "rejected"];
 const QUOTATION_TYPES = new Set(["deal", "lead"]);
+const VIEW_ONLY_ADMIN_MESSAGE = "Admins can only view quotations";
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -70,6 +71,24 @@ function getDuplicateMessage(quoteType) {
   return quoteType === "lead"
     ? "Quotation already exists for this lead. Use New Version from quotation details."
     : "Quotation already exists for this deal. Use New Version from quotation details.";
+}
+
+function getRoleName(user = {}) {
+  return String(user?.role?.name || user?.role || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isAdminUser(user = {}) {
+  return getRoleName(user) === "admin";
+}
+
+function getUserScopedQuotationFilter(user = {}, baseFilter = {}) {
+  if (isAdminUser(user)) return { ...baseFilter };
+  return {
+    ...baseFilter,
+    createdBy: user?._id
+  };
 }
 
 function getTodayUtcStartDate() {
@@ -196,9 +215,11 @@ exports.getQuotations = async (req, res) => {
       ? normalizeQuoteType(req.query.quoteType)
       : "";
 
-    const quotations = await Quotation.find({
-      is_deleted: false
-    })
+    const quotations = await Quotation.find(
+      getUserScopedQuotationFilter(req.user, {
+        is_deleted: false
+      })
+    )
       .sort({ createdAt: -1 })
       .lean();
 
@@ -342,10 +363,12 @@ exports.getQuotationById = async (req, res) => {
   try {
     await syncExpiredQuotations({ _id: req.params.id });
 
-    const quotation = await Quotation.findOne({
-      _id: req.params.id,
-      is_deleted: false
-    }).lean();
+    const quotation = await Quotation.findOne(
+      getUserScopedQuotationFilter(req.user, {
+        _id: req.params.id,
+        is_deleted: false
+      })
+    ).lean();
 
     if (!quotation) {
       return res.status(404).json({
@@ -493,6 +516,12 @@ exports.getQuotationById = async (req, res) => {
 
 exports.createQuotation = async (req, res) => {
   try {
+    if (isAdminUser(req.user)) {
+      return res.status(403).json({
+        message: VIEW_ONLY_ADMIN_MESSAGE
+      });
+    }
+
     const {
       quoteType: requestedQuoteType,
       dealId,
@@ -803,6 +832,12 @@ exports.createQuotation = async (req, res) => {
 
 exports.updateQuotationStatus = async (req, res) => {
   try {
+    if (isAdminUser(req.user)) {
+      return res.status(403).json({
+        message: VIEW_ONLY_ADMIN_MESSAGE
+      });
+    }
+
     const nextStatus = String(req.body?.status || "")
       .trim()
       .toLowerCase();
@@ -815,10 +850,12 @@ exports.updateQuotationStatus = async (req, res) => {
 
     await syncExpiredQuotations({ _id: req.params.id });
 
-    const currentQuotation = await Quotation.findOne({
-      _id: req.params.id,
-      is_deleted: false
-    })
+    const currentQuotation = await Quotation.findOne(
+      getUserScopedQuotationFilter(req.user, {
+        _id: req.params.id,
+        is_deleted: false
+      })
+    )
       .select("_id dealId leadId quoteType version")
       .lean();
 
@@ -865,7 +902,7 @@ exports.updateQuotationStatus = async (req, res) => {
     }
 
     const quotation = await Quotation.findOneAndUpdate(
-      { _id: req.params.id, is_deleted: false },
+      getUserScopedQuotationFilter(req.user, { _id: req.params.id, is_deleted: false }),
       {
         $set: updatePayload
       },
@@ -896,11 +933,17 @@ exports.updateQuotationStatus = async (req, res) => {
 
 exports.deleteQuotation = async (req, res) => {
   try {
+    if (isAdminUser(req.user)) {
+      return res.status(403).json({
+        message: VIEW_ONLY_ADMIN_MESSAGE
+      });
+    }
+
     const quotation = await Quotation.findOneAndUpdate(
-      {
+      getUserScopedQuotationFilter(req.user, {
         _id: req.params.id,
         is_deleted: false
-      },
+      }),
       {
         is_deleted: true,
         isActive: false

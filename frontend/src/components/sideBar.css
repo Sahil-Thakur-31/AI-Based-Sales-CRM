@@ -39,6 +39,31 @@
   letter-spacing: 0.3px;
   padding: 0 8px;
   line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-logo-image {
+  display: block;
+  width: calc(100% - 16px);
+  max-height: 52px;
+  object-fit: contain;
+  object-position: left center;
+  margin: 0 8px;
+}
+
+.sidebar-logo-placeholder {
+  width: 44px;
+  height: 44px;
+  margin: 0 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
 }
 
 .sidebar-subtitle {
@@ -153,6 +178,8 @@
 }
 
 .sidebar.sidebar-collapsed .sidebar-logo,
+.sidebar.sidebar-collapsed .sidebar-logo-image,
+.sidebar.sidebar-collapsed .sidebar-logo-placeholder,
 .sidebar.sidebar-collapsed .sidebar-subtitle,
 .sidebar.sidebar-collapsed .sidebar-text,
 .sidebar.sidebar-collapsed .sidebar-subitem,

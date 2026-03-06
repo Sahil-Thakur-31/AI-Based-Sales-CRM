@@ -104,7 +104,7 @@
     cursor: not-allowed;
 }
 
-.login-wrapper span {
+.login-wrapper .form-footer-link {
     display: block;
     margin-top: 1.5rem;
     text-align: center;

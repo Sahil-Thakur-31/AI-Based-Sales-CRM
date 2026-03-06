@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
+import FormErrorSlot from "../components/FormErrorSlot";
 import MeetingsEventsPanel from "../components/MeetingsEventsPanel";
 import StatCard from "../components/StatCard";
+import { minLength } from "../utils/formValidation";
 import "../styles/managerDashboard.css";
 
 const EMPTY_DONE_MODAL = {
@@ -159,9 +161,14 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
     if (!doneModal.durationMinutes || Number(doneModal.durationMinutes) < 1) {
       return setDoneModalError("Duration of minutes is required");
     }
-    if (!doneModal.minutesOfMeeting.trim()) {
+    const notesError = minLength(
+      doneModal.minutesOfMeeting,
+      3,
+      doneModal.kind === "meeting" ? "Minutes of meeting" : "Completion notes"
+    );
+    if (notesError) {
       return setDoneModalError(
-        doneModal.kind === "meeting" ? "Minutes of Meeting is required" : "Completion notes are required"
+        notesError
       );
     }
 
@@ -199,9 +206,8 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
     if (!cancelModal.id) {
       return setCancelModalError("Record id is missing");
     }
-    if (!cancelModal.reason.trim()) {
-      return setCancelModalError("Cancellation reason is required");
-    }
+    const reasonError = minLength(cancelModal.reason, 3, "Cancellation reason");
+    if (reasonError) return setCancelModalError(reasonError);
 
     try {
       setSavingCancel(true);
@@ -392,7 +398,6 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
             <div className="manager-modal-head">
               <h3>{doneModal.kind === "meeting" ? "Complete Meeting" : "Complete Follow-up"}</h3>
             </div>
-            {doneModalError ? <div className="manager-form-error">{doneModalError}</div> : null}
             <div className="manager-form-grid">
               <label className="manager-form-label">
                 Duration of Minutes*
@@ -414,6 +419,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
                 />
               </label>
             </div>
+            <FormErrorSlot message={doneModalError} className="form-error-slot-global manager-form-error-slot" />
             <div className="manager-modal-actions">
               <button className="manager-mini-btn done" type="submit" disabled={savingDone}>
                 {savingDone ? "Saving..." : doneModal.kind === "meeting" ? "Save & Complete" : "Save & Mark Done"}
@@ -432,7 +438,6 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
             <div className="manager-modal-head">
               <h3>{cancelModal.kind === "meeting" ? "Cancel Meeting" : "Cancel Follow-up"}</h3>
             </div>
-            {cancelModalError ? <div className="manager-form-error">{cancelModalError}</div> : null}
             <div className="manager-form-grid">
               <label className="manager-form-label manager-form-label-full">
                 Cancellation Reason*
@@ -444,6 +449,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
                 />
               </label>
             </div>
+            <FormErrorSlot message={cancelModalError} className="form-error-slot-global manager-form-error-slot" />
             <div className="manager-modal-actions">
               <button className="manager-mini-btn" type="submit" disabled={savingCancel}>
                 {savingCancel ? "Saving..." : "Save Cancellation"}

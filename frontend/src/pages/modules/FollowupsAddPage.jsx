@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import API from "../../api";
+import FormErrorSlot from "../../components/FormErrorSlot";
+import { minLength } from "../../utils/formValidation";
 import LeadFormPage from "./LeadFormPage";
 import "./styles/FollowupAddPage.css";
 
@@ -853,7 +855,6 @@ export default function FollowupsAddPage() {
       const isPastSelected = selectedAt && !Number.isNaN(selectedAt.getTime()) && selectedAt < new Date();
       return (
         <form className="fuaForm" onSubmit={submitForm}>
-          {formError && <div className="fuaEmpty">{formError}</div>}
           <div className="fuaGrid">
         <label className="full">
           Follow-up For*
@@ -1174,6 +1175,7 @@ export default function FollowupsAddPage() {
         )}
           </div>
 
+          <FormErrorSlot message={formError} className="form-error-slot-global" />
           <div className="fuaActions">
             <button className="fuaBtn primary" type="submit">{editingRecord ? "Update" : "Submit"}</button>
             <button className="fuaBtn danger" type="button" onClick={resetForm}>Cancel</button>
@@ -1285,7 +1287,6 @@ export default function FollowupsAddPage() {
             </div>
           </div>
           <div className="fuaModalScroll">
-            {cancelModalError && <div className="fuaEmpty">{cancelModalError}</div>}
             <div className="fuaGrid">
               <label className="full">
                 Reason for Cancellation*
@@ -1297,6 +1298,7 @@ export default function FollowupsAddPage() {
                 />
               </label>
             </div>
+            <FormErrorSlot message={cancelModalError} className="form-error-slot-global" />
             <div className="fuaActions fuaCancelActions">
               <button className="fuaBtn primary" type="submit" disabled={savingCancel}>
                 {savingCancel ? "Saving..." : "Save Cancellation"}
@@ -1323,7 +1325,8 @@ export default function FollowupsAddPage() {
     const recordId = String(cancelModal.id || "");
     const trimmedReason = String(cancelModal.reason || "").trim();
     if (!recordId) return setCancelModalError("Record id is missing");
-    if (!trimmedReason) return setCancelModalError("Cancellation reason is required");
+    const reasonError = minLength(trimmedReason, 3, "Cancellation reason");
+    if (reasonError) return setCancelModalError(reasonError);
     try {
       setSavingCancel(true);
       const res = await API.patch(`/followups/${recordId}/status`, {
@@ -1443,7 +1446,6 @@ export default function FollowupsAddPage() {
       </div>
 
       <section className="fuaPanel">
-        {error && <div className="fuaEmpty">{error}</div>}
         {loading && <div className="fuaEmpty">Loading...</div>}
         {!loading && activeAction === "add" && renderForm()}
         {!loading && activeAction === "followup" && renderFollowups(ownFollowups)}

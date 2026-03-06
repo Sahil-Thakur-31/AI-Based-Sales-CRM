@@ -26,4 +26,5 @@
     display: block;
     background-color: #f4f6f8;
     overflow: auto;
+    overflow-x: hidden;
 }

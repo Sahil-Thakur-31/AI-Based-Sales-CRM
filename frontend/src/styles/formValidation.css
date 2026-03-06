@@ -1,0 +1,28 @@
+.form-error-slot {
+  display: block;
+  min-height: 18px;
+  line-height: 18px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #c62828;
+  margin-top: 6px;
+  margin-bottom: 0;
+  text-align: left;
+}
+
+.form-error-slot-center {
+  text-align: center;
+}
+
+.form-error-slot-global {
+  min-height: 22px;
+  line-height: 22px;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.form-field-invalid {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.12) !important;
+}
+

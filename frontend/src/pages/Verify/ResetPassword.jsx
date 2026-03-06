@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../../components/BackButton";
+import FormErrorSlot from "../../components/FormErrorSlot";
+import { required, strongPassword } from "../../utils/formValidation";
 import "./verify.css"
 
 function ResetPassword() {
@@ -9,6 +11,10 @@ function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({
+    password: "",
+    confirmPassword: "",
+  });
 
   const handleError = (msg) => {
     setErrorMsg(msg);
@@ -25,19 +31,17 @@ function ResetPassword() {
   const handleReset = async (e) => {
     e.preventDefault();
 
-    if (!password || !confirmPassword)
-      return handleError("All fields required");
-
-    const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-
-    if (!strongPassword.test(password)) {
-      return handleError(
-        "Password must be 8+ chars with uppercase, lowercase, number & special character"
-      );
+    const nextErrors = {
+      password: strongPassword(password),
+      confirmPassword: required(confirmPassword, "Confirm password"),
+    };
+    if (!nextErrors.confirmPassword && password !== confirmPassword) {
+      nextErrors.confirmPassword = "Passwords do not match";
     }
-
-    if (password !== confirmPassword)
-      return handleError("Passwords do not match");
+    setFieldErrors(nextErrors);
+    if (nextErrors.password || nextErrors.confirmPassword) {
+      return handleError(nextErrors.password || nextErrors.confirmPassword);
+    }
 
     if (!email)
       return handleError("Session expired. Try again.");
@@ -84,7 +88,6 @@ function ResetPassword() {
     <div className="login-wrapper">
       <div className="container">
         <h1>Reset Password</h1>
-        {errorMsg && <div className="form-message danger">{errorMsg}</div>}
         {successMsg && <div className="form-message primary">{successMsg}</div>}
 
         <form onSubmit={handleReset}>
@@ -93,7 +96,12 @@ function ResetPassword() {
             type="password"
             placeholder="Enter new password..."
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setFieldErrors((prev) => ({ ...prev, password: "" }));
+              setErrorMsg("");
+            }}
+            className={fieldErrors.password ? "form-field-invalid" : ""}
           />
 
           <label>Confirm Password</label>
@@ -101,8 +109,14 @@ function ResetPassword() {
             type="password"
             placeholder="Confirm password..."
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
+              setErrorMsg("");
+            }}
+            className={fieldErrors.confirmPassword ? "form-field-invalid" : ""}
           />
+          <FormErrorSlot message={errorMsg} className="form-error-slot-global form-error-slot-center" />
 
           <button type="submit" disabled={loading}>
             {loading ? "Resetting..." : "Reset Password"}

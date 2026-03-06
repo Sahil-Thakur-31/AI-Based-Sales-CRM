@@ -614,7 +614,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
               type="button"
               onClick={() => navigate("/leads/new?view=deal")}
             >
-              + Add Deal
+              ➕ Add Deal
             </button>
           )}
         </div>

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
+import FormErrorSlot from "../../components/FormErrorSlot";
+import { minLength, required } from "../../utils/formValidation";
 import "./styles/AddEvent.css";
 
 const AddEvent = () => {
@@ -46,6 +48,7 @@ const AddEvent = () => {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
+    setError("");
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -57,6 +60,20 @@ const AddEvent = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    const checks = [
+      required(formData.eventName, "Event name"),
+      required(formData.industryText, "Industry"),
+      required(formData.startDate, "Start date"),
+      required(formData.location, "City / location"),
+      required(formData.stateName, "State"),
+      minLength(formData.description, 3, "Description"),
+    ];
+    const firstError = checks.find(Boolean) || "";
+    if (firstError) {
+      setError(firstError);
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -116,7 +133,6 @@ const AddEvent = () => {
                     name="eventName"
                     value={formData.eventName}
                     onChange={handleChange}
-                    required
                   />
                 </label>
 
@@ -128,7 +144,6 @@ const AddEvent = () => {
                     value={formData.industryText}
                     onChange={handleChange}
                     placeholder="Type industry name"
-                    required
                   />
                 </label>
 
@@ -139,7 +154,6 @@ const AddEvent = () => {
                     name="startDate"
                     value={formData.startDate}
                     onChange={handleChange}
-                    required
                   />
                 </label>
 
@@ -162,7 +176,6 @@ const AddEvent = () => {
                     placeholder="City"
                     value={formData.location}
                     onChange={handleChange}
-                    required
                   />
                   <datalist id="event-location-list">
                     {locations.map((location) => (
@@ -182,7 +195,6 @@ const AddEvent = () => {
                     placeholder="State"
                     value={formData.stateName}
                     onChange={handleChange}
-                    required
                   />
                 </label>
 
@@ -253,7 +265,6 @@ const AddEvent = () => {
                     rows="4"
                     value={formData.description}
                     onChange={handleChange}
-                    required
                   />
                 </label>
 
@@ -273,7 +284,6 @@ const AddEvent = () => {
                     name="priorityTag"
                     value={formData.priorityTag}
                     onChange={handleChange}
-                    required
                   >
                     <option value="high">High</option>
                     <option value="medium">Medium</option>
@@ -283,11 +293,7 @@ const AddEvent = () => {
                 </label>
               </div>
 
-              {error && (
-                <p style={{ color: "#b42318", marginTop: "12px", marginBottom: "0" }}>
-                  {error}
-                </p>
-              )}
+              <FormErrorSlot message={error} className="form-error-slot-global" />
 
               <div className="form-actions">
                 <button type="button" className="secondary-btn" onClick={() => navigate("/events")}>

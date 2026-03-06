@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import FormErrorSlot from "../../components/FormErrorSlot";
+import { OTP_REGEX, required } from "../../utils/formValidation";
 import "./verify.css"
 
 function VerifyOTP() {
@@ -8,6 +10,7 @@ function VerifyOTP() {
   const [loading, setLoading] = useState(false); // <-- new state
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [fieldError, setFieldError] = useState("");
 
   const handleError = (msg) => {
     setErrorMsg(msg);
@@ -24,8 +27,16 @@ function VerifyOTP() {
   const verifyOTP = async (e) => {
     e.preventDefault();
 
-    if (!otp)
-      return handleError("Enter OTP");
+    const requiredError = required(otp, "OTP");
+    if (requiredError) {
+      setFieldError(requiredError);
+      return handleError(requiredError);
+    }
+    if (!OTP_REGEX.test(String(otp).trim())) {
+      const otpError = "OTP must be 4 to 8 digits";
+      setFieldError(otpError);
+      return handleError(otpError);
+    }
 
     if (loading) return;
 
@@ -61,7 +72,6 @@ function VerifyOTP() {
     <div className="login-wrapper">
       <div className="container">
         <h1>Verify OTP</h1>
-        {errorMsg && <div className="form-message danger">{errorMsg}</div>}
         {successMsg && <div className="form-message primary">{successMsg}</div>}
 
         <form onSubmit={verifyOTP}>
@@ -70,8 +80,14 @@ function VerifyOTP() {
           <input
             value={otp}
             placeholder="Enter OTP..."
-            onChange={(e) => setOtp(e.target.value)}
+            onChange={(e) => {
+              setOtp(e.target.value);
+              setFieldError("");
+              setErrorMsg("");
+            }}
+            className={fieldError ? "form-field-invalid" : ""}
           />
+          <FormErrorSlot message={errorMsg} className="form-error-slot-global form-error-slot-center" />
 
           <button type="submit" disabled={loading}>
             Verify OTP

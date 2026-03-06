@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import API from "../../api";
+import FormErrorSlot from "../../components/FormErrorSlot";
 import "./styles/Expense.css";
 
 const categories = [
@@ -27,6 +28,9 @@ const ExpenseDashboard = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [showReasonModal, setShowReasonModal] = useState(false);
   const [reasonExpense, setReasonExpense] = useState(null);
+  const [pageError, setPageError] = useState("");
+  const [logFormError, setLogFormError] = useState("");
+  const [rejectFormError, setRejectFormError] = useState("");
 
   const [expenses, setExpenses] = useState([]);
   const [usersList, setUsersList] = useState(["All Users"]);
@@ -64,6 +68,7 @@ const ExpenseDashboard = () => {
     });
     setEditingExpense(null);
     setReceiptFiles([]);
+    setLogFormError("");
   };
 
   const fetchCurrentUser = async () => {
@@ -245,10 +250,13 @@ const ExpenseDashboard = () => {
 
   const openCreateModal = () => {
     resetForm();
+    setPageError("");
     setShowLogModal(true);
   };
 
   const openEditModal = (expense) => {
+    setLogFormError("");
+    setPageError("");
     setEditingExpense(expense);
     setFormData({
       category: expense.category,
@@ -264,19 +272,21 @@ const ExpenseDashboard = () => {
 
   const handleSubmitExpense = async () => {
     if (!currentUser) {
-      alert("User not loaded yet");
+      setLogFormError("User not loaded yet");
       return;
     }
 
     if (!formData.total || !formData.date) {
-      alert("Fill required fields");
+      setLogFormError("Fill required fields");
       return;
     }
 
     if (formData.category === "other" && !formData.otherCategory.trim()) {
-      alert("Please enter other expense category");
+      setLogFormError("Please enter other expense category");
       return;
     }
+
+    setLogFormError("");
 
     const payload = new FormData();
     payload.append("category", formData.category);
@@ -314,9 +324,10 @@ const ExpenseDashboard = () => {
       await fetchExpenses();
       setShowLogModal(false);
       resetForm();
+      setPageError("");
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to save expense");
+      setLogFormError(err.response?.data?.message || "Failed to save expense");
     }
   };
 
@@ -324,9 +335,10 @@ const ExpenseDashboard = () => {
     try {
       await API.delete(`/api/expenses/${id}`);
       await fetchExpenses();
+      setPageError("");
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to delete expense");
+      setPageError(err.response?.data?.message || "Failed to delete expense");
     }
   };
 
@@ -338,6 +350,7 @@ const ExpenseDashboard = () => {
     if (status === "rejected") {
       setRejectingExpense(expense);
       setRejectReason("");
+      setRejectFormError("");
       setShowRejectModal(true);
       return;
     }
@@ -348,9 +361,10 @@ const ExpenseDashboard = () => {
         reason: "",
       });
       await fetchExpenses();
+      setPageError("");
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to update status");
+      setPageError(err.response?.data?.message || "Failed to update status");
     }
   };
 
@@ -358,6 +372,7 @@ const ExpenseDashboard = () => {
     setShowRejectModal(false);
     setRejectingExpense(null);
     setRejectReason("");
+    setRejectFormError("");
   };
 
   const openReasonModal = (expense) => {
@@ -376,9 +391,10 @@ const ExpenseDashboard = () => {
 
     const trimmedReason = rejectReason.trim();
     if (!trimmedReason) {
-      alert("Reject reason is required");
+      setRejectFormError("Reject reason is required");
       return;
     }
+    setRejectFormError("");
 
     try {
       await API.put(`/api/expenses/status/${rejectingExpense.id}`, {
@@ -387,9 +403,10 @@ const ExpenseDashboard = () => {
       });
       await fetchExpenses();
       closeRejectModal();
+      setPageError("");
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to update status");
+      setRejectFormError(err.response?.data?.message || "Failed to update status");
     }
   };
 
@@ -418,7 +435,7 @@ const ExpenseDashboard = () => {
     );
 
     if (validFiles.length !== incoming.length) {
-      alert("Only image and PDF files are allowed.");
+      setLogFormError("Only image and PDF files are allowed.");
     }
 
     setReceiptFiles((prev) => {
@@ -586,6 +603,7 @@ const ExpenseDashboard = () => {
             </button>
           </div>
         </div>
+        <FormErrorSlot message={pageError} className="form-error-slot-global" />
 
         <table>
           <thead>
@@ -726,6 +744,7 @@ const ExpenseDashboard = () => {
                   onClick={() => {
                     setShowLogModal(false);
                     resetForm();
+                    setLogFormError("");
                   }}
                 >
                   x
@@ -816,12 +835,14 @@ const ExpenseDashboard = () => {
                 </div>
               </div>
 
+              <FormErrorSlot message={logFormError} className="form-error-slot-global" />
               <div className="expense-modal-footer">
                 <button
                   className="expense-cancel-btn"
                   onClick={() => {
                     setShowLogModal(false);
                     resetForm();
+                    setLogFormError("");
                   }}
                 >
                   Cancel
@@ -952,6 +973,7 @@ const ExpenseDashboard = () => {
                 />
               </div>
 
+              <FormErrorSlot message={rejectFormError} className="form-error-slot-global" />
               <div className="expense-modal-footer">
                 <button className="expense-cancel-btn" onClick={closeRejectModal}>
                   Cancel

@@ -269,3 +269,218 @@ button:disabled {
     padding: 10px 18px;
   }
 }
+
+/* Project-wide standardization for existing page button classes */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  input[type="button"][class*="btn"],
+  input[type="submit"][class*="btn"],
+  [role="button"][class*="btn"]
+):not(.nav-icon-btn):not(.cal-icon-btn):not(.sidebar-collapse-btn):not(.pagination-btn):not(.add-icon-btn):not(.team-setup-icon-btn) {
+  border-radius: 6px !important;
+  border: none !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  input[type="button"][class*="btn"],
+  input[type="submit"][class*="btn"],
+  [role="button"][class*="btn"]
+):not(.nav-icon-btn):not(.cal-icon-btn):not(.sidebar-collapse-btn):not(.pagination-btn):not(.add-icon-btn):not(.team-setup-icon-btn):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ADD / CREATE / SAVE - Green */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="add"], [class*="new"], [class*="create"], [class*="save"], [class*="submit"], [class*="confirm"], [class*="quote-add"], [class*="log-btn"], [class*="upload-receipt"]):not(.add-icon-btn) {
+  background-color: #28a745 !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="add"], [class*="new"], [class*="create"], [class*="save"], [class*="submit"], [class*="confirm"], [class*="quote-add"], [class*="log-btn"], [class*="upload-receipt"]):not(.add-icon-btn):hover:not(:disabled) {
+  background-color: #218838 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+/* VIEW - Gray */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="view"], [class*="quote-btn"], .qdoc-btn, .qdoc-btn-light) {
+  background-color: #6c757d !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="view"], [class*="quote-btn"], .qdoc-btn, .qdoc-btn-light):hover:not(:disabled) {
+  background-color: #5a6268 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+/* EDIT / PRIMARY - Blue */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="edit"], [class*="primary"], [class*="convert"], .quote-action-btn, .qdoc-btn-primary) {
+  background-color: #007bff !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="edit"], [class*="primary"], [class*="convert"], .quote-action-btn, .qdoc-btn-primary):hover:not(:disabled) {
+  background-color: #0056b3 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+/* DELETE / REMOVE - Red */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="remove"], [class*="danger"], [class*="close"], .soft-delete-btn, .team-setup-icon-btn.delete) {
+  background-color: #dc3545 !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="remove"], [class*="danger"], [class*="close"], .soft-delete-btn, .team-setup-icon-btn.delete):hover:not(:disabled) {
+  background-color: #c82333 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+/* CANCEL / SECONDARY / BACK - Light Gray */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="cancel"], [class*="secondary"], [class*="back"], .org-btn-secondary) {
+  background-color: #adb5bd !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="cancel"], [class*="secondary"], [class*="back"], .org-btn-secondary):hover:not(:disabled) {
+  background-color: #97a0aa !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(173, 181, 189, 0.3);
+}
+
+/* FILTER / NAVIGATION - Teal */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="filter"], [class*="nav"], [class*="report"], .cal-btn, .ep-action-btn) {
+  background-color: #17a2b8 !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="filter"], [class*="nav"], [class*="report"], .cal-btn, .ep-action-btn):hover:not(:disabled) {
+  background-color: #138496 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+}
+
+/* TOGGLE / TAB / SWITCH - Gray with Blue active */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="toggle"], [class*="switch"], [class*="tab"], [class*="pill"]) {
+  background-color: #6c757d !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="toggle"], [class*="switch"], [class*="tab"], [class*="pill"]).active {
+  background-color: #007bff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="toggle"], [class*="switch"], [class*="tab"], [class*="pill"]):hover:not(:disabled) {
+  background-color: #5a6268 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+/* AI / OCR - Purple */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="ai"], [class*="ocr"]) {
+  background-color: #6f42c1 !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="ai"], [class*="ocr"]):hover:not(:disabled) {
+  background-color: #5e36b2 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+}
+
+/* REGISTER / ATTEND - Orange */
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="register"], [class*="attend"]) {
+  background-color: #fd7e14 !important;
+  color: #ffffff !important;
+}
+
+:where(
+  button[class*="btn"],
+  a[class*="btn"],
+  [role="button"][class*="btn"]
+):is([class*="register"], [class*="attend"]):hover:not(:disabled) {
+  background-color: #e56a00 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(253, 126, 20, 0.3);
+}

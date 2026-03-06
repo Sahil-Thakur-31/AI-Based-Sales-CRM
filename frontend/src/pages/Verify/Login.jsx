@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../../api'
+import FormErrorSlot from '../../components/FormErrorSlot';
+import { validEmail, strongPassword } from '../../utils/formValidation';
 import "./verify.css"
 
 function Login() {
@@ -11,6 +13,10 @@ function Login() {
     const [loading, setLoading] = useState(false); // <-- new state
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({
+        email: "",
+        password: "",
+    });
 
     const handleError = (msg) => {
         setErrorMsg(msg);
@@ -28,6 +34,8 @@ function Login() {
         const copyloginInfo = { ...logininfo };
         copyloginInfo[name] = value;
         setLogininfo(copyloginInfo);
+        setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+        setErrorMsg("");
     }
 
     const navigate = useNavigate();
@@ -36,26 +44,15 @@ function Login() {
         e.preventDefault()
 
         const { email, password } = logininfo;
+        const nextErrors = {
+            email: validEmail(email),
+            password: strongPassword(password),
+        };
 
-        if (!email || !password) {
-            return handleError("All fields are required");
-        }
+        setFieldErrors(nextErrors);
 
-        // email format validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-        if (!emailRegex.test(email)) {
-            return handleError("Invalid email format");
-        }
-
-        // strong password validation
-        const strongPassword =
-            /^(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-
-        if (!strongPassword.test(password)) {
-            return handleError(
-                "Password must be 8+ chars with uppercase, lowercase, number & special character"
-            );
+        if (nextErrors.email || nextErrors.password) {
+            return handleError(nextErrors.email || nextErrors.password);
         }
 
         if (loading) return;
@@ -100,19 +97,33 @@ function Login() {
         <div className="login-wrapper">
             <div className='container'>
                 <h1>login</h1>
-                {errorMsg && <div className="form-message danger">{errorMsg}</div>}
                 {successMsg && <div className="form-message primary">{successMsg}</div>}
                 <form onSubmit={handleLogin}>
                     <div>
                         <label>Email</label>
-                        <input type='email' name='email' onChange={handleChange} value={logininfo.email} placeholder='Enter Your Email...' />
+                        <input
+                            type='email'
+                            name='email'
+                            onChange={handleChange}
+                            value={logininfo.email}
+                            placeholder='Enter Your Email...'
+                            className={fieldErrors.email ? "form-field-invalid" : ""}
+                        />
                     </div>
                     <div>
                         <label>Password</label>
-                        <input type='password' onChange={handleChange} name='password' value={logininfo.password} placeholder='Enter Your Password...' />
+                        <input
+                            type='password'
+                            onChange={handleChange}
+                            name='password'
+                            value={logininfo.password}
+                            placeholder='Enter Your Password...'
+                            className={fieldErrors.password ? "form-field-invalid" : ""}
+                        />
                     </div>
+                    <FormErrorSlot message={errorMsg} className="form-error-slot-global form-error-slot-center" />
                     <button type='Submit' disabled={loading}>login</button>
-                    <span>
+                    <span className="form-footer-link">
                         <Link to='/forgot-password'> Forgot password</Link>
                     </span>
                 </form>

@@ -56,6 +56,8 @@ function matchesQuote(quote, term) {
 
 export default function Quotations() {
   const navigate = useNavigate();
+  const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+  const isAdmin = roleName === "admin";
 
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -163,9 +165,11 @@ export default function Quotations() {
   return (
     <div className="quotes-page">
       <div className="quotes-toolbar">
-        <button className="quotes-new-btn" onClick={() => navigate(`/quotations/new?type=${activeTab}`)}>
-          + New Quote
-        </button>
+        {!isAdmin ? (
+          <button className="quotes-new-btn" onClick={() => navigate(`/quotations/new?type=${activeTab}`)}>
+            + New Quote
+          </button>
+        ) : null}
 
         <div className="quote-type-tabs quotes-list-tabs">
           <button
@@ -255,27 +259,33 @@ export default function Quotations() {
                           <td className="quote-grand-total">{formatCurrency(latest.grandTotal)}</td>
                           <td>{formatDate(latest.validUntil)}</td>
                           <td>
-                            <select
-                              className={`quote-status-select ${STATUS_CLASS[latest.status] || "draft"}`}
-                              value={latest.status || "draft"}
-                              disabled={statusUpdatingId === latest._id}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) =>
-                                updateQuotationStatus(latest._id, e.target.value, latest.status)
-                              }
-                            >
-                              {String(latest.status || "").toLowerCase() === "expired" ? (
-                                <option value="expired" disabled>
-                                  expired
-                                </option>
-                              ) : null}
+                            {isAdmin ? (
+                              <span className={`quote-status-pill ${STATUS_CLASS[latest.status] || "draft"}`}>
+                                {latest.status || "draft"}
+                              </span>
+                            ) : (
+                              <select
+                                className={`quote-status-select ${STATUS_CLASS[latest.status] || "draft"}`}
+                                value={latest.status || "draft"}
+                                disabled={statusUpdatingId === latest._id}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) =>
+                                  updateQuotationStatus(latest._id, e.target.value, latest.status)
+                                }
+                              >
+                                {String(latest.status || "").toLowerCase() === "expired" ? (
+                                  <option value="expired" disabled>
+                                    expired
+                                  </option>
+                                ) : null}
 
-                              {QUOTATION_STATUSES.filter((s) => s !== "expired").map((statusOption) => (
-                                <option key={statusOption} value={statusOption}>
-                                  {statusOption}
-                                </option>
-                              ))}
-                            </select>
+                                {QUOTATION_STATUSES.filter((s) => s !== "expired").map((statusOption) => (
+                                  <option key={statusOption} value={statusOption}>
+                                    {statusOption}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </td>
                           <td>v{latest.version}</td>
                           <td>
@@ -290,26 +300,28 @@ export default function Quotations() {
                                 View
                               </button>
 
-                              <button
-                                className="quote-action-btn quote-action-neutral"
-                                disabled={!canCreateNewVersion}
-                                title={
-                                  canCreateNewVersion
-                                    ? "Create a new quotation version"
-                                    : "New version is allowed only when latest quotation is expired or rejected"
-                                }
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!canCreateNewVersion) return;
-                                  const sourceQuery =
-                                    latestType === "lead"
-                                      ? `leadId=${latest.leadId || latest.sourceId}`
-                                      : `dealId=${latest.dealId || latest.sourceId}`;
-                                  navigate(`/quotations/new?${sourceQuery}&fromQuoteId=${latest._id}`);
-                                }}
-                              >
-                                New Version
-                              </button>
+                              {!isAdmin ? (
+                                <button
+                                  className="quote-action-btn quote-action-neutral"
+                                  disabled={!canCreateNewVersion}
+                                  title={
+                                    canCreateNewVersion
+                                      ? "Create a new quotation version"
+                                      : "New version is allowed only when latest quotation is expired or rejected"
+                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!canCreateNewVersion) return;
+                                    const sourceQuery =
+                                      latestType === "lead"
+                                        ? `leadId=${latest.leadId || latest.sourceId}`
+                                        : `dealId=${latest.dealId || latest.sourceId}`;
+                                    navigate(`/quotations/new?${sourceQuery}&fromQuoteId=${latest._id}`);
+                                  }}
+                                >
+                                  New Version
+                                </button>
+                              ) : null}
 
                             </div>
                           </td>

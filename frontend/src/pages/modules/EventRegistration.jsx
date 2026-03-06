@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API from "../../api";
+import FormErrorSlot from "../../components/FormErrorSlot";
+import { required, validEmail, validTenDigitMobile } from "../../utils/formValidation";
 import "./styles/EventRegistration.css";
 
 const toInt = (value, fallback = 0) => {
@@ -63,6 +65,7 @@ const EventRegistration = () => {
 
   const onFieldChange = (event) => {
     const { name, value, type, checked } = event.target;
+    setError("");
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value
@@ -71,6 +74,7 @@ const EventRegistration = () => {
 
   const handleAttendeeCountChange = (event) => {
     const nextCount = Math.max(1, Math.min(20, toInt(event.target.value, 1)));
+    setError("");
     setFormData((prev) => ({ ...prev, attendeesCount: nextCount }));
     setAttendeeSelections((prev) => {
       const next = Array.from({ length: nextCount }, (_, idx) => prev[idx] || "");
@@ -92,6 +96,24 @@ const EventRegistration = () => {
 
     if (!canSubmitEvent) {
       setError("Open this page from a valid event to submit registration.");
+      return;
+    }
+
+    const checks = [
+      required(formData.fullName, "Full name"),
+      validEmail(formData.email),
+      validTenDigitMobile(formData.mobile),
+      required(formData.companyName, "Company name"),
+      required(formData.designation, "Designation"),
+      required(formData.city, "City"),
+      Number(formData.attendeesCount || 0) < 1 ? "Number of attendees must be at least 1" : "",
+      !formData.agreeTerms ? "You must agree to the event terms and registration policy" : "",
+      isPaidEvent && !String(formData.paymentMethod || "").trim() ? "Payment method is required" : "",
+      isPaidEvent && Number(formData.amountPaid || 0) < 0 ? "Amount paid cannot be negative" : "",
+    ];
+    const firstError = checks.find(Boolean) || "";
+    if (firstError) {
+      setError(firstError);
       return;
     }
 
@@ -248,12 +270,12 @@ const EventRegistration = () => {
               <div className="form-grid">
                 <label>
                   Full Name *
-                  <input type="text" name="fullName" value={formData.fullName} onChange={onFieldChange} required />
+                  <input type="text" name="fullName" value={formData.fullName} onChange={onFieldChange} />
                 </label>
 
                 <label>
                   Email *
-                  <input type="email" name="email" value={formData.email} onChange={onFieldChange} required />
+                  <input type="email" name="email" value={formData.email} onChange={onFieldChange} />
                 </label>
 
                 <label>
@@ -265,23 +287,22 @@ const EventRegistration = () => {
                     maxLength={10}
                     value={formData.mobile}
                     onChange={onFieldChange}
-                    required
                   />
                 </label>
 
                 <label>
                   Company Name *
-                  <input type="text" name="companyName" value={formData.companyName} onChange={onFieldChange} required />
+                  <input type="text" name="companyName" value={formData.companyName} onChange={onFieldChange} />
                 </label>
 
                 <label>
                   Designation *
-                  <input type="text" name="designation" value={formData.designation} onChange={onFieldChange} required />
+                  <input type="text" name="designation" value={formData.designation} onChange={onFieldChange} />
                 </label>
 
                 <label>
                   City *
-                  <input type="text" name="city" value={formData.city} onChange={onFieldChange} required />
+                  <input type="text" name="city" value={formData.city} onChange={onFieldChange} />
                 </label>
 
                 <label>
@@ -303,7 +324,6 @@ const EventRegistration = () => {
                     max="20"
                     value={formData.attendeesCount}
                     onChange={handleAttendeeCountChange}
-                    required
                   />
                 </label>
               </div>
@@ -352,7 +372,7 @@ const EventRegistration = () => {
                   <div className="form-grid">
                     <label>
                       Payment Method *
-                      <select name="paymentMethod" value={formData.paymentMethod} onChange={onFieldChange} required>
+                      <select name="paymentMethod" value={formData.paymentMethod} onChange={onFieldChange}>
                         <option value="UPI">UPI</option>
                         <option value="Credit Card">Credit Card</option>
                         <option value="Debit Card">Debit Card</option>
@@ -370,7 +390,6 @@ const EventRegistration = () => {
                         value={formData.amountPaid}
                         onChange={onFieldChange}
                         placeholder={String(eventDetails.registrationFee)}
-                        required
                       />
                     </label>
 
@@ -412,12 +431,11 @@ const EventRegistration = () => {
                   name="agreeTerms"
                   checked={formData.agreeTerms}
                   onChange={onFieldChange}
-                  required
                 />
                 I agree to the event terms and registration policy.
               </label>
 
-              {error && <p className="error-text">{error}</p>}
+              <FormErrorSlot message={error} className="form-error-slot-global" />
 
               <div className="submit-row">
                 <button className="submit-btn" type="submit" disabled={submitting || !canSubmitEvent}>

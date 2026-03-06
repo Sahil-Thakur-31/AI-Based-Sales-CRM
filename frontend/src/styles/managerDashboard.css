@@ -324,6 +324,10 @@
   padding: 10px 12px;
 }
 
+.ManagerDashboard .manager-form-error-slot {
+  margin-bottom: 12px;
+}
+
 /* MOBILE */
 
 @media (max-width: 768px) {

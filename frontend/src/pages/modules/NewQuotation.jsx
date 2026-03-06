@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API from "../../api";
+import FormErrorSlot from "../../components/FormErrorSlot";
 import LeadFormPage from "./LeadFormPage";
 import "./styles/Quotations.css";
 
@@ -58,6 +59,8 @@ function getLeadDisplayName(lead) {
 export default function NewQuotation() {
   const navigate = useNavigate();
   const location = useLocation();
+  const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+  const isAdmin = roleName === "admin";
 
   const [quoteType, setQuoteType] = useState("deal");
   const [deals, setDeals] = useState([]);
@@ -88,8 +91,12 @@ export default function NewQuotation() {
   const [lineItems, setLineItems] = useState([makeEmptyItem()]);
 
   useEffect(() => {
+    if (isAdmin) {
+      navigate("/quotations");
+      return;
+    }
     loadDependencies();
-  }, []);
+  }, [isAdmin, navigate]);
 
   const initialDealId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -509,20 +516,26 @@ export default function NewQuotation() {
   };
 
   const submit = async () => {
+    setError("");
     const validItems = calculatedItems.filter((item) => item.productId);
-
-    if (quoteType === "deal" && !form.dealId) {
-      alert("Please select a deal");
-      return;
-    }
-
-    if (quoteType === "lead" && !form.leadId) {
-      alert("Please select a lead");
-      return;
-    }
-
-    if (!validItems.length) {
-      alert("Please add at least one line item with a product");
+    const validationChecks = [
+      quoteType === "deal" && !form.dealId ? "Please select a deal" : "",
+      quoteType === "lead" && !form.leadId ? "Please select a lead" : "",
+      !String(form.quoteDate || "").trim() ? "Quote date is required" : "",
+      form.validUntil && form.quoteDate && form.validUntil < form.quoteDate
+        ? "Valid until date cannot be before quote date"
+        : "",
+      !validItems.length ? "Please add at least one line item with a product" : "",
+      validItems.some((item) => Number(item.quantity || 0) < 1)
+        ? "Line item quantity must be at least 1"
+        : "",
+      validItems.some((item) => Number(item.unitPrice || 0) < 0)
+        ? "Line item unit price cannot be negative"
+        : "",
+    ];
+    const firstError = validationChecks.find(Boolean) || "";
+    if (firstError) {
+      setError(firstError);
       return;
     }
 
@@ -551,7 +564,7 @@ export default function NewQuotation() {
       navigate("/quotations");
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to create quotation");
+      setError(err.response?.data?.message || "Failed to create quotation");
     } finally {
       setSaving(false);
     }
@@ -661,8 +674,6 @@ export default function NewQuotation() {
             </button>
           </div>
         </div>
-
-        {error && <div className="quote-form-error">{error}</div>}
 
         <div className="quote-type-tabs">
           <button
@@ -892,6 +903,7 @@ export default function NewQuotation() {
           />
         </div>
 
+        <FormErrorSlot message={error} className="form-error-slot-global quote-form-error-slot" />
         <div className="quote-form-footer">
           <button className="quote-cancel-btn" onClick={() => navigate("/quotations")}>
             Cancel

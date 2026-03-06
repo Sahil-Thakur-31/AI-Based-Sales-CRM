@@ -23,8 +23,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin: 28px 20px 0px;
   padding: 4px;
-  margin: 20px 24px 0;
   border-radius: 10px;
   border: 1px solid #dbe2ea;
   background: #f8fafc;
@@ -435,7 +435,6 @@
 .quote-form-card {
   width: min(1060px, 100%);
   margin: 0 auto;
-  padding-bottom: 48px;
 }
 
 .quote-form-header {
@@ -570,6 +569,10 @@
   border-radius: 10px;
   background: #fef2f2;
   color: #b91c1c;
+}
+
+.quote-form-error-slot {
+  margin: 16px 24px 0;
 }
 
 .quote-form-grid {
