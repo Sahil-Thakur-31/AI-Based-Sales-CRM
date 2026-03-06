@@ -1,409 +1,222 @@
-.settings-container{
-  max-width: 900px;
+.settings-container {
+  max-width: 980px;
   margin: 0 auto;
   display: flex;
   gap: 20px;
-  overflow: hidden;
-  height: max-content;
 }
 
+.settings-loading {
+  padding: 16px;
+}
 
-
-.settings-card{
-
-  background: white;
-
+.settings-card {
+  background: #fff;
   border-radius: 14px;
-
   padding: 20px;
-
   margin-bottom: 24px;
-
   border: 1px solid #e5e7eb;
   width: 50%;
-  height: 120%;
 }
 
-
-
-.settings-card-header{
-
+.settings-card-header {
   display: flex;
-
   align-items: center;
-
   gap: 14px;
-
   margin-bottom: 22px;
-
 }
 
-
-
-.settings-header-icon{
-
+.settings-header-icon {
   width: 40px;
   height: 40px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
-  font-size: 18px;
-
   border-radius: 10px;
-
   background: #f3f4f6;
-
+  overflow: hidden;
 }
 
+.settings-header-icon img {
+  width: 35px;
+  height: 35px;
+  object-fit: contain;
+  display: block;
+}
 
-
-.settings-title{
-
+.settings-title {
   font-size: 18px;
   font-weight: 600;
-
 }
 
-
-
-.settings-subtitle{
-
+.settings-subtitle {
   font-size: 13px;
-
   color: #6b7280;
-
 }
 
-
-
-.toggle-row{
-
+.toggle-row {
   display: flex;
-
   justify-content: space-between;
-
   align-items: center;
-
   padding: 16px 0;
-
   border-top: 1px solid #f1f5f9;
-
 }
 
-
-
-.toggle-left{
-
+.toggle-left {
   display: flex;
-
   gap: 14px;
-
   align-items: center;
-
 }
 
-
-
-.toggle-icon{
-
-  font-size: 18px;
-
-  width: 36px;
-  height: 36px;
-
+.toggle-icon {
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-
   border-radius: 10px;
-
   background: #f3f4f6;
-
+  overflow: hidden;
 }
 
+.toggle-icon img {
+  width: 35px;
+  height: 35px;
+  object-fit: contain;
+  display: block;
+}
 
-
-.toggle-title{
-
+.toggle-title {
   font-weight: 600;
-
 }
 
-
-
-.toggle-desc{
-
+.toggle-desc {
   font-size: 13px;
-
   color: #6b7280;
-
 }
 
-
-
-.toggle-switch{
-
+.toggle-switch {
   width: 44px;
   height: 24px;
-
   background: #e5e7eb;
-
   border-radius: 999px;
-
   position: relative;
-
   cursor: pointer;
-
 }
 
-
-
-.toggle-switch.active{
-
+.toggle-switch.active {
   background: #6366f1;
-
 }
 
-
-
-.toggle-knob{
-
+.toggle-knob {
   width: 18px;
   height: 18px;
-
-  background: white;
-
+  background: #fff;
   border-radius: 50%;
-
   position: absolute;
-
   top: 3px;
   left: 3px;
-
   transition: 0.2s;
-
 }
 
-
-
-.toggle-switch.active .toggle-knob{
-
+.toggle-switch.active .toggle-knob {
   left: 23px;
-
 }
 
-
-
-.settings-section-label{
-
+.settings-section-label {
   font-size: 13px;
-
   font-weight: 600;
-
   margin-top: 10px;
-
   margin-bottom: 10px;
-
 }
 
-
-
-.method-grid{
-
+.method-grid {
   display: grid;
-
-  grid-template-columns: repeat(3,1fr);
-
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-
 }
 
-
-
-.method-card{
-
+.method-card {
   border: 1px solid #e5e7eb;
-
   padding: 18px;
-
   border-radius: 12px;
-
   text-align: center;
-
   cursor: pointer;
-
 }
 
-
-
-.method-card.active{
-
+.method-card.active {
   border-color: #6366f1;
-
   background: #eef2ff;
-
 }
 
-
-
-.method-icon{
-
+.method-icon {
   font-size: 22px;
-
 }
 
-
-
-.method-title{
-
+.method-title {
   margin-top: 6px;
-
 }
 
-
-
-.timing-grid{
-
-  display: grid;
-
-  grid-template-columns: repeat(2,1fr);
-
-  gap: 12px;
-
-}
-
-
-
-.timing-card{
-
-  border: 1px solid #e5e7eb;
-
-  padding: 14px;
-
-  border-radius: 12px;
-
+.reminder-options-panel {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
+.reminder-option-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr auto;
+  gap: 8px;
   align-items: center;
-
-  gap: 10px;
-
-  cursor: pointer;
-
 }
 
-
-
-.timing-card.active{
-
-  border-color: #6366f1;
-
-  background: #eef2ff;
-
+.reminder-option-label,
+.reminder-option-number,
+.reminder-option-unit {
+  border: 1px solid #cfd8ea;
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #1f3552;
+  background: #fff;
 }
 
-
-
-.radio{
-
-  width: 16px;
-  height: 16px;
-
-  border: 2px solid #6366f1;
-
-  border-radius: 50%;
-
+.reminder-option-label {
   display: flex;
   align-items: center;
-  justify-content: center;
-
 }
 
-
-
-.radio-dot{
-
-  width: 8px;
-  height: 8px;
-
-  background: #6366f1;
-
-  border-radius: 50%;
-
-}
-
-
-.custom-timing-panel{
-
-  margin-top: 14px;
-
-  padding: 14px;
-
-  border: 1px solid #e5e7eb;
-
-  border-radius: 12px;
-
-  background: #f8fafc;
-
-  display: grid;
-
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-
-  column-gap: 12px;
-
-  row-gap: 12px;
-
-}
-
-
-.custom-timing-title{
-
-  font-size: 13px;
-
-  font-weight: 600;
-
-  grid-column: 1 / -1;
-
-}
-
-
-.custom-slider-row{
-
-  margin-bottom: 0;
-
-}
-
-
-.custom-slider-header{
-
-  display: flex;
-
-  justify-content: space-between;
-
-  font-size: 13px;
-
-  margin-bottom: 6px;
-
-}
-
-
-.custom-slider{
-
+.reminder-option-number {
   width: 100%;
-
-  accent-color: #6366f1;
-
 }
 
+.reminder-option-remove {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #cfd8ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
 
-.custom-timing-preview{
+.reminder-option-add {
+  width: fit-content;
+  border: 1px dashed #8ca0dd;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #334155;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
 
-  font-size: 12px;
+@media (max-width: 980px) {
+  .settings-container {
+    flex-direction: column;
+  }
 
-  color: #475569;
-
-  grid-column: 1 / -1;
-
+  .settings-card {
+    width: 100%;
+  }
 }

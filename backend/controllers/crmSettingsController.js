@@ -1,5 +1,18 @@
 const CRMSettings = require("../models/crmSettings");
 
+function normalizeReminderOptions(options = []) {
+  if (!Array.isArray(options)) return [{ value: 10, unit: "minutes" }];
+  const normalized = options
+    .map((opt) => {
+      const value = Number(opt?.value);
+      const unit = String(opt?.unit || "").toLowerCase();
+      if (!Number.isFinite(value) || value < 1) return null;
+      if (!["minutes", "hours", "days"].includes(unit)) return null;
+      return { value: Math.floor(value), unit };
+    })
+    .filter(Boolean);
+  return normalized.length ? normalized : [{ value: 10, unit: "minutes" }];
+}
 
 
 /*
@@ -73,6 +86,9 @@ exports.updateMySettings = async (req, res) => {
 
         reminderMethodWhatsApp:
           req.body.reminderMethodWhatsApp,
+
+        reminderOptions:
+          normalizeReminderOptions(req.body.reminderOptions),
 
         reminderTiming:
           req.body.reminderTiming,

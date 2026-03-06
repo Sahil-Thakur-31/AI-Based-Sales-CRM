@@ -12,18 +12,6 @@ const Event = require("../models/events");
 const authenticate = require("../middlewares/auth");
 const { TEMPLATE_KEYS } = require("../services/emailTemplates");
 
-function getReminderOffsetMinutes(reminderTiming, customReminderOffsetMinutes) {
-  if (reminderTiming === "custom") {
-    const value = Number(customReminderOffsetMinutes);
-    if (!Number.isNaN(value) && value >= 0) return value;
-    return 30;
-  }
-
-  if (reminderTiming === "15min") return 15;
-  if (reminderTiming === "1hr") return 60;
-  return 30;
-}
-
 function buildReminderLabel(diffMinutes) {
   if (diffMinutes <= 1) return "less than a minute left";
   if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} left`;
@@ -46,8 +34,23 @@ function isReminderTemplate(templateKey) {
 function getReminderOffsetMinutes(settings) {
   if (!settings) return 48 * 60;
 
-  if (!settings.smartFollowupRemindersEnabled || !settings.reminderMethodInApp) {
+  if (!settings.smartFollowupRemindersEnabled || !settings.reminderMethodInApp || !settings.reminderMethodEmail) {
     return null;
+  }
+
+  if (Array.isArray(settings.reminderOptions) && settings.reminderOptions.length > 0) {
+    const values = settings.reminderOptions
+      .map((opt) => {
+        const value = Number(opt?.value);
+        const unit = String(opt?.unit || "").toLowerCase();
+        if (!Number.isFinite(value) || value < 1) return null;
+        if (unit === "minutes") return Math.floor(value);
+        if (unit === "hours") return Math.floor(value * 60);
+        if (unit === "days") return Math.floor(value * 24 * 60);
+        return null;
+      })
+      .filter((v) => Number.isFinite(v));
+    if (values.length) return Math.max(...values);
   }
 
   if (settings.reminderTiming === "15min") return 15;
@@ -118,41 +121,43 @@ router.get("/", authenticate, async (req, res) => {
     let leadReminderNotifications = [];
     let dayStartReminderNotifications = [];
 
-    const { start: dayStart, end: dayEnd } = getDayBounds(now);
-    const todaysFollowups = await Followup.find({
-      is_deleted: false,
-      assignedTo: req.user._id,
-      reminderEnabled: { $ne: false },
-      status: { $in: ["pending", "overdue"] },
-      dueDateTime: { $gte: dayStart, $lt: dayEnd },
-    })
-      .select("title dueDateTime leadId kind clientName actionType")
-      .lean();
-
-    dayStartReminderNotifications = todaysFollowups
-      .map((followup) => {
-        const dueAt = new Date(followup.dueDateTime);
-        if (Number.isNaN(dueAt.getTime())) return null;
-        if (dueAt.getTime() <= now.getTime()) return null;
-
-        const isMeeting = followup.kind === "meeting";
-        const companyName = getNotificationCompanyName(followup);
-        const itemType = getNotificationItemType(followup);
-
-        return {
-          _id: `${isMeeting ? "meeting" : "followup"}-daystart-${followup._id}-${dayStart.getTime()}`,
-          userId: req.user._id,
-          title: isMeeting ? "Today's Meeting Reminder" : "Today's Follow-up Reminder",
-          message: `${itemType} for ${companyName} is scheduled today.`,
-          type: "info",
-          isRead: false,
-          relatedId: followup.leadId || followup._id,
-          relatedType: isMeeting ? "Meeting" : "Followup",
-          createdAt: dayStart,
-          updatedAt: dayStart,
-        };
+    if (reminderOffsetMinutes !== null) {
+      const { start: dayStart, end: dayEnd } = getDayBounds(now);
+      const todaysFollowups = await Followup.find({
+        is_deleted: false,
+        assignedTo: req.user._id,
+        reminderEnabled: { $ne: false },
+        status: { $in: ["pending", "overdue"] },
+        dueDateTime: { $gte: dayStart, $lt: dayEnd },
       })
-      .filter(Boolean);
+        .select("title dueDateTime leadId kind clientName actionType")
+        .lean();
+
+      dayStartReminderNotifications = todaysFollowups
+        .map((followup) => {
+          const dueAt = new Date(followup.dueDateTime);
+          if (Number.isNaN(dueAt.getTime())) return null;
+          if (dueAt.getTime() <= now.getTime()) return null;
+
+          const isMeeting = followup.kind === "meeting";
+          const companyName = getNotificationCompanyName(followup);
+          const itemType = getNotificationItemType(followup);
+
+          return {
+            _id: `${isMeeting ? "meeting" : "followup"}-daystart-${followup._id}-${dayStart.getTime()}`,
+            userId: req.user._id,
+            title: isMeeting ? "Today's Meeting Reminder" : "Today's Follow-up Reminder",
+            message: `${itemType} for ${companyName} is scheduled today.`,
+            type: "info",
+            isRead: false,
+            relatedId: followup.leadId || followup._id,
+            relatedType: isMeeting ? "Meeting" : "Followup",
+            createdAt: dayStart,
+            updatedAt: dayStart,
+          };
+        })
+        .filter(Boolean);
+    }
 
     if (reminderOffsetMinutes !== null) {
       const reminderCutoff = new Date(now.getTime() + reminderOffsetMinutes * 60 * 1000);
