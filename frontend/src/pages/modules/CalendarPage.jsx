@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -47,7 +48,7 @@ const CATEGORY_IMAGES = {
 const CATEGORY_ROUTES = {
   meeting: "/followups/add",
   daily_closing: "/daily-closing/form",
-  event_expo: "/events/new",
+  event_expo: "/events/register",
 };
 
 const CATEGORIES = ["meeting", "daily_closing", "event_expo"];
@@ -100,6 +101,7 @@ function toCalendarEvent(doc) {
     borderColor: CATEGORY_COLORS.meeting,
     extendedProps: {
       type: "meeting",
+      sourceKind: doc.kind || "followup",
       withWhom: doc.clientName || "N/A",
       topic: doc.title || "",
       meetingType: inferMeetingType(doc.actionType),
@@ -123,15 +125,111 @@ function toCalendarEvent(doc) {
   };
 }
 
-function isGoogleSyncedRecord(doc) {
-  return !!String(doc?.googleEventId || "").trim();
+function toEventExpoCalendarEvent(doc) {
+  const start = doc?.startDate ? new Date(doc.startDate) : null;
+  const end = doc?.endDate ? new Date(doc.endDate) : null;
+  if (!start || Number.isNaN(start.getTime())) return null;
+
+  return {
+    id: `event-${String(doc._id)}`,
+    title: doc.name || "Event & Expo",
+    start: start.toISOString(),
+    end: end && !Number.isNaN(end.getTime()) ? end.toISOString() : undefined,
+    allDay: true,
+    backgroundColor: CATEGORY_COLORS.event_expo,
+    borderColor: CATEGORY_COLORS.event_expo,
+    extendedProps: {
+      type: "event_expo",
+      venue: doc.venue || "",
+      address: doc.address || "",
+      notes: doc.description || "",
+      registrationFee: doc.registrationFee,
+      sourceId: doc._id || null,
+    },
+  };
+}
+
+function toDailyClosingCalendarEvent(doc) {
+  const date = doc?.daily_closing_date ? new Date(doc.daily_closing_date) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return {
+    id: `daily-${String(doc._id || doc.daily_closing_date)}`,
+    title: "Daily Closing Task",
+    start: date.toISOString(),
+    allDay: true,
+    backgroundColor: CATEGORY_COLORS.daily_closing,
+    borderColor: CATEGORY_COLORS.daily_closing,
+    extendedProps: {
+      type: "daily_closing",
+      notes: doc.key_highlights || "",
+      reminderEnabled: false,
+      reminderChoice: "no",
+      reminderOptions: [],
+    },
+  };
+}
+
+function buildMissingDailyTaskReminderEvent() {
+  const now = new Date();
+  const reminderStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    20,
+    0,
+    0,
+    0
+  );
+  const reminderEnd = new Date(reminderStart.getTime() + 60 * 60 * 1000);
+  return {
+    id: `daily-reminder-${now.toISOString().slice(0, 10)}`,
+    title: "Reminder: Add today's Daily Closing task",
+    start: reminderStart.toISOString(),
+    end: reminderEnd.toISOString(),
+    allDay: false,
+    backgroundColor: CATEGORY_COLORS.daily_closing,
+    borderColor: CATEGORY_COLORS.daily_closing,
+    extendedProps: {
+      type: "daily_closing",
+      notes: "You have not added today's daily closing task yet.",
+      reminderEnabled: false,
+      reminderChoice: "no",
+      reminderOptions: [],
+      isPrompt: true,
+    },
+  };
+}
+
+function shouldShowDailyClosingReminderNow() {
+  const now = new Date();
+  const reminderThreshold = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    20,
+    0,
+    0,
+    0
+  );
+  return now >= reminderThreshold;
+}
+
+function formatLocalDateInput(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 export default function CalendarPage() {
+  const navigate = useNavigate();
   const calendarRef = useRef(null);
   const popoverRef = useRef(null);
   const filterBtnRef = useRef(null);
   const filterDropRef = useRef(null);
+  const dayMenuRef = useRef(null);
+  const syncTimerRef = useRef(null);
+  const lastSyncedFingerprintRef = useRef("");
 
   const [currentView, setCurrentView] = useState("dayGridMonth");
   const [currentTitle, setCurrentTitle] = useState("");
@@ -139,14 +237,20 @@ export default function CalendarPage() {
   const [activeFilters, setActiveFilters] = useState([...CATEGORIES]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [popover, setPopover] = useState(null);
+  const [dayMenu, setDayMenu] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingReminder, setSavingReminder] = useState(false);
   const [editingReminder, setEditingReminder] = useState(false);
+  const [editingDailyClosing, setEditingDailyClosing] = useState(false);
+  const [dailyClosingNotesDraft, setDailyClosingNotesDraft] = useState("");
+  const [savingDailyClosing, setSavingDailyClosing] = useState(false);
   const [reminderChoice, setReminderChoice] = useState("yes");
   const [reminderOptions, setReminderOptions] = useState(DEFAULT_REMINDER_OPTIONS);
   const [googleSync, setGoogleSync] = useState({ connected: false, connectedAt: null });
   const [syncLoading, setSyncLoading] = useState(false);
+  const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+  const isManager = roleName === "manager";
 
   const loadGoogleStatus = async () => {
     try {
@@ -160,19 +264,33 @@ export default function CalendarPage() {
     }
   };
 
-  const loadFollowups = async () => {
+  const loadCalendarData = async () => {
     setLoading(true);
     try {
-      const [meetingsRes, followupsRes] = await Promise.all([
-        API.get("/followups", { params: { kind: "meeting" } }),
-        API.get("/followups", { params: { kind: "followup" } }),
+      const [meetingsRes, followupsRes, eventsRes, dailyClosingRes] = await Promise.all([
+        API.get("/followups", { params: { kind: "meeting", mine_only: true } }),
+        API.get("/followups", { params: { kind: "followup", mine_only: true } }),
+        API.get("/events", { params: { mine_only: true } }),
+        API.get("/daily-closing/calendar-self"),
       ]);
 
-      const rows = [...(meetingsRes.data || []), ...(followupsRes.data || [])].filter((doc) => {
+      const meetingRows = [...(meetingsRes.data || []), ...(followupsRes.data || [])].filter((doc) => {
         if (doc.is_deleted || doc.status === "cancelled") return false;
-        return isGoogleSyncedRecord(doc);
+        return true;
       });
-      setEvents(rows.map(toCalendarEvent));
+      const meetingEvents = meetingRows.map(toCalendarEvent).filter(Boolean);
+      const expoEvents = (Array.isArray(eventsRes.data) ? eventsRes.data : [])
+        .map(toEventExpoCalendarEvent)
+        .filter(Boolean);
+      const dailyRows = Array.isArray(dailyClosingRes?.data?.rows) ? dailyClosingRes.data.rows : [];
+      const dailyEvents = dailyRows.map(toDailyClosingCalendarEvent).filter(Boolean);
+      const hasTodayEntry = Boolean(dailyClosingRes?.data?.hasTodayEntry);
+      const missingDailyReminder =
+        hasTodayEntry || !shouldShowDailyClosingReminderNow()
+          ? []
+          : [buildMissingDailyTaskReminderEvent()];
+
+      setEvents([...meetingEvents, ...expoEvents, ...dailyEvents, ...missingDailyReminder]);
     } catch (err) {
       console.error("Calendar load failed:", err);
       setEvents([]);
@@ -183,7 +301,20 @@ export default function CalendarPage() {
 
   useEffect(() => {
     loadGoogleStatus();
-    loadFollowups();
+    loadCalendarData();
+  }, []);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") loadCalendarData();
+    };
+    const onFocus = () => loadCalendarData();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -191,6 +322,10 @@ export default function CalendarPage() {
       if (popoverRef.current && !popoverRef.current.contains(e.target)) {
         setPopover(null);
         setEditingReminder(false);
+        setEditingDailyClosing(false);
+      }
+      if (dayMenuRef.current && !dayMenuRef.current.contains(e.target)) {
+        setDayMenu(null);
       }
       if (
         filterDropRef.current &&
@@ -238,10 +373,62 @@ export default function CalendarPage() {
     });
   }, [events, searchQuery, activeFilters]);
 
+  useEffect(() => {
+    if (!googleSync.connected || loading) return;
+
+    if (syncTimerRef.current) {
+      window.clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = window.setTimeout(async () => {
+      const items = filteredEvents
+        .map((ev) => {
+          const type = String(ev?.extendedProps?.type || "").toLowerCase();
+          if (!type) return null;
+          return {
+            id: String(ev?.id || ""),
+            type,
+            title: String(ev?.title || "Calendar Item"),
+            start: ev?.start instanceof Date ? ev.start.toISOString() : (ev?.startStr || ev?.start || null),
+            end: ev?.end instanceof Date ? ev.end.toISOString() : (ev?.endStr || ev?.end || null),
+            allDay: !!ev?.allDay,
+            notes: String(ev?.extendedProps?.notes || ev?.extendedProps?.topic || ""),
+            location: String(
+              ev?.extendedProps?.venue ||
+              ev?.extendedProps?.address ||
+              ev?.extendedProps?.withWhom ||
+              ""
+            ),
+          };
+        })
+        .filter((item) => item && item.id && item.start);
+
+      const fingerprint = JSON.stringify(
+        items.map((item) => `${item.type}|${item.id}|${item.start}|${item.end || ""}|${item.title}`)
+      );
+
+      if (fingerprint === lastSyncedFingerprintRef.current) return;
+
+      try {
+        await API.post("/auth/google/sync-visible", { items });
+        lastSyncedFingerprintRef.current = fingerprint;
+      } catch (err) {
+        console.error("Google visible sync failed:", err);
+      }
+    }, 700);
+
+    return () => {
+      if (syncTimerRef.current) {
+        window.clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, [googleSync.connected, loading, filteredEvents]);
+
   const hiddenCount = CATEGORIES.length - activeFilters.length;
 
   const handleEventClick = (info) => {
     info.jsEvent.stopPropagation();
+    setDayMenu(null);
     const rect = info.el.getBoundingClientRect();
     let x = rect.left + rect.width / 2 - 200;
     let y = rect.bottom + 8;
@@ -250,6 +437,8 @@ export default function CalendarPage() {
     y = Math.max(8, Math.min(y, window.innerHeight - maxPopoverHeight - 8));
     setPopover({ event: info.event, x, y });
     setEditingReminder(false);
+    setEditingDailyClosing(false);
+    setDailyClosingNotesDraft(String(info.event.extendedProps?.notes || ""));
     setReminderChoice(
       info.event.extendedProps?.reminderChoice ||
         (info.event.extendedProps?.reminderEnabled === false ? "no" : "yes")
@@ -266,6 +455,33 @@ export default function CalendarPage() {
           }))
         : DEFAULT_REMINDER_OPTIONS
     );
+  };
+
+  const openDayActionMenu = (info) => {
+    const clickedDate = formatLocalDateInput(info.date);
+    const rect = info.dayEl?.getBoundingClientRect?.();
+    const panelWidth = 220;
+    const x = Math.max(8, Math.min((rect?.left || 16) + 12, window.innerWidth - panelWidth - 8));
+    const y = Math.max(8, Math.min((rect?.top || 16) + 32, window.innerHeight - 220));
+    setPopover(null);
+    setDayMenu({ x, y, selectedDate: clickedDate });
+  };
+
+  const navigateWithDate = (kind) => {
+    if (!dayMenu?.selectedDate) return;
+    const selectedDate = dayMenu.selectedDate;
+    setDayMenu(null);
+    if (kind === "daily_closing") {
+      navigate("/daily-closing/form", { state: { selectedDate } });
+      return;
+    }
+    if (kind === "meeting") {
+      navigate(`/followups/add?date=${selectedDate}`, { state: { selectedDate } });
+      return;
+    }
+    if (kind === "event_expo") {
+      navigate(`/events/register?date=${selectedDate}`, { state: { selectedDate } });
+    }
   };
 
   const saveReminderOnly = async () => {
@@ -399,6 +615,44 @@ export default function CalendarPage() {
     }
   };
 
+  const saveDailyClosingInline = async () => {
+    if (!popover?.event) return;
+    const text = String(dailyClosingNotesDraft || "").trim();
+    if (!text) return;
+
+    const startDate = popover.event?.startStr ? new Date(popover.event.startStr) : new Date();
+    if (Number.isNaN(startDate.getTime())) return;
+
+    setSavingDailyClosing(true);
+    try {
+      await API.post("/daily-closing/submit", {
+        selectedDate: formatLocalDateInput(startDate),
+        keyHighlights: text,
+      });
+      await loadCalendarData();
+      setPopover((prev) =>
+        prev
+          ? {
+              ...prev,
+              event: {
+                ...prev.event,
+                extendedProps: {
+                  ...prev.event.extendedProps,
+                  notes: text,
+                  isPrompt: false,
+                },
+              },
+            }
+          : prev
+      );
+      setEditingDailyClosing(false);
+    } catch (err) {
+      console.error("Daily closing inline save failed:", err);
+    } finally {
+      setSavingDailyClosing(false);
+    }
+  };
+
   return (
     <div className="calendar-layout">
       <div className="calendar-topbar">
@@ -500,10 +754,11 @@ export default function CalendarPage() {
             multiMonthMaxColumns={4}
             datesSet={(arg) => setCurrentTitle(arg.view.title)}
             eventClick={handleEventClick}
+            dateClick={openDayActionMenu}
             eventContent={(arg) => {
-              const color = arg.event.backgroundColor || "#3c4043";
+              const chipColor = arg.event.backgroundColor || "#3c4043";
               return (
-                <div className="cal-event-text" style={{ color }}>
+                <div className="cal-event-text" style={{ backgroundColor: chipColor, color: "#ffffff" }}>
                   <span className="cal-ev-time">{arg.timeText}</span>
                   <span className="cal-ev-title">{arg.event.title}</span>
                 </div>
@@ -515,7 +770,7 @@ export default function CalendarPage() {
 
         <div className="calendar-right-panel">
           <div className="add-icon-list">
-            {CATEGORIES.map((key) => (
+            {CATEGORIES.filter((key) => key !== "event_expo" || isManager).map((key) => (
               <a
                 key={key}
                 href={CATEGORY_ROUTES[key]}
@@ -530,6 +785,27 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {dayMenu && (
+        <div
+          ref={dayMenuRef}
+          className="cal-day-menu"
+          style={{ left: dayMenu.x, top: dayMenu.y }}
+        >
+          <div className="cal-day-menu-title">Add for {dayMenu.selectedDate}</div>
+          <button className="cal-day-menu-item" onClick={() => navigateWithDate("daily_closing")}>
+            Add Daily Task
+          </button>
+          <button className="cal-day-menu-item" onClick={() => navigateWithDate("meeting")}>
+            Schedule Meeting
+          </button>
+          {isManager && (
+            <button className="cal-day-menu-item" onClick={() => navigateWithDate("event_expo")}>
+              Event & Expo
+            </button>
+          )}
+        </div>
+      )}
+
       {popover && (() => {
         const ev = popover.event;
         const props = ev.extendedProps || {};
@@ -543,19 +819,35 @@ export default function CalendarPage() {
           >
             <div className="ep-header">
               <div className="ep-actions">
-                <button
-                  className="ep-action-btn ep-edit"
-                  title="Edit reminder only"
-                  onClick={() => setEditingReminder((prev) => !prev)}
-                >
-                  <FaPenToSquare />
-                </button>
-                <button className="ep-action-btn ep-delete" title="Delete meeting" onClick={deleteMeeting}>
-                  <FaTrashCan />
-                </button>
-                <button className="ep-action-btn ep-cancel" title="Cancel meeting" onClick={cancelMeeting}>
-                  <FaBan />
-                </button>
+                {props.type === "meeting" && (
+                  <>
+                    <button
+                      className="ep-action-btn ep-edit"
+                      title="Edit reminder only"
+                      onClick={() => setEditingReminder((prev) => !prev)}
+                    >
+                      <FaPenToSquare />
+                    </button>
+                    <button className="ep-action-btn ep-delete" title="Delete meeting" onClick={deleteMeeting}>
+                      <FaTrashCan />
+                    </button>
+                    <button className="ep-action-btn ep-cancel" title="Cancel meeting" onClick={cancelMeeting}>
+                      <FaBan />
+                    </button>
+                  </>
+                )}
+                {props.type === "daily_closing" && (
+                  <button
+                    className="ep-action-btn ep-edit"
+                    title="Edit daily closing"
+                    onClick={() => {
+                      setEditingDailyClosing((prev) => !prev);
+                      setDailyClosingNotesDraft(String(props.notes || ""));
+                    }}
+                  >
+                    <FaPenToSquare />
+                  </button>
+                )}
                 <button className="ep-action-btn ep-close" title="Close" onClick={() => setPopover(null)}>
                   <FaXmark />
                 </button>
@@ -563,7 +855,7 @@ export default function CalendarPage() {
             </div>
 
             <div className="ep-title-row">
-              <span className="ep-color-dot" style={{ background: CATEGORY_COLORS.meeting }} />
+              <span className="ep-color-dot" style={{ background: CATEGORY_COLORS[props.type] || CATEGORY_COLORS.meeting }} />
               <div>
                 <div className="ep-title">{ev.title}</div>
                 <div className="ep-date">{dateStr}</div>
@@ -572,94 +864,148 @@ export default function CalendarPage() {
 
             <div className="ep-detail-row">
               <FaCalendarCheck className="ep-detail-icon" />
-              <span>{CATEGORY_LABELS.meeting}</span>
+              <span>{CATEGORY_LABELS[props.type] || CATEGORY_LABELS.meeting}</span>
             </div>
-            <div className="ep-detail-row">
-              <FaList className="ep-detail-icon" />
-              <span>Topic: {props.topic || "-"}</span>
-            </div>
-            <div className="ep-detail-row">
-              <FaUser className="ep-detail-icon" />
-              <span>With: {props.withWhom || "-"}</span>
-            </div>
-            <div className="ep-detail-row">
-              <FaList className="ep-detail-icon" />
-              <span>Type: {props.meetingType || "other"}</span>
-            </div>
-            <div className="ep-detail-row">
-              <FaBolt className="ep-detail-icon" />
-              <span>Priority: {props.priority || "Medium"}</span>
-            </div>
-
-            <div className="ep-detail-row ep-reminder-row">
-              <FaBell className="ep-detail-icon" />
-              {!editingReminder ? (
-                <span>
-                  Reminder:{" "}
-                  {props.reminderChoice === "maybe" ? "Maybe" : props.reminderEnabled === false ? "No" : "Yes"}
-                </span>
-              ) : (
-                <div className="ep-reminder-edit">
-                  <select
-                    className="ep-select"
-                    value={reminderChoice}
-                    onChange={(e) => setReminderChoice(e.target.value)}
-                    disabled={savingReminder}
-                  >
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                    <option value="maybe">Maybe</option>
-                  </select>
-                  {reminderChoice === "yes" && (
-                    <div className="ep-notify-options">
-                      {reminderOptions.map((opt, idx) => (
-                        <div className="ep-notify-row" key={`notify-row-${idx}`}>
-                          <div className="ep-notify-label">Notification</div>
-                          <input
-                            className="ep-notify-number"
-                            type="number"
-                            min="1"
-                            value={opt.value}
-                            onChange={(e) => updateReminderOptionRow(idx, "value", e.target.value)}
-                            disabled={savingReminder}
-                          />
-                          <select
-                            className="ep-select"
-                            value={opt.unit}
-                            onChange={(e) => updateReminderOptionRow(idx, "unit", e.target.value)}
-                            disabled={savingReminder}
-                          >
-                            <option value="minutes">minutes</option>
-                            <option value="hours">hours</option>
-                            <option value="days">days</option>
-                          </select>
-                          <button
-                            type="button"
-                            className="ep-action-btn ep-close"
-                            onClick={() => removeReminderOptionRow(idx)}
-                            disabled={savingReminder}
-                            title="Remove notification row"
-                          >
-                            <FaXmark />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        className="ep-add-reminder-row"
-                        onClick={addReminderOptionRow}
+            {props.type === "meeting" && (
+              <>
+                <div className="ep-detail-row">
+                  <FaList className="ep-detail-icon" />
+                  <span>Topic: {props.topic || "-"}</span>
+                </div>
+                <div className="ep-detail-row">
+                  <FaUser className="ep-detail-icon" />
+                  <span>With: {props.withWhom || "-"}</span>
+                </div>
+                <div className="ep-detail-row">
+                  <FaList className="ep-detail-icon" />
+                  <span>Type: {props.meetingType || "other"}</span>
+                </div>
+                <div className="ep-detail-row">
+                  <FaBolt className="ep-detail-icon" />
+                  <span>Priority: {props.priority || "Medium"}</span>
+                </div>
+                <div className="ep-detail-row ep-reminder-row">
+                  <FaBell className="ep-detail-icon" />
+                  {!editingReminder ? (
+                    <span>
+                      Reminder:{" "}
+                      {props.reminderChoice === "maybe" ? "Maybe" : props.reminderEnabled === false ? "No" : "Yes"}
+                    </span>
+                  ) : (
+                    <div className="ep-reminder-edit">
+                      <select
+                        className="ep-select"
+                        value={reminderChoice}
+                        onChange={(e) => setReminderChoice(e.target.value)}
                         disabled={savingReminder}
                       >
-                        + Add notification
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                        <option value="maybe">Maybe</option>
+                      </select>
+                      {reminderChoice === "yes" && (
+                        <div className="ep-notify-options">
+                          {reminderOptions.map((opt, idx) => (
+                            <div className="ep-notify-row" key={`notify-row-${idx}`}>
+                              <div className="ep-notify-label">Notification</div>
+                              <input
+                                className="ep-notify-number"
+                                type="number"
+                                min="1"
+                                value={opt.value}
+                                onChange={(e) => updateReminderOptionRow(idx, "value", e.target.value)}
+                                disabled={savingReminder}
+                              />
+                              <select
+                                className="ep-select"
+                                value={opt.unit}
+                                onChange={(e) => updateReminderOptionRow(idx, "unit", e.target.value)}
+                                disabled={savingReminder}
+                              >
+                                <option value="minutes">minutes</option>
+                                <option value="hours">hours</option>
+                                <option value="days">days</option>
+                              </select>
+                              <button
+                                type="button"
+                                className="ep-action-btn ep-close"
+                                onClick={() => removeReminderOptionRow(idx)}
+                                disabled={savingReminder}
+                                title="Remove notification row"
+                              >
+                                <FaXmark />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="ep-add-reminder-row"
+                            onClick={addReminderOptionRow}
+                            disabled={savingReminder}
+                          >
+                            + Add notification
+                          </button>
+                        </div>
+                      )}
+                      <button className="ep-save-btn" onClick={saveReminderOnly} disabled={savingReminder}>
+                        {savingReminder ? "Saving..." : "Save"}
                       </button>
                     </div>
                   )}
-                  <button className="ep-save-btn" onClick={saveReminderOnly} disabled={savingReminder}>
-                    {savingReminder ? "Saving..." : "Save"}
-                  </button>
                 </div>
-              )}
-            </div>
+              </>
+            )}
+            {props.type === "event_expo" && (
+              <>
+                <div className="ep-detail-row">
+                  <FaList className="ep-detail-icon" />
+                  <span>Venue: {props.venue || "-"}</span>
+                </div>
+                <div className="ep-detail-row">
+                  <FaUser className="ep-detail-icon" />
+                  <span>Address: {props.address || "-"}</span>
+                </div>
+                <div className="ep-detail-row">
+                  <FaBolt className="ep-detail-icon" />
+                  <span>Fee: {props.registrationFee ?? 0}</span>
+                </div>
+                <div className="ep-detail-row">
+                  <FaList className="ep-detail-icon" />
+                  <span>Details: {props.notes || "-"}</span>
+                </div>
+              </>
+            )}
+            {props.type === "daily_closing" && (
+              <>
+                <div className="ep-detail-row">
+                  <FaList className="ep-detail-icon" />
+                  {!editingDailyClosing ? (
+                    <span>{props.notes || "No details added yet."}</span>
+                  ) : (
+                    <div className="ep-reminder-edit">
+                      <textarea
+                        className="ep-daily-textarea"
+                        value={dailyClosingNotesDraft}
+                        onChange={(e) => setDailyClosingNotesDraft(e.target.value)}
+                        placeholder="Enter key highlights..."
+                        disabled={savingDailyClosing}
+                      />
+                      <button
+                        className="ep-save-btn"
+                        onClick={saveDailyClosingInline}
+                        disabled={savingDailyClosing || !String(dailyClosingNotesDraft || "").trim()}
+                      >
+                        {savingDailyClosing ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="ep-detail-row">
+                  <FaBell className="ep-detail-icon" />
+                  <span>Reminder: No reminder for daily closing entries.</span>
+                </div>
+              </>
+            )}
           </div>
         );
       })()}

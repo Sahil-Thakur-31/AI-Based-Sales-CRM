@@ -12,6 +12,17 @@ function parseDateOnlyInput(value) {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
+function parseDateRangeInput(fromRaw, toRaw) {
+  const from = parseDateOnlyInput(fromRaw);
+  const to = parseDateOnlyInput(toRaw);
+  if (!from && !to) return null;
+
+  const start = from || new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+  const endBase = to || new Date(Date.UTC(new Date().getUTCFullYear(), 11, 31));
+  const end = new Date(endBase.getTime() + 24 * 60 * 60 * 1000);
+  return { start, end };
+}
+
 function normalizeRoleName(role = "") {
   return String(role || "").trim().toLowerCase();
 }
@@ -272,5 +283,42 @@ exports.mailReport = async (req, res) => {
   } catch (err) {
     console.error("dailyClosing.mailReport error:", err);
     return res.status(500).json({ message: "Failed to mail report" });
+  }
+};
+
+exports.listForCalendar = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const range = parseDateRangeInput(req.query?.from, req.query?.to);
+    const filter = { user_id: userId };
+    if (range) {
+      filter.daily_closing_date = { $gte: range.start, $lt: range.end };
+    }
+
+    const rows = await DailyClosingHighlights.find(filter)
+      .sort({ daily_closing_date: 1 })
+      .select("daily_closing_date key_highlights updated_at created_at")
+      .lean();
+
+    const today = new Date();
+    const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+    const hasTodayEntry = rows.some((row) => {
+      const d = new Date(row?.daily_closing_date);
+      return d >= todayStart && d < tomorrowStart;
+    });
+
+    return res.status(200).json({
+      rows,
+      hasTodayEntry,
+    });
+  } catch (err) {
+    console.error("dailyClosing.listForCalendar error:", err);
+    return res.status(500).json({ message: "Failed to fetch daily closing calendar entries" });
   }
 };

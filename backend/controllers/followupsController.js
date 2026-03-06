@@ -369,7 +369,12 @@ async function createFollowupAssignmentNotification(doc) {
 
 exports.list = async (req, res) => {
   try {
-    const allowedIds = await getAccessibleUserIds(req.user);
+    const mineOnly =
+      req.query.mine_only === "true" ||
+      req.query.mine_only === true ||
+      req.query.own_only === "true" ||
+      req.query.own_only === true;
+    const allowedIds = mineOnly ? [String(req.user._id)] : await getAccessibleUserIds(req.user);
     const q = {
       is_deleted: { $ne: true },
       assignedTo: { $in: allowedIds.map((id) => new mongoose.Types.ObjectId(id)) },

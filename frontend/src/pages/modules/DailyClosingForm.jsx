@@ -37,7 +37,9 @@ export default function DailyClosingForm() {
     if (fromState && fromState <= today) return fromState;
     return today;
   }, [location.state?.selectedDate, today]);
-  const [keyHighlights, setKeyHighlights] = useState("");
+  const [keyHighlights, setKeyHighlights] = useState(
+    String(location.state?.keyHighlights || "")
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
