@@ -192,9 +192,76 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   useEffect(() => {
     const loadData = async () => {
       if (isNew) return;
-      if (clientView) return;
 
       try {
+        if (clientView) {
+          const { data } = await API.get(`/clients/${id}`, {
+            params: { include_deleted: deletedView },
+          });
+
+          const loadedClient = data?.client || data || {};
+          const loadedLocation = loadedClient?.location || {};
+
+          setLead((prev) => ({
+            ...prev,
+            company_name: loadedClient?.name || "",
+            industry: loadedClient?.industry?._id || loadedClient?.industry || "",
+            employee_count: loadedClient?.employeeCount ?? "",
+            turnover_range: loadedClient?.turnoverRange || "",
+            Address: loadedClient?.Address || "",
+            website: loadedClient?.website || "",
+            source: loadedClient?.source?._id || loadedClient?.source || "",
+            referred_by_user:
+              loadedClient?.referred_by_user?._id || loadedClient?.referred_by_user || "",
+            expo_event_id: loadedClient?.expo_event_id?._id || loadedClient?.expo_event_id || "",
+            country: loadedClient?.country || loadedLocation?.country || "",
+            State:
+              loadedClient?.State ||
+              loadedClient?.state ||
+              loadedLocation?.State ||
+              loadedLocation?.state ||
+              "",
+            city: loadedClient?.city || loadedLocation?.city || "",
+            zone:
+              loadedClient?.zone ||
+              loadedClient?.area ||
+              loadedLocation?.zone ||
+              loadedLocation?.area ||
+              "",
+            location: loadedClient?.location?._id || loadedClient?.location || "",
+            contact_history: [],
+            assigned_to: "",
+          }));
+
+          if (Array.isArray(data?.contacts)) {
+            const mappedContacts = data.contacts.map((contact) => ({
+              _id: contact?._id || "",
+              name: contact?.name || "",
+              designation: contact?.designation || "",
+              phone: contact?.phone || "",
+              email: contact?.email || "",
+              linkedin: contact?.linkedin || "",
+              is_primary: Boolean(contact?.is_primary),
+              is_active: contact?.is_active !== false,
+            }));
+            setContacts(
+              mappedContacts.length
+                ? mappedContacts
+                : [
+                    {
+                      name: "",
+                      designation: "",
+                      phone: "",
+                      email: "",
+                      linkedin: "",
+                      is_primary: true,
+                    },
+                  ]
+            );
+          }
+
+          return;
+        }
         // 🔹 If viewing deal → load deal
         if (dealView && dealIdFromQuery) {
           const { data } = await API.get(`/deals/${dealIdFromQuery}`, {
@@ -573,7 +640,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           referred_by_user: lead.referred_by_user || "",
           expo_event_id: lead.expo_event_id || "",
           deal_count: 0,
-          location: selectedLocationId || null,
+          location: selectedLocationId || lead.location || null,
           contacts: contacts.map((contact) => ({
             name: contact.name || "",
             designation: contact.designation || "",
@@ -584,7 +651,9 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           }))
         };
 
-        response = await API.post("/clients", payload);
+        response = isNew
+          ? await API.post("/clients", payload)
+          : await API.put(`/clients/${id}`, payload);
       } else {
         const payload = {
           ...lead,
@@ -1209,21 +1278,23 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           )}
         </div>
 
-        <div className="field">
-          <label>{dealView ? "Assign Deal To" : "Assign Lead To"}</label>
-          {editMode && isAdminOrManager ? (
-            <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
-              <option value="">Select User</option>
-              {assignableUsers.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
-          )}
-        </div>
+        {!clientView && (
+          <div className="field">
+            <label>{dealView ? "Assign Deal To" : "Assign Lead To"}</label>
+            {editMode && isAdminOrManager ? (
+              <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
+                <option value="">Select User</option>
+                {assignableUsers.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ================= CONTACTS ================= */}
