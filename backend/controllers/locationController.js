@@ -2,10 +2,43 @@ const Location = require("../models/location");
 
 exports.getLocations = async (req, res) => {
   try {
-    const locations = await Location.find({})
-      .sort({ country: 1, state: 1, district: 1, city: 1, area: 1, pincode: 1 })
-      .lean();
-    res.json(locations);
+    const country = String(req.query.country || "").trim();
+    const State = String(req.query.State || req.query.state || "").trim();
+    const city = String(req.query.city || "").trim();
+
+    let groupKey = "$country";
+    let projectKey = "country";
+    const match = {};
+
+    if (country) {
+      match.country = country;
+      groupKey = { $ifNull: ["$State", "$state"] };
+      projectKey = "State";
+    }
+
+    if (country && State) {
+      match.$expr = {
+        $eq: [{ $ifNull: ["$State", "$state"] }, State]
+      };
+      groupKey = "$city";
+      projectKey = "city";
+    }
+
+    if (country && State && city) {
+      match.city = city;
+      groupKey = { $ifNull: ["$zone", "$area"] };
+      projectKey = "zone";
+    }
+
+    const rows = await Location.aggregate([
+      { $match: match },
+      { $group: { _id: groupKey, locationId: { $first: "$_id" } } },
+      { $project: { _id: "$locationId", [projectKey]: "$_id" } },
+      { $match: { [projectKey]: { $type: "string", $ne: "" } } },
+      { $sort: { [projectKey]: 1 } }
+    ]).allowDiskUse(true);
+
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -13,16 +46,34 @@ exports.getLocations = async (req, res) => {
 
 exports.getLocationByPincode = async (req, res) => {
   try {
-    const pincode = String(req.params.pincode || "").trim();
-    if (!pincode) {
+    const rawPincode = String(req.params.pincode || "").trim();
+    if (!rawPincode) {
       return res.status(400).json({ message: "Pincode is required" });
     }
 
-    const location = await Location.findOne({ pincode }).lean();
-    if (!location) {
+    const normalizedDigits = rawPincode.replace(/\D/g, "");
+    const exactCandidates = [rawPincode];
+    if (normalizedDigits && normalizedDigits !== rawPincode) {
+      exactCandidates.push(normalizedDigits);
+    }
+
+    let locations = await Location.find({ pincode: { $in: exactCandidates } })
+      .sort({ country: 1, state: 1, district: 1, city: 1, area: 1 })
+      .lean();
+
+    if (!locations.length && normalizedDigits) {
+      locations = await Location.find({
+        pincode: { $regex: `^${normalizedDigits}\\s*$`, $options: "i" }
+      })
+        .sort({ country: 1, state: 1, district: 1, city: 1, area: 1 })
+        .lean();
+    }
+
+    if (!locations.length) {
       return res.status(404).json({ message: "Pincode not found" });
     }
 
+    const location = locations[0];
     res.json({
       _id: location._id,
       country: location.country || "",
@@ -32,7 +83,18 @@ exports.getLocationByPincode = async (req, res) => {
       area: location.area || location.zone || "",
       pincode: location.pincode || "",
       State: location.State || location.state || "",
-      zone: location.zone || location.area || ""
+      zone: location.zone || location.area || "",
+      matches: locations.map((row) => ({
+        _id: row._id,
+        country: row.country || "",
+        state: row.state || row.State || "",
+        district: row.district || "",
+        city: row.city || "",
+        area: row.area || row.zone || "",
+        pincode: row.pincode || "",
+        State: row.State || row.state || "",
+        zone: row.zone || row.area || ""
+      }))
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

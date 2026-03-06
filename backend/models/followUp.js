@@ -22,7 +22,7 @@ const followupSchema = new mongoose.Schema(
 
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
+      ref: "User",
       required: true,
       index: true
     },
@@ -69,6 +69,12 @@ const followupSchema = new mongoose.Schema(
       maxlength: 2000
     },
 
+    cancelReason: {
+      type: String,
+      trim: true,
+      maxlength: 2000
+    },
+
     durationMinutes: {
       type: Number,
       min: 1
@@ -78,6 +84,36 @@ const followupSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 2000
+    },
+
+    dealId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Deal",
+      index: true
+    },
+
+    currentLocation: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+
+    currentExactLocation: {
+      type: String,
+      trim: true,
+      maxlength: 300
+    },
+
+    meetingLocation: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+
+    meetingExactLocation: {
+      type: String,
+      trim: true,
+      maxlength: 300
     },
 
     address: {
@@ -104,6 +140,39 @@ const followupSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+
+    reminderEnabled: {
+      type: Boolean,
+      default: true,
+      index: true
+    },
+
+    reminderChoice: {
+      type: String,
+      enum: ["yes", "no", "maybe"],
+      default: "yes",
+      index: true
+    },
+
+    reminderOptions: [
+      {
+        channel: {
+          type: String,
+          enum: ["notification"],
+          default: "notification"
+        },
+        value: {
+          type: Number,
+          min: 1,
+          default: 10
+        },
+        unit: {
+          type: String,
+          enum: ["minutes", "hours", "days"],
+          default: "minutes"
+        }
+      }
+    ],
 
     completedAt: {
       type: Date,
@@ -162,6 +231,24 @@ const followupSchema = new mongoose.Schema(
     is_deleted: {
       type: Boolean,
       default: false,
+      index: true
+    },
+
+    whatsappReminder24hSent: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+
+    whatsappReminder1hSent: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+
+    googleEventId: {
+      type: String,
+      default: null,
       index: true
     }
 

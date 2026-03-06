@@ -7,25 +7,32 @@ const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
 const Industry = require("../models/industries");
 const User = require("../models/users");
+const Source = require("../models/sources");
+const Event = require("../models/events");
 const DealStageHistory = require("../models/dealStageHistory");
 const Notification = require("../models/notifications");
+const { processPendingNotificationEmails } = require("../services/notificationEmailWorker");
+const { normalizePhone } = require("../utils/phoneUtils");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
 function normalizeContacts(contacts = []) {
   if (!Array.isArray(contacts)) return [];
 
-  return contacts
-    .filter((contact) => contact && (contact.name || contact.phone || contact.email))
-    .map((contact, index) => ({
-      name: contact.name || "",
-      designation: contact.designation || "",
-      phone: contact.phone || "",
-      email: contact.email || "",
-      linkedin: contact.linkedin || "",
-      address: contact.address || "",
-      is_primary: index === 0 ? true : Boolean(contact.is_primary),
-    }));
+  const validContacts = contacts.filter((contact) => contact && (contact.name || contact.phone || contact.email));
+  const hasPrimary = validContacts.some(contact => contact.is_primary === true || contact.is_primary === "true");
+
+  return validContacts.map((contact, index) => ({
+    name: contact.name || "",
+    designation: contact.designation || "",
+    phone: normalizePhone(contact.phone) || "",
+    email: contact.email || "",
+    linkedin: contact.linkedin || "",
+    address: contact.address || "",
+    is_primary: hasPrimary
+      ? (contact.is_primary === true || contact.is_primary === "true")
+      : (index === 0),
+  }));
 }
 
 async function resolveLocationId(payload) {
@@ -130,6 +137,98 @@ function toValidDate(value) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeSourceName(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isReferenceLikeSource(sourceName) {
+  const normalized = normalizeSourceName(sourceName);
+  return /(ref|refer|reference|referr|reffe|refee)/.test(normalized);
+}
+
+function isEventExpoLikeSource(sourceName) {
+  const normalized = normalizeSourceName(sourceName);
+  return (
+    (normalized.includes("event") && normalized.includes("expo")) ||
+    normalized.includes("events n expos")
+  );
+}
+
+async function isAdminAssignee(userId) {
+  if (!userId) return false;
+  const user = await User.findOne({
+    _id: userId,
+    is_deleted: { $ne: true },
+  })
+    .populate("role", "name")
+    .select("role")
+    .lean();
+  const roleName = String(user?.role?.name || "").toLowerCase();
+  return roleName === "admin";
+}
+
+async function applySourceDependentValidation(payload) {
+  if (!payload?.source) return;
+
+  const sourceDoc = await Source.findOne({
+    _id: payload.source,
+    is_deleted: false,
+  })
+    .select("_id name")
+    .lean();
+
+  if (!sourceDoc) {
+    const err = new Error("Invalid source selected");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (isReferenceLikeSource(sourceDoc.name)) {
+    if (!payload.referred_by_user) {
+      const err = new Error("Reference source requires selecting a referred user");
+      err.statusCode = 400;
+      throw err;
+    }
+    const referredUser = await User.findOne({
+      _id: payload.referred_by_user,
+      is_deleted: { $ne: true },
+    })
+      .select("_id")
+      .lean();
+    if (!referredUser) {
+      const err = new Error("Invalid referred user selected");
+      err.statusCode = 400;
+      throw err;
+    }
+    payload.expo_event_id = null;
+    return;
+  }
+
+  if (isEventExpoLikeSource(sourceDoc.name)) {
+    if (!payload.expo_event_id) {
+      const err = new Error("Event & Expo source requires selecting an event/expo");
+      err.statusCode = 400;
+      throw err;
+    }
+    const eventDoc = await Event.findOne({
+      _id: payload.expo_event_id,
+      is_deleted: false,
+    })
+      .select("_id")
+      .lean();
+    if (!eventDoc) {
+      const err = new Error("Invalid event/expo selected");
+      err.statusCode = 400;
+      throw err;
+    }
+    payload.referred_by_user = null;
+    return;
+  }
+
+  payload.referred_by_user = null;
+  payload.expo_event_id = null;
 }
 
 async function resolveConversionActorId(lead, req) {
@@ -257,7 +356,7 @@ async function syncLeadFollowupsFromHistory(lead, history = []) {
       await Followup.findOneAndUpdate(
         { _id: followupId, leadId: lead._id },
         payload,
-        { new: true, upsert: false }
+        { returnDocument: "after", upsert: false }
       );
     } else {
       await Followup.create(payload);
@@ -318,6 +417,8 @@ exports.searchCompany = async (req, res) => {
         Address: lead.Address || "",
         website: lead.website || "",
         source: lead.source || "",
+        referred_by_user: lead.referred_by_user || "",
+        expo_event_id: lead.expo_event_id || "",
         deal_value_estimate: lead.deal_value_estimate || "",
         lead_temperature: lead.lead_temperature || "cold",
         assigned_to: lead.assigned_to || "",
@@ -557,6 +658,10 @@ exports.createLead = async (req, res) => {
     if (userRole !== "admin" && userRole !== "manager") {
       leadPayload.assigned_to = actorId;
     }
+    if (leadPayload.assigned_to && (await isAdminAssignee(leadPayload.assigned_to))) {
+      return res.status(400).json({ message: "Lead cannot be assigned to an admin user" });
+    }
+    await applySourceDependentValidation(leadPayload);
 
     if (locationId) {
       leadPayload.location = locationId;
@@ -586,6 +691,9 @@ exports.createLead = async (req, res) => {
           relatedId: lead._id,
           relatedType: "Lead",
         });
+        processPendingNotificationEmails().catch((err) => {
+          console.error("lead assignment email dispatch error:", err);
+        });
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);
       }
@@ -612,6 +720,10 @@ exports.updateLead = async (req, res) => {
     if (userRole !== "admin" && userRole !== "manager") {
       delete leadPayload.assigned_to;
     }
+    if (leadPayload.assigned_to && (await isAdminAssignee(leadPayload.assigned_to))) {
+      return res.status(400).json({ message: "Lead cannot be assigned to an admin user" });
+    }
+    await applySourceDependentValidation(leadPayload);
 
     if (locationId) {
       leadPayload.location = locationId;
@@ -626,7 +738,7 @@ exports.updateLead = async (req, res) => {
         $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
       },
       leadPayload,
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
 
     if (!lead) {
@@ -660,6 +772,9 @@ exports.updateLead = async (req, res) => {
           relatedId: lead._id,
           relatedType: "Lead",
         });
+        processPendingNotificationEmails().catch((err) => {
+          console.error("lead reassignment email dispatch error:", err);
+        });
       } catch (notifErr) {
         console.error("Failed to create assignment notification:", notifErr);
       }
@@ -682,7 +797,7 @@ exports.deleteLead = async (req, res) => {
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,
       { is_deleted: true, is_active: false },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!lead) {
@@ -706,7 +821,7 @@ exports.restoreLead = async (req, res) => {
     const lead = await Leads.findByIdAndUpdate(
       req.params.id,
       { is_deleted: false, is_active: true },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!lead) {

@@ -2,10 +2,12 @@ const Organization = require("../models/organization");
 const User = require("../models/users");
 const Client = require("../models/client");
 const Deal = require("../models/deals");
+const { normalizePhone } = require("../utils/phoneUtils");
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const CIN_REGEX = /^[A-Z0-9]{21}$/;
 const GST_REGEX = /^[0-9A-Z]{15}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -15,28 +17,22 @@ function normalizeUpper(value) {
   return normalizeText(value).toUpperCase();
 }
 
-function sanitizeContacts(contacts) {
-  let contactRows = contacts;
+function normalizeEmail(value) {
+  return normalizeText(value).toLowerCase();
+}
 
-  if (typeof contactRows === "string") {
-    try {
-      contactRows = JSON.parse(contactRows);
-    } catch (err) {
-      contactRows = [];
-    }
+function resolveUploadedAssetUrl(req, fieldName) {
+  const fieldFiles = req.files?.[fieldName];
+  if (Array.isArray(fieldFiles) && fieldFiles[0]?.filename) {
+    return `/uploads/organization_logo/${fieldFiles[0].filename}`;
   }
 
-  if (!Array.isArray(contactRows)) return [];
+  // Backward compatibility if route is still using single("logo")
+  if (fieldName === "logo" && req.file?.filename) {
+    return `/uploads/organization_logo/${req.file.filename}`;
+  }
 
-  return contactRows
-    .map((contact) => ({
-      name: normalizeText(contact?.name),
-      designation: normalizeText(contact?.designation),
-      phone: normalizeText(contact?.phone),
-      email: normalizeText(contact?.email).toLowerCase(),
-      is_active: contact?.is_active !== false
-    }))
-    .filter((contact) => contact.name || contact.phone || contact.email || contact.designation);
+  return "";
 }
 
 async function buildStats() {
@@ -56,7 +52,10 @@ function mapOrganization(row, stats) {
     _id: row._id,
     name: row.name || "",
     logoUrl: row.logoUrl || "",
+    signatureUrl: row.signatureUrl || "",
+    stampUrl: row.stampUrl || "",
     address: row.address || "",
+    website: row.website || "",
     area: row.area || "",
     city: row.city || "",
     pincode: row.pincode || "",
@@ -66,7 +65,19 @@ function mapOrganization(row, stats) {
     panNumber: row.panNumber || "",
     cinNumber: row.cinNumber || "",
     gstNumber: row.gstNumber || "",
-    contacts: Array.isArray(row.contacts) ? row.contacts : [],
+    phoneNumber: row.phoneNumber || "",
+    alternatePhoneNumber: row.alternatePhoneNumber || "",
+    email: row.email || "",
+    paymentAccountName: row.paymentAccountName || "",
+    paymentAccountNumber: row.paymentAccountNumber || "",
+    paymentAccountType: row.paymentAccountType || "",
+    paymentBankName: row.paymentBankName || "",
+    paymentIfscCode: row.paymentIfscCode || "",
+    paymentUpiId: row.paymentUpiId || "",
+    headName: row.headName || "",
+    headRole: row.headRole || "",
+    headPhone: row.headPhone || "",
+    headEmail: row.headEmail || "",
     employeesCount: stats.employeesCount,
     clientsCount: stats.clientsCount,
     dealsCount: stats.dealsCount,
@@ -129,6 +140,7 @@ exports.createOrganization = async (req, res) => {
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
+    const email = normalizeEmail(req.body.email);
 
     if (!name) {
       return res.status(400).json({ message: "Organization name is required" });
@@ -146,6 +158,10 @@ exports.createOrganization = async (req, res) => {
       return res.status(400).json({ message: "Invalid GST number format" });
     }
 
+    if (email && !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
     const existing = await Organization.findOne({ is_deleted: false })
       .select("_id")
       .lean();
@@ -155,9 +171,10 @@ exports.createOrganization = async (req, res) => {
       });
     }
 
-    const logoUrl = req.file
-      ? `/uploads/organization_logo/${req.file.filename}`
-      : normalizeText(req.body.logoUrl);
+    const logoUrl = resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const signatureUrl =
+      resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
+    const stampUrl = resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
 
     const duplicateMessage = await ensureUniqueIdentifiers({ panNumber, cinNumber, gstNumber });
     if (duplicateMessage) {
@@ -167,7 +184,10 @@ exports.createOrganization = async (req, res) => {
     const organization = await Organization.create({
       name,
       logoUrl,
+      signatureUrl,
+      stampUrl,
       address: normalizeText(req.body.address),
+      website: normalizeText(req.body.website),
       area: normalizeText(req.body.area),
       city: normalizeText(req.body.city),
       pincode: normalizeText(req.body.pincode),
@@ -177,7 +197,19 @@ exports.createOrganization = async (req, res) => {
       panNumber,
       cinNumber,
       gstNumber,
-      contacts: sanitizeContacts(req.body.contacts),
+      phoneNumber: normalizePhone(req.body.phoneNumber) || "",
+      alternatePhoneNumber: normalizePhone(req.body.alternatePhoneNumber) || "",
+      email,
+      paymentAccountName: normalizeText(req.body.paymentAccountName),
+      paymentAccountNumber: normalizeText(req.body.paymentAccountNumber),
+      paymentAccountType: normalizeText(req.body.paymentAccountType),
+      paymentBankName: normalizeText(req.body.paymentBankName),
+      paymentIfscCode: normalizeUpper(req.body.paymentIfscCode),
+      paymentUpiId: normalizeText(req.body.paymentUpiId),
+      headName: normalizeText(req.body.headName),
+      headRole: normalizeText(req.body.headRole),
+      headPhone: normalizeText(req.body.headPhone),
+      headEmail: normalizeEmail(req.body.headEmail),
       createdBy: req.user?._id || null,
       is_deleted: false
     });
@@ -214,6 +246,7 @@ exports.upsertOrganizationProfile = async (req, res) => {
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
+    const email = normalizeEmail(req.body.email);
 
     if (!name) {
       return res.status(400).json({ message: "Organization name is required" });
@@ -231,6 +264,10 @@ exports.upsertOrganizationProfile = async (req, res) => {
       return res.status(400).json({ message: "Invalid GST number format" });
     }
 
+    if (email && !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
     const existing = await Organization.findOne({ is_deleted: false })
       .sort({ createdAt: -1 })
       .select("_id")
@@ -246,15 +283,23 @@ exports.upsertOrganizationProfile = async (req, res) => {
       return res.status(400).json({ message: duplicateMessage });
     }
 
-    const incomingLogoUrl = req.file
-      ? `/uploads/organization_logo/${req.file.filename}`
-      : normalizeText(req.body.logoUrl);
+    const incomingLogoUrl =
+      resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const incomingSignatureUrl =
+      resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
+    const incomingStampUrl =
+      resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
     const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
+    const removeSignature = String(req.body.removeSignature || "").toLowerCase() === "true";
+    const removeStamp = String(req.body.removeStamp || "").toLowerCase() === "true";
 
     const payload = {
       name,
       logoUrl: incomingLogoUrl || "",
+      signatureUrl: incomingSignatureUrl || "",
+      stampUrl: incomingStampUrl || "",
       address: normalizeText(req.body.address),
+      website: normalizeText(req.body.website),
       area: normalizeText(req.body.area),
       city: normalizeText(req.body.city),
       pincode: normalizeText(req.body.pincode),
@@ -264,7 +309,19 @@ exports.upsertOrganizationProfile = async (req, res) => {
       panNumber,
       cinNumber,
       gstNumber,
-      contacts: sanitizeContacts(req.body.contacts),
+      phoneNumber: normalizePhone(req.body.phoneNumber) || "",
+      alternatePhoneNumber: normalizePhone(req.body.alternatePhoneNumber) || "",
+      email,
+      paymentAccountName: normalizeText(req.body.paymentAccountName),
+      paymentAccountNumber: normalizeText(req.body.paymentAccountNumber),
+      paymentAccountType: normalizeText(req.body.paymentAccountType),
+      paymentBankName: normalizeText(req.body.paymentBankName),
+      paymentIfscCode: normalizeUpper(req.body.paymentIfscCode),
+      paymentUpiId: normalizeText(req.body.paymentUpiId),
+      headName: normalizeText(req.body.headName),
+      headRole: normalizeText(req.body.headRole),
+      headPhone: normalizeText(req.body.headPhone),
+      headEmail: normalizeEmail(req.body.headEmail),
       updatedAt: new Date()
     };
 
@@ -274,7 +331,7 @@ exports.upsertOrganizationProfile = async (req, res) => {
         _id: existing._id,
         is_deleted: false
       })
-        .select("logoUrl")
+        .select("logoUrl signatureUrl stampUrl")
         .lean();
 
       organization = await Organization.findOneAndUpdate(
@@ -284,7 +341,13 @@ exports.upsertOrganizationProfile = async (req, res) => {
             ...payload,
             logoUrl: removeLogo
               ? ""
-              : incomingLogoUrl || existingOrganization?.logoUrl || ""
+              : incomingLogoUrl || existingOrganization?.logoUrl || "",
+            signatureUrl: removeSignature
+              ? ""
+              : incomingSignatureUrl || existingOrganization?.signatureUrl || "",
+            stampUrl: removeStamp
+              ? ""
+              : incomingStampUrl || existingOrganization?.stampUrl || ""
           }
         },
         { returnDocument: "after" }
@@ -327,6 +390,7 @@ exports.updateOrganization = async (req, res) => {
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
+    const email = normalizeEmail(req.body.email);
 
     if (!name) {
       return res.status(400).json({ message: "Organization name is required" });
@@ -344,10 +408,17 @@ exports.updateOrganization = async (req, res) => {
       return res.status(400).json({ message: "Invalid GST number format" });
     }
 
-    const logoUrl = req.file
-      ? `/uploads/organization_logo/${req.file.filename}`
-      : normalizeText(req.body.logoUrl);
+    if (email && !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const logoUrl = resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const signatureUrl =
+      resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
+    const stampUrl = resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
     const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
+    const removeSignature = String(req.body.removeSignature || "").toLowerCase() === "true";
+    const removeStamp = String(req.body.removeStamp || "").toLowerCase() === "true";
 
     const duplicateMessage = await ensureUniqueIdentifiers({
       panNumber,
@@ -359,13 +430,29 @@ exports.updateOrganization = async (req, res) => {
       return res.status(400).json({ message: duplicateMessage });
     }
 
+    const existingOrganization = await Organization.findOne({
+      _id: req.params.id,
+      is_deleted: false
+    })
+      .select("logoUrl signatureUrl stampUrl")
+      .lean();
+
+    if (!existingOrganization) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+
     const updated = await Organization.findOneAndUpdate(
       { _id: req.params.id, is_deleted: false },
       {
         $set: {
           name,
-          logoUrl: removeLogo ? "" : logoUrl,
+          logoUrl: removeLogo ? "" : logoUrl || existingOrganization.logoUrl || "",
+          signatureUrl: removeSignature
+            ? ""
+            : signatureUrl || existingOrganization.signatureUrl || "",
+          stampUrl: removeStamp ? "" : stampUrl || existingOrganization.stampUrl || "",
           address: normalizeText(req.body.address),
+          website: normalizeText(req.body.website),
           area: normalizeText(req.body.area),
           city: normalizeText(req.body.city),
           pincode: normalizeText(req.body.pincode),
@@ -375,7 +462,19 @@ exports.updateOrganization = async (req, res) => {
           panNumber,
           cinNumber,
           gstNumber,
-          contacts: sanitizeContacts(req.body.contacts),
+          phoneNumber: normalizeText(req.body.phoneNumber),
+          alternatePhoneNumber: normalizeText(req.body.alternatePhoneNumber),
+          email,
+          paymentAccountName: normalizeText(req.body.paymentAccountName),
+          paymentAccountNumber: normalizeText(req.body.paymentAccountNumber),
+          paymentAccountType: normalizeText(req.body.paymentAccountType),
+          paymentBankName: normalizeText(req.body.paymentBankName),
+          paymentIfscCode: normalizeUpper(req.body.paymentIfscCode),
+          paymentUpiId: normalizeText(req.body.paymentUpiId),
+          headName: normalizeText(req.body.headName),
+          headRole: normalizeText(req.body.headRole),
+          headPhone: normalizeText(req.body.headPhone),
+          headEmail: normalizeEmail(req.body.headEmail),
           updatedAt: new Date()
         }
       },

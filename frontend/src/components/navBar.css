@@ -54,6 +54,7 @@
 
   width: 38px;
   height: 38px;
+  position: relative;
 
   border-radius: 10px;
   border: none;
@@ -71,6 +72,32 @@
   transition:
     background 0.2s ease,
     transform 0.15s ease;
+
+}
+
+.notification-badge {
+
+  position: absolute;
+  top: -4px;
+  right: -4px;
+
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+
+  box-shadow: 0 0 0 2px #ffffff;
 
 }
 
@@ -236,7 +263,11 @@
 /* WIDTHS */
 
 .profile-dropdown { width: 180px; }
-.admin-dropdown { width: 180px; }
+.admin-dropdown {
+  width: 220px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
 
 .notification-dropdown {
 

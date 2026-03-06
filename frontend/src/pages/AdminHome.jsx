@@ -230,6 +230,11 @@ export default function AdminHome() {
     [pipeline]
   );
 
+  const visibleRecentDeals = useMemo(
+    () => recentDeals.slice(0, 5),
+    [recentDeals]
+  );
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -497,9 +502,11 @@ export default function AdminHome() {
                         <div className="followIcon">{f.icon}</div>
 
                         <div className="followBody">
-                          <div className="followTitle">{f.title}</div>
+                          <div className="followTitle">{f.companyName || f.title}</div>
                           <div className="followMeta">
-                            <span className="muted">{f.owner}</span>
+                            <span className="muted">{f.itemType || "Follow-up"}</span>
+                            <span className="dot" />
+                            <span className="muted">{f.title}</span>
                             <span className="dot" />
                             <span className="muted">Score: {f.score}</span>
                           </div>
@@ -558,7 +565,7 @@ export default function AdminHome() {
                   </CTableHead>
 
                   <CTableBody>
-                    {recentDeals.map((d) => (
+                    {visibleRecentDeals.map((d) => (
                       <CTableRow key={d.id}>
                         <CTableDataCell className="tbl__client">
                           {d.client}

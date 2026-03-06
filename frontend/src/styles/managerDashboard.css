@@ -19,6 +19,53 @@
   transform: translateY(-2px);
 }
 
+.ManagerDashboard .manager-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.ManagerDashboard .manager-stat-col {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+
+.ManagerDashboard .manager-summary-row {
+  align-items: stretch;
+}
+
+.ManagerDashboard .manager-summary-left,
+.ManagerDashboard .manager-summary-right {
+  display: flex;
+}
+
+.ManagerDashboard .manager-followups-panel {
+  width: 100%;
+}
+
+.ManagerDashboard .manager-followups-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ManagerDashboard .manager-followups-head h3 {
+  margin: 0;
+}
+
+.ManagerDashboard .manager-summary-right {
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ManagerDashboard .manager-side-panel {
+  flex: 1;
+}
+
 /* FOLLOWUPS */
 
 .ManagerDashboard .follow-item {
@@ -43,6 +90,101 @@
 
 .ManagerDashboard .follow-item .right {
   text-align: right;
+}
+
+.ManagerDashboard .follow-item-meta {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ManagerDashboard .follow-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ManagerDashboard .follow-kind--meeting {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.ManagerDashboard .follow-kind--followup {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.ManagerDashboard .follow-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ManagerDashboard .follow-status.completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ManagerDashboard .follow-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ManagerDashboard .follow-status.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ManagerDashboard .follow-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.ManagerDashboard .follow-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ManagerDashboard .manager-mini-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ManagerDashboard .manager-mini-btn.done {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.ManagerDashboard .manager-mini-btn.cancel {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+.ManagerDashboard .manager-mini-btn.cancelled {
+  background: #fecaca;
+  border-color: #dc2626;
+  color: #991b1b;
+}
+
+.ManagerDashboard .manager-mini-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .ManagerDashboard .badge {
@@ -101,9 +243,98 @@
 .ManagerDashboard .insight.red { background: #fef2f2; }
 .ManagerDashboard .insight.green { background: #ecfdf5; }
 
+.ManagerDashboard .manager-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.ManagerDashboard .manager-modal-card {
+  width: min(680px, 100%);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+}
+
+.ManagerDashboard .manager-modal-head h3 {
+  margin: 0 0 16px;
+}
+
+.ManagerDashboard .manager-detail-grid,
+.ManagerDashboard .manager-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ManagerDashboard .manager-detail-item,
+.ManagerDashboard .manager-form-label {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.ManagerDashboard .manager-detail-item .k {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.ManagerDashboard .manager-detail-item .v {
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.ManagerDashboard .manager-detail-item-full,
+.ManagerDashboard .manager-form-label-full {
+  grid-column: 1 / -1;
+}
+
+.ManagerDashboard .manager-field {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.ManagerDashboard .manager-textarea {
+  resize: vertical;
+}
+
+.ManagerDashboard .manager-modal-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ManagerDashboard .manager-form-error {
+  margin-bottom: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
 /* MOBILE */
 
 @media (max-width: 768px) {
+  .ManagerDashboard .manager-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ManagerDashboard .manager-summary-left,
+  .ManagerDashboard .manager-summary-right {
+    display: block;
+  }
 
   .ManagerDashboard .pipeline-grid {
     grid-template-columns: 1fr;
@@ -118,4 +349,24 @@
     text-align: left;
   }
 
+  .ManagerDashboard .follow-item-right {
+    align-items: flex-start;
+  }
+
+  .ManagerDashboard .manager-detail-grid,
+  .ManagerDashboard .manager-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (min-width: 769px) and (max-width: 1199px) {
+  .ManagerDashboard .manager-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ManagerDashboard .manager-summary-left,
+  .ManagerDashboard .manager-summary-right {
+    display: block;
+  }
 }

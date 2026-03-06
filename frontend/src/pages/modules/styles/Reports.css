@@ -1,0 +1,269 @@
+.reports-page {
+  width: 100%;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #0b2142;
+}
+
+.reports-card {
+  background: #ffffff;
+  border: 1px solid #d7deea;
+  border-radius: 16px;
+  padding: 18px 22px;
+}
+
+.reports-card-title {
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #dce3ef;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.report-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.report-type-btn {
+  border: 1px solid #cfd8e8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0b2142;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.report-type-btn:hover {
+  border-color: #6d72ff;
+  transform: translateY(-1px);
+}
+
+.report-type-btn.active {
+  color: #ffffff;
+  border-color: #5c58f2;
+  background: linear-gradient(130deg, #5f72ff 0%, #7f4dd5 100%);
+}
+
+.assistant-box {
+  margin-top: 14px;
+  border: 1px solid #d6def0;
+  background: #f2f5ff;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.assistant-label {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.assistant-input {
+  width: 100%;
+  height: 46px;
+  border: 1px solid #c7d1e6;
+  border-radius: 9px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-family: "Segoe UI", sans-serif;
+  color: #0b2142;
+  background: #ffffff;
+}
+
+.assistant-input:focus {
+  outline: none;
+  border-color: #6570ff;
+  box-shadow: 0 0 0 3px rgba(101, 112, 255, 0.15);
+}
+
+.primary-gradient-btn {
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(130deg, #5f72ff 0%, #7f4dd5 100%);
+  color: #ffffff;
+  width: fit-content;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.primary-gradient-btn:hover {
+  filter: brightness(1.05);
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.quick-report-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quick-report-item {
+  text-align: left;
+  width: 100%;
+  border: 1px solid #d0d9ea;
+  background: #fdfefe;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.quick-report-item:hover {
+  border-color: #9badff;
+  background: #f9fbff;
+}
+
+.quick-report-title {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: "Segoe UI", sans-serif;
+  margin-bottom: 3px;
+}
+
+.quick-report-subtitle {
+  font-size: 13px;
+  color: #536484;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.recent-report-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.recent-report-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #dbe4f2;
+}
+
+.recent-report-item:last-child {
+  border-bottom: none;
+}
+
+.recent-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.recent-report-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.recent-report-header span {
+  color: #7788a5;
+  font-size: 13px;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.recent-report-item p {
+  margin: 6px 0 10px;
+  color: #374f74;
+  font-size: 13px;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.recent-report-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pill-btn {
+  border: 1px solid #c8d2e4;
+  border-radius: 999px;
+  background: #ecf1fb;
+  color: #1c3559;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: "Segoe UI", sans-serif;
+  padding: 7px 16px;
+  cursor: pointer;
+}
+
+.pill-btn:hover {
+  border-color: #9aacd1;
+  background: #e6edf9;
+}
+
+.custom-builder-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.builder-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.builder-field label {
+  color: #3e4f6d;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.builder-field select {
+  height: 46px;
+  border: 1px solid #c7d1e6;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #0b2142;
+  padding: 0 12px;
+  font-size: 14px;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.builder-field select:focus {
+  outline: none;
+  border-color: #6570ff;
+  box-shadow: 0 0 0 3px rgba(101, 112, 255, 0.15);
+}
+
+@media (max-width: 1200px) {
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .reports-page {
+    padding: 8px;
+  }
+
+  .reports-card {
+    padding: 14px;
+  }
+
+  .custom-builder-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

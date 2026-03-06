@@ -3,7 +3,30 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { routeConfig } from "../config/routeConfig";
 import API from "../api";
 import Logout from "./Logout";
+import userIcon from "./user.gif";
+import scheduleIcon from "./schedule.gif";
+import notificationIcon from "./notification.gif";
 import "./navBar.css";
+
+const SEEN_NOTIFICATIONS_KEY = "seenNotificationIds";
+
+function getSeenNotificationIds() {
+  try {
+    const raw = localStorage.getItem(SEEN_NOTIFICATIONS_KEY);
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSeenNotificationIds(ids) {
+  try {
+    localStorage.setItem(SEEN_NOTIFICATIONS_KEY, JSON.stringify(ids.slice(-300)));
+  } catch {
+    // ignore storage failures
+  }
+}
 
 function Navbar() {
 
@@ -19,6 +42,10 @@ function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [refreshingApp, setRefreshingApp] = useState(false);
+  const [seenNotificationIds, setSeenNotificationIds] = useState(() => getSeenNotificationIds());
+  const fallbackRole = localStorage.getItem("RoleName") || "";
+  const roleName = String(user?.role?.name || user?.role || fallbackRole).trim().toLowerCase();
+  const isAdmin = roleName === "admin";
 
   /* timers */
   const profileMenuTimer = useRef(null);
@@ -46,6 +73,7 @@ function Navbar() {
     catch (err) {
 
       console.error("Navbar user fetch failed:", err);
+      setUser((prev) => prev || { name: "User", role: { name: fallbackRole } });
 
     }
 
@@ -93,13 +121,53 @@ function Navbar() {
 
   };
 
+  const unreadCount = useMemo(() => {
+    return notifications.filter((notification) => {
+      const id = String(notification?._id || "");
+      if (!id) return false;
+      if (seenNotificationIds.includes(id)) return false;
+      return notification.isRead !== true;
+    }).length;
+  }, [notifications, seenNotificationIds]);
+
+  const markNotificationsSeen = async (items = []) => {
+    const ids = items
+      .map((item) => String(item?._id || ""))
+      .filter(Boolean);
+
+    if (ids.length === 0) return;
+
+    const mergedIds = Array.from(new Set([...seenNotificationIds, ...ids]));
+    setSeenNotificationIds(mergedIds);
+    saveSeenNotificationIds(mergedIds);
+
+    try {
+      await API.put("/notifications/read-all");
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    } catch (err) {
+      console.error("Failed to mark notifications as read:", err);
+    }
+  };
+
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const intervalId = window.setInterval(() => {
+      fetchNotifications();
+    }, 60000);
+
+    return () => window.clearInterval(intervalId);
+
+  }, []);
+
 
   useEffect(() => {
 
-    if (showNotifications)
-      fetchNotifications();
+    if (showNotifications && unreadCount > 0 && notifications.length > 0)
+      markNotificationsSeen(notifications);
 
-  }, [showNotifications]);
+  }, [showNotifications, notifications, unreadCount]);
 
 
   /* Module title */
@@ -209,6 +277,7 @@ function Navbar() {
       clearTimeout(notificationTimer.current);
 
     setShowNotifications(true);
+    fetchNotifications();
 
   };
 
@@ -223,8 +292,7 @@ function Navbar() {
   };
 
 
-  if (!user)
-    return null;
+  const displayUser = user || { name: "User", role: { name: fallbackRole || "Member" } };
 
 
   return (
@@ -248,7 +316,7 @@ function Navbar() {
 
 
         {/* ADMIN MENU */}
-        {user.role?.name === "Admin" && (
+        {isAdmin && (
 
           <div
             className="admin-menu-container"
@@ -257,7 +325,7 @@ function Navbar() {
           >
 
             <button className="nav-icon-btn">
-              ⚙️
+              <img src={userIcon} alt="settings" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
             </button>
 
             <div className={`admin-dropdown ${showAdminMenu ? "visible" : "hidden"}`}>
@@ -290,11 +358,23 @@ function Navbar() {
                 Organization
               </div>
 
+              <div onClick={() => navigate("/quotation-clauses")}>
+                Quotation Clauses
+              </div>
+
             </div>
 
           </div>
 
         )}
+
+
+        {/* CALENDAR */}
+        <div className="calendar-container" onClick={() => navigate("/calendar")} style={{ cursor: "pointer" }}>
+          <button className="nav-icon-btn">
+            <img src={scheduleIcon} alt="calendar" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
+          </button>
+        </div>
 
 
         {/* NOTIFICATIONS */}
@@ -305,7 +385,12 @@ function Navbar() {
         >
 
           <button className="nav-icon-btn">
-            🔔
+            <img src={notificationIcon} alt="notifications" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
+            {unreadCount > 0 ? (
+              <span className="notification-badge">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            ) : null}
           </button>
 
           <div className={`notification-dropdown ${showNotifications ? "visible" : "hidden"}`}>
@@ -367,19 +452,19 @@ function Navbar() {
             <div className="profile-info">
 
               <span className="profile-name">
-                {user.name}
+                {displayUser.name}
               </span>
 
               <span className="profile-role">
-                {user.role?.name}
+                {displayUser.role?.name || displayUser.role || "Member"}
               </span>
 
             </div>
 
-            {user.photoUrl ? (
+            {displayUser.photoUrl ? (
 
               <img
-                src={resolvePhotoUrl(user.photoUrl)}
+                src={resolvePhotoUrl(displayUser.photoUrl)}
                 className="profile-avatar"
                 alt="avatar"
               />
@@ -387,7 +472,7 @@ function Navbar() {
             ) : (
 
               <div className="profile-avatar">
-                {getInitials(user.name)}
+                {getInitials(displayUser.name)}
               </div>
 
             )}
@@ -417,3 +502,4 @@ function Navbar() {
 }
 
 export default Navbar;
+

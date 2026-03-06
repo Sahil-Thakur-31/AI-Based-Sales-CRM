@@ -3,8 +3,13 @@ const mongoose = require("mongoose");
 const leadsSchema = new mongoose.Schema(
   {
     is_existing_company: {
-      type: String,
-      enum: ["Yes", "No"],
+      type: Boolean,
+      default: false,
+    },
+
+    is_existing_client: {
+      type: Boolean,
+      default: false,
     },
 
     company_name: {
@@ -36,6 +41,16 @@ const leadsSchema = new mongoose.Schema(
       ref: "Source",
     },
 
+    referred_by_user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    expo_event_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "events",
+    },
+
     lead_temperature: {
       type: String,
       enum: ["cold", "warm", "hot"],
@@ -65,8 +80,8 @@ const leadsSchema = new mongoose.Schema(
     },
 
     converted_to_deal: {
-      type: String,
-      enum: ["Yes", "No"],
+      type: Boolean,
+      default: false,
     },
 
     next_action: {
@@ -79,9 +94,8 @@ const leadsSchema = new mongoose.Schema(
     },
 
     is_deleted: {
-      type: String,
-      enum: ["Yes", "No"],
-      default: "No",
+      type: Boolean,
+      default: false,
     },
 
     location: {

@@ -37,6 +37,38 @@ const notificationSchema = new mongoose.Schema({
   relatedType: {
     type: String,
     default: null
+  },
+
+  templateKey: {
+    type: String,
+    default: null
+  },
+
+  emailStatus: {
+    type: String,
+    enum: ["pending", "sent", "failed", "skipped"],
+    default: "pending",
+    index: true
+  },
+
+  emailSentAt: {
+    type: Date,
+    default: null
+  },
+
+  emailLastAttemptAt: {
+    type: Date,
+    default: null
+  },
+
+  emailError: {
+    type: String,
+    default: ""
+  },
+
+  emailSkippedReason: {
+    type: String,
+    default: ""
   }
 
 }, {

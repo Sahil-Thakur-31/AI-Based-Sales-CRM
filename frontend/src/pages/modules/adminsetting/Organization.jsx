@@ -1,23 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import API from "../../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import "./admin-config.css";
 
-function createEmptyContact() {
-  return {
-    _localId: `contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: "",
-    designation: "",
-    phone: "",
-    email: "",
-    is_active: true
-  };
-}
+const ACCOUNT_TYPE_OPTIONS = ["Savings", "Current", "Salary", "OD/CC", "NRE", "NRO"];
 
 function createEmptyForm() {
   return {
     name: "",
     logoUrl: "",
+    signatureUrl: "",
+    stampUrl: "",
     address: "",
+    website: "",
     area: "",
     city: "",
     pincode: "",
@@ -27,12 +23,26 @@ function createEmptyForm() {
     panNumber: "",
     cinNumber: "",
     gstNumber: "",
-    contacts: [createEmptyContact()]
+    phoneNumber: "",
+    alternatePhoneNumber: "",
+    email: "",
+    paymentAccountName: "",
+    paymentAccountNumber: "",
+    paymentAccountType: "",
+    paymentBankName: "",
+    paymentIfscCode: "",
+    paymentUpiId: "",
+    headName: "",
+    headRole: "",
+    headPhone: "",
+    headEmail: ""
   };
 }
 
 export default function Organization() {
   const fileInputRef = useRef(null);
+  const signatureInputRef = useRef(null);
+  const stampInputRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,6 +60,14 @@ export default function Organization() {
   const [logoFile, setLogoFile] = useState(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [logoPreview, setLogoPreview] = useState("");
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signatureRemoved, setSignatureRemoved] = useState(false);
+  const [signaturePreview, setSignaturePreview] = useState("");
+  const [stampFile, setStampFile] = useState(null);
+  const [stampRemoved, setStampRemoved] = useState(false);
+  const [stampPreview, setStampPreview] = useState("");
+  const hasCustomAccountType =
+    !!form.paymentAccountType && !ACCOUNT_TYPE_OPTIONS.includes(form.paymentAccountType);
 
   const resolveLogoUrl = (value) => {
     const raw = String(value || "").trim();
@@ -75,7 +93,10 @@ export default function Organization() {
   const mapProfileToForm = (profile) => ({
     name: profile?.name || "",
     logoUrl: profile?.logoUrl || "",
+    signatureUrl: profile?.signatureUrl || "",
+    stampUrl: profile?.stampUrl || "",
     address: profile?.address || "",
+    website: profile?.website || "",
     area: profile?.area || "",
     city: profile?.city || "",
     pincode: profile?.pincode || "",
@@ -85,17 +106,19 @@ export default function Organization() {
     panNumber: profile?.panNumber || "",
     cinNumber: profile?.cinNumber || "",
     gstNumber: profile?.gstNumber || "",
-    contacts:
-      Array.isArray(profile?.contacts) && profile.contacts.length
-        ? profile.contacts.map((contact) => ({
-            _localId: contact._id || `contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            name: contact.name || "",
-            designation: contact.designation || "",
-            phone: contact.phone || "",
-            email: contact.email || "",
-            is_active: contact.is_active !== false
-          }))
-        : [createEmptyContact()]
+    phoneNumber: profile?.phoneNumber || "",
+    alternatePhoneNumber: profile?.alternatePhoneNumber || "",
+    email: profile?.email || "",
+    paymentAccountName: profile?.paymentAccountName || "",
+    paymentAccountNumber: profile?.paymentAccountNumber || "",
+    paymentAccountType: profile?.paymentAccountType || "",
+    paymentBankName: profile?.paymentBankName || "",
+    paymentIfscCode: profile?.paymentIfscCode || "",
+    paymentUpiId: profile?.paymentUpiId || "",
+    headName: profile?.headName || "",
+    headRole: profile?.headRole || "",
+    headPhone: profile?.headPhone || "",
+    headEmail: profile?.headEmail || ""
   });
 
   useEffect(() => {
@@ -121,8 +144,14 @@ export default function Organization() {
       setForm(mapped);
       setSnapshot(mapped);
       setLogoPreview(withCacheBust(resolveLogoUrl(mapped.logoUrl || "")));
+      setSignaturePreview(withCacheBust(resolveLogoUrl(mapped.signatureUrl || "")));
+      setStampPreview(withCacheBust(resolveLogoUrl(mapped.stampUrl || "")));
       setLogoFile(null);
       setLogoRemoved(false);
+      setSignatureFile(null);
+      setSignatureRemoved(false);
+      setStampFile(null);
+      setStampRemoved(false);
     } catch (err) {
       console.error("Failed to fetch organization profile", err);
       setError(err.response?.data?.message || "Failed to load organization profile");
@@ -136,13 +165,21 @@ export default function Organization() {
     setSuccess("");
     setError("");
     setLogoRemoved(false);
+    setSignatureRemoved(false);
+    setStampRemoved(false);
   };
 
   const cancelEdit = () => {
     setForm(snapshot);
     setLogoPreview(withCacheBust(resolveLogoUrl(snapshot.logoUrl || "")));
+    setSignaturePreview(withCacheBust(resolveLogoUrl(snapshot.signatureUrl || "")));
+    setStampPreview(withCacheBust(resolveLogoUrl(snapshot.stampUrl || "")));
     setLogoFile(null);
     setLogoRemoved(false);
+    setSignatureFile(null);
+    setSignatureRemoved(false);
+    setStampFile(null);
+    setStampRemoved(false);
     setIsEditing(false);
     setSuccess("");
     setError("");
@@ -153,31 +190,6 @@ export default function Organization() {
       ...prev,
       [field]: value
     }));
-  };
-
-  const updateContact = (index, field, value) => {
-    setForm((prev) => {
-      const next = [...prev.contacts];
-      next[index] = { ...next[index], [field]: value };
-      return { ...prev, contacts: next };
-    });
-  };
-
-  const addContact = () => {
-    setForm((prev) => ({
-      ...prev,
-      contacts: [...prev.contacts, createEmptyContact()]
-    }));
-  };
-
-  const removeContact = (index) => {
-    setForm((prev) => {
-      if (prev.contacts.length === 1) return prev;
-      return {
-        ...prev,
-        contacts: prev.contacts.filter((_, rowIndex) => rowIndex !== index)
-      };
-    });
   };
 
   const lookupPincode = async () => {
@@ -230,6 +242,50 @@ export default function Organization() {
     setForm((prev) => ({ ...prev, logoUrl: "" }));
   };
 
+  const handleChangeSignature = () => {
+    if (!isEditing) return;
+    signatureInputRef.current?.click();
+  };
+
+  const handleSignatureFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setSignatureFile(file);
+    if (file) {
+      setSignaturePreview(URL.createObjectURL(file));
+      setSignatureRemoved(false);
+    }
+  };
+
+  const handleDeleteSignature = () => {
+    if (!isEditing) return;
+    setSignatureFile(null);
+    setSignatureRemoved(true);
+    setSignaturePreview("");
+    setForm((prev) => ({ ...prev, signatureUrl: "" }));
+  };
+
+  const handleChangeStamp = () => {
+    if (!isEditing) return;
+    stampInputRef.current?.click();
+  };
+
+  const handleStampFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setStampFile(file);
+    if (file) {
+      setStampPreview(URL.createObjectURL(file));
+      setStampRemoved(false);
+    }
+  };
+
+  const handleDeleteStamp = () => {
+    if (!isEditing) return;
+    setStampFile(null);
+    setStampRemoved(true);
+    setStampPreview("");
+    setForm((prev) => ({ ...prev, stampUrl: "" }));
+  };
+
   const saveProfile = async () => {
     try {
       if (!form.name.trim()) {
@@ -244,8 +300,13 @@ export default function Organization() {
       const payload = new FormData();
       payload.append("name", form.name || "");
       payload.append("logoUrl", form.logoUrl || "");
+      payload.append("signatureUrl", form.signatureUrl || "");
+      payload.append("stampUrl", form.stampUrl || "");
       payload.append("removeLogo", logoRemoved ? "true" : "false");
+      payload.append("removeSignature", signatureRemoved ? "true" : "false");
+      payload.append("removeStamp", stampRemoved ? "true" : "false");
       payload.append("address", form.address || "");
+      payload.append("website", form.website || "");
       payload.append("area", form.area || "");
       payload.append("city", form.city || "");
       payload.append("pincode", form.pincode || "");
@@ -255,20 +316,23 @@ export default function Organization() {
       payload.append("panNumber", form.panNumber || "");
       payload.append("cinNumber", form.cinNumber || "");
       payload.append("gstNumber", form.gstNumber || "");
-      payload.append(
-        "contacts",
-        JSON.stringify(
-          (form.contacts || []).map((contact) => ({
-            name: contact.name || "",
-            designation: contact.designation || "",
-            phone: contact.phone || "",
-            email: contact.email || "",
-            is_active: contact.is_active !== false
-          }))
-        )
-      );
+      payload.append("phoneNumber", form.phoneNumber || "");
+      payload.append("alternatePhoneNumber", form.alternatePhoneNumber || "");
+      payload.append("email", form.email || "");
+      payload.append("paymentAccountName", form.paymentAccountName || "");
+      payload.append("paymentAccountNumber", form.paymentAccountNumber || "");
+      payload.append("paymentAccountType", form.paymentAccountType || "");
+      payload.append("paymentBankName", form.paymentBankName || "");
+      payload.append("paymentIfscCode", form.paymentIfscCode || "");
+      payload.append("paymentUpiId", form.paymentUpiId || "");
+      payload.append("headName", form.headName || "");
+      payload.append("headRole", form.headRole || "");
+      payload.append("headPhone", form.headPhone || "");
+      payload.append("headEmail", form.headEmail || "");
 
       if (logoFile) payload.append("logo", logoFile);
+      if (signatureFile) payload.append("signature", signatureFile);
+      if (stampFile) payload.append("stamp", stampFile);
 
       const res = await API.put("/organizations/profile", payload);
       const org = res.data?.organization || null;
@@ -285,8 +349,14 @@ export default function Organization() {
         setForm(savedProfile);
         setSnapshot(savedProfile);
         setLogoPreview(withCacheBust(resolveLogoUrl(savedProfile.logoUrl || "")));
+        setSignaturePreview(withCacheBust(resolveLogoUrl(savedProfile.signatureUrl || "")));
+        setStampPreview(withCacheBust(resolveLogoUrl(savedProfile.stampUrl || "")));
         setLogoFile(null);
         setLogoRemoved(false);
+        setSignatureFile(null);
+        setSignatureRemoved(false);
+        setStampFile(null);
+        setStampRemoved(false);
       }
 
       setSuccess("Organization profile saved successfully");
@@ -345,103 +415,78 @@ export default function Organization() {
 
         {!loading && (
           <>
-          <div className="org-profile-layout">
-            <aside className="org-logo-column">
-              <div className="org-logo-block org-logo-block-fixed">
-                {logoPreview ? (
-                  <img className="org-logo-preview org-logo-preview-large" src={logoPreview} alt="Organization logo" />
-                ) : (
-                  <div className="org-logo-preview-empty org-logo-preview-empty-large">No logo uploaded</div>
-                )}
-              </div>
-
-              {isEditing && (
-                <div className="org-logo-actions">
-                  <input
-                    ref={fileInputRef}
-                    className="org-logo-hidden-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoFileChange}
-                  />
-                  <button className="admin-config-btn" type="button" onClick={handleChangeLogo}>
-                    Change
-                  </button>
-                  <button className="admin-config-btn admin-config-btn-danger" type="button" onClick={handleDeleteLogo}>
-                    Delete
-                  </button>
-                </div>
-              )}
-            </aside>
-
-            <section className="org-details-column">
-              <div className="org-profile-grid">
-                <div className="org-profile-field org-profile-field-full">
-                  <label>Company Name</label>
-                  {isEditing ? (
-                    <input
-                      value={form.name}
-                      onChange={(e) => updateField("name", e.target.value)}
-                      placeholder="Enter organization name"
-                    />
+            <div className="org-profile-layout">
+              <aside className="org-logo-column">
+                <div className="org-logo-block org-logo-block-fixed">
+                  {logoPreview ? (
+                    <img className="org-logo-preview org-logo-preview-large" src={logoPreview} alt="Organization logo" />
                   ) : (
-                    <p className="org-view-value">{form.name || "-"}</p>
+                    <div className="org-logo-preview-empty org-logo-preview-empty-large">No logo uploaded</div>
                   )}
                 </div>
 
-                <div className="org-profile-field org-profile-field-full">
-                  <label>Address</label>
-                  {isEditing ? (
-                    <textarea
-                      rows={2}
-                      value={form.address}
-                      onChange={(e) => updateField("address", e.target.value)}
-                      placeholder="Enter address"
-                    />
-                  ) : (
-                    <p className="org-view-value">{form.address || "-"}</p>
-                  )}
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <div className="org-below-section">
-            <div className="org-three-field-row">
-              <div className="org-profile-field">
-                <label>Area</label>
-                {isEditing ? (
-                  <input value={form.area} onChange={(e) => updateField("area", e.target.value)} placeholder="Area" />
-                ) : (
-                  <p className="org-view-value">{form.area || "-"}</p>
-                )}
-              </div>
-
-              <div className="org-profile-field">
-                <label>City</label>
-                {isEditing ? (
-                  <input value={form.city} onChange={(e) => updateField("city", e.target.value)} placeholder="City" />
-                ) : (
-                  <p className="org-view-value">{form.city || "-"}</p>
-                )}
-              </div>
-
-              <div className="org-profile-field">
-                <label>Pin Code</label>
-                {isEditing ? (
-                  <div className="org-pincode-wrap">
+                {isEditing && (
+                  <div className="org-logo-actions">
                     <input
-                      value={form.pincode}
-                      onChange={(e) => updateField("pincode", e.target.value)}
-                      onBlur={lookupPincode}
-                      placeholder="Pin code"
+                      ref={fileInputRef}
+                      className="org-logo-hidden-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoFileChange}
                     />
-                    {pincodeLoading ? <span className="org-pincode-status">Fetching...</span> : null}
+                    <button className="admin-config-btn" type="button" onClick={handleChangeLogo}>
+                      Change
+                    </button>
+                    <button className="admin-config-btn admin-config-btn-danger" type="button" onClick={handleDeleteLogo}>
+                      Delete
+                    </button>
                   </div>
-                ) : (
-                  <p className="org-view-value">{form.pincode || "-"}</p>
                 )}
-              </div>
+              </aside>
+
+              <section className="org-details-column">
+                <div className="org-profile-grid">
+                  <div className="org-profile-field org-profile-field-full">
+                    <label>Company Name</label>
+                    {isEditing ? (
+                      <input
+                        value={form.name}
+                        onChange={(e) => updateField("name", e.target.value)}
+                        placeholder="Enter organization name"
+                      />
+                    ) : (
+                      <p className="org-view-value">{form.name || "-"}</p>
+                    )}
+                  </div>
+
+                  <div className="org-profile-field org-profile-field-full">
+                    <label>Address</label>
+                    {isEditing ? (
+                      <textarea
+                        rows={2}
+                        value={form.address}
+                        onChange={(e) => updateField("address", e.target.value)}
+                        placeholder="Enter address"
+                      />
+                    ) : (
+                      <p className="org-view-value">{form.address || "-"}</p>
+                    )}
+                  </div>
+
+                  <div className="org-profile-field org-profile-field-full">
+                    <label>Website</label>
+                    {isEditing ? (
+                      <input
+                        value={form.website}
+                        onChange={(e) => updateField("website", e.target.value)}
+                        placeholder="https://example.com"
+                      />
+                    ) : (
+                      <p className="org-view-value">{form.website || "-"}</p>
+                    )}
+                  </div>
+                </div>
+              </section>
             </div>
 
             <div className="org-three-field-row">
@@ -502,59 +547,401 @@ export default function Organization() {
               </div>
             </div>
 
-            <div className="org-contacts-section">
-              <div className="org-contacts-title-row">
-                <h4>Contact Details</h4>
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Phone Number</label>
                 {isEditing ? (
-                  <button className="admin-config-btn" onClick={addContact}>
-                    + Add Contact
-                  </button>
-                ) : null}
+                  <input value={form.phoneNumber} onChange={(e) => updateField("phoneNumber", e.target.value)} placeholder="Phone number" />
+                ) : (
+                  <p className="org-view-value">{form.phoneNumber || "-"}</p>
+                )}
               </div>
 
-              {(form.contacts || []).map((contact, index) => (
-                <div className="org-contact-row" key={contact._localId || index}>
-                  {isEditing ? (
-                    <>
-                      <input
-                        placeholder="Name"
-                        value={contact.name || ""}
-                        onChange={(e) => updateContact(index, "name", e.target.value)}
-                      />
-                      <input
-                        placeholder="Designation"
-                        value={contact.designation || ""}
-                        onChange={(e) => updateContact(index, "designation", e.target.value)}
-                      />
-                      <input
-                        placeholder="Phone"
-                        value={contact.phone || ""}
-                        onChange={(e) => updateContact(index, "phone", e.target.value)}
-                      />
-                      <input
-                        placeholder="Email"
-                        value={contact.email || ""}
-                        onChange={(e) => updateContact(index, "email", e.target.value)}
-                      />
-                      <button
-                        className="admin-config-btn admin-config-btn-danger"
-                        onClick={() => removeContact(index)}
-                      >
-                        Remove
-                      </button>
-                    </>
+              <div className="org-profile-field">
+                <label>Alternate Phone Number</label>
+                {isEditing ? (
+                  <input value={form.alternatePhoneNumber} onChange={(e) => updateField("alternatePhoneNumber", e.target.value)} placeholder="Alternate phone number" />
+                ) : (
+                  <p className="org-view-value">{form.alternatePhoneNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Email</label>
+                {isEditing ? (
+                  <input value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="Email" />
+                ) : (
+                  <p className="org-view-value">{form.email || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-section-title">Payment Information</div>
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Account Name</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentAccountName}
+                    onChange={(e) => updateField("paymentAccountName", e.target.value)}
+                    placeholder="Account holder name"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentAccountName || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Account Number</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentAccountNumber}
+                    onChange={(e) => updateField("paymentAccountNumber", e.target.value)}
+                    placeholder="Account number"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentAccountNumber || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Account Type</label>
+                {isEditing ? (
+                  <select
+                    value={form.paymentAccountType}
+                    onChange={(e) => updateField("paymentAccountType", e.target.value)}
+                  >
+                    <option value="">Select account type</option>
+                    {hasCustomAccountType ? (
+                      <option value={form.paymentAccountType}>{form.paymentAccountType}</option>
+                    ) : null}
+                    {ACCOUNT_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="org-view-value">{form.paymentAccountType || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Bank Name</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentBankName}
+                    onChange={(e) => updateField("paymentBankName", e.target.value)}
+                    placeholder="Bank name"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentBankName || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>IFSC Code</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentIfscCode}
+                    onChange={(e) => updateField("paymentIfscCode", e.target.value)}
+                    placeholder="IFSC code"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentIfscCode || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>UPI ID</label>
+                {isEditing ? (
+                  <input
+                    value={form.paymentUpiId}
+                    onChange={(e) => updateField("paymentUpiId", e.target.value)}
+                    placeholder="example@upi"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.paymentUpiId || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-section-title">Company Head</div>
+            <div className="org-three-field-row">
+              <div className="org-profile-field">
+                <label>Head Name</label>
+                {isEditing ? (
+                  <input
+                    value={form.headName}
+                    onChange={(e) => updateField("headName", e.target.value)}
+                    placeholder="Person name"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headName || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Head Role</label>
+                {isEditing ? (
+                  <input
+                    value={form.headRole}
+                    onChange={(e) => updateField("headRole", e.target.value)}
+                    placeholder="CEO / Managing Director / etc."
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headRole || "-"}</p>
+                )}
+              </div>
+
+              <div className="org-profile-field">
+                <label>Head Phone</label>
+                {isEditing ? (
+                  <input
+                    value={form.headPhone}
+                    onChange={(e) => updateField("headPhone", e.target.value)}
+                    placeholder="Phone number"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headPhone || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-three-field-row">
+              <div className="org-profile-field org-profile-field-full">
+                <label>Head Email</label>
+                {isEditing ? (
+                  <input
+                    value={form.headEmail}
+                    onChange={(e) => updateField("headEmail", e.target.value)}
+                    placeholder="Email"
+                  />
+                ) : (
+                  <p className="org-view-value">{form.headEmail || "-"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="org-sign-assets-row">
+              <div className="org-sign-asset-card">
+                <label>Signature</label>
+                <div className="org-logo-block">
+                  {signaturePreview ? (
+                    <img
+                      className="org-logo-preview org-sign-preview"
+                      src={signaturePreview}
+                      alt="Organization signature"
+                    />
                   ) : (
-                    <div className="org-contact-view">
-                      <strong>{contact.name || "-"}</strong>
-                      <span>{contact.designation || "-"}</span>
-                      <span>{contact.phone || "-"}</span>
-                      <span>{contact.email || "-"}</span>
-                    </div>
+                    <p className="org-view-value">{form.area || "-"}</p>
                   )}
                 </div>
-              ))}
+
+                <div className="org-profile-field">
+                  <label>City</label>
+                  {isEditing ? (
+                    <input value={form.city} onChange={(e) => updateField("city", e.target.value)} placeholder="City" />
+                  ) : (
+                    <p className="org-view-value">{form.city || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Pin Code</label>
+                  {isEditing ? (
+                    <div className="org-pincode-wrap">
+                      <input
+                        value={form.pincode}
+                        onChange={(e) => updateField("pincode", e.target.value)}
+                        onBlur={lookupPincode}
+                        placeholder="Pin code"
+                      />
+                      {pincodeLoading ? <span className="org-pincode-status">Fetching...</span> : null}
+                    </div>
+                  ) : (
+                    <p className="org-view-value">{form.pincode || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="org-three-field-row">
+                <div className="org-profile-field">
+                  <label>District</label>
+                  {isEditing ? (
+                    <input value={form.district} onChange={(e) => updateField("district", e.target.value)} placeholder="District" />
+                  ) : (
+                    <p className="org-view-value">{form.district || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>State</label>
+                  {isEditing ? (
+                    <input value={form.state} onChange={(e) => updateField("state", e.target.value)} placeholder="State" />
+                  ) : (
+                    <p className="org-view-value">{form.state || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Country</label>
+                  {isEditing ? (
+                    <input value={form.country} onChange={(e) => updateField("country", e.target.value)} placeholder="Country" />
+                  ) : (
+                    <p className="org-view-value">{form.country || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="org-three-field-row">
+                <div className="org-profile-field">
+                  <label>CIN Number</label>
+                  {isEditing ? (
+                    <input value={form.cinNumber} onChange={(e) => updateField("cinNumber", e.target.value)} placeholder="CIN number" />
+                  ) : (
+                    <p className="org-view-value">{form.cinNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>PAN Number</label>
+                  {isEditing ? (
+                    <input value={form.panNumber} onChange={(e) => updateField("panNumber", e.target.value)} placeholder="PAN number" />
+                  ) : (
+                    <p className="org-view-value">{form.panNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>GST Number</label>
+                  {isEditing ? (
+                    <input value={form.gstNumber} onChange={(e) => updateField("gstNumber", e.target.value)} placeholder="GST number" />
+                  ) : (
+                    <p className="org-view-value">{form.gstNumber || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="org-three-field-row">
+                <div className="org-profile-field">
+                  <label>Phone Number</label>
+                  {isEditing ? (
+                    <PhoneInput
+                      international
+                      defaultCountry="IN"
+                      value={form.phoneNumber || ""}
+                      onChange={(val) => updateField("phoneNumber", val)}
+                      placeholder="Phone number"
+                    />
+                  ) : (
+                    <p className="org-view-value">{form.phoneNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Alternate Phone Number</label>
+                  {isEditing ? (
+                    <PhoneInput
+                      international
+                      defaultCountry="IN"
+                      value={form.alternatePhoneNumber || ""}
+                      onChange={(val) => updateField("alternatePhoneNumber", val)}
+                      placeholder="Alternate phone number"
+                    />
+                  ) : (
+                    <p className="org-view-value">{form.alternatePhoneNumber || "-"}</p>
+                  )}
+                </div>
+
+                <div className="org-profile-field">
+                  <label>Email</label>
+                  {isEditing ? (
+                    <input value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="Email" />
+                  ) : (
+                    <p className="org-view-value">{form.email || "-"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="org-sign-assets-row">
+                <div className="org-sign-asset-card">
+                  <label>Signature</label>
+                  <div className="org-logo-block">
+                    {signaturePreview ? (
+                      <img
+                        className="org-logo-preview org-sign-preview"
+                        src={signaturePreview}
+                        alt="Organization signature"
+                      />
+                    ) : (
+                      <div className="org-logo-preview-empty org-sign-preview-empty">
+                        No signature uploaded
+                      </div>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <div className="org-logo-actions">
+                      <input
+                        ref={signatureInputRef}
+                        className="org-logo-hidden-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSignatureFileChange}
+                      />
+                      <button className="admin-config-btn" type="button" onClick={handleChangeSignature}>
+                        Change
+                      </button>
+                      <button
+                        className="admin-config-btn admin-config-btn-danger"
+                        type="button"
+                        onClick={handleDeleteSignature}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="org-sign-asset-card">
+                  <label>Stamp</label>
+                  <div className="org-logo-block">
+                    {stampPreview ? (
+                      <img
+                        className="org-logo-preview org-sign-preview"
+                        src={stampPreview}
+                        alt="Organization stamp"
+                      />
+                    ) : (
+                      <div className="org-logo-preview-empty org-sign-preview-empty">No stamp uploaded</div>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <div className="org-logo-actions">
+                      <input
+                        ref={stampInputRef}
+                        className="org-logo-hidden-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleStampFileChange}
+                      />
+                      <button className="admin-config-btn" type="button" onClick={handleChangeStamp}>
+                        Change
+                      </button>
+                      <button
+                        className="admin-config-btn admin-config-btn-danger"
+                        type="button"
+                        onClick={handleDeleteStamp}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
-          </div>
           </>
         )}
       </div>

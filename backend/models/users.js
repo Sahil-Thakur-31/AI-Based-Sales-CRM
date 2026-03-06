@@ -29,7 +29,8 @@ const usersSchema = new mongoose.Schema({
 
   phone: {
     type: String,
-    trim: true
+    trim: true,
+    match: [/^$|^\d{10,15}$/, "Please enter a valid phone number (10-15 digits)"]
   },
 
   photoUrl: {
@@ -69,6 +70,12 @@ const usersSchema = new mongoose.Schema({
   is_deleted: {
     type: Boolean,
     default: false
+  },
+
+  googleCalendar: {
+    accessToken: { type: String, default: null },
+    refreshToken: { type: String, default: null },
+    connectedAt: { type: Date, default: null }
   }
 
 }, {

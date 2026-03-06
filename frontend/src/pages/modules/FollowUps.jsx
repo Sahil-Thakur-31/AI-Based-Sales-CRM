@@ -12,6 +12,18 @@ const STAGES = [
   { key: "P7", title: "P7 - Won", sub: "Deal closed" },
 ];
 
+const LEAD_STAGES = STAGES.map((stage) =>
+  stage.key === "P7"
+    ? { ...stage, title: "P7 - Lead Convert to Deal", sub: "Converted leads" }
+    : stage
+);
+
+const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P7"]);
+const DEAL_STAGES = STAGES.map((stage) => ({
+  ...stage,
+  hidden: !DEAL_STAGE_KEYS.has(stage.key),
+}));
+
 const EMPTY_FOLLOWUP_FORM = {
   client: "",
   title: "",
@@ -27,6 +39,25 @@ const EMPTY_MEETING_FORM = {
   priority: "medium",
   minutesOfMeeting: "",
   status: "pending",
+};
+
+const EMPTY_DONE_MODAL = {
+  id: "",
+  kind: "meeting",
+  durationMinutes: "",
+  minutesOfMeeting: "",
+  nextFollowup: "no",
+  nextFollowupDate: "",
+  nextReminder: "yes",
+  nextStage: "P1",
+  sourceData: null,
+};
+
+const EMPTY_CANCEL_MODAL = {
+  open: false,
+  id: "",
+  kind: "followup",
+  reason: "",
 };
 
 const PAGE_SIZE = 4;
@@ -72,11 +103,45 @@ function getLocalDateISO() {
   return `${y}-${m}-${day}`;
 }
 
+function combineDateWithBaseTime(dateOnly, baseDateTime) {
+  if (!dateOnly) return null;
+  const [y, m, d] = String(dateOnly).split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const base = new Date(baseDateTime || Date.now());
+  const hours = Number.isNaN(base.getTime()) ? 9 : base.getHours();
+  const minutes = Number.isNaN(base.getTime()) ? 0 : base.getMinutes();
+  const composed = new Date(y, m - 1, d, hours, minutes, 0, 0);
+  if (Number.isNaN(composed.getTime())) return null;
+  return composed.toISOString();
+}
+
+function isOnLocalDate(rawDate, targetDate) {
+  if (!rawDate) return false;
+  const d = new Date(rawDate);
+  if (Number.isNaN(d.getTime())) return false;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}` === targetDate;
+}
+
+function getRelevantDateForStatus(item = {}, statusFilter = "all") {
+  const completed = isCompletedStatus(item?.status);
+  if (statusFilter === "completed" || completed) {
+    return item?.completedAt || item?.dueDateTime;
+  }
+  return item?.dueDateTime;
+}
+
 function mapDocToMeeting(doc) {
   const dueDateTime = doc.dueDateTime || doc.startTime || doc.meetingDate;
   const followupId = doc.sourceFollowupId || doc.Id || doc.followupId || doc._id;
   return {
     id: String(followupId),
+    leadId: doc.leadId || "",
+    dealId: doc.dealId || "",
+    clientId: doc.clientId || "",
     clientName: doc.clientName || "N/A",
     title: doc.title || "",
     eventType: doc.actionType || doc.meetingType || "Meeting",
@@ -89,6 +154,7 @@ function mapDocToMeeting(doc) {
     durationMinutes: doc.durationMinutes || "",
     agenda: doc.agenda || doc.agenda_of_meating || "",
     stage: doc.stage || "",
+    completedAt: doc.completedAt || null,
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
     assignedToName: doc.assignedTo?.name || "",
     address: doc.address || doc.Address || "",
@@ -99,6 +165,9 @@ function mapDocToMeeting(doc) {
 function mapDocToFollowup(doc) {
   return {
     id: doc._id,
+    leadId: doc.leadId || "",
+    dealId: doc.dealId || "",
+    clientId: doc.clientId || "",
     client: doc.clientName || "N/A",
     title: doc.title || "",
     stage: doc.stage || "P1",
@@ -108,6 +177,9 @@ function mapDocToFollowup(doc) {
     status: doc.status || "pending",
     actionType: doc.actionType || "Follow Up Phone Call",
     notes: doc.notes || "",
+    agenda: doc.agenda || "",
+    reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
+    completedAt: doc.completedAt || null,
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
     assignedToName: doc.assignedTo?.name || "",
   };
@@ -121,17 +193,61 @@ function isCompletedStatus(status = "") {
   return String(status).toLowerCase() === "completed";
 }
 
+function isCancelledStatus(status = "") {
+  return String(status).toLowerCase() === "cancelled";
+}
+
 function isPhysicalMeetingEvent(eventType = "") {
   return String(eventType).toLowerCase().includes("physical");
 }
 
+function inferRecordBucket(doc) {
+  if (doc?.clientId) return "deal";
+  if (doc?.dealId) return "deal";
+  if (doc?.leadId) return "lead";
+  return "deal";
+}
+
+function matchesAssigneeFilter({
+  item,
+  recordScope,
+  selectedEmployeeId,
+  selectedTeamId,
+  currentUserId,
+  teamOptions,
+}) {
+  const assignedToId = String(item?.assignedToId || "");
+
+  if (selectedEmployeeId) {
+    const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
+    return assignedToId === String(targetUserId || "");
+  }
+
+  if (recordScope === "mine") {
+    return assignedToId === String(currentUserId || "");
+  }
+
+  if (selectedTeamId) {
+    if (selectedTeamId === "__mine__") {
+      return assignedToId === String(currentUserId || "");
+    }
+
+    const team = teamOptions.find((t) => String(t.id) === String(selectedTeamId));
+    const users = (team?.userIds || []).map((id) => String(id));
+    return users.includes(assignedToId);
+  }
+
+  return true;
+}
+
 export default function Followups() {
   const [activeStage, setActiveStage] = useState("P1");
+  const [recordBucket, setRecordBucket] = useState("lead");
   const [followupMode, setFollowupMode] = useState("list");
   const [followups, setFollowups] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [meetingMode, setMeetingMode] = useState("list");
-  const [statusFilter, setStatusFilter] = useState("remaining");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [meetingPage, setMeetingPage] = useState(1);
   const [followupPage, setFollowupPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -146,27 +262,44 @@ export default function Followups() {
   const [editingMeetingId, setEditingMeetingId] = useState(null);
   const [meetingForm, setMeetingForm] = useState({ ...EMPTY_MEETING_FORM });
   const [meetingFormError, setMeetingFormError] = useState("");
+  const [doneModal, setDoneModal] = useState({ open: false, ...EMPTY_DONE_MODAL });
+  const [doneModalError, setDoneModalError] = useState("");
+  const [savingDone, setSavingDone] = useState(false);
+  const [cancelModal, setCancelModal] = useState(EMPTY_CANCEL_MODAL);
+  const [cancelModalError, setCancelModalError] = useState("");
+  const [savingCancel, setSavingCancel] = useState(false);
   const [scopeLabel, setScopeLabel] = useState("My Records");
   const [currentRole, setCurrentRole] = useState("");
   const [teamOptions, setTeamOptions] = useState([]);
   const [employeeOptions, setEmployeeOptions] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [recordScope, setRecordScope] = useState("mine");
+  const useStageFilter = recordBucket !== "existingClient";
+  const doneModalStageOptions = useMemo(() => {
+    const source = doneModal.sourceData || {};
+    const bucket = inferRecordBucket(source);
+    return bucket === "lead" ? LEAD_STAGES : DEAL_STAGES;
+  }, [doneModal.sourceData]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError("");
-      const date = getLocalDateISO();
-      const tzOffsetMinutes = new Date().getTimezoneOffset();
-      const [meetingRes, followupMeetingRes, followupRes] = await Promise.all([
-        API.get("/followups/today/meetings", { params: { date, tzOffsetMinutes } }),
-        API.get("/followups", { params: { kind: "meeting", today: "true", date, tzOffsetMinutes } }),
-        API.get("/followups", { params: { kind: "followup", today: "true", date, tzOffsetMinutes } }),
+      const [meetingRes, followupRes] = await Promise.all([
+        API.get("/followups", { params: { kind: "meeting" } }),
+        API.get("/followups", { params: { kind: "followup" } }),
       ]);
 
+      const stageById = new Map(
+        [...(meetingRes.data || []), ...(followupRes.data || [])]
+          .filter((d) => d?._id)
+          .map((d) => [String(d._id), d.stage || ""])
+      );
+
       const assignmentById = new Map(
-        [...(followupMeetingRes.data || []), ...(followupRes.data || [])]
+        [...(meetingRes.data || []), ...(followupRes.data || [])]
           .filter((d) => d?._id)
           .map((d) => [
             String(d._id),
@@ -177,15 +310,9 @@ export default function Followups() {
           ])
       );
 
-      const stageById = new Map(
-        [...(followupMeetingRes.data || []), ...(followupRes.data || [])]
-          .filter((d) => d?._id)
-          .map((d) => [String(d._id), d.stage || ""])
-      );
-
       const meetingLikeFollowups = (followupRes.data || []).filter((d) => isMeetingLikeAction(d.actionType));
 
-      const mergedMeetings = [...(meetingRes.data || []), ...(followupMeetingRes.data || []), ...meetingLikeFollowups]
+      const mergedMeetings = [...(meetingRes.data || []), ...meetingLikeFollowups]
         .map(mapDocToMeeting)
         .map((m) => ({ ...m, stage: m.stage || stageById.get(String(m.id)) || "" }))
         .map((m) => ({ ...m, ...(assignmentById.get(String(m.id)) || {}) }))
@@ -218,62 +345,120 @@ export default function Followups() {
   }, []);
 
   useEffect(() => {
-    if (!(currentRole === "admin" || currentRole === "manager")) return;
     (async () => {
       try {
         const res = await API.get("/followups/filter-options");
-        setTeamOptions(res.data?.teams || []);
-        setEmployeeOptions(res.data?.employees || []);
+        setCurrentUserId(String(res.data?.currentUser?.id || ""));
+        if (currentRole === "admin" || currentRole === "manager") {
+          setTeamOptions(res.data?.teams || []);
+          setEmployeeOptions(res.data?.employees || []);
+        }
       } catch (err) {
         console.error(err);
       }
     })();
   }, [currentRole]);
 
+  const visibleStageOptions = useMemo(
+    () => (recordBucket === "lead" ? LEAD_STAGES : DEAL_STAGES),
+    [recordBucket]
+  );
+
+  const visibleEmployeeOptions = useMemo(() => {
+    if (!selectedTeamId || selectedTeamId === "__mine__") return employeeOptions;
+    const team = teamOptions.find((t) => String(t.id) === String(selectedTeamId));
+    const userIds = (team?.userIds || []).map((id) => String(id));
+    return employeeOptions.filter((user) => userIds.includes(String(user.id)));
+  }, [employeeOptions, selectedTeamId, teamOptions]);
+
+  const bucketedMeetings = useMemo(
+    () => meetings.filter((m) => inferRecordBucket(m) === recordBucket),
+    [meetings, recordBucket]
+  );
+
+  const bucketedFollowups = useMemo(
+    () => followups.filter((f) => inferRecordBucket(f) === recordBucket),
+    [followups, recordBucket]
+  );
+
+  const assigneeFilteredMeetings = useMemo(
+    () =>
+      bucketedMeetings.filter((m) =>
+        matchesAssigneeFilter({
+          item: m,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [bucketedMeetings, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
+  const assigneeFilteredFollowups = useMemo(
+    () =>
+      bucketedFollowups.filter((f) =>
+        matchesAssigneeFilter({
+          item: f,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [bucketedFollowups, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
   const stageCounts = useMemo(() => {
-    const map = Object.fromEntries(STAGES.map((s) => [s.key, 0]));
-    followups.forEach((f) => {
-      map[f.stage] = (map[f.stage] || 0) + 1;
+    const map = Object.fromEntries(visibleStageOptions.map((s) => [s.key, 0]));
+    [...assigneeFilteredFollowups, ...assigneeFilteredMeetings].forEach((item) => {
+      if (!isOnLocalDate(item?.dueDateTime, getLocalDateISO())) return;
+      if (!item?.stage || !(item.stage in map)) return;
+      map[item.stage] = (map[item.stage] || 0) + 1;
     });
     return map;
-  }, [followups]);
+  }, [assigneeFilteredFollowups, assigneeFilteredMeetings, visibleStageOptions]);
 
   const visibleFollowups = useMemo(
-    () => followups.filter((f) => f.stage === activeStage),
-    [followups, activeStage]
+    () => (useStageFilter ? assigneeFilteredFollowups.filter((f) => f.stage === activeStage) : assigneeFilteredFollowups),
+    [assigneeFilteredFollowups, activeStage, useStageFilter]
   );
 
   const filteredMeetings = useMemo(
-    () => meetings.filter((m) => {
-      const statusMatch = statusFilter === "completed" ? isCompletedStatus(m.status) : !isCompletedStatus(m.status);
-      const stageMatch = m.stage === activeStage;
-      let assigneeMatch = true;
-      if (selectedEmployeeId) {
-        assigneeMatch = String(m.assignedToId || "") === String(selectedEmployeeId);
-      } else if (selectedTeamId) {
-        const team = teamOptions.find((t) => t.id === selectedTeamId);
-        const users = team?.userIds || [];
-        assigneeMatch = users.includes(String(m.assignedToId || ""));
-      }
-      return statusMatch && stageMatch && assigneeMatch;
+    () => assigneeFilteredMeetings.filter((m) => {
+      const todayMatch = isOnLocalDate(
+        getRelevantDateForStatus(m, statusFilter),
+        getLocalDateISO()
+      );
+      const statusMatch =
+        statusFilter === "completed"
+          ? isCompletedStatus(m.status)
+          : statusFilter === "remaining"
+            ? !isCompletedStatus(m.status)
+            : true;
+      // "Today's Meeting List" should not hide items by stage.
+      return todayMatch && statusMatch;
     }),
-    [meetings, statusFilter, activeStage, selectedEmployeeId, selectedTeamId, teamOptions]
+    [assigneeFilteredMeetings, statusFilter]
   );
 
   const filteredFollowupsByStatus = useMemo(
     () => visibleFollowups.filter((f) => {
-      const statusMatch = statusFilter === "completed" ? isCompletedStatus(f.status) : !isCompletedStatus(f.status);
-      let assigneeMatch = true;
-      if (selectedEmployeeId) {
-        assigneeMatch = String(f.assignedToId || "") === String(selectedEmployeeId);
-      } else if (selectedTeamId) {
-        const team = teamOptions.find((t) => t.id === selectedTeamId);
-        const users = team?.userIds || [];
-        assigneeMatch = users.includes(String(f.assignedToId || ""));
-      }
-      return statusMatch && assigneeMatch;
+      const todayMatch = isOnLocalDate(
+        getRelevantDateForStatus(f, statusFilter),
+        getLocalDateISO()
+      );
+      const statusMatch =
+        statusFilter === "completed"
+          ? isCompletedStatus(f.status)
+          : statusFilter === "remaining"
+            ? !isCompletedStatus(f.status)
+            : true;
+      return todayMatch && statusMatch;
     }),
-    [visibleFollowups, statusFilter, selectedEmployeeId, selectedTeamId, teamOptions]
+    [visibleFollowups, statusFilter]
   );
 
   const meetingTotalPages = useMemo(
@@ -296,20 +481,44 @@ export default function Followups() {
   }, [filteredFollowupsByStatus, followupPage]);
 
   const statusCounts = useMemo(() => {
-    const meetingRemaining = meetings.filter((m) => !isCompletedStatus(m.status)).length;
-    const meetingCompleted = meetings.filter((m) => isCompletedStatus(m.status)).length;
-    const followupRemaining = visibleFollowups.filter((f) => !isCompletedStatus(f.status)).length;
-    const followupCompleted = visibleFollowups.filter((f) => isCompletedStatus(f.status)).length;
+    const meetingRemaining = assigneeFilteredMeetings.filter(
+      (m) =>
+        isOnLocalDate(getRelevantDateForStatus(m, "remaining"), getLocalDateISO()) &&
+        !isCompletedStatus(m.status)
+    ).length;
+    const meetingCompleted = assigneeFilteredMeetings.filter(
+      (m) =>
+        isOnLocalDate(getRelevantDateForStatus(m, "completed"), getLocalDateISO()) &&
+        isCompletedStatus(m.status)
+    ).length;
+    const followupRemaining = visibleFollowups.filter(
+      (f) =>
+        isOnLocalDate(getRelevantDateForStatus(f, "remaining"), getLocalDateISO()) &&
+        !isCompletedStatus(f.status)
+    ).length;
+    const followupCompleted = visibleFollowups.filter(
+      (f) =>
+        isOnLocalDate(getRelevantDateForStatus(f, "completed"), getLocalDateISO()) &&
+        isCompletedStatus(f.status)
+    ).length;
     return {
+      all: meetingRemaining + meetingCompleted + followupRemaining + followupCompleted,
       remaining: meetingRemaining + followupRemaining,
       completed: meetingCompleted + followupCompleted,
     };
-  }, [meetings, visibleFollowups]);
+  }, [assigneeFilteredMeetings, visibleFollowups]);
+
+  useEffect(() => {
+    if (!useStageFilter) return;
+    if (!visibleStageOptions.some((stage) => stage.key === activeStage)) {
+      setActiveStage(visibleStageOptions[0]?.key || "P1");
+    }
+  }, [activeStage, visibleStageOptions, useStageFilter]);
 
   useEffect(() => {
     setMeetingPage(1);
     setFollowupPage(1);
-  }, [statusFilter, activeStage, selectedTeamId, selectedEmployeeId]);
+  }, [statusFilter, activeStage, selectedTeamId, selectedEmployeeId, recordScope]);
 
   useEffect(() => {
     if (meetingPage > meetingTotalPages) setMeetingPage(meetingTotalPages);
@@ -320,26 +529,188 @@ export default function Followups() {
   }, [followupPage, followupTotalPages]);
 
   const handleMeetingDone = async (id) => {
+    const meeting = meetings.find((m) => String(m.id) === String(id)) || selectedMeeting;
+    setDoneModal({
+      open: true,
+      id: String(id),
+      kind: "meeting",
+      durationMinutes: meeting?.durationMinutes ? String(meeting.durationMinutes) : "",
+      minutesOfMeeting: meeting?.notes || "",
+      nextFollowup: "no",
+      nextFollowupDate: "",
+      nextReminder: "yes",
+      nextStage: meeting?.stage || activeStage || "P1",
+      sourceData: meeting || null,
+    });
+    setDoneModalError("");
+  };
+
+  const closeDoneModal = () => {
+    if (savingDone) return;
+    setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
+    setDoneModalError("");
+  };
+
+  const submitMeetingDone = async (e) => {
+    e.preventDefault();
+    setDoneModalError("");
+
+    if (!doneModal.durationMinutes || Number(doneModal.durationMinutes) < 1) {
+      return setDoneModalError("Duration of minutes is required");
+    }
+    if (!doneModal.minutesOfMeeting.trim()) {
+      return setDoneModalError(
+        doneModal.kind === "meeting" ? "Minutes of Meeting is required" : "Completion notes are required"
+      );
+    }
+    if (doneModal.nextFollowup === "yes" && !doneModal.nextFollowupDate) {
+      return setDoneModalError("Next follow-up date is required");
+    }
+
     try {
-      const res = await API.patch(`/followups/${id}/status`, { status: "completed" });
-      const updated = mapDocToMeeting(res.data);
-      setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, ...updated, status: "completed" } : m)));
-      if (selectedMeeting?.id === id) setSelectedMeeting((prev) => ({ ...prev, ...updated, status: "completed" }));
+      setSavingDone(true);
+      let nextRecord = null;
+      const res = await API.patch(`/followups/${doneModal.id}/status`, {
+        status: "completed",
+        durationMinutes: Number(doneModal.durationMinutes),
+        notes: doneModal.minutesOfMeeting.trim(),
+      });
+
+      if (doneModal.nextFollowup === "yes") {
+        const source = doneModal.sourceData || {};
+        const nextDueDateTime = combineDateWithBaseTime(doneModal.nextFollowupDate, source.dueDateTime);
+        if (!nextDueDateTime) {
+          throw new Error("Invalid next follow-up date");
+        }
+
+        const isMeetingSource = doneModal.kind === "meeting";
+        const nextPayload = {
+          kind: isMeetingSource ? "meeting" : "followup",
+          actionType: isMeetingSource
+            ? (source.eventType || "Meeting")
+            : (source.actionType || "Follow Up Phone Call"),
+          title: String(source.title || source.eventType || source.actionType || "Follow-up").trim(),
+          clientName: String(source.clientName || source.client || "").trim(),
+          leadId: source.leadId || undefined,
+          dealId: source.dealId || undefined,
+          clientId: source.clientId || undefined,
+          stage: doneModal.nextStage || source.stage || "P1",
+          priority: source.priority || "medium",
+          dueDateTime: nextDueDateTime,
+          reminderEnabled: doneModal.nextReminder === "yes",
+          notes: "",
+          agenda: source.agenda || "",
+          assignedTo: source.assignedToId || undefined,
+          status: "pending",
+        };
+
+        const createRes = await API.post("/followups", nextPayload);
+        nextRecord = createRes.data;
+      }
+
+      if (doneModal.kind === "meeting") {
+        const updated = mapDocToMeeting(res.data);
+        setMeetings((prev) => prev.map((m) => (m.id === doneModal.id ? { ...m, ...updated, status: "completed" } : m)));
+        if (selectedMeeting?.id === doneModal.id) {
+          setSelectedMeeting((prev) => ({ ...prev, ...updated, status: "completed" }));
+        }
+      } else {
+        const updated = mapDocToFollowup(res.data);
+        setFollowups((prev) => prev.map((x) => (x.id === doneModal.id ? updated : x)));
+        if (selectedFollowup?.id === doneModal.id) {
+          setSelectedFollowup(updated);
+        }
+      }
+
+      if (nextRecord) {
+        if (isMeetingLikeAction(nextRecord.actionType) || nextRecord.kind === "meeting") {
+          const nextMeeting = mapDocToMeeting(nextRecord);
+          setMeetings((prev) => [nextMeeting, ...prev]);
+        } else {
+          const nextFollowup = mapDocToFollowup(nextRecord);
+          setFollowups((prev) => [nextFollowup, ...prev]);
+        }
+      }
+
+      setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
     } catch (err) {
       console.error(err);
+      setDoneModalError(err?.response?.data?.message || err?.message || `Failed to complete ${doneModal.kind}`);
+    } finally {
+      setSavingDone(false);
     }
   };
 
   const markDone = async (id) => {
+    const followup = followups.find((f) => String(f.id) === String(id)) || selectedFollowup;
+    setDoneModal({
+      open: true,
+      id: String(id),
+      kind: "followup",
+      durationMinutes: followup?.durationMinutes ? String(followup.durationMinutes) : "",
+      minutesOfMeeting: followup?.notes || "",
+      nextFollowup: "no",
+      nextFollowupDate: "",
+      nextReminder: "yes",
+      nextStage: followup?.stage || activeStage || "P1",
+      sourceData: followup || null,
+    });
+    setDoneModalError("");
+  };
+
+  const openCancelModal = ({ kind, item }) => {
+    const targetId = String(item?.id || "");
+    if (!targetId) return;
+    if (isCompletedStatus(item?.status) || isCancelledStatus(item?.status)) return;
+    setCancelModal({
+      open: true,
+      id: targetId,
+      kind: kind === "meeting" ? "meeting" : "followup",
+      reason: "",
+    });
+    setCancelModalError("");
+  };
+
+  const closeCancelModal = () => {
+    if (savingCancel) return;
+    setCancelModal(EMPTY_CANCEL_MODAL);
+    setCancelModalError("");
+  };
+
+  const submitCancel = async (e) => {
+    e.preventDefault();
+    setCancelModalError("");
+    const targetId = String(cancelModal.id || "");
+    const trimmedReason = String(cancelModal.reason || "").trim();
+    if (!targetId) return setCancelModalError("Record id is missing");
+    if (!trimmedReason) return setCancelModalError("Cancellation reason is required");
     try {
-      const res = await API.patch(`/followups/${id}/status`, { status: "completed" });
-      const updated = mapDocToFollowup(res.data);
-      setFollowups((prev) => prev.map((x) => (x.id === id ? updated : x)));
-      if (selectedFollowup?.id === id) {
-        setSelectedFollowup(updated);
+      setSavingCancel(true);
+      const res = await API.patch(`/followups/${targetId}/status`, {
+        status: "cancelled",
+        cancelReason: trimmedReason,
+        notes: trimmedReason,
+      });
+
+      if (cancelModal.kind === "meeting") {
+        const updated = mapDocToMeeting(res.data);
+        setMeetings((prev) => prev.map((m) => (String(m.id) === targetId ? { ...m, ...updated, status: "cancelled" } : m)));
+        if (selectedMeeting?.id === targetId) {
+          setSelectedMeeting((prev) => ({ ...prev, ...updated, status: "cancelled" }));
+        }
+      } else {
+        const updated = mapDocToFollowup(res.data);
+        setFollowups((prev) => prev.map((f) => (String(f.id) === targetId ? updated : f)));
+        if (selectedFollowup?.id === targetId) {
+          setSelectedFollowup(updated);
+        }
       }
+      setCancelModal(EMPTY_CANCEL_MODAL);
     } catch (err) {
       console.error(err);
+      setCancelModalError(err?.response?.data?.message || "Failed to cancel record");
+    } finally {
+      setSavingCancel(false);
     }
   };
 
@@ -451,26 +822,37 @@ export default function Followups() {
 
   return (
     <div className="fuPage">
-      <div className="fuStages" role="tablist" aria-label="Follow-up stages">
-        {STAGES.map((s) => (
-          <button
-            key={s.key}
-            className={cx("fuStageCard", activeStage === s.key && "active")}
-            onClick={() => {
-              setActiveStage(s.key);
-              if (followupMode === "all") setFollowupMode("list");
-            }}
-            type="button"
-          >
-            <div className="fuStageTop"><span className="fuStageTitle">{s.title}</span></div>
-            <div className="fuStageMid"><span className="fuStageCount">{stageCounts[s.key] ?? 0}</span></div>
-            <div className="fuStageSub">{s.sub}</div>
-          </button>
-        ))}
-      </div>
+      {useStageFilter && (
+        <div className={cx("fuStages", recordBucket === "deal" && "fuStagesDeal")} role="tablist" aria-label="Follow-up stages">
+          {visibleStageOptions.map((s) => (
+            !s.hidden ? (
+              <button
+                key={s.key}
+                className={cx("fuStageCard", activeStage === s.key && "active")}
+                onClick={() => {
+                  setActiveStage(s.key);
+                  if (followupMode === "all") setFollowupMode("list");
+                }}
+                type="button"
+              >
+                <div className="fuStageTop"><span className="fuStageTitle">{s.title}</span></div>
+                <div className="fuStageMid"><span className="fuStageCount">{stageCounts[s.key] ?? 0}</span></div>
+                <div className="fuStageSub">{s.sub}</div>
+              </button>
+            ) : null
+          ))}
+        </div>
+      )}
       <div className="fuTopbar">
         <div className="fuTopbarLeft">
           <div className="fuTopbarGroup">
+            <button
+              className={cx("fuTopbarBtn", statusFilter === "all" && "active")}
+              type="button"
+              onClick={() => setStatusFilter("all")}
+            >
+              All ({statusCounts.all})
+            </button>
             <button
               className={cx("fuTopbarBtn", statusFilter === "remaining" && "active")}
               type="button"
@@ -486,33 +868,52 @@ export default function Followups() {
               Completed ({statusCounts.completed})
             </button>
           </div>
-          <div className="fuTopbarGroup fuTopbarStages">
-            {STAGES.map((s) => (
-              <button
-                key={s.key}
-                className={cx("fuTopbarBtn", activeStage === s.key && "active")}
-                type="button"
-                onClick={() => {
-                  setActiveStage(s.key);
-                  if (followupMode === "all") setFollowupMode("list");
-                }}
-              >
-                {s.key}
-              </button>
-            ))}
+          <div className="fuTopbarGroup">
+            <button
+              className={cx("fuTopbarBtn", recordBucket === "lead" && "active")}
+              type="button"
+              onClick={() => setRecordBucket("lead")}
+            >
+              Lead
+            </button>
+            <button
+              className={cx("fuTopbarBtn", recordBucket === "deal" && "active")}
+              type="button"
+              onClick={() => setRecordBucket("deal")}
+            >
+              Deal
+            </button>
           </div>
         </div>
         {(currentRole === "admin" || currentRole === "manager") && (
           <div className="fuTopbarFilters">
             <select
               className="fuTopbarSelect"
-              value={selectedTeamId}
+              value={recordScope}
               onChange={(e) => {
+                const nextScope = e.target.value;
+                setRecordScope(nextScope);
+                if (nextScope === "mine") {
+                  setSelectedTeamId("");
+                  setSelectedEmployeeId("");
+                }
+              }}
+            >
+              <option value="mine">My Records</option>
+              <option value="all">Select</option>
+            </select>
+            <select
+              className="fuTopbarSelect"
+              value={selectedTeamId}
+              disabled={recordScope === "mine"}
+              onChange={(e) => {
+                setRecordScope("all");
                 setSelectedTeamId(e.target.value);
                 setSelectedEmployeeId("");
               }}
             >
               <option value="">All Teams</option>
+              <option value="__mine__">My Records</option>
               {teamOptions.map((t) => (
                 <option key={t.id} value={t.id}>{t.label}</option>
               ))}
@@ -520,19 +921,21 @@ export default function Followups() {
             <select
               className="fuTopbarSelect"
               value={selectedEmployeeId}
+              disabled={recordScope === "mine"}
               onChange={(e) => {
+                setRecordScope("all");
                 setSelectedEmployeeId(e.target.value);
                 if (e.target.value) setSelectedTeamId("");
               }}
             >
               <option value="">All Employees</option>
-              {employeeOptions.map((u) => (
+              <option value="__mine__">My Records</option>
+              {visibleEmployeeOptions.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
           </div>
         )}
-        <div className="fuTopbarScope">{scopeLabel}</div>
       </div>
 
       <div className="fuGrid">
@@ -552,10 +955,19 @@ export default function Followups() {
                       className="fuBtn fuBtnPrimary"
                       type="button"
                       onClick={() => handleMeetingDone(selectedMeeting.id)}
-                      disabled={isCompletedStatus(selectedMeeting.status)}
+                      disabled={isCompletedStatus(selectedMeeting.status) || isCancelledStatus(selectedMeeting.status)}
                     >
                       {isCompletedStatus(selectedMeeting.status) ? "Completed" : "Done"}
                     </button>
+                    {!isCompletedStatus(selectedMeeting.status) && !isCancelledStatus(selectedMeeting.status) && (
+                      <button
+                        className="fuBtn fuBtnGhost"
+                        type="button"
+                        onClick={() => openCancelModal({ kind: "meeting", item: selectedMeeting })}
+                      >
+                        Cancel
+                      </button>
+                    )}
                     <button className="fuBtn fuBtnGhost" type="button" onClick={() => setMeetingMode("list")}>Back</button>
                   </div>
                 </div>
@@ -634,7 +1046,11 @@ export default function Followups() {
                 <div className="fuList">
                   {visibleMeetings.length === 0 ? (
                     <div className="fuEmptyBox">
-                      {statusFilter === "completed" ? "No completed meetings for today." : "No remaining meetings for today."}
+                      {statusFilter === "completed"
+                        ? "No completed meetings for today."
+                        : statusFilter === "remaining"
+                          ? "No remaining meetings for today."
+                          : "No meetings for today."}
                     </div>
                   ) : (
                     visibleMeetings.map((m) => (
@@ -682,7 +1098,7 @@ export default function Followups() {
             <div>
               <h3>Active Follow-ups</h3>
               <div className="fuHint">
-                {followupMode === "all" ? (
+                {recordBucket === "existingClient" ? null : followupMode === "all" ? (
                   <>Showing: <span className="fuHintStrong">All stages</span></>
                 ) : (
                   <>Stage: <span className="fuHintStrong">{activeStage}</span></>
@@ -700,6 +1116,15 @@ export default function Followups() {
                   <div className="fuAllTitle">Follow-up Details</div>
                   <div className="fuPanelActions">
                     <button className="fuBtn fuBtnPrimary" type="button" onClick={() => openFollowupEdit(selectedFollowup)}>Edit</button>
+                    {!isCompletedStatus(selectedFollowup.status) && !isCancelledStatus(selectedFollowup.status) && (
+                      <button
+                        className="fuBtn fuBtnGhost"
+                        type="button"
+                        onClick={() => openCancelModal({ kind: "followup", item: selectedFollowup })}
+                      >
+                        Cancel
+                      </button>
+                    )}
                     <button className="fuBtn fuBtnGhost" type="button" onClick={() => setFollowupMode("list")}>Back</button>
                   </div>
                 </div>
@@ -723,7 +1148,7 @@ export default function Followups() {
                   <label className="fuFormLabel">
                     Stage
                     <select className="fuField" value={followupForm.stage} onChange={(e) => setFollowupForm((p) => ({ ...p, stage: e.target.value }))}>
-                      {STAGES.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
+                      {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
                     </select>
                   </label>
                   <label className="fuFormLabel fuFull">
@@ -757,7 +1182,9 @@ export default function Followups() {
                     <div className="fuEmptyBox">
                       {statusFilter === "completed"
                         ? `No completed follow-ups in ${activeStage}.`
-                        : `No remaining follow-ups in ${activeStage}.`}
+                        : statusFilter === "remaining"
+                          ? `No remaining follow-ups in ${activeStage}.`
+                          : `No follow-ups in ${activeStage}.`}
                     </div>
                   ) : (
                     visibleFollowupsByStatus.map((f) => (
@@ -798,6 +1225,124 @@ export default function Followups() {
           </div>
         </section>
       </div>
+
+      {doneModal.open && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label={`Complete ${doneModal.kind}`}>
+          <form className="fuModalCard" onSubmit={submitMeetingDone}>
+            <div className="fuModalHead">
+              <div className="fuFormTitle">{doneModal.kind === "meeting" ? "Complete Meeting" : "Complete Follow-up"}</div>
+            </div>
+            {doneModalError && <div className="fuEmptyBox">{doneModalError}</div>}
+            <div className="fuFormGrid">
+              <label className="fuFormLabel">
+                Duration of Minutes*
+                <input
+                  className="fuField"
+                  type="number"
+                  min="1"
+                  value={doneModal.durationMinutes}
+                  onChange={(e) => setDoneModal((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                />
+              </label>
+              <label className="fuFormLabel">
+                Next Follow-up
+                <select
+                  className="fuField"
+                  value={doneModal.nextFollowup}
+                  onChange={(e) => setDoneModal((prev) => ({ ...prev, nextFollowup: e.target.value }))}
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </label>
+              <label className="fuFormLabel fuFull">
+                {doneModal.kind === "meeting" ? "Minutes Of Meeting (MOM)*" : "Completion Notes*"}
+                <textarea
+                  className="fuField fuTextarea"
+                  rows={5}
+                  value={doneModal.minutesOfMeeting}
+                  onChange={(e) => setDoneModal((prev) => ({ ...prev, minutesOfMeeting: e.target.value }))}
+                />
+              </label>
+              {doneModal.nextFollowup === "yes" && (
+                <>
+                  <label className="fuFormLabel">
+                    Next Follow-up Date*
+                    <input
+                      className="fuField"
+                      type="date"
+                      value={doneModal.nextFollowupDate}
+                      onChange={(e) => setDoneModal((prev) => ({ ...prev, nextFollowupDate: e.target.value }))}
+                    />
+                  </label>
+                  <label className="fuFormLabel">
+                    Reminder (Next Follow-up)
+                    <select
+                      className="fuField"
+                      value={doneModal.nextReminder}
+                      onChange={(e) => setDoneModal((prev) => ({ ...prev, nextReminder: e.target.value }))}
+                    >
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </label>
+                </>
+              )}
+              <label className="fuFormLabel fuFull">
+                Stage
+                <select
+                  className="fuField"
+                  value={doneModal.nextStage}
+                  onChange={(e) => setDoneModal((prev) => ({ ...prev, nextStage: e.target.value }))}
+                >
+                  {doneModalStageOptions
+                    .filter((s) => !s.hidden || s.key === doneModal.nextStage)
+                    .map((s) => (
+                      <option key={s.key} value={s.key}>{s.key}</option>
+                    ))}
+                </select>
+              </label>
+            </div>
+            <div className="fuFormActions">
+              <button className="fuBtn fuBtnPrimary" type="submit" disabled={savingDone}>
+                {savingDone ? "Saving..." : doneModal.kind === "meeting" ? "Save & Complete" : "Save & Mark Done"}
+              </button>
+              <button className="fuBtn fuBtnGhost" type="button" onClick={closeDoneModal} disabled={savingDone}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {cancelModal.open && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label={`Cancel ${cancelModal.kind}`}>
+          <form className="fuModalCard" onSubmit={submitCancel}>
+            <div className="fuModalHead">
+              <div className="fuFormTitle">Cancel {cancelModal.kind === "meeting" ? "Meeting" : "Follow-up"}</div>
+            </div>
+            {cancelModalError && <div className="fuEmptyBox">{cancelModalError}</div>}
+            <div className="fuFormGrid">
+              <label className="fuFormLabel fuFull">
+                Reason for Cancellation*
+                <textarea
+                  className="fuField fuTextarea"
+                  rows={4}
+                  value={cancelModal.reason}
+                  onChange={(e) => setCancelModal((prev) => ({ ...prev, reason: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="fuFormActions">
+              <button className="fuBtn fuBtnPrimary" type="submit" disabled={savingCancel}>
+                {savingCancel ? "Saving..." : "Save Cancellation"}
+              </button>
+              <button className="fuBtn fuBtnGhost" type="button" onClick={closeCancelModal} disabled={savingCancel}>
+                Back
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

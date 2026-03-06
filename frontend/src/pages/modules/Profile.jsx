@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import API from "../../api";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import "./styles/profile.css";
 
 function formatDateForInput(value) {
@@ -276,8 +278,11 @@ export default function Profile() {
 
           <div className="profile-grid">
             <div className="profile-field">
-              <label>Full Name</label>
+              <label htmlFor="user-name">Full Name</label>
               <input
+                id="user-name"
+                name="name"
+                autoComplete="name"
                 value={user.name || ""}
                 disabled={!editing}
                 onChange={(e) => setUser({ ...user, name: e.target.value })}
@@ -285,9 +290,12 @@ export default function Profile() {
             </div>
 
             <div className="profile-field">
-              <label>Email</label>
+              <label htmlFor="user-email">Email</label>
               <input
+                id="user-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={user.email || ""}
                 disabled={!editing}
                 onChange={(e) => setUser({ ...user, email: e.target.value })}
@@ -295,17 +303,25 @@ export default function Profile() {
             </div>
 
             <div className="profile-field">
-              <label>Phone</label>
-              <input
+              <label htmlFor="user-phone">Phone</label>
+              <PhoneInput
+                id="user-phone"
+                name="phone"
+                autoComplete="tel"
+                international
+                defaultCountry="IN"
                 value={user.phone || ""}
                 disabled={!editing}
-                onChange={(e) => setUser({ ...user, phone: e.target.value })}
+                onChange={(val) => setUser({ ...user, phone: val })}
+                numberInputProps={{ id: 'user-phone' }}
               />
             </div>
 
             <div className="profile-field">
-              <label>Gender</label>
+              <label htmlFor="user-gender">Gender</label>
               <select
+                id="user-gender"
+                name="gender"
                 value={user.gender || ""}
                 disabled={!editing}
                 onChange={(e) => setUser({ ...user, gender: e.target.value })}
@@ -318,9 +334,12 @@ export default function Profile() {
             </div>
 
             <div className="profile-field">
-              <label>Date of Birth</label>
+              <label htmlFor="user-dob">Date of Birth</label>
               <input
+                id="user-dob"
+                name="dateOfBirth"
                 type="date"
+                autoComplete="bday"
                 value={formatDateForInput(user.dateOfBirth)}
                 disabled={!editing}
                 onChange={(e) => setUser({ ...user, dateOfBirth: e.target.value })}
@@ -336,8 +355,11 @@ export default function Profile() {
             </div>
 
             <div className="profile-field profile-field-full">
-              <label>Address</label>
+              <label htmlFor="user-address">Address</label>
               <textarea
+                id="user-address"
+                name="address"
+                autoComplete="street-address"
                 value={user.address || ""}
                 disabled={!editing}
                 onChange={(e) => setUser({ ...user, address: e.target.value })}

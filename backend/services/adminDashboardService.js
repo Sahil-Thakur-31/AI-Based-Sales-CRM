@@ -7,7 +7,7 @@ const Deal = require("../models/deals");
 const Lead = require("../models/leads");
 const Followup = require("../models/followUp");
 const User = require("../models/users");
-const SalesTargets = require("../models/sales_targets");
+const Team = require("../models/teams");
 
 // Optional model - if file exists in your models folder
 let AiGeneratedLeads = null;
@@ -57,14 +57,14 @@ async function getSummary(range) {
 
   // Won revenue in current range
   const wonAgg = await Deal.aggregate([
-    { $match: { status: "won", isDeleted: { $ne: true }, actualCloseDate: { $gte: start, $lte: end } } },
+    { $match: { status: "won", is_deleted: { $ne: true }, actualCloseDate: { $gte: start, $lte: end } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenueWon = wonAgg[0]?.total || 0;
 
   // Won revenue in previous range
   const prevWonAgg = await Deal.aggregate([
-    { $match: { status: "won", isDeleted: { $ne: true }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
+    { $match: { status: "won", is_deleted: { $ne: true }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenuePrev = prevWonAgg[0]?.total || 0;
@@ -72,13 +72,13 @@ async function getSummary(range) {
   // Active deals (open) created in this range
   const activeDeals = await Deal.countDocuments({
     status: "open",
-    isDeleted: { $ne: true },
+    is_deleted: { $ne: true },
     createdAt: { $gte: start, $lte: end },
   });
 
   const activeDealsPrev = await Deal.countDocuments({
     status: "open",
-    isDeleted: { $ne: true },
+    is_deleted: { $ne: true },
     createdAt: { $gte: prevStart, $lte: prevEnd },
   });
 
@@ -86,7 +86,7 @@ async function getSummary(range) {
   const closedAgg = await Deal.aggregate([
     {
       $match: {
-        isDeleted: { $ne: true },
+        is_deleted: { $ne: true },
         status: { $in: ["won", "lost"] },
         actualCloseDate: { $gte: start, $lte: end },
       },
@@ -101,7 +101,7 @@ async function getSummary(range) {
   const prevClosedAgg = await Deal.aggregate([
     {
       $match: {
-        isDeleted: { $ne: true },
+        is_deleted: { $ne: true },
         status: { $in: ["won", "lost"] },
         actualCloseDate: { $gte: prevStart, $lte: prevEnd },
       },
@@ -115,7 +115,7 @@ async function getSummary(range) {
 
   // Pipeline value (sum open deal values)
   const pipeAgg = await Deal.aggregate([
-    { $match: { status: "open", isDeleted: { $ne: true } } },
+    { $match: { status: "open", is_deleted: { $ne: true } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const pipelineValue = pipeAgg[0]?.total || 0;
@@ -127,7 +127,7 @@ async function getSummary(range) {
   // Open leads created in this range
   const openLeads = await Lead.countDocuments({
     is_active: true,
-    is_deleted: { $ne: "Yes" },
+    is_deleted: { $ne: true },
     status: { $in: ["new", "contacted", "qualified"] },
     created_at: { $gte: start, $lte: end },
   });
@@ -169,7 +169,7 @@ async function getPipeline(/* range */) {
   const stages = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 
   const agg = await Deal.aggregate([
-    { $match: { status: "open", isDeleted: { $ne: true } } },
+    { $match: { status: "open", is_deleted: { $ne: true } } },
     { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
   ]);
 
@@ -191,51 +191,56 @@ async function getTeamPerformance(range) {
   const { start, end } = getRangeDates(range);
 
   // Won revenue per salesperson in range
-  const agg = await Deal.aggregate([
+  const userAgg = await Deal.aggregate([
     {
       $match: {
         status: "won",
-        isDeleted: { $ne: true },
+        is_deleted: { $ne: true },
         actualCloseDate: { $gte: start, $lte: end },
         assignedTo: { $ne: null },
       },
     },
     { $group: { _id: "$assignedTo", value: { $sum: "$dealValue" } } },
-    { $sort: { value: -1 } },
-    { $limit: 6 },
   ]);
+  const valueByUserId = new Map(
+    userAgg.map((x) => [String(x._id), Number(x.value || 0)])
+  );
 
-  const userIds = agg.map((x) => x._id);
-  const users = await User.find({ _id: { $in: userIds } }, { name: 1 }).lean();
-  const nameMap = new Map(users.map((u) => [String(u._id), u.name]));
+  const teams = await Team.find({})
+    .select("_id name teamLeads.userId members.userId")
+    .lean();
 
-  // Optional: compute percent vs target if available
-  const periodType = range === "quarter" ? "quarterly" : "monthly";
-  const targets = await SalesTargets.find(
-    { period_type: periodType, user_id: { $in: userIds } },
-    { user_id: 1, revenue_target: 1 }
-  ).lean();
+  const teamRows = teams.map((team) => {
+    const memberIds = [
+      ...(team?.members || []).map((m) => String(m.userId || "")),
+      ...(team?.teamLeads || []).map((lead) => String(lead.userId || "")),
+    ].filter(Boolean);
 
-  const targetMap = new Map(targets.map((t) => [String(t.user_id), Number(t.revenue_target || 0)]));
-
-  const maxValue = Math.max(...agg.map((x) => x.value), 0);
-
-  return agg.map((x, idx) => {
-    const id = String(x._id);
-    const target = targetMap.get(id) || 0;
-
-    const pct =
-      target > 0
-        ? Math.round((x.value / target) * 100)
-        : maxValue
-        ? Math.round((x.value / maxValue) * 100)
-        : 0;
-
-    const color = idx === 0 ? "success" : idx === 1 ? "primary" : "info";
+    const uniqueMemberIds = [...new Set(memberIds)];
+    const achievedValue = uniqueMemberIds.reduce(
+      (sum, userId) => sum + Number(valueByUserId.get(userId) || 0),
+      0
+    );
 
     return {
-      id,
-      name: nameMap.get(id) || "Unknown",
+      id: String(team._id),
+      name: String(team.name || "").trim() || "Unnamed Team",
+      value: achievedValue,
+    };
+  });
+
+  const nonZeroTeams = teamRows.filter((t) => t.value > 0);
+  const rankedTeams = (nonZeroTeams.length ? nonZeroTeams : teamRows)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+
+  const maxValue = Math.max(...rankedTeams.map((x) => x.value), 0);
+  return rankedTeams.map((x, idx) => {
+    const pct = maxValue ? Math.round((x.value / maxValue) * 100) : 0;
+    const color = idx === 0 ? "success" : idx === 1 ? "primary" : "info";
+    return {
+      id: x.id,
+      name: x.name,
       value: x.value,
       pct: Math.max(0, Math.min(100, pct)),
       color,
@@ -248,17 +253,32 @@ async function getTeamPerformance(range) {
  * Shape must match frontend:
  * [{ id, title, owner, score, date, priority, icon }, ...]
  */
-async function getFollowups(range) {
+async function getFollowups(range, viewerUserId = null) {
   const { end } = getRangeDates(range);
   const now = new Date();
 
+  const match = {
+    is_deleted: { $ne: true },
+    kind: { $in: ["followup", "meeting"] },
+    status: { $in: ["pending", "overdue"] },
+    dueDateTime: { $gte: now, $lte: end },
+  };
+  if (viewerUserId) {
+    match.assignedTo = viewerUserId;
+  }
+
   const list = await Followup.find(
+    match,
     {
-      isDeleted: false,
-      status: { $in: ["pending", "overdue"] },
-      dueDateTime: { $gte: now, $lte: end },
-    },
-    { title: 1, assignedTo: 1, aiScore: 1, priority: 1, dueDateTime: 1, actionType: 1 }
+      title: 1,
+      clientName: 1,
+      kind: 1,
+      actionType: 1,
+      assignedTo: 1,
+      aiScore: 1,
+      priority: 1,
+      dueDateTime: 1,
+    }
   )
     .sort({ dueDateTime: 1, aiScore: -1 })
     .limit(20)
@@ -268,15 +288,28 @@ async function getFollowups(range) {
   const users = await User.find({ _id: { $in: userIds } }, { name: 1 }).lean();
   const nameMap = new Map(users.map((u) => [String(u._id), u.name]));
 
-  return list.map((f) => ({
+  const priorityRank = { urgent: 4, high: 3, medium: 2, low: 1 };
+
+  const mapped = list.map((f) => ({
     id: String(f._id),
     title: f.title,
+    companyName: f.clientName || "",
+    itemType: f.kind === "meeting" ? "Meeting" : "Follow-up",
+    actionType: f.actionType || "",
     owner: nameMap.get(String(f.assignedTo)) || "Unknown",
     score: Number(f.aiScore || 0),
     date: f.dueDateTime ? new Date(f.dueDateTime).toLocaleDateString("en-IN") : "",
+    dueDateTime: f.dueDateTime ? new Date(f.dueDateTime).toISOString() : "",
     priority: f.priority || "medium",
     icon: iconFromActionType(f.actionType),
   }));
+
+  return mapped.sort((a, b) => {
+    const pa = priorityRank[String(a.priority || "").toLowerCase()] || 0;
+    const pb = priorityRank[String(b.priority || "").toLowerCase()] || 0;
+    if (pb !== pa) return pb - pa;
+    return new Date(a.dueDateTime || 0) - new Date(b.dueDateTime || 0);
+  }).map(({ dueDateTime, ...row }) => row);
 }
 
 /**
@@ -289,7 +322,7 @@ async function getRecentDeals(range) {
 
   const deals = await Deal.find(
     {
-      isDeleted: { $ne: true },
+      is_deleted: { $ne: true },
       createdAt: { $gte: start, $lte: end },
     },
     { stage: 1, dealValue: 1, aiRiskScore: 1, expectedCloseDate: 1, actualCloseDate: 1, createdAt: 1, client_id: 1 }

@@ -22,6 +22,9 @@ import QuotationDetails from './pages/modules/QuotationDetails.jsx';
 // meetings module removed
 import FollowUps from './pages/modules/FollowUps.jsx';
 import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
+import DailyClosing from './pages/modules/DailyClosing.jsx';
+import DailyClosingForm from './pages/modules/DailyClosingForm.jsx';
+import DailyClosingReport from './pages/modules/DailyClosingReport.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
 import AILeadGeneration from './pages/modules/AILeadGeneration.jsx';
@@ -30,9 +33,11 @@ import EventRegistration from './pages/modules/EventRegistration.jsx';
 import AddEvent from './pages/modules/AddEvent.jsx';
 import TeamDashboard from './pages/modules/TeamDashboard.jsx';
 import TeamSetup from './pages/modules/TeamSetup.jsx';
+import TeamTargets from './pages/modules/TeamTargets.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
+import CalendarPage from './pages/modules/CalendarPage.jsx';
 
 import Products from './pages/modules/adminsetting/Products.jsx';
 import Roles from './pages/modules/adminsetting/Roles.jsx';
@@ -40,6 +45,7 @@ import Industry from './pages/modules/adminsetting/Industry.jsx';
 import Sources from './pages/modules/adminsetting/Sources.jsx';
 import Taxes from './pages/modules/adminsetting/Taxes.jsx';
 import Organization from './pages/modules/adminsetting/Organization.jsx';
+import QuotationClauses from './pages/modules/adminsetting/QuotationClauses.jsx';
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -93,6 +99,9 @@ function App() {
 
           <Route path="/followups" element={<FollowUps />} />
           <Route path="/followups/add" element={<FollowupsAddPage />} />
+          <Route path="/daily-closing" element={<DailyClosing />} />
+          <Route path="/daily-closing/form" element={<DailyClosingForm />} />
+          <Route path="/daily-closing/report" element={<DailyClosingReport />} />
 
           <Route path="/sales-forecast" element={<SalesForecast />} />
           <Route path="/expenses" element={<Expenses />} />
@@ -104,10 +113,12 @@ function App() {
 
           <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamDashboard /></ProtectedRoute>} />
           <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
+          <Route path="/team-targets" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamTargets /></ProtectedRoute>} />
           <Route path="/reports" element={<Reports />} />
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/calendar" element={<CalendarPage />} />
 
           {/* Admin-only routes */}
           <Route
@@ -169,6 +180,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["Admin"]}>
                 <Organization />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/quotation-clauses"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <QuotationClauses />
               </ProtectedRoute>
             }
           />
