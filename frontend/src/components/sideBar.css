@@ -131,6 +131,20 @@
   text-decoration: none;
 }
 
+.sidebar-item.with-quick-add {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  gap: 8px;
+}
+
+.sidebar-item-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
 .sidebar-item:hover {
   background: rgba(255, 255, 255, 0.12);
   transform: translateX(4px);
@@ -140,6 +154,45 @@
   background: rgba(255, 255, 255, 0.22);
   color: #ffffff;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-item-quick-add {
+  width: 100%;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.sidebar-item-quick-add:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.sidebar-item-quick-add.active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.sidebar-item-quick-add i {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.sidebar-item-quick-add-label {
+  white-space: nowrap;
 }
 
 .sidebar-subitem {

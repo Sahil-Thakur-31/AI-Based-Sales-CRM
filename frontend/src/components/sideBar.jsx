@@ -7,7 +7,6 @@ import API from "../api";
 export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [hoveredPath, setHoveredPath] = useState("");
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState("");
 
   useEffect(() => {
@@ -138,34 +137,38 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
 
           const isFollowups = item.path === "/followups";
           const isFollowupsAddActive = location.pathname === "/followups/add";
-          const showFollowupsAdd =
-            !isCollapsed && isFollowups && (hoveredPath === item.path || isActive || isFollowupsAddActive);
 
           return (
-            <div
-              key={index}
-              className="sidebar-item-wrap"
-              onMouseEnter={() => setHoveredPath(item.path)}
-              onMouseLeave={() => setHoveredPath("")}
-            >
+            <div key={index} className="sidebar-item-wrap">
               <div
-                className={`sidebar-item ${(isActive || (isFollowups && isFollowupsAddActive)) ? "active" : ""}`}
+                className={`sidebar-item ${
+                  (isActive || (isFollowups && isFollowupsAddActive)) ? "active" : ""
+                } ${isFollowups && !isCollapsed ? "with-quick-add" : ""}`}
                 onClick={() => navigate(item.path)}
                 title={isCollapsed ? item.name : ""}
                 aria-label={item.name}
               >
-                <span className="sidebar-icon"><i className={item.iconClass} /></span>
-                <span className="sidebar-text">{item.name}</span>
-              </div>
+                <span className="sidebar-item-left">
+                  <span className="sidebar-icon"><i className={item.iconClass} /></span>
+                  <span className="sidebar-text">{item.name}</span>
+                </span>
 
-              {showFollowupsAdd && (
-                <div
-                  className={`sidebar-subitem ${isFollowupsAddActive ? "active" : ""}`}
-                  onClick={() => navigate("/followups/add")}
-                >
-                  + Add
-                </div>
-              )}
+                {isFollowups && !isCollapsed ? (
+                  <button
+                    type="button"
+                    className={`sidebar-item-quick-add ${isFollowupsAddActive ? "active" : ""}`}
+                    title="Add Follow-up/Meeting"
+                    aria-label="Add Follow-up/Meeting"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      navigate("/followups/add");
+                    }}
+                  >
+                    <i className="bi bi-plus-lg" />
+                    <span className="sidebar-item-quick-add-label">Add</span>
+                  </button>
+                ) : null}
+              </div>
             </div>
           );
         })}
