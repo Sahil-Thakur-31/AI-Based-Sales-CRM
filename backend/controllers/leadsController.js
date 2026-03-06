@@ -995,32 +995,48 @@ exports.convertLeadToDeal = async (req, res) => {
       );
     }
 
-    const primaryLeadContact = await LeadContacts.findOne({ lead_id: lead._id })
+    const leadContacts = await LeadContacts.find({ lead_id: lead._id })
       .sort({ is_primary: -1, created_at: 1 })
       .lean();
 
-    let clientContact = null;
-    if (primaryLeadContact?.name) {
-      clientContact = await ClientContact.findOne({
+    if (leadContacts.length) {
+      const existingClientContacts = await ClientContact.find({
         client_id: String(client._id),
-        name: primaryLeadContact.name,
         is_active: true,
-      });
+      })
+        .select("name phone email")
+        .lean();
 
-      if (!clientContact) {
-        clientContact = await ClientContact.create({
+      const contactKey = (c = {}) =>
+        [
+          String(c.name || "").trim().toLowerCase(),
+          String(c.email || "").trim().toLowerCase(),
+          String(c.phone || "").trim(),
+        ].join("|");
+
+      const existingKeys = new Set(existingClientContacts.map(contactKey));
+      const newContacts = leadContacts
+        .filter((contact) => String(contact?.name || "").trim())
+        .filter((contact) => !existingKeys.has(contactKey(contact)))
+        .map((contact, index) => ({
           client_id: String(client._id),
-          name: primaryLeadContact.name,
-          designation: primaryLeadContact.designation || "",
-          phone: primaryLeadContact.phone || "",
-          email: primaryLeadContact.email || "",
-          linkedin: primaryLeadContact.linkedin || "",
+          name: String(contact.name || "").trim(),
+          designation: contact.designation || "",
+          phone: contact.phone || "",
+          email: contact.email || "",
+          linkedin: contact.linkedin || "",
           createdBy: actorId,
           createdAt: new Date(),
           updatedAt: new Date(),
           is_deleted: null,
           is_active: true,
-        });
+          is_primary:
+            contact.is_primary === true ||
+            (index === 0 && existingClientContacts.length === 0),
+        }));
+
+      if (newContacts.length) {
+        await ClientContact.insertMany(newContacts);
       }
     }
 
