@@ -44,6 +44,13 @@ const crmSettingsSchema = new mongoose.Schema({
     default: false
   },
 
+  reminderOptions: [
+    {
+      value: { type: Number, min: 1, default: 10 },
+      unit: { type: String, enum: ["minutes", "hours", "days"], default: "minutes" }
+    }
+  ],
+
   reminderTiming: {
     type: String,
     enum: ["15min", "30min", "1hr", "custom"],

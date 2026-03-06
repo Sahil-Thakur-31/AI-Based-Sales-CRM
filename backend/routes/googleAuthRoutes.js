@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const User = require("../models/users");
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -26,6 +27,166 @@ function verifyToken(req, res, next) {
     } catch {
         return res.status(401).json({ message: "Invalid token" });
     }
+}
+
+async function refreshGoogleAccessToken(userId, refreshToken) {
+    if (!refreshToken) return null;
+    try {
+        const response = await axios.post("https://oauth2.googleapis.com/token", {
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token",
+        });
+        const newAccessToken = response.data?.access_token || null;
+        if (!newAccessToken) return null;
+        await User.updateOne(
+            { _id: userId },
+            { $set: { "googleCalendar.accessToken": newAccessToken } }
+        );
+        return newAccessToken;
+    } catch (err) {
+        console.error("[GoogleAuth] refresh token failed:", err?.response?.data || err?.message);
+        return null;
+    }
+}
+
+function toIsoDateOnly(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 10);
+}
+
+function nextIsoDateOnly(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    const n = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+    return n.toISOString().slice(0, 10);
+}
+
+function normalizeSyncItem(raw = {}) {
+    const itemId = String(raw.id || "").trim();
+    const type = String(raw.type || "").trim().toLowerCase();
+    const title = String(raw.title || "").trim();
+    const start = raw.start ? new Date(raw.start) : null;
+    const end = raw.end ? new Date(raw.end) : null;
+    const allDay = !!raw.allDay;
+
+    if (!itemId || !type || !title || !start || Number.isNaN(start.getTime())) return null;
+
+    const item = {
+        itemId,
+        type,
+        title,
+        allDay,
+        start,
+        end: end && !Number.isNaN(end.getTime()) ? end : null,
+        notes: String(raw.notes || "").trim(),
+        location: String(raw.location || "").trim(),
+    };
+    return item;
+}
+
+function buildGoogleEventBody(userId, item) {
+    const crmItemKey = `${item.type}:${item.itemId}`;
+    const descriptionParts = [
+        `CRM Type: ${item.type}`,
+        item.notes ? `Notes: ${item.notes}` : "",
+    ].filter(Boolean);
+
+    const body = {
+        summary: item.title,
+        description: descriptionParts.join("\n"),
+        location: item.location || undefined,
+        extendedProperties: {
+            private: {
+                crmItemKey,
+                crmType: item.type,
+                crmUserId: String(userId),
+            },
+        },
+    };
+
+    if (item.allDay) {
+        const startDate = toIsoDateOnly(item.start);
+        const endDateExclusive = nextIsoDateOnly(item.end || item.start);
+        if (!startDate || !endDateExclusive) return null;
+        body.start = { date: startDate };
+        body.end = { date: endDateExclusive };
+    } else {
+        body.start = { dateTime: item.start.toISOString() };
+        body.end = { dateTime: (item.end || new Date(item.start.getTime() + 45 * 60 * 1000)).toISOString() };
+    }
+
+    return body;
+}
+
+async function upsertGoogleCalendarItem({ accessToken, userId, item }) {
+    const crmItemKey = `${item.type}:${item.itemId}`;
+    const deterministicId = `crm${crypto
+        .createHash("md5")
+        .update(`${String(userId)}|${crmItemKey}`)
+        .digest("hex")}`;
+    const headers = {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+    };
+
+    const body = buildGoogleEventBody(userId, item);
+    if (!body) return { ok: false, reason: "invalid_event_body" };
+
+    // 1) Try deterministic update first (stable id avoids duplicates).
+    try {
+        await axios.put(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events/${deterministicId}`,
+            body,
+            { headers }
+        );
+    } catch (err) {
+        if (err?.response?.status !== 404) throw err;
+        // 2) Not found -> create using deterministic id.
+        const insertBody = { ...body, id: deterministicId };
+        try {
+            await axios.post(
+                "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+                insertBody,
+                { headers }
+            );
+        } catch (insertErr) {
+            if (insertErr?.response?.status === 409) {
+                // Rare race: event already created by another request; update it.
+                await axios.put(
+                    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${deterministicId}`,
+                    body,
+                    { headers }
+                );
+            } else {
+                throw insertErr;
+            }
+        }
+    }
+
+    // 3) Cleanup legacy duplicates (same CRM key) created before deterministic ids.
+    const dupScan = await axios.get("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+        headers,
+        params: {
+            maxResults: 50,
+            singleEvents: false,
+            showDeleted: false,
+            privateExtendedProperty: [`crmItemKey=${crmItemKey}`, `crmUserId=${String(userId)}`],
+        },
+    });
+    const dupItems = Array.isArray(dupScan.data?.items) ? dupScan.data.items : [];
+    const extras = dupItems.filter((e) => String(e?.id || "") !== deterministicId);
+    await Promise.all(
+        extras.map((ev) =>
+            axios
+                .delete(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.id}`, { headers })
+                .catch(() => null)
+        )
+    );
+
+    return { ok: true, mode: "upserted" };
 }
 
 router.get("/", verifyToken, (req, res) => {
@@ -125,6 +286,74 @@ router.delete("/disconnect", verifyToken, async (req, res) => {
     } catch (err) {
         console.error("[GoogleAuth] Disconnect error:", err);
         res.status(500).json({ message: "Failed to disconnect" });
+    }
+});
+
+// POST /auth/google/sync-visible
+// Sync currently visible CRM calendar items to connected Google Calendar.
+router.post("/sync-visible", verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).select("googleCalendar").lean();
+        const accessToken = user?.googleCalendar?.accessToken;
+        if (!accessToken) {
+            return res.status(400).json({ message: "Google Calendar not connected" });
+        }
+
+        const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+        const items = rawItems.map(normalizeSyncItem).filter(Boolean).slice(0, 500);
+
+        let tokenToUse = accessToken;
+        const results = [];
+
+        for (const item of items) {
+            try {
+                const out = await upsertGoogleCalendarItem({
+                    accessToken: tokenToUse,
+                    userId: req.user._id,
+                    item,
+                });
+                results.push({ id: item.itemId, type: item.type, ok: !!out?.ok, mode: out?.mode || null });
+            } catch (err) {
+                if (err?.response?.status === 401) {
+                    const refreshToken = user?.googleCalendar?.refreshToken;
+                    const refreshed = await refreshGoogleAccessToken(req.user._id, refreshToken);
+                    if (!refreshed) {
+                        results.push({ id: item.itemId, type: item.type, ok: false, reason: "auth_expired" });
+                        continue;
+                    }
+                    tokenToUse = refreshed;
+                    try {
+                        const retryOut = await upsertGoogleCalendarItem({
+                            accessToken: tokenToUse,
+                            userId: req.user._id,
+                            item,
+                        });
+                        results.push({ id: item.itemId, type: item.type, ok: !!retryOut?.ok, mode: retryOut?.mode || null });
+                    } catch (retryErr) {
+                        results.push({
+                            id: item.itemId,
+                            type: item.type,
+                            ok: false,
+                            reason: retryErr?.response?.data?.error?.message || retryErr?.message || "sync_failed",
+                        });
+                    }
+                } else {
+                    results.push({
+                        id: item.itemId,
+                        type: item.type,
+                        ok: false,
+                        reason: err?.response?.data?.error?.message || err?.message || "sync_failed",
+                    });
+                }
+            }
+        }
+
+        const synced = results.filter((r) => r.ok).length;
+        const failed = results.length - synced;
+        return res.status(200).json({ synced, failed, total: results.length, results });
+    } catch (err) {
+        console.error("[GoogleAuth] sync-visible error:", err?.response?.data || err?.message);
+        return res.status(500).json({ message: "Failed to sync visible calendar to Google" });
     }
 });
 

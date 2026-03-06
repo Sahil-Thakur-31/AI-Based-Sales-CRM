@@ -4,6 +4,9 @@ const Industry = require("../models/industries");
 const Location = require("../models/location");
 const Source = require("../models/sources");
 const Notification = require("../models/notifications");
+const Team = require("../models/teams");
+const User = require("../models/users");
+const Role = require("../models/roles");
 
 const sanitizeObjectIdList = (values = []) => {
   if (!Array.isArray(values)) return [];
@@ -14,6 +17,54 @@ const sanitizeObjectIdList = (values = []) => {
   });
   return Array.from(unique);
 };
+
+const roleName = (role) => String(role || "").trim().toLowerCase();
+const isAdminOrManager = (role) => ["admin", "manager"].includes(roleName(role));
+const isRestrictedUser = (role) => !isAdminOrManager(role);
+
+const getAttendanceNotificationRecipients = async (actorUserId) => {
+  const teamDocs = await Team.find({ "members.userId": actorUserId })
+    .select("teamLeads.userId")
+    .lean();
+
+  const teamLeadIds = new Set(
+    teamDocs.flatMap((team) => (team.teamLeads || []).map((lead) => String(lead.userId || "")))
+  );
+
+  const adminManagerRoles = await Role.find({
+    is_deleted: { $ne: true },
+    name: { $in: ["Admin", "Manager", "admin", "manager"] }
+  })
+    .select("_id")
+    .lean();
+
+  const roleIds = adminManagerRoles.map((item) => item._id).filter(Boolean);
+  const adminManagerUsers = roleIds.length
+    ? await User.find({
+      is_deleted: { $ne: true },
+      role: { $in: roleIds }
+    })
+      .select("_id")
+      .lean()
+    : [];
+
+  const recipients = new Set([
+    ...Array.from(teamLeadIds),
+    ...adminManagerUsers.map((user) => String(user._id))
+  ]);
+  recipients.delete(String(actorUserId));
+
+  return Array.from(recipients).filter(Boolean);
+};
+
+const populateEventQuery = (query) =>
+  query
+    .populate({ path: "industry", model: "industries", select: "name" })
+    .populate({ path: "location", model: "location", select: "city State country zone" })
+    .populate({ path: "source", model: "sources", select: "name" })
+    .populate({ path: "attendedBy", model: "User", select: "name email" })
+    .populate({ path: "registrations.user", model: "User", select: "name email" })
+    .populate({ path: "registrations.attendeeUsers", model: "User", select: "name email" });
 
 const formatEvent = (eventDoc, userId) => {
   const event = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
@@ -69,11 +120,64 @@ const buildListFilter = (query, userId) => {
   return filter;
 };
 
+const softDeleteExpiredEvents = async () => {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  await Event.updateMany(
+    {
+      is_deleted: false,
+      endDate: { $lt: startOfToday }
+    },
+    {
+      $set: {
+        is_deleted: true,
+        status: "completed"
+      }
+    }
+  );
+};
+
 exports.getEventMeta = async (req, res) => {
   try {
     const [industries, locations, sources] = await Promise.all([
       Industry.find({ is_deleted: false }).select("_id name").sort({ name: 1 }).lean(),
-      Location.find({}).select("_id city State country zone").sort({ city: 1 }).lean(),
+      Location.aggregate([
+        {
+          $project: {
+            _id: 1,
+            city: { $trim: { input: { $ifNull: ["$city", ""] } } },
+            State: {
+              $trim: {
+                input: {
+                  $ifNull: ["$State", { $ifNull: ["$state", ""] }]
+                }
+              }
+            },
+            country: 1,
+            zone: 1
+          }
+        },
+        {
+          $match: {
+            city: { $ne: "" }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              city: { $toLower: "$city" },
+              State: { $toLower: "$State" }
+            },
+            city: { $first: "$city" },
+            State: { $first: "$State" },
+            country: { $first: "$country" },
+            zone: { $first: "$zone" }
+          }
+        },
+        { $sort: { city: 1 } },
+        { $limit: 1500 }
+      ]).allowDiskUse(true),
       Source.find({ is_deleted: false }).select("_id name").sort({ name: 1 }).lean()
     ]);
 
@@ -86,14 +190,55 @@ exports.getEventMeta = async (req, res) => {
 
 exports.getEvents = async (req, res) => {
   try {
+    await softDeleteExpiredEvents();
+
     const filter = buildListFilter(req.query, req.user?._id);
+    const mineOnly =
+      req.query.mine_only === "true" ||
+      req.query.mine_only === true ||
+      req.query.own_only === "true" ||
+      req.query.own_only === true;
+
+    if (mineOnly) {
+      const ownFilter = {
+        $or: [
+          { "registrations.attendeeUsers": req.user?._id },
+          { registeredBy: req.user?._id },
+          { attendedBy: req.user?._id },
+        ],
+      };
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, ownFilter];
+        delete filter.$or;
+      } else {
+        Object.assign(filter, ownFilter);
+      }
+    } else if (isRestrictedUser(req.user?.role)) {
+      filter["registrations.attendeeUsers"] = req.user?._id;
+      const aiSources = await Source.find({
+        is_deleted: false,
+        name: { $regex: "ai", $options: "i" }
+      })
+        .select("_id")
+        .lean();
+      const aiSourceIds = aiSources.map((item) => item._id);
+      filter.$and = [
+        ...(Array.isArray(filter.$and) ? filter.$and : []),
+        {
+          $or: [
+            { aiRecommendation: { $exists: false } },
+            { aiRecommendation: null },
+            { aiRecommendation: "" }
+          ]
+        },
+        aiSourceIds.length
+          ? { $or: [{ source: { $exists: false } }, { source: null }, { source: { $nin: aiSourceIds } }] }
+          : { $or: [{ source: { $exists: false } }, { source: null }] }
+      ];
+    }
     const sort = { startDate: 1, createdAt: -1 };
 
-    const events = await Event.find(filter)
-      .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" })
-      .populate({ path: "source", model: "sources", select: "name" })
-      .sort(sort);
+    const events = await populateEventQuery(Event.find(filter)).sort(sort);
 
     res.json(events.map((item) => formatEvent(item, req.user?._id)));
   } catch (error) {
@@ -104,9 +249,40 @@ exports.getEvents = async (req, res) => {
 
 exports.getEventSummary = async (req, res) => {
   try {
+    await softDeleteExpiredEvents();
+
     const userId = req.user?._id;
+    let salesOnlyFilter = isRestrictedUser(req.user?.role)
+      ? { is_deleted: false, status: "upcoming", "registrations.attendeeUsers": userId }
+      : { is_deleted: false, status: "upcoming" };
+
+    if (isRestrictedUser(req.user?.role)) {
+      const aiSources = await Source.find({
+        is_deleted: false,
+        name: { $regex: "ai", $options: "i" }
+      })
+        .select("_id")
+        .lean();
+      const aiSourceIds = aiSources.map((item) => item._id);
+      salesOnlyFilter = {
+        ...salesOnlyFilter,
+        $and: [
+          {
+            $or: [
+              { aiRecommendation: { $exists: false } },
+              { aiRecommendation: null },
+              { aiRecommendation: "" }
+            ]
+          },
+          aiSourceIds.length
+            ? { $or: [{ source: { $exists: false } }, { source: null }, { source: { $nin: aiSourceIds } }] }
+            : { $or: [{ source: { $exists: false } }, { source: null }] }
+        ]
+      };
+    }
+
     const [upcomingEvents, registeredEvents, attendingEvents, avgAi, lastUpdated] = await Promise.all([
-      Event.countDocuments({ is_deleted: false, status: "upcoming" }),
+      Event.countDocuments(salesOnlyFilter),
       Event.countDocuments({ is_deleted: false, registeredBy: userId }),
       Event.countDocuments({ is_deleted: false, attendedBy: userId }),
       Event.aggregate([
@@ -131,16 +307,24 @@ exports.getEventSummary = async (req, res) => {
 
 exports.getEventById = async (req, res) => {
   try {
-    const event = await Event.findOne({
+    const event = await populateEventQuery(Event.findOne({
       _id: req.params.id,
       is_deleted: false
-    })
-      .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" })
-      .populate({ path: "source", model: "sources", select: "name" });
+    }));
 
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
+    }
+
+    if (
+      isRestrictedUser(req.user?.role) &&
+      !event.registrations?.some((reg) =>
+        (reg.attendeeUsers || []).some(
+          (attUser) => String(attUser?._id || attUser) === String(req.user?._id)
+        )
+      )
+    ) {
+      return res.status(403).json({ message: "Unauthorized for this event" });
     }
 
     res.json(formatEvent(event, req.user?._id));
@@ -155,6 +339,7 @@ exports.createEvent = async (req, res) => {
     const {
       name,
       industry,
+      industryText,
       venue,
       address,
       location,
@@ -175,14 +360,38 @@ exports.createEvent = async (req, res) => {
       description
     } = req.body;
 
-    if (!name || !industry || !startDate || !endDate) {
+    if (!name || !startDate || !endDate) {
       return res.status(400).json({
-        message: "name, industry, startDate and endDate are required"
+        message: "name, industry and dates are required"
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(industry)) {
-      return res.status(400).json({ message: "Invalid industry" });
+    let industryId = null;
+    const typedIndustry = String(industryText || "").trim();
+
+    if (industry && mongoose.Types.ObjectId.isValid(industry)) {
+      industryId = industry;
+    } else {
+      const fallbackIndustryName = typedIndustry || String(industry || "").trim();
+      if (!fallbackIndustryName) {
+        return res.status(400).json({ message: "Industry is required" });
+      }
+
+      const escaped = fallbackIndustryName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const existingIndustry = await Industry.findOne({
+        name: { $regex: `^${escaped}$`, $options: "i" }
+      })
+        .select("_id")
+        .lean();
+
+      if (existingIndustry?._id) {
+        industryId = existingIndustry._id;
+      } else {
+        const createdIndustry = await Industry.create({
+          name: fallbackIndustryName
+        });
+        industryId = createdIndustry._id;
+      }
     }
 
     let locationId = null;
@@ -204,7 +413,7 @@ exports.createEvent = async (req, res) => {
 
     const event = await Event.create({
       name,
-      industry,
+      industry: industryId,
       venue,
       address,
       location: locationId,
@@ -223,10 +432,7 @@ exports.createEvent = async (req, res) => {
       description
     });
 
-    const populated = await Event.findById(event._id)
-      .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" })
-      .populate({ path: "source", model: "sources", select: "name" });
+    const populated = await populateEventQuery(Event.findById(event._id));
 
     res.status(201).json(formatEvent(populated, req.user?._id));
   } catch (error) {
@@ -273,6 +479,10 @@ exports.updateEvent = async (req, res) => {
 
 exports.registerForEvent = async (req, res) => {
   try {
+    if (!isAdminOrManager(req.user?.role)) {
+      return res.status(403).json({ message: "Only admin/manager can register attendees" });
+    }
+
     const event = await Event.findOne({
       _id: req.params.id,
       is_deleted: false
@@ -288,6 +498,24 @@ exports.registerForEvent = async (req, res) => {
     const payment = registrationData.payment || {};
     const amountPaid = Number(payment.amountPaid || 0);
     const currentUserId = String(req.user._id);
+
+    if (attendeeUsers.length) {
+      const selectedUsers = await User.find({
+        _id: { $in: attendeeUsers },
+        is_deleted: { $ne: true }
+      })
+        .populate("role", "name")
+        .select("_id role")
+        .lean();
+
+      const hasAdminAttendee = selectedUsers.some(
+        (user) => String(user?.role?.name || "").trim().toLowerCase() === "admin"
+      );
+
+      if (hasAdminAttendee) {
+        return res.status(400).json({ message: "Admin users cannot be selected as attendees" });
+      }
+    }
 
     if (!event.registeredBy.some((id) => String(id) === currentUserId)) {
       event.registeredBy.push(req.user._id);
@@ -327,15 +555,6 @@ exports.registerForEvent = async (req, res) => {
       event.registrations.push(registrationPayload);
     }
 
-    if (!event.attendedBy.some((id) => String(id) === currentUserId)) {
-      event.attendedBy.push(req.user._id);
-    }
-    attendeeUsers.forEach((id) => {
-      if (!event.attendedBy.some((existing) => String(existing) === id)) {
-        event.attendedBy.push(id);
-      }
-    });
-
     await event.save();
 
     // Notify only newly added attendee users for this event registration
@@ -354,9 +573,7 @@ exports.registerForEvent = async (req, res) => {
       );
     }
 
-    const populated = await Event.findById(event._id)
-      .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" });
+    const populated = await populateEventQuery(Event.findById(event._id));
 
     res.json(formatEvent(populated, req.user?._id));
   } catch (error) {
@@ -398,20 +615,60 @@ exports.getMyEventRegistration = async (req, res) => {
 exports.toggleAttending = async (req, res) => {
   try {
     const attending = req.body?.attending !== false;
+    const existingEvent = await Event.findOne({
+      _id: req.params.id,
+      is_deleted: false
+    }).select("name attendedBy registrations.attendeeUsers");
+
+    if (!existingEvent) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const actorId = String(req.user._id);
+    const wasAttending = (existingEvent.attendedBy || []).some(
+      (id) => String(id) === actorId
+    );
+
+    if (isRestrictedUser(req.user?.role)) {
+      const allowed = (existingEvent.registrations || []).some((reg) =>
+        (reg.attendeeUsers || []).some((id) => String(id) === actorId)
+      );
+      if (!allowed) {
+        return res.status(403).json({ message: "You are not assigned to this event" });
+      }
+    }
+
     const update = attending
       ? { $addToSet: { attendedBy: req.user._id } }
       : { $pull: { attendedBy: req.user._id } };
 
-    const event = await Event.findOneAndUpdate(
+    const event = await populateEventQuery(Event.findOneAndUpdate(
       { _id: req.params.id, is_deleted: false },
       update,
       { returnDocument: "after" }
-    )
-      .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" });
+    ));
 
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
+    }
+
+    if (attending && !wasAttending) {
+      const actorUser = await User.findById(req.user._id).select("name email").lean();
+      const actorLabel = actorUser?.name || actorUser?.email || "A user";
+      const recipientIds = await getAttendanceNotificationRecipients(req.user._id);
+
+      if (recipientIds.length > 0) {
+        await Notification.insertMany(
+          recipientIds.map((userId) => ({
+            userId,
+            title: "Event Attendance Update",
+            message: `${actorLabel} marked attending for "${existingEvent.name}".`,
+            type: "info",
+            relatedId: existingEvent._id,
+            relatedType: "event"
+          }))
+        );
+      }
     }
 
     res.json(formatEvent(event, req.user?._id));

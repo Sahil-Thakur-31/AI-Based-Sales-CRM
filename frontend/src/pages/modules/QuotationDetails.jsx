@@ -126,6 +126,7 @@ export default function QuotationDetails() {
   const canCreateNewVersion = VERSION_ALLOWED_PREVIOUS_STATUSES.includes(
     String(detail?.quotation?.status || "").toLowerCase()
   );
+  const quoteType = String(detail?.quotation?.quoteType || (detail?.quotation?.leadId ? "lead" : "deal")).toLowerCase();
 
   const renderLetterhead = () => (
     <div className="qdoc-letterhead">
@@ -231,8 +232,12 @@ export default function QuotationDetails() {
             }
             onClick={() => {
               if (!canCreateNewVersion) return;
+              const sourceQuery =
+                quoteType === "lead"
+                  ? `leadId=${detail?.quotation?.leadId || ""}`
+                  : `dealId=${detail?.quotation?.dealId || ""}`;
               navigate(
-                `/quotations/new?dealId=${detail?.quotation?.dealId || ""}&fromQuoteId=${detail?.quotation?._id || ""}`
+                `/quotations/new?${sourceQuery}&fromQuoteId=${detail?.quotation?._id || ""}`
               );
             }}
           >
@@ -305,8 +310,12 @@ export default function QuotationDetails() {
                     <div className="qdoc-ref-panel">
                       <h3>Reference</h3>
                       <div className="qdoc-title-meta">
-                        <span>Deal Stage</span>
-                        <strong>{asReadable(detail.deal?.stage)}</strong>
+                        <span>Reference Type</span>
+                        <strong>{quoteType === "lead" ? "Lead" : "Deal"}</strong>
+                      </div>
+                      <div className="qdoc-title-meta">
+                        <span>{quoteType === "lead" ? "Lead Status" : "Deal Stage"}</span>
+                        <strong>{asReadable(quoteType === "lead" ? detail.lead?.status : detail.deal?.stage)}</strong>
                       </div>
                       <div className="qdoc-title-meta">
                         <span>Currency</span>
@@ -319,6 +328,10 @@ export default function QuotationDetails() {
                       <div className="qdoc-title-meta">
                         <span>Version</span>
                         <strong>v{asReadable(detail.quotation.version)}</strong>
+                      </div>
+                      <div className="qdoc-title-meta">
+                        <span>Created By</span>
+                        <strong>{asReadable(detail.quotation?.createdBy?.name)}</strong>
                       </div>
                     </div>
                   </section>

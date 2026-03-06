@@ -250,7 +250,7 @@ export default function TeamSetup() {
             </p>
           </div>
           <button className="team-setup-btn secondary" onClick={() => navigate("/team-dashboard")}>
-            Go To Dashboard
+            Back To Team Dashboard
           </button>
         </div>
 

@@ -48,20 +48,20 @@
 /* section-level green add button */
 .add-event-btn-section {
   border: none;
-  border-radius: 10px;
-  padding: 10px 16px;
+  border-radius: 8px;
+  padding: 7px 12px;
   background: linear-gradient(135deg, #1e9d52, #168446);
   color: #ffffff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 10px 22px rgba(22, 132, 70, 0.24);
+  box-shadow: 0 8px 16px rgba(22, 132, 70, 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .add-event-btn-section:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(22, 132, 70, 0.3);
+  box-shadow: 0 10px 20px rgba(22, 132, 70, 0.26);
 }
 
 /* =========================================
@@ -73,6 +73,10 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
   margin-bottom: 24px;
+}
+
+.event-summary-cards-user {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .event-card {
@@ -219,12 +223,12 @@
 }
 
 .event-dropdowns input {
-  padding: 7px 12px;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid #dbe4f2;
   background: #f8fbff;
-  font-size: 13px;
-  min-width: 250px;
+  font-size: 12px;
+  min-width: 180px;
   transition: 0.2s;
 }
 
@@ -241,12 +245,13 @@
 .event-item {
   display: flex;
   justify-content: space-between;
-  gap: 22px;
-  padding: 20px;
+  gap: 16px;
+  padding: 16px;
   border: 1px solid #e6edf7;
   border-radius: 14px;
   background: #fbfdff;
   transition: all 0.25s ease;
+  margin-bottom: 14px;
 }
 
 .event-item:hover {
@@ -264,8 +269,8 @@
 .event-title-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .event-left h4 {
@@ -287,7 +292,7 @@
 /* Meta Info */
 
 .event-meta {
-  margin: 4px 0;
+  margin: 2px 0;
   font-size: 13px;
   color: #475569;
 }
@@ -295,16 +300,16 @@
 /* Description */
 
 .event-left p {
-  margin: 6px 0;
+  margin: 4px 0;
   font-size: 14px;
   color: #475569;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 /* Tags */
 
 .event-tags {
-  margin: 12px 0;
+  margin: 8px 0;
 }
 
 .event-tags span {
@@ -328,13 +333,20 @@
 /* AI Recommendation Box */
 
 .ai-recommendation {
-  margin-top: 14px;
+  margin-top: 10px;
   background: #eafaf1;
   border: 1px solid #c8f2da;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-radius: 12px;
   font-size: 13px;
   color: #1f7a4c;
+}
+
+.event-attendance-meta {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #2d3f56;
+  line-height: 1.4;
 }
 
 /* Buttons */
@@ -343,7 +355,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .event-actions button {
@@ -376,11 +388,40 @@
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
+.event-actions .registered-btn {
+  background: #e7f0ff;
+  border: 1px solid #bfd6ff;
+  color: #1e40af;
+  box-shadow: 0 6px 14px rgba(30, 64, 175, 0.16);
+  font-weight: 700;
+}
+
+.event-actions .registered-btn:hover {
+  background: #dbe9ff;
+  border-color: #9fc2ff;
+  color: #1e3a8a;
+  box-shadow: 0 8px 18px rgba(30, 64, 175, 0.2);
+}
+
+.event-actions .attend-btn {
+  background: #2ecc71;
+  color: #ffffff;
+}
+
+.event-actions .attend-btn:hover {
+  background: #27b366;
+  box-shadow: 0 4px 12px rgba(39, 179, 102, 0.35);
+}
+
 .event-actions .secondary-active {
-  background: #e7f8ee;
-  color: #1f7a4c;
-  border-color: #bce7cc;
+  background: #e8f7ef;
+  color: #166534;
+  border: 1px solid #b8e6ca;
   font-weight: 600;
+}
+
+.event-actions .attend-btn.secondary-active:hover {
+  background: #dcf1e5;
 }
 
 .event-empty-state {

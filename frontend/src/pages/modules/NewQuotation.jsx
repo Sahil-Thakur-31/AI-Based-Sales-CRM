@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API from "../../api";
+import LeadFormPage from "./LeadFormPage";
 import "./styles/Quotations.css";
 
 function parseNumber(value, fallback = 0) {
@@ -44,22 +45,40 @@ function getDealDisplayName(deal) {
   );
 }
 
+function getLeadDisplayName(lead) {
+  if (!lead) return "";
+  return (
+    lead.company_name ||
+    lead.primary_contact?.name ||
+    lead.status ||
+    `Lead ${String(lead._id || "").slice(-6)}`
+  );
+}
+
 export default function NewQuotation() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [quoteType, setQuoteType] = useState("deal");
   const [deals, setDeals] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [products, setProducts] = useState([]);
   const [taxes, setTaxes] = useState([]);
   const [quotedDealIds, setQuotedDealIds] = useState([]);
+  const [quotedLeadIds, setQuotedLeadIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [dealSearch, setDealSearch] = useState("");
   const [showDealSuggestions, setShowDealSuggestions] = useState(false);
+  const [leadSearch, setLeadSearch] = useState("");
+  const [showLeadSuggestions, setShowLeadSuggestions] = useState(false);
+  const [hasExistingSource, setHasExistingSource] = useState("yes");
+  const [showSourceCreateModal, setShowSourceCreateModal] = useState(false);
 
   const [form, setForm] = useState({
     dealId: "",
+    leadId: "",
     quoteDate: todayAsInputDate(),
     validUntil: "",
     discountAmount: 0,
@@ -77,6 +96,17 @@ export default function NewQuotation() {
     return params.get("dealId") || "";
   }, [location.search]);
 
+  const initialLeadId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("leadId") || "";
+  }, [location.search]);
+
+  const initialQuoteType = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = String(params.get("type") || "").toLowerCase();
+    return raw === "lead" ? "lead" : "deal";
+  }, [location.search]);
+
   const initialFromQuoteId = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("fromQuoteId") || "";
@@ -87,6 +117,11 @@ export default function NewQuotation() {
   const quotedDealIdSet = useMemo(
     () => new Set((quotedDealIds || []).map((dealId) => String(dealId))),
     [quotedDealIds]
+  );
+
+  const quotedLeadIdSet = useMemo(
+    () => new Set((quotedLeadIds || []).map((leadId) => String(leadId))),
+    [quotedLeadIds]
   );
 
   const eligibleDeals = useMemo(() => {
@@ -122,9 +157,42 @@ export default function NewQuotation() {
       .slice(0, 10);
   }, [eligibleDeals, dealSearch]);
 
+  const eligibleLeads = useMemo(() => {
+    return leads.filter((lead) => {
+      const leadId = String(lead._id || "");
+      const isActive = lead.is_active !== false && lead.is_deleted !== true && lead.deleted !== true;
+      if (!isActive) return false;
+
+      if (isVersionMode && String(form.leadId) === leadId) {
+        return true;
+      }
+
+      return !quotedLeadIdSet.has(leadId);
+    });
+  }, [leads, quotedLeadIdSet, isVersionMode, form.leadId]);
+
+  const filteredLeadSuggestions = useMemo(() => {
+    const searchTerm = String(leadSearch || "").trim().toLowerCase();
+    const source = eligibleLeads || [];
+    if (!searchTerm) return source.slice(0, 10);
+
+    return source
+      .filter((lead) => {
+        const leadName = String(getLeadDisplayName(lead) || "").toLowerCase();
+        const status = String(lead.status || "").toLowerCase();
+        return leadName.includes(searchTerm) || status.includes(searchTerm);
+      })
+      .slice(0, 10);
+  }, [eligibleLeads, leadSearch]);
+
   const selectedDeal = useMemo(
     () => deals.find((deal) => String(deal._id) === String(form.dealId)),
     [deals, form.dealId]
+  );
+
+  const selectedLead = useMemo(
+    () => leads.find((lead) => String(lead._id) === String(form.leadId)),
+    [leads, form.leadId]
   );
 
   const productMap = useMemo(
@@ -184,46 +252,84 @@ export default function NewQuotation() {
       setLoading(true);
       setError("");
 
-      const [dealsRes, productsRes, taxesRes, quotationsRes] = await Promise.all([
+      const [dealsRes, leadsRes, productsRes, taxesRes, quotationsRes] = await Promise.all([
         API.get("/deals"),
+        API.get("/leads"),
         API.get("/products"),
         API.get("/taxes"),
         API.get("/quotations")
       ]);
 
       const dealRows = dealsRes.data || [];
+      const leadRows = leadsRes.data || [];
       const productRows = productsRes.data || [];
       const taxRows = taxesRes.data || [];
       const quotationRows = quotationsRes.data || [];
       const existingDealIds = [
         ...new Set(
           (Array.isArray(quotationRows) ? quotationRows : [])
+            .filter((quote) => String(quote?.quoteType || "deal") !== "lead")
             .map((quote) => quote?.dealId)
             .filter(Boolean)
             .map((dealId) => String(dealId))
         )
       ];
+      const existingLeadIds = [
+        ...new Set(
+          (Array.isArray(quotationRows) ? quotationRows : [])
+            .filter((quote) => String(quote?.quoteType || "deal") === "lead")
+            .map((quote) => quote?.leadId)
+            .filter(Boolean)
+            .map((leadId) => String(leadId))
+        )
+      ];
 
       setDeals(dealRows);
+      setLeads(leadRows);
       setProducts(productRows);
       setTaxes(taxRows);
       setQuotedDealIds(existingDealIds);
+      setQuotedLeadIds(existingLeadIds);
 
-      if (
-        initialDealId &&
-        dealRows.some((deal) => String(deal._id) === initialDealId) &&
-        (isVersionMode || !existingDealIds.includes(String(initialDealId)))
-      ) {
-        setForm((prev) => ({
-          ...prev,
-          dealId: initialDealId
-        }));
-        const initialDeal = dealRows.find((deal) => String(deal._id) === String(initialDealId));
-        setDealSearch(getDealDisplayName(initialDeal));
-      } else if (initialDealId && existingDealIds.includes(String(initialDealId)) && !isVersionMode) {
-        setError(
-          "This deal already has a quotation. Please use New Version from quotation details."
-        );
+      if (!isVersionMode) {
+        if (!initialDealId && !initialLeadId) {
+          setQuoteType(initialQuoteType);
+        }
+        if (
+          initialLeadId &&
+          leadRows.some((lead) => String(lead._id) === String(initialLeadId)) &&
+          !existingLeadIds.includes(String(initialLeadId))
+        ) {
+          setQuoteType("lead");
+          setForm((prev) => ({
+            ...prev,
+            leadId: initialLeadId,
+            dealId: ""
+          }));
+          const initialLead = leadRows.find((lead) => String(lead._id) === String(initialLeadId));
+          setLeadSearch(getLeadDisplayName(initialLead));
+        } else if (initialLeadId && existingLeadIds.includes(String(initialLeadId))) {
+          setError(
+            "This lead already has a quotation. Please use New Version from quotation details."
+          );
+        } else if (
+          initialDealId &&
+          dealRows.some((deal) => String(deal._id) === initialDealId) &&
+          !existingDealIds.includes(String(initialDealId))
+        ) {
+          setQuoteType("deal");
+          setForm((prev) => ({
+            ...prev,
+            dealId: initialDealId,
+            leadId: ""
+          }));
+          const initialDeal = dealRows.find((deal) => String(deal._id) === String(initialDealId));
+          setDealSearch(getDealDisplayName(initialDeal));
+        } else if (initialDealId && existingDealIds.includes(String(initialDealId))) {
+          setError(
+            "This deal already has a quotation. Please use New Version from quotation details."
+          );
+        }
       }
 
       // If opening as a new version from an existing quotation, prefill fields
@@ -233,19 +339,30 @@ export default function NewQuotation() {
           const detail = quoteRes.data || null;
           if (detail && detail.quotation) {
             const q = detail.quotation;
+            const nextQuoteType = String(q.quoteType || (q.leadId ? "lead" : "deal"));
+            setQuoteType(nextQuoteType === "lead" ? "lead" : "deal");
+            setHasExistingSource("yes");
 
             setForm((prev) => ({
               ...prev,
               dealId: q.dealId || prev.dealId || initialDealId,
+              leadId: q.leadId || prev.leadId || initialLeadId,
               quoteDate: q.quoteDate ? q.quoteDate.split("T")[0] : prev.quoteDate,
               validUntil: q.validUntil ? q.validUntil.split("T")[0] : prev.validUntil,
               discountAmount: q.discountAmount || prev.discountAmount,
               notes: q.notes || prev.notes
             }));
 
-            const prefillDeal = dealRows.find((deal) => String(deal._id) === String(q.dealId || ""));
-            if (prefillDeal) {
-              setDealSearch(getDealDisplayName(prefillDeal));
+            if (nextQuoteType === "lead") {
+              const prefillLead = leadRows.find((lead) => String(lead._id) === String(q.leadId || ""));
+              if (prefillLead) {
+                setLeadSearch(getLeadDisplayName(prefillLead));
+              }
+            } else {
+              const prefillDeal = dealRows.find((deal) => String(deal._id) === String(q.dealId || ""));
+              if (prefillDeal) {
+                setDealSearch(getDealDisplayName(prefillDeal));
+              }
             }
 
             if (Array.isArray(detail.items) && detail.items.length) {
@@ -293,6 +410,20 @@ export default function NewQuotation() {
     }
   }, [form.dealId, deals, showDealSuggestions]);
 
+  useEffect(() => {
+    if (!form.leadId) {
+      if (!showLeadSuggestions) {
+        setLeadSearch("");
+      }
+      return;
+    }
+
+    const lead = leads.find((row) => String(row._id) === String(form.leadId));
+    if (lead) {
+      setLeadSearch(getLeadDisplayName(lead));
+    }
+  }, [form.leadId, leads, showLeadSuggestions]);
+
   const updateLineItem = (index, key, value) => {
     setLineItems((prev) => {
       const next = [...prev];
@@ -324,11 +455,69 @@ export default function NewQuotation() {
     });
   };
 
+  const handleSourceCreated = (data) => {
+    if (quoteType === "deal") {
+      const createdLead = data?.lead || null;
+      const createdDeal = data?.deal || null;
+
+      if (createdLead?._id) {
+        setLeads((prev) => {
+          const id = String(createdLead._id);
+          const withoutDup = prev.filter((row) => String(row._id) !== id);
+          return [createdLead, ...withoutDup];
+        });
+      }
+
+      if (!createdDeal?._id) return;
+
+      setDeals((prev) => {
+        const id = String(createdDeal._id);
+        const withoutDup = prev.filter((row) => String(row._id) !== id);
+        return [createdDeal, ...withoutDup];
+      });
+
+      setForm((prev) => ({
+        ...prev,
+        dealId: String(createdDeal._id),
+        leadId: ""
+      }));
+      setDealSearch(getDealDisplayName(createdDeal));
+      setLeadSearch("");
+      setHasExistingSource("yes");
+      setShowSourceCreateModal(false);
+      return;
+    }
+
+    const createdLead = data?.lead || data || null;
+    if (!createdLead?._id) return;
+
+    setLeads((prev) => {
+      const id = String(createdLead._id);
+      const withoutDup = prev.filter((row) => String(row._id) !== id);
+      return [createdLead, ...withoutDup];
+    });
+
+    setForm((prev) => ({
+      ...prev,
+      leadId: String(createdLead._id),
+      dealId: ""
+    }));
+    setLeadSearch(getLeadDisplayName(createdLead));
+    setDealSearch("");
+    setHasExistingSource("yes");
+    setShowSourceCreateModal(false);
+  };
+
   const submit = async () => {
     const validItems = calculatedItems.filter((item) => item.productId);
 
-    if (!form.dealId) {
+    if (quoteType === "deal" && !form.dealId) {
       alert("Please select a deal");
+      return;
+    }
+
+    if (quoteType === "lead" && !form.leadId) {
+      alert("Please select a lead");
       return;
     }
 
@@ -341,7 +530,10 @@ export default function NewQuotation() {
       setSaving(true);
 
       await API.post("/quotations", {
-        dealId: form.dealId,
+        quoteType,
+        dealId: quoteType === "deal" ? form.dealId : null,
+        leadId: quoteType === "lead" ? form.leadId : null,
+        clientId: null,
         baseQuotationId: initialFromQuoteId || null,
         quoteDate: form.quoteDate,
         validUntil: form.validUntil || null,
@@ -365,6 +557,94 @@ export default function NewQuotation() {
     }
   };
 
+  const onQuoteTypeChange = (nextType) => {
+    if (isVersionMode) return;
+    setQuoteType(nextType);
+    setHasExistingSource("yes");
+    setShowDealSuggestions(false);
+    setShowLeadSuggestions(false);
+    setShowSourceCreateModal(false);
+    setDealSearch("");
+    setLeadSearch("");
+    setForm((prev) => ({
+      ...prev,
+      dealId: "",
+      leadId: ""
+    }));
+  };
+
+  const onExistingSourceChange = (value) => {
+    if (isVersionMode) return;
+    setHasExistingSource(value);
+    setShowDealSuggestions(false);
+    setShowLeadSuggestions(false);
+
+    if (value === "no") {
+      setDealSearch("");
+      setLeadSearch("");
+      setForm((prev) => ({
+        ...prev,
+        dealId: "",
+        leadId: ""
+      }));
+    }
+  };
+
+  const sourceLabel = quoteType === "deal" ? "Deal" : "Lead";
+  const sourceSearch = quoteType === "deal" ? dealSearch : leadSearch;
+  const showSourceSuggestions = quoteType === "deal" ? showDealSuggestions : showLeadSuggestions;
+  const filteredSourceSuggestions =
+    quoteType === "deal" ? filteredDealSuggestions : filteredLeadSuggestions;
+  const eligibleSourceCount = quoteType === "deal" ? eligibleDeals.length : eligibleLeads.length;
+  const selectedSource = quoteType === "deal" ? selectedDeal : selectedLead;
+  const selectedSourceName = selectedSource
+    ? quoteType === "deal"
+      ? getDealDisplayName(selectedSource)
+      : getLeadDisplayName(selectedSource)
+    : "";
+
+  const setShowSourceSuggestions = (value) => {
+    if (quoteType === "deal") {
+      setShowDealSuggestions(value);
+      return;
+    }
+    setShowLeadSuggestions(value);
+  };
+
+  const handleSourceSearchChange = (value) => {
+    if (quoteType === "deal") {
+      setDealSearch(value);
+      setForm((prev) => ({ ...prev, dealId: "" }));
+      setShowDealSuggestions(true);
+      return;
+    }
+
+    setLeadSearch(value);
+    setForm((prev) => ({ ...prev, leadId: "" }));
+    setShowLeadSuggestions(true);
+  };
+
+  const handleSourceSelect = (source) => {
+    if (quoteType === "deal") {
+      setForm((prev) => ({
+        ...prev,
+        dealId: String(source._id),
+        leadId: ""
+      }));
+      setDealSearch(getDealDisplayName(source));
+      setShowDealSuggestions(false);
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      leadId: String(source._id),
+      dealId: ""
+    }));
+    setLeadSearch(getLeadDisplayName(source));
+    setShowLeadSuggestions(false);
+  };
+
   if (loading) {
     return <div className="quotes-empty">Loading quotation form...</div>;
   }
@@ -376,14 +656,6 @@ export default function NewQuotation() {
           <h2>New Quotation</h2>
 
           <div className="quote-form-header-actions">
-            <button
-              className="quote-add-deal-btn"
-              onClick={() => navigate("/leads/new?view=deal")}
-              type="button"
-            >
-              + Add Deal
-            </button>
-
             <button className="quote-close-btn" onClick={() => navigate("/quotations")}>
               x
             </button>
@@ -392,83 +664,154 @@ export default function NewQuotation() {
 
         {error && <div className="quote-form-error">{error}</div>}
 
-        <div className="quote-form-grid">
-          <div className="quote-field">
-            <label>Link To Deal</label>
-            <div className="quote-deal-search-wrap">
-              <input
-                type="text"
-                value={dealSearch}
-                placeholder="Search active deals by client name..."
-                readOnly={isVersionMode}
-                onFocus={() => {
-                  if (!isVersionMode) setShowDealSuggestions(true);
-                }}
-                onBlur={() => setTimeout(() => setShowDealSuggestions(false), 150)}
-                onChange={(e) => {
-                  if (isVersionMode) return;
-                  const value = e.target.value;
-                  setDealSearch(value);
-                  setForm((prev) => ({ ...prev, dealId: "" }));
-                  setShowDealSuggestions(true);
-                }}
-              />
+        <div className="quote-type-tabs">
+          <button
+            type="button"
+            className={`quote-type-tab ${quoteType === "deal" ? "active" : ""}`}
+            onClick={() => onQuoteTypeChange("deal")}
+            disabled={isVersionMode}
+          >
+            Deal Quotation
+          </button>
+          <button
+            type="button"
+            className={`quote-type-tab ${quoteType === "lead" ? "active" : ""}`}
+            onClick={() => onQuoteTypeChange("lead")}
+            disabled={isVersionMode}
+          >
+            Lead Quotation
+          </button>
+        </div>
 
-              {!isVersionMode && showDealSuggestions && (
-                <ul className="quote-deal-suggestions">
-                  {filteredDealSuggestions.length === 0 ? (
-                    <li className="quote-deal-suggestion-empty">
-                      {eligibleDeals.length === 0
-                        ? "No eligible active deals. For existing quotes, use New Version."
-                        : "No matching deals found"}
-                    </li>
-                  ) : (
-                    filteredDealSuggestions.map((deal) => (
-                      <li
-                        key={deal._id}
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          setForm((prev) => ({
-                            ...prev,
-                            dealId: String(deal._id)
-                          }));
-                          setDealSearch(getDealDisplayName(deal));
-                          setShowDealSuggestions(false);
-                        }}
-                      >
-                        <span className="quote-deal-suggestion-title">
-                          {getDealDisplayName(deal)}
-                        </span>
-                        <span className="quote-deal-suggestion-meta">
-                          {deal.stage || "No stage"} | {String(deal._id).slice(-6)}
-                        </span>
-                      </li>
-                    ))
-                  )}
-                </ul>
+        <div className="quote-form-grid">
+          <div className="quote-field quote-field-full quote-lead-client-switch">
+            <label>Is {sourceLabel} Existing?</label>
+            <div className="quote-inline-create-row">
+              <div className="quote-radio-row">
+                <label>
+                  <input
+                    type="radio"
+                    name="existingSource"
+                    checked={hasExistingSource === "yes"}
+                    disabled={isVersionMode}
+                    onChange={() => onExistingSourceChange("yes")}
+                  />
+                  <span>Yes</span>
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="existingSource"
+                    checked={hasExistingSource === "no"}
+                    disabled={isVersionMode}
+                    onChange={() => onExistingSourceChange("no")}
+                  />
+                  <span>No</span>
+                </label>
+              </div>
+
+              {!isVersionMode && hasExistingSource === "no" && (
+                <button
+                  type="button"
+                  className="quote-add-product-btn"
+                  onClick={() => setShowSourceCreateModal(true)}
+                >
+                  + Add New {sourceLabel}
+                </button>
               )}
             </div>
           </div>
 
-          <div className="quote-field">
-            <label>Client Name</label>
-            <input
-              value={
-                selectedDeal?.company_name ||
-                selectedDeal?.primary_contact?.name ||
-                ""
-              }
-              readOnly
-              placeholder="Auto-filled from selected deal"
-            />
-          </div>
+          {(hasExistingSource === "yes" || isVersionMode) && (
+            <>
+              <div className="quote-field">
+                <label>Link To {sourceLabel}</label>
+                <div className="quote-deal-search-wrap">
+                  <input
+                    type="text"
+                    value={sourceSearch}
+                    placeholder={`Search active ${quoteType === "deal" ? "deals" : "leads"}...`}
+                    readOnly={isVersionMode}
+                    onFocus={() => {
+                      if (!isVersionMode) setShowSourceSuggestions(true);
+                    }}
+                    onBlur={() => setTimeout(() => setShowSourceSuggestions(false), 150)}
+                    onChange={(e) => {
+                      if (isVersionMode) return;
+                      handleSourceSearchChange(e.target.value);
+                    }}
+                  />
+
+                  {!isVersionMode && showSourceSuggestions && (
+                    <ul className="quote-deal-suggestions">
+                      {filteredSourceSuggestions.length === 0 ? (
+                        <li className="quote-deal-suggestion-empty">
+                          {eligibleSourceCount === 0
+                            ? `No eligible active ${quoteType === "deal" ? "deals" : "leads"}. For existing quotes, use New Version.`
+                            : `No matching ${quoteType === "deal" ? "deals" : "leads"} found`}
+                        </li>
+                      ) : (
+                        filteredSourceSuggestions.map((source) => (
+                          <li
+                            key={source._id}
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              handleSourceSelect(source);
+                            }}
+                          >
+                            <span className="quote-deal-suggestion-title">
+                              {quoteType === "deal"
+                                ? getDealDisplayName(source)
+                                : getLeadDisplayName(source)}
+                            </span>
+                            <span className="quote-deal-suggestion-meta">
+                              {quoteType === "deal"
+                                ? source.stage || "No stage"
+                                : source.status || "No status"}{" "}
+                              | {String(source._id).slice(-6)}
+                            </span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              <div className="quote-field">
+                <label>{sourceLabel} Name</label>
+                <input
+                  value={selectedSourceName}
+                  readOnly
+                  placeholder={`Auto-filled from selected ${sourceLabel.toLowerCase()}`}
+                />
+              </div>
+            </>
+          )}
+
+          {!isVersionMode && hasExistingSource === "no" && (
+            <div className="quote-field quote-field-full">
+              <label>Selected {sourceLabel}</label>
+              <input
+                value={
+                  selectedSource
+                    ? quoteType === "deal"
+                      ? getDealDisplayName(selectedSource)
+                      : getLeadDisplayName(selectedSource)
+                    : ""
+                }
+                readOnly
+                placeholder={`Use "+ Add New ${sourceLabel}" to create and auto-select ${sourceLabel.toLowerCase()}`}
+              />
+            </div>
+          )}
 
           <div className="quote-field">
             <label>Quote Date</label>
             <input
               type="date"
               value={form.quoteDate}
-              onChange={(e) => setForm({ ...form, quoteDate: e.target.value })}
+              onChange={(e) => setForm((prev) => ({ ...prev, quoteDate: e.target.value }))}
             />
           </div>
 
@@ -477,7 +820,7 @@ export default function NewQuotation() {
             <input
               type="date"
               value={form.validUntil}
-              onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
+              onChange={(e) => setForm((prev) => ({ ...prev, validUntil: e.target.value }))}
             />
           </div>
         </div>
@@ -559,6 +902,31 @@ export default function NewQuotation() {
           </button>
         </div>
       </div>
+
+      {showSourceCreateModal && (
+        <div className="quote-inline-modal-overlay" onClick={() => setShowSourceCreateModal(false)}>
+          <div className="quote-inline-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="quote-inline-modal-head">
+              <h3>Add New {sourceLabel}</h3>
+              <button
+                type="button"
+                className="quote-close-btn"
+                onClick={() => setShowSourceCreateModal(false)}
+              >
+                x
+              </button>
+            </div>
+            <div className="quote-inline-modal-body">
+              <LeadFormPage
+                embedded
+                forcedView={quoteType}
+                onCancel={() => setShowSourceCreateModal(false)}
+                onSaved={handleSourceCreated}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

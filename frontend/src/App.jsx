@@ -27,12 +27,15 @@ import DailyClosingForm from './pages/modules/DailyClosingForm.jsx';
 import DailyClosingReport from './pages/modules/DailyClosingReport.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
-import AILeads from './pages/modules/AILeads.jsx';
+import AILeadGeneration from './pages/modules/AILeadGeneration.jsx';
 import Events from './pages/modules/Events.jsx';
 import EventRegistration from './pages/modules/EventRegistration.jsx';
 import AddEvent from './pages/modules/AddEvent.jsx';
 import TeamDashboard from './pages/modules/TeamDashboard.jsx';
 import TeamSetup from './pages/modules/TeamSetup.jsx';
+import TeamTargets from './pages/modules/TeamTargets.jsx';
+import TeamTargetsAdmin from './pages/modules/TeamTargetsAdmin.jsx';
+import TeamTargetsManager from './pages/modules/TeamTargetsManager.jsx';
 import Reports from './pages/modules/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
@@ -102,17 +105,41 @@ function App() {
           <Route path="/daily-closing/form" element={<DailyClosingForm />} />
           <Route path="/daily-closing/report" element={<DailyClosingReport />} />
 
-          <Route path="/sales-forecast" element={<SalesForecast />} />
+          <Route
+            path="/sales-forecast"
+            element={
+              <ProtectedRoute allowedRoles={["Manager", "Admin"]}>
+                <SalesForecast />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/expenses" element={<Expenses />} />
 
-          <Route path="/ai-leads" element={<AILeads />} />
+          <Route
+            path="/ai-leads"
+            element={
+              <ProtectedRoute allowedRoles={["Manager", "Admin"]}>
+                <AILeadGeneration />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/events" element={<Events />} />
           <Route path="/events/new" element={<AddEvent />} />
           <Route path="/events/register" element={<EventRegistration />} />
 
           <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamDashboard /></ProtectedRoute>} />
           <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
-          <Route path="/reports" element={<Reports />} />
+          <Route path="/team-targets" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamTargets /></ProtectedRoute>} />
+          <Route path="/team-targets/admin" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamTargetsAdmin /></ProtectedRoute>} />
+          <Route path="/team-targets/manage" element={<ProtectedRoute allowedRoles={["Manager"]}><TeamTargetsManager /></ProtectedRoute>} />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute allowedRoles={["Manager", "Admin"]}>
+                <Reports />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />

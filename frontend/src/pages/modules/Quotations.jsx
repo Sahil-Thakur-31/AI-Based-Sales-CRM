@@ -46,7 +46,9 @@ function matchesQuote(quote, term) {
   return (
     String(quote.quoteNumber || "").toLowerCase().includes(term) ||
     String(quote.refCode || "").toLowerCase().includes(term) ||
+    String(quote.sourceLabel || "").toLowerCase().includes(term) ||
     String(quote.clientName || "").toLowerCase().includes(term) ||
+    String(quote.createdByName || "").toLowerCase().includes(term) ||
     String(quote.status || "").toLowerCase().includes(term) ||
     `v${quote.version || ""}`.toLowerCase().includes(term)
   );
@@ -61,10 +63,15 @@ export default function Quotations() {
   const [query, setQuery] = useState("");
   const [statusUpdatingId, setStatusUpdatingId] = useState("");
   const [expandedDeals, setExpandedDeals] = useState({});
+  const [activeTab, setActiveTab] = useState("deal");
 
   useEffect(() => {
     loadQuotations();
   }, []);
+
+  useEffect(() => {
+    setExpandedDeals({});
+  }, [activeTab]);
 
   const loadQuotations = async () => {
     try {
@@ -84,12 +91,14 @@ export default function Quotations() {
     const groups = new Map();
 
     for (const quote of quotations) {
-      const key = String(quote.dealId || "unlinked");
+      const quoteType = String(quote.quoteType || "deal").toLowerCase();
+      if (quoteType !== activeTab) continue;
+      const key = String(quote.sourceId || quote.dealId || quote.leadId || quote._id);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(quote);
     }
 
-    const list = Array.from(groups.entries()).map(([dealId, quotes]) => {
+    const list = Array.from(groups.entries()).map(([sourceId, quotes]) => {
       const sortedQuotes = [...quotes].sort((a, b) => {
         const versionDiff = (b.version || 0) - (a.version || 0);
         if (versionDiff !== 0) return versionDiff;
@@ -99,7 +108,7 @@ export default function Quotations() {
       });
 
       return {
-        dealId,
+        sourceId,
         latest: sortedQuotes[0],
         previous: sortedQuotes.slice(1),
         all: sortedQuotes
@@ -111,7 +120,7 @@ export default function Quotations() {
       const dateB = new Date(b.latest?.createdAt || 0).getTime();
       return dateB - dateA;
     });
-  }, [quotations]);
+  }, [quotations, activeTab]);
 
   const filteredGroups = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -154,9 +163,26 @@ export default function Quotations() {
   return (
     <div className="quotes-page">
       <div className="quotes-toolbar">
-        <button className="quotes-new-btn" onClick={() => navigate("/quotations/new")}>
+        <button className="quotes-new-btn" onClick={() => navigate(`/quotations/new?type=${activeTab}`)}>
           + New Quote
         </button>
+
+        <div className="quote-type-tabs quotes-list-tabs">
+          <button
+            type="button"
+            className={`quote-type-tab ${activeTab === "deal" ? "active" : ""}`}
+            onClick={() => setActiveTab("deal")}
+          >
+            Deals
+          </button>
+          <button
+            type="button"
+            className={`quote-type-tab ${activeTab === "lead" ? "active" : ""}`}
+            onClick={() => setActiveTab("lead")}
+          >
+            Leads
+          </button>
+        </div>
 
         <input
           className="app-search-input quotes-search-input"
@@ -173,7 +199,11 @@ export default function Quotations() {
         ) : error ? (
           <div className="quotes-empty">{error}</div>
         ) : groupedDeals.length === 0 ? (
-          <div className="quotes-empty">No quotations yet. Create your first quote.</div>
+          <div className="quotes-empty">
+            {activeTab === "lead"
+              ? "No lead quotations yet. Create your first lead quote."
+              : "No deal quotations yet. Create your first deal quote."}
+          </div>
         ) : filteredGroups.length === 0 ? (
           <div className="quotes-empty">No quotations match your search.</div>
         ) : (
@@ -182,7 +212,7 @@ export default function Quotations() {
               <thead>
                 <tr>
                   <th>Quote #</th>
-                  <th>Ref</th>
+                  <th>Source</th>
                   <th>Client</th>
                   <th>Items</th>
                   <th>Subtotal</th>
@@ -198,22 +228,23 @@ export default function Quotations() {
 
               <tbody>
                 {filteredGroups.map((group) => {
-                  const expanded = Boolean(expandedDeals[group.dealId]);
+                  const expanded = Boolean(expandedDeals[group.sourceId]);
                   const latest = group.latest;
+                  const latestType = String(latest.quoteType || activeTab).toLowerCase();
                   const canCreateNewVersion = VERSION_ALLOWED_PREVIOUS_STATUSES.includes(
                     String(latest.status || "").toLowerCase()
                   );
 
                   return (
                     <FragmentRows
-                      key={group.dealId}
+                      key={group.sourceId}
                       latestRow={
                         <tr
                           className="quote-latest-row quote-latest-row-clickable"
-                          onClick={() => toggleDeal(group.dealId)}
+                          onClick={() => toggleDeal(group.sourceId)}
                         >
                           <td className="quote-number">{latest.quoteNumber}</td>
-                          <td>{latest.refCode}</td>
+                          <td>{latest.sourceLabel || latest.refCode}</td>
                           <td>{latest.clientName}</td>
                           <td>
                             {latest.itemsCount} item{latest.itemsCount === 1 ? "" : "s"}
@@ -270,7 +301,11 @@ export default function Quotations() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!canCreateNewVersion) return;
-                                  navigate(`/quotations/new?dealId=${latest.dealId}&fromQuoteId=${latest._id}`);
+                                  const sourceQuery =
+                                    latestType === "lead"
+                                      ? `leadId=${latest.leadId || latest.sourceId}`
+                                      : `dealId=${latest.dealId || latest.sourceId}`;
+                                  navigate(`/quotations/new?${sourceQuery}&fromQuoteId=${latest._id}`);
                                 }}
                               >
                                 New Version

@@ -22,6 +22,25 @@ function getReminderOffsetMinutes(reminderTiming, customReminderOffsetMinutes) {
   return 30;
 }
 
+function getReminderOffsetMinutesFromSettings(settings) {
+  if (!settings) return 30;
+  if (Array.isArray(settings.reminderOptions) && settings.reminderOptions.length > 0) {
+    const values = settings.reminderOptions
+      .map((opt) => {
+        const value = Number(opt?.value);
+        const unit = String(opt?.unit || "").toLowerCase();
+        if (!Number.isFinite(value) || value < 1) return null;
+        if (unit === "minutes") return Math.floor(value);
+        if (unit === "hours") return Math.floor(value * 60);
+        if (unit === "days") return Math.floor(value * 24 * 60);
+        return null;
+      })
+      .filter((v) => Number.isFinite(v));
+    if (values.length) return values[0];
+  }
+  return getReminderOffsetMinutes(settings?.reminderTiming, settings?.customReminderOffsetMinutes);
+}
+
 function isReminderTemplate(templateKey) {
   return [
     TEMPLATE_KEYS.MEETING_SCHEDULED,
@@ -76,7 +95,7 @@ async function processNotification(notificationDoc) {
 
   if (isReminderTemplate(templateKey)) {
     const settings = await CRMSettings.findOne({ userId: notification.userId }).lean();
-    if (settings && settings.reminderMethodEmail === false) {
+    if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) {
       return;
     }
 
@@ -84,10 +103,7 @@ async function processNotification(notificationDoc) {
     const targetDate = targetDateRaw ? new Date(targetDateRaw) : null;
 
     if (targetDate && !Number.isNaN(targetDate.getTime())) {
-      const offsetMinutes = getReminderOffsetMinutes(
-        settings?.reminderTiming,
-        settings?.customReminderOffsetMinutes
-      );
+      const offsetMinutes = getReminderOffsetMinutesFromSettings(settings);
       const sendAt = new Date(targetDate.getTime() - offsetMinutes * 60 * 1000);
 
       if (now < sendAt) {

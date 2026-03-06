@@ -11,12 +11,62 @@ const normalizeReceiptUrl = (value) => {
   return `/uploads/${value}`;
 };
 
+const getUploadedReceiptPaths = (req) => {
+  if (!req?.files) return [];
+
+  if (Array.isArray(req.files)) {
+    return req.files.map((file) => `/uploads/receipt/${file.filename}`);
+  }
+
+  const fromReceipts = (req.files.receipts || []).map(
+    (file) => `/uploads/receipt/${file.filename}`
+  );
+  const fromLegacy = (req.files.receipt || []).map(
+    (file) => `/uploads/receipt/${file.filename}`
+  );
+
+  return [...fromReceipts, ...fromLegacy];
+};
+
+const parseExistingReceiptUrls = (rawValue) => {
+  if (!rawValue) return [];
+
+  if (Array.isArray(rawValue)) {
+    return rawValue.map(normalizeReceiptUrl).filter(Boolean);
+  }
+
+  if (typeof rawValue === "string") {
+    try {
+      const parsed = JSON.parse(rawValue);
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeReceiptUrl).filter(Boolean);
+      }
+    } catch (err) {
+      // Fallback to single URL string
+    }
+
+    const single = normalizeReceiptUrl(rawValue);
+    return single ? [single] : [];
+  }
+
+  return [];
+};
+
+const buildReceipts = (urls) =>
+  urls.map((url) => ({
+    fileUrl: url,
+  }));
+
 exports.createExpense = async (req, res) => {
   try {
     const expenseNo = await getNextCounter("EXPENSE");
     const admin = isAdmin(req.user?.role);
-    const uploadedReceiptPath = req.file ? `/uploads/receipt/${req.file.filename}` : null;
-    const existingReceiptPath = normalizeReceiptUrl(req.body.existingReceiptUrl);
+    const uploadedReceiptPaths = getUploadedReceiptPaths(req);
+    const existingReceiptPaths = parseExistingReceiptUrls(
+      req.body.existingReceiptUrls || req.body.existingReceiptUrl
+    );
+    const receiptPaths = [...new Set([...uploadedReceiptPaths, ...existingReceiptPaths])];
+    const primaryReceipt = receiptPaths[0] || "dummy-url";
 
     const payload = {
       expenseNo,
@@ -31,8 +81,9 @@ exports.createExpense = async (req, res) => {
       referenceId: req.body.referenceId || req.user._id,
       referenceType: req.body.referenceType || "Lead",
       receipt: {
-        fileUrl: uploadedReceiptPath || existingReceiptPath || "dummy-url",
+        fileUrl: primaryReceipt,
       },
+      receipts: buildReceipts(receiptPaths),
       approval: { status: "pending" },
     };
 
@@ -211,7 +262,7 @@ exports.updateExpense = async (req, res) => {
       return res.status(400).json({ message: "Cannot edit approved expense" });
     }
 
-    const uploadedReceiptPath = req.file ? `/uploads/receipt/${req.file.filename}` : null;
+    const uploadedReceiptPaths = getUploadedReceiptPaths(req);
 
     if ("category" in req.body) expense.category = req.body.category;
     if ("otherCategory" in req.body) expense.otherCategory = req.body.otherCategory;
@@ -223,13 +274,31 @@ exports.updateExpense = async (req, res) => {
     if ("referenceId" in req.body) expense.referenceId = req.body.referenceId;
     if ("referenceType" in req.body) expense.referenceType = req.body.referenceType;
 
-    const existingReceiptPath = normalizeReceiptUrl(req.body.existingReceiptUrl);
-
-    if (uploadedReceiptPath) {
-      expense.receipt = { ...(expense.receipt || {}), fileUrl: uploadedReceiptPath };
-    } else if (existingReceiptPath) {
-      expense.receipt = { ...(expense.receipt || {}), fileUrl: existingReceiptPath };
+    const existingReceiptPaths = parseExistingReceiptUrls(
+      req.body.existingReceiptUrls || req.body.existingReceiptUrl
+    );
+    const currentReceiptPaths = Array.isArray(expense.receipts)
+      ? expense.receipts.map((item) => item?.fileUrl).filter(Boolean)
+      : [];
+    const legacyPath = expense.receipt?.fileUrl;
+    if (legacyPath && legacyPath !== "dummy-url" && !currentReceiptPaths.includes(legacyPath)) {
+      currentReceiptPaths.unshift(legacyPath);
     }
+
+    const shouldReplaceReceipts =
+      Object.prototype.hasOwnProperty.call(req.body || {}, "existingReceiptUrls") ||
+      Object.prototype.hasOwnProperty.call(req.body || {}, "existingReceiptUrl") ||
+      uploadedReceiptPaths.length > 0;
+
+    const nextReceiptPaths = shouldReplaceReceipts
+      ? [...new Set([...existingReceiptPaths, ...uploadedReceiptPaths])]
+      : currentReceiptPaths;
+
+    expense.receipts = buildReceipts(nextReceiptPaths);
+    expense.receipt = {
+      ...(expense.receipt || {}),
+      fileUrl: nextReceiptPaths[0] || "dummy-url",
+    };
 
     if (expense.category !== "other") {
       expense.otherCategory = "";

@@ -12,5 +12,9 @@ router.get('/me', auth, teamsController.listTeams); // alias
 router.post('/add-member', auth, teamsController.addMember);
 router.post('/remove-member', auth, teamsController.removeMember);
 router.get('/dashboard', auth, teamsController.getTeamDashboard);
+router.get('/member-detail', auth, teamsController.getTeamMemberDetail);
+router.get('/pipeline-detail', auth, teamsController.getTeamPipelineDetail);
+router.get('/targets', auth, teamsController.getTeamTargets);
+router.post('/targets', auth, teamsController.upsertTeamTargets);
 
 module.exports = router;

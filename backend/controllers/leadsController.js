@@ -129,6 +129,50 @@ async function fetchLeadFollowupMap(leadIds = []) {
   return map;
 }
 
+async function fetchLeadFollowupInsights(leadIds = []) {
+  if (!leadIds.length) {
+    return { nextFollowupMap: new Map(), lastActivityMap: new Map() };
+  }
+
+  const followups = await Followup.find({
+    leadId: { $in: leadIds },
+    is_deleted: false,
+  })
+    .select("leadId status dueDateTime lastContactDate completedAt createdAt")
+    .lean();
+
+  const nextFollowupMap = new Map();
+  const lastActivityMap = new Map();
+
+  for (const followup of followups) {
+    const leadId = followup.leadId?.toString();
+    if (!leadId) continue;
+
+    if (["pending", "overdue"].includes(String(followup.status || "").toLowerCase())) {
+      const existing = nextFollowupMap.get(leadId);
+      const currentDue = toValidDate(followup.dueDateTime);
+      const existingDue = toValidDate(existing?.dueDateTime);
+      if (!existing || (currentDue && (!existingDue || currentDue < existingDue))) {
+        nextFollowupMap.set(leadId, followup);
+      }
+    }
+
+    const candidates = [
+      toValidDate(followup.lastContactDate),
+      toValidDate(followup.completedAt),
+      toValidDate(followup.createdAt),
+    ].filter(Boolean);
+    if (!candidates.length) continue;
+    const latestForFollowup = new Date(Math.max(...candidates.map((d) => d.getTime())));
+    const previous = toValidDate(lastActivityMap.get(leadId));
+    if (!previous || latestForFollowup > previous) {
+      lastActivityMap.set(leadId, latestForFollowup);
+    }
+  }
+
+  return { nextFollowupMap, lastActivityMap };
+}
+
 function toValidDate(value) {
   if (!value) return null;
   const d = new Date(value);
@@ -508,8 +552,15 @@ exports.getLeads = async (req, res) => {
     const filter = deletedOnly
       ? { is_deleted: true }
       : {
-        $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
-        converted_to_deal: { $ne: true },
+        $and: [
+          { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
+          {
+            $or: [
+              { converted_to_deal: { $ne: true } },
+              { is_active: false },
+            ],
+          },
+        ],
       };
     let leadsQuery = Leads.find(filter).sort({ updated_at: -1 });
     if (!Number.isNaN(limit) && limit > 0) {
@@ -518,7 +569,43 @@ exports.getLeads = async (req, res) => {
 
     const leads = await leadsQuery.lean();
     const leadIds = leads.map((lead) => lead._id);
+    const { nextFollowupMap, lastActivityMap } = await fetchLeadFollowupInsights(leadIds);
     const followupMap = await fetchLeadFollowupMap(leadIds);
+
+    if (!deletedOnly && leads.length) {
+      const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const toDeactivateLeadIds = [];
+
+      for (const lead of leads) {
+        if (lead.is_deleted === true || lead.is_active === false) continue;
+        const leadId = String(lead._id || "");
+        const nextFollowup = nextFollowupMap.get(leadId);
+        const leadNextActionDate = toValidDate(lead.next_action_date);
+        const hasNextFollowup = Boolean(nextFollowup || leadNextActionDate);
+        if (hasNextFollowup) continue;
+
+        const latestActivityDate = [
+          toValidDate(lead.last_contact_date),
+          toValidDate(lastActivityMap.get(leadId)),
+          toValidDate(lead.updated_at),
+          toValidDate(lead.created_at),
+        ]
+          .filter(Boolean)
+          .sort((a, b) => b - a)[0];
+
+        if (latestActivityDate && latestActivityDate <= cutoffDate) {
+          toDeactivateLeadIds.push(lead._id);
+          lead.is_active = false;
+        }
+      }
+
+      if (toDeactivateLeadIds.length) {
+        await Leads.updateMany(
+          { _id: { $in: toDeactivateLeadIds }, is_deleted: { $ne: true } },
+          { $set: { is_active: false } }
+        );
+      }
+    }
 
     const locationIds = leads
       .map((lead) => lead.location)
