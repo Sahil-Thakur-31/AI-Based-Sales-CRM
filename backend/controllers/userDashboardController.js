@@ -88,7 +88,14 @@ function mapFollowupStatusToMeetingBucket(status) {
 
 function canAccessDashboard(role) {
   const value = String(role || "").toLowerCase();
-  return value === "manager" || value === "admin";
+  return (
+    value === "user" ||
+    value === "sales person" ||
+    value === "salesperson" ||
+    value === "sales" ||
+    value === "manager" ||
+    value === "admin"
+  );
 }
 
 function normalizeRange(range) {
@@ -228,7 +235,7 @@ exports.getDashboard = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
     if (!canAccessDashboard(req.user.role)) {
-      return res.status(403).json({ message: "Only managers and admins can view this dashboard" });
+      return res.status(403).json({ message: "Only users, managers, and admins can view this dashboard" });
     }
 
     const userId = req.user._id;

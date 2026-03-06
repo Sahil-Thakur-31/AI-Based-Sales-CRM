@@ -1,17 +1,11 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import API from "../../api";
 import "../../styles/DailyClosing.css";
 
 function getToday() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
-function getCurrentTimeValue() {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, "0")}:${String(
-    now.getMinutes()
-  ).padStart(2, "0")}`;
 }
 
 function formatLocalDateInput(date) {
@@ -43,9 +37,9 @@ export default function DailyClosingForm() {
     if (fromState && fromState <= today) return fromState;
     return today;
   }, [location.state?.selectedDate, today]);
-  const selectedTime = location.state?.selectedTime || getCurrentTimeValue();
   const [keyHighlights, setKeyHighlights] = useState("");
-  const [submitMessage, setSubmitMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const selectedLabel = useMemo(
     () =>
@@ -63,16 +57,40 @@ export default function DailyClosingForm() {
     [selectedDate]
   );
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setSubmitMessage("Daily closing captured locally. Backend save can be connected next.");
+    try {
+      setIsSubmitting(true);
+      setSubmitError("");
+
+      const selectedDateValue = formatLocalDateInput(selectedDate);
+      const keyHighlightsValue = keyHighlights.trim();
+
+      await API.post("/daily-closing/submit", {
+        selectedDate: selectedDateValue,
+        keyHighlights: keyHighlightsValue,
+      });
+
+      navigate("/daily-closing/report", {
+        state: {
+          selectedDate: selectedDateValue,
+          keyHighlights: keyHighlightsValue,
+        },
+      });
+    } catch (error) {
+      console.error("Daily closing submit failed:", error);
+      setSubmitError(
+        error?.response?.data?.message || "Failed to submit daily closing report"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBack = () => {
     navigate("/daily-closing", {
       state: {
         selectedDate: formatLocalDateInput(selectedDate),
-        selectedTime,
       },
     });
   };
@@ -83,19 +101,13 @@ export default function DailyClosingForm() {
         <div className="dailyClosingFormHeader">
           <div>
             <p className="dailyClosingEyebrow">Daily Closing</p>
-            <h2 className="dailyClosingFormTitle">
-              Daily Closing - {selectedDisplayDate}
-            </h2>
           </div>
           <div className="dailyClosingFormMeta">
             <span>{selectedLabel}</span>
-            <strong>{selectedTime}</strong>
           </div>
         </div>
 
         <form className="dailyClosingFormCard" onSubmit={handleSubmit}>
-          <div className="dailyClosingFormRibbon">Daily Closing</div>
-
           <div className="dailyClosingFormBody">
             <div className="dailyClosingFormRow">
               <label className="dailyClosingFormLabel" htmlFor="daily-closing-form-date">
@@ -106,19 +118,6 @@ export default function DailyClosingForm() {
                 className="dailyClosingInput"
                 type="text"
                 value={selectedDisplayDate}
-                readOnly
-              />
-            </div>
-
-            <div className="dailyClosingFormRow">
-              <label className="dailyClosingFormLabel" htmlFor="daily-closing-form-time">
-                Closing Time <span>*</span>
-              </label>
-              <input
-                id="daily-closing-form-time"
-                className="dailyClosingInput"
-                type="text"
-                value={selectedTime}
                 readOnly
               />
             </div>
@@ -144,8 +143,9 @@ export default function DailyClosingForm() {
               <button
                 type="submit"
                 className="dailyClosingBtn dailyClosingBtnSuccess"
+                disabled={isSubmitting}
               >
-                Submit & View Report
+                {isSubmitting ? "Submitting..." : "Submit & View Report"}
               </button>
               <button
                 type="button"
@@ -156,8 +156,10 @@ export default function DailyClosingForm() {
               </button>
             </div>
 
-            {submitMessage ? (
-              <div className="dailyClosingSubmitMessage">{submitMessage}</div>
+            {submitError ? (
+              <div className="dailyClosingSubmitMessage dailyClosingSubmitMessageError">
+                {submitError}
+              </div>
             ) : null}
           </div>
         </form>
