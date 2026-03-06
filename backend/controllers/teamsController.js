@@ -86,6 +86,52 @@ function canManageTeam(teamDoc, requester) {
   );
 }
 
+async function findTeamConflictsForUsers(userIds = [], excludeTeamId = null) {
+  const normalizedIds = [
+    ...new Set(
+      (userIds || [])
+        .map((id) => String(id || "").trim())
+        .filter((id) => isObjectId(id))
+    )
+  ];
+  if (!normalizedIds.length) return new Map();
+
+  const filter = {
+    $or: [
+      { "teamLeads.userId": { $in: normalizedIds.map((id) => toObjectId(id)) } },
+      { "members.userId": { $in: normalizedIds.map((id) => toObjectId(id)) } }
+    ]
+  };
+
+  if (excludeTeamId && isObjectId(excludeTeamId)) {
+    filter._id = { $ne: toObjectId(excludeTeamId) };
+  }
+
+  const teams = await Team.find(filter)
+    .select("name teamLeads members")
+    .lean();
+
+  const conflictByUserId = new Map();
+  for (const team of teams) {
+    const teamUserIds = [
+      ...(team.teamLeads || []).map((lead) => String(lead.userId || "")),
+      ...(team.members || []).map((member) => String(member.userId || ""))
+    ].filter(Boolean);
+
+    for (const userId of teamUserIds) {
+      if (!normalizedIds.includes(userId)) continue;
+      if (!conflictByUserId.has(userId)) {
+        conflictByUserId.set(userId, {
+          teamId: String(team._id),
+          teamName: team.name || "Untitled Team"
+        });
+      }
+    }
+  }
+
+  return conflictByUserId;
+}
+
 async function loadUsersMap(userIds = []) {
   if (!userIds.length) return new Map();
 
@@ -579,6 +625,27 @@ exports.createTeam = async (req, res) => {
 
     const leadIdSet = new Set([String(selectedLeadId)]);
     const filteredMembers = normalizedMemberIds.filter((id) => !leadIdSet.has(String(id)));
+    const conflictMap = await findTeamConflictsForUsers([
+      String(selectedLeadId),
+      ...filteredMembers.map((id) => String(id))
+    ]);
+
+    if (conflictMap.has(String(selectedLeadId))) {
+      const conflict = conflictMap.get(String(selectedLeadId));
+      return res.status(400).json({
+        message: `Selected team lead is already assigned to team "${conflict.teamName}"`
+      });
+    }
+
+    const conflictedMember = filteredMembers.find((id) => conflictMap.has(String(id)));
+    if (conflictedMember) {
+      const conflict = conflictMap.get(String(conflictedMember));
+      const user = memberUsers.find((row) => String(row._id) === String(conflictedMember));
+      const userLabel = user?.name || user?.email || "Selected member";
+      return res.status(400).json({
+        message: `${userLabel} is already assigned to team "${conflict.teamName}"`
+      });
+    }
 
     const team = await Team.create({
       name: normalizedName,
@@ -691,6 +758,27 @@ exports.updateTeam = async (req, res) => {
 
     const leadIdSet = new Set([String(selectedLeadId)]);
     const filteredMembers = normalizedMemberIds.filter((id) => !leadIdSet.has(String(id)));
+    const conflictMap = await findTeamConflictsForUsers(
+      [String(selectedLeadId), ...filteredMembers.map((id) => String(id))],
+      String(team._id)
+    );
+
+    if (conflictMap.has(String(selectedLeadId))) {
+      const conflict = conflictMap.get(String(selectedLeadId));
+      return res.status(400).json({
+        message: `Selected team lead is already assigned to team "${conflict.teamName}"`
+      });
+    }
+
+    const conflictedMember = filteredMembers.find((id) => conflictMap.has(String(id)));
+    if (conflictedMember) {
+      const conflict = conflictMap.get(String(conflictedMember));
+      const user = memberUsers.find((row) => String(row._id) === String(conflictedMember));
+      const userLabel = user?.name || user?.email || "Selected member";
+      return res.status(400).json({
+        message: `${userLabel} is already assigned to team "${conflict.teamName}"`
+      });
+    }
 
     team.name = normalizedName;
     team.teamLeads = [{ userId: selectedLeadId }];
@@ -818,6 +906,14 @@ exports.addMember = async (req, res) => {
 
     if (teamContainsUser(team, userId)) {
       return res.status(400).json({ message: "User already exists in this team" });
+    }
+
+    const conflictMap = await findTeamConflictsForUsers([String(userId)], String(team._id));
+    if (conflictMap.has(String(userId))) {
+      const conflict = conflictMap.get(String(userId));
+      return res.status(400).json({
+        message: `User is already assigned to team "${conflict.teamName}"`
+      });
     }
 
     team.members.push({ userId });

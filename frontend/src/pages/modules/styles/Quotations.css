@@ -23,7 +23,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 28px 20px 0px;
+  margin: 0px 20px 0px;
   padding: 4px;
   border-radius: 10px;
   border: 1px solid #dbe2ea;
@@ -441,8 +441,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 15px 24px;
   border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 15px;
 }
 
 .quote-form-header h2 {

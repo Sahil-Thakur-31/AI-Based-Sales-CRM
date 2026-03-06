@@ -50,12 +50,36 @@ export default function TeamSetup() {
     loadData();
   }, [loadData]);
 
+  const assignedOtherTeamUserIds = useMemo(() => {
+    const blocked = new Set();
+    (teams || []).forEach((team) => {
+      const teamId = String(team?._id || "");
+      if (editTeamId && teamId === String(editTeamId)) return;
+
+      (team?.teamLeads || []).forEach((lead) => {
+        const userId = String(lead?.userId?._id || lead?.userId || "");
+        if (userId) blocked.add(userId);
+      });
+
+      (team?.members || []).forEach((member) => {
+        const userId = String(member?.userId?._id || member?.userId || "");
+        if (userId) blocked.add(userId);
+      });
+    });
+    return blocked;
+  }, [teams, editTeamId]);
+
   const managers = useMemo(
     () =>
-      allUsers.filter(
-        (user) => String(getRoleName(user)).toLowerCase() === "manager" && user?.is_active !== false
-      ),
-    [allUsers]
+      allUsers.filter((user) => {
+        const userId = String(user?._id || "");
+        if (!userId) return false;
+        const isManagerRole = String(getRoleName(user)).toLowerCase() === "manager";
+        const isActive = user?.is_active !== false;
+        if (!isManagerRole || !isActive) return false;
+        return !assignedOtherTeamUserIds.has(userId);
+      }),
+    [allUsers, assignedOtherTeamUserIds]
   );
 
   const memberPool = useMemo(
@@ -63,9 +87,11 @@ export default function TeamSetup() {
       allUsers.filter((user) => {
         const role = String(getRoleName(user)).toLowerCase();
         const isActive = user?.is_active !== false;
-        return role !== "admin" && isActive;
+        const userId = String(user?._id || "");
+        if (!userId) return false;
+        return role !== "admin" && isActive && !assignedOtherTeamUserIds.has(userId);
       }),
-    [allUsers]
+    [allUsers, assignedOtherTeamUserIds]
   );
 
   const selectedMembers = useMemo(
