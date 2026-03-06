@@ -137,6 +137,17 @@ function getRelevantDateForStatus(item = {}, statusFilter = "all") {
 function mapDocToMeeting(doc) {
   const dueDateTime = doc.dueDateTime || doc.startTime || doc.meetingDate;
   const followupId = doc.sourceFollowupId || doc.Id || doc.followupId || doc._id;
+  const resolvedAddress =
+    doc.meetingLocation ||
+    doc.address ||
+    doc.Address ||
+    doc.currentLocation ||
+    "";
+  const resolvedLocation =
+    doc.meetingExactLocation ||
+    doc.exactLocation ||
+    doc.currentExactLocation ||
+    [doc.latitude, doc.longitude].filter(Boolean).join(", ");
   return {
     id: String(followupId),
     leadId: doc.leadId || "",
@@ -157,8 +168,8 @@ function mapDocToMeeting(doc) {
     completedAt: doc.completedAt || null,
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
     assignedToName: doc.assignedTo?.name || "",
-    address: doc.address || doc.Address || "",
-    exactLocation: doc.exactLocation || [doc.latitude, doc.longitude].filter(Boolean).join(", "),
+    address: resolvedAddress,
+    exactLocation: resolvedLocation,
   };
 }
 
@@ -173,6 +184,7 @@ function mapDocToFollowup(doc) {
     stage: doc.stage || "P1",
     due: formatDate(doc.dueDateTime),
     dueDateTime: doc.dueDateTime,
+    time: formatTime(doc.dueDateTime),
     priority: doc.priority || "medium",
     status: doc.status || "pending",
     actionType: doc.actionType || "Follow Up Phone Call",
@@ -951,14 +963,6 @@ export default function Followups() {
                   <div className="fuAllTitle">Today's Meeting Details</div>
                   <div className="fuPanelActions">
                     <button className="fuBtn fuBtnPrimary" type="button" onClick={() => openMeetingEdit(selectedMeeting)}>Edit</button>
-                    <button
-                      className="fuBtn fuBtnPrimary"
-                      type="button"
-                      onClick={() => handleMeetingDone(selectedMeeting.id)}
-                      disabled={isCompletedStatus(selectedMeeting.status) || isCancelledStatus(selectedMeeting.status)}
-                    >
-                      {isCompletedStatus(selectedMeeting.status) ? "Completed" : "Done"}
-                    </button>
                     {!isCompletedStatus(selectedMeeting.status) && !isCancelledStatus(selectedMeeting.status) && (
                       <button
                         className="fuBtn fuBtnGhost"
@@ -974,11 +978,15 @@ export default function Followups() {
                 <div className="fuDetailsGrid">
                   <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedMeeting.clientName}</div></div>
                   <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedMeeting.title || selectedMeeting.eventType}</div></div>
+                  <div className="fuDetailCard"><div className="k">Meeting Location</div><div className="v">{selectedMeeting.address || "-"}</div></div>
+                  <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedMeeting.stage || "-"}</div></div>
                   <div className="fuDetailCard"><div className="k">Event Type</div><div className="v">{selectedMeeting.eventType}</div></div>
                   <div className="fuDetailCard"><div className="k">Time</div><div className="v">{selectedMeeting.time}</div></div>
                   <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedMeeting.due}</div></div>
                   <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedMeeting.priority}</div></div>
                   <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedMeeting.status}</div></div>
+                  <div className="fuDetailCard"><div className="k">Duration (Minutes)</div><div className="v">{selectedMeeting.durationMinutes || "-"}</div></div>
+                  <div className="fuDetailCard"><div className="k">Agenda</div><div className="v">{selectedMeeting.agenda || "-"}</div></div>
                   <div className="fuDetailCard"><div className="k">Minutes of Meeting</div><div className="v">{selectedMeeting.notes || "-"}</div></div>
                   {isPhysicalMeetingEvent(selectedMeeting.eventType) && (
                     <>
@@ -1131,9 +1139,15 @@ export default function Followups() {
                 <div className="fuDetailsGrid">
                   <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedFollowup.client}</div></div>
                   <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedFollowup.title}</div></div>
+                  <div className="fuDetailCard"><div className="k">Assigned To</div><div className="v">{selectedFollowup.assignedToName || "-"}</div></div>
                   <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedFollowup.stage}</div></div>
                   <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedFollowup.due}</div></div>
                   <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedFollowup.priority}</div></div>
+                  <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedFollowup.status}</div></div>
+                  <div className="fuDetailCard"><div className="k">Action Type</div><div className="v">{selectedFollowup.actionType || "-"}</div></div>
+                  <div className="fuDetailCard"><div className="k">Reminder</div><div className="v">{selectedFollowup.reminderEnabled === "no" ? "No" : "Yes"}</div></div>
+                  <div className="fuDetailCard"><div className="k">Agenda</div><div className="v">{selectedFollowup.agenda || "-"}</div></div>
+                  <div className="fuDetailCard"><div className="k">Notes</div><div className="v">{selectedFollowup.notes || "-"}</div></div>
                 </div>
               </div>
             ) : followupMode === "edit" ? (
@@ -1193,9 +1207,9 @@ export default function Followups() {
                         <div className="fuItemMain">
                           <div className="fuItemTitle">{f.client} - {f.title}</div>
                           <div className="fuItemMeta">
-                            <span className="fuMetaChip">Due: {f.due}</span>
-                            <span className="fuMetaChip">{f.actionType}</span>
-                            <span className={cx("fuMetaChip", "stage")}>{f.stage}</span>
+                            <span className="fuMetaChip">{String(f.actionType || "").replace(/^follow\s*up\s*/i, "").trim() || "Phone Call"}</span>
+                            <span className="fuMetaChip">Time: {f.time || "--:--"}</span>
+                            <span className="fuMetaChip">{f.status || "pending"}</span>
                           </div>
                         </div>
                         <div className="fuItemActions">

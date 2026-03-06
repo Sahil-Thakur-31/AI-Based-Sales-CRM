@@ -52,6 +52,14 @@ const EventRegistration = () => {
   const [error, setError] = useState("");
   const usersLoadedRef = useRef(false);
   const registrationLoadedKeyRef = useRef("");
+  const attendeeUserOptions = useMemo(
+    () =>
+      allUsers.filter((user) => {
+        const role = String(user?.roleName || "").trim().toLowerCase();
+        return role !== "admin";
+      }),
+    [allUsers]
+  );
 
   const onFieldChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -313,7 +321,7 @@ const EventRegistration = () => {
                       onChange={(event) => handleAttendeeSelect(idx, event.target.value)}
                     >
                       <option value="">Select user</option>
-                      {allUsers.map((user) => (
+                      {attendeeUserOptions.map((user) => (
                         <option key={user._id} value={user._id}>
                           {user.name} ({user.email})
                         </option>

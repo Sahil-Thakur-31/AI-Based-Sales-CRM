@@ -9,9 +9,14 @@
 .add-event-header {
   max-width: 980px;
   margin: 0 auto 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .add-event-header h2 {
+  width: 100%;
   margin: 10px 0 8px;
   font-size: 30px;
   letter-spacing: 0.2px;
@@ -19,12 +24,14 @@
 }
 
 .add-event-header p {
+  width: 100%;
   margin: 0;
   color: #4c6280;
   font-size: 14px;
 }
 
 .back-btn {
+  margin-left: auto;
   border: 1px solid #d6dfed;
   background: #fdfefe;
   color: #12447f;

@@ -1,4 +1,5 @@
 :root {
+  --daily-font-family: "Inter", "Segoe UI", sans-serif;
   --daily-bg: #f6f8fc;
   --daily-card: #ffffff;
   --daily-border: #e6ebf4;
@@ -12,6 +13,7 @@
 .dailyClosingPage {
   min-height: 100%;
   padding: 18px;
+  font-family: var(--daily-font-family);
   background:
     radial-gradient(circle at top left, rgba(109, 94, 252, 0.08), transparent 26%),
     radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 24%),
@@ -307,8 +309,10 @@
 
 .dailyClosingFormTitle {
   margin: 0;
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 21px;
+  font-weight: 500;
+  color: #111827;
+  letter-spacing: 0.2px;
 }
 
 .dailyClosingFormMeta {
@@ -444,6 +448,14 @@
   gap: 12px;
 }
 
+.dailyClosingPdfExportOnly {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 1400px;
+  z-index: -1;
+}
+
 .dailyClosingPdfHeader {
   border: 1px solid #dfe6f3;
   border-radius: 14px;
@@ -493,10 +505,48 @@
 .dailyClosingReportSectionTitle {
   margin: 0;
   padding: 10px 14px;
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 500;
   color: #1f2a44;
   background: #f7f9fe;
+}
+
+.dailyClosingReportSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #e2e8f3;
+  background: #f7f9fe;
+  padding-right: 10px;
+}
+
+.dailyClosingTopToggle {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid #d6dfed;
+  background: #eff3fa;
+  overflow: hidden;
+}
+
+.dailyClosingTopToggleBtn {
+  border: 0;
+  background: transparent;
+  color: #4f6689;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.dailyClosingTopToggleBtn.isActive.isCompleted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dailyClosingTopToggleBtn.isActive.isCancelled {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .dailyClosingReportSectionTitle:first-child {
@@ -515,7 +565,8 @@
 .dailyClosingReportTable {
   width: 100%;
   border-collapse: collapse;
-  min-width: 620px;
+  min-width: 860px;
+  table-layout: fixed;
 }
 
 .dailyClosingReportTable th,
@@ -523,14 +574,96 @@
   border: 1px solid #e2e8f3;
   padding: 8px 10px;
   text-align: left;
-  font-size: 13px;
+  vertical-align: middle;
+  font-size: 12px;
   color: #1f2a44;
 }
 
 .dailyClosingReportTable th {
   background: #eef3fb;
-  font-weight: 800;
+  font-weight: 500;
+  font-size: 13px;
   text-align: left;
+}
+
+.dailyClosingReportTable th:nth-child(1),
+.dailyClosingReportTable th:nth-child(2),
+.dailyClosingReportTable th:nth-child(3) {
+  text-align: center;
+}
+
+.dailyClosingReportTable tbody td:nth-child(1),
+.dailyClosingReportTable tbody td:nth-child(2) {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.dailyClosingReportTable tbody td:nth-child(3) {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dailyClosingReportTable tbody td:nth-child(1),
+.dailyClosingReportTable tbody td:nth-child(2),
+.dailyClosingReportTable tbody td:nth-child(3) {
+  text-align: center;
+  vertical-align: top;
+}
+
+.dailyClosingColSr {
+  width: 80px;
+}
+
+.dailyClosingColTotal {
+  width: 140px;
+}
+
+.dailyClosingColClient {
+  width: 180px;
+}
+
+.dailyClosingColMinutes {
+  width: auto;
+}
+
+.dailyClosingReportTable td:nth-child(4) {
+  white-space: normal;
+  word-break: break-word;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.dailyClosingMinutesCell {
+  display: grid;
+  gap: 6px;
+}
+
+.dailyClosingMinutesCell span {
+  width: 100%;
+  text-align: justify;
+  text-justify: inter-word;
+}
+
+.dailyClosingReportTable th:nth-child(4) {
+  text-align: center;
+}
+
+.dailyClosingReadMoreBtn {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dailyClosingReadMoreBtn:hover {
+  color: #1e40af;
 }
 
 .dailyClosingReportTable tbody tr:nth-child(even) {
@@ -553,15 +686,15 @@
 
 .dailyClosingReportHighlights strong {
   padding: 10px 12px;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 500;
   background: #f4f7ff;
   border-right: 1px solid var(--daily-border);
 }
 
 .dailyClosingReportHighlights span {
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 12px;
   color: #1f2a44;
   word-break: break-word;
 }
@@ -578,8 +711,8 @@
   border-radius: 999px;
   background: #eef2ff;
   color: #334155;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 @media (max-width: 1100px) {
@@ -675,6 +808,16 @@
   .dailyClosingReportHighlights strong {
     border-right: 0;
     border-bottom: 1px solid var(--daily-border);
+  }
+
+  .dailyClosingReportSectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0 10px 10px;
+  }
+
+  .dailyClosingReportSectionTitle {
+    padding: 10px 4px 8px;
   }
 
   .dailyClosingPdfHeaderTop {

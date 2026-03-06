@@ -4,7 +4,7 @@ const followupSchema = new mongoose.Schema(
   {
     leadId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Lead",
+      ref: "Leads",
       index: true
     },
 

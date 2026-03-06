@@ -30,12 +30,31 @@ function cx(...arr) {
 }
 function formatINR(value) {
   const num = typeof value === "number" ? value : Number(value || 0);
-  if (!Number.isFinite(num)) return "₹0";
-  return num.toLocaleString("en-IN", {
+  if (!Number.isFinite(num)) return "\u20B90";
+  const abs = Math.abs(num);
+  const sign = num < 0 ? "-" : "";
+
+  if (abs >= 10000000) {
+    const cr = abs / 10000000;
+    const display = cr >= 100
+      ? Math.round(cr).toLocaleString("en-IN")
+      : cr.toFixed(cr >= 10 ? 1 : 2).replace(/\.?0+$/, "");
+    return `${sign}\u20B9${display}Cr`;
+  }
+
+  if (abs >= 100000) {
+    const lakh = abs / 100000;
+    const display = lakh >= 100
+      ? Math.round(lakh).toLocaleString("en-IN")
+      : lakh.toFixed(lakh >= 10 ? 1 : 2).replace(/\.?0+$/, "");
+    return `${sign}\u20B9${display}Lakh`;
+  }
+
+  return `${sign}${abs.toLocaleString("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  });
+  })}`;
 }
 
 /* Custom Badge for AI labels */
@@ -594,3 +613,4 @@ export default function AdminHome() {
     </div>
   );
 }
+

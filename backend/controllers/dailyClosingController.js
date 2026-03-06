@@ -12,14 +12,11 @@ function parseDateOnlyInput(value) {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-function parseDateRangeInput(fromRaw, toRaw) {
-  const from = parseDateOnlyInput(fromRaw);
-  const to = parseDateOnlyInput(toRaw);
-  if (!from && !to) return null;
-
-  const start = from || new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
-  const endBase = to || new Date(Date.UTC(new Date().getUTCFullYear(), 11, 31));
-  const end = new Date(endBase.getTime() + 24 * 60 * 60 * 1000);
+function getUtcDayRange(dateValue) {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return null;
+  const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   return { start, end };
 }
 
@@ -46,6 +43,11 @@ function formatDisplayDate(value) {
   });
 }
 
+function isReportStatusAllowed(item = {}) {
+  const status = String(item?.status || item?.action || "").trim().toLowerCase();
+  return status === "completed" || status === "cancelled" || status === "canceled";
+}
+
 function buildRowsHtml(rows = [], kindLabel = "Record") {
   if (!Array.isArray(rows) || rows.length === 0) {
     return `<tr><td colspan="5" style="padding:8px;border:1px solid #e5e7eb;color:#6b7280;">No ${escapeHtml(kindLabel)} found.</td></tr>`;
@@ -70,14 +72,34 @@ function buildRowsHtml(rows = [], kindLabel = "Record") {
     .join("");
 }
 
+function buildSectionHtml(title, rows = [], fallbackLabel = "Record") {
+  return `
+    <h3 style="margin:16px 0 8px;color:#0f172a;">${escapeHtml(title)}</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#eef2ff;">
+          <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Sr. No.</th>
+          <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Type</th>
+          <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Client Name</th>
+          <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Details</th>
+          <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Action</th>
+        </tr>
+      </thead>
+      <tbody>${buildRowsHtml(rows, fallbackLabel)}</tbody>
+    </table>
+  `;
+}
+
 function buildReportMailHtml({
   companyName,
   senderName,
   senderRole,
   selectedDate,
   keyHighlights,
-  meetings = [],
-  followups = [],
+  meetingsCompleted = [],
+  followupsCompleted = [],
+  meetingsCancelled = [],
+  followupsCancelled = [],
 }) {
   return `
     <div style="font-family:Segoe UI,Arial,sans-serif;background:#f4f6fb;padding:20px;">
@@ -90,33 +112,10 @@ function buildReportMailHtml({
           Submitted By: <strong>${escapeHtml(senderName || "-")}</strong> (${escapeHtml(senderRole || "-")})
         </p>
 
-        <h3 style="margin:14px 0 8px;color:#0f172a;">Event Details (${meetings.length})</h3>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="background:#eef2ff;">
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Sr. No.</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Type</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Client Name</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Details</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Action</th>
-            </tr>
-          </thead>
-          <tbody>${buildRowsHtml(meetings, "Meeting")}</tbody>
-        </table>
-
-        <h3 style="margin:16px 0 8px;color:#0f172a;">Follow-up Details (${followups.length})</h3>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="background:#eef2ff;">
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Sr. No.</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Type</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Client Name</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Details</th>
-              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Action</th>
-            </tr>
-          </thead>
-          <tbody>${buildRowsHtml(followups, "Follow-up")}</tbody>
-        </table>
+        ${buildSectionHtml("Meeting Details (Completed)", meetingsCompleted, "Meeting")}
+        ${buildSectionHtml("Follow-up Details (Completed)", followupsCompleted, "Follow-up")}
+        ${buildSectionHtml("Meeting Details (Cancelled)", meetingsCancelled, "Meeting")}
+        ${buildSectionHtml("Follow-up Details (Cancelled)", followupsCancelled, "Follow-up")}
 
         <div style="margin-top:16px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
           <strong>Key Highlights:</strong>
@@ -151,18 +150,23 @@ exports.submit = async (req, res) => {
     }
 
     const now = new Date();
+    const dayRange = getUtcDayRange(selectedDate);
+    if (!dayRange) {
+      return res.status(400).json({ message: "Invalid selectedDate" });
+    }
 
     let attendanceDoc = await DailyClosingAttendance.findOne({
       user_id: userId,
-      attendance_of_date: selectedDate,
+      attendance_of_date: { $gte: dayRange.start, $lt: dayRange.end },
     });
 
     if (attendanceDoc) {
+      attendanceDoc.attendance_of_date = dayRange.start;
       attendanceDoc.daily_closing_date = now;
       await attendanceDoc.save();
     } else {
       attendanceDoc = await DailyClosingAttendance.create({
-        attendance_of_date: selectedDate,
+        attendance_of_date: dayRange.start,
         daily_closing_date: now,
         user_id: userId,
       });
@@ -170,15 +174,16 @@ exports.submit = async (req, res) => {
 
     let highlightsDoc = await DailyClosingHighlights.findOne({
       user_id: userId,
-      daily_closing_date: selectedDate,
+      daily_closing_date: { $gte: dayRange.start, $lt: dayRange.end },
     });
 
     if (highlightsDoc) {
+      highlightsDoc.daily_closing_date = dayRange.start;
       highlightsDoc.key_highlights = keyHighlights;
       await highlightsDoc.save();
     } else {
       highlightsDoc = await DailyClosingHighlights.create({
-        daily_closing_date: selectedDate,
+        daily_closing_date: dayRange.start,
         key_highlights: keyHighlights,
         user_id: userId,
       });
@@ -206,8 +211,24 @@ exports.mailReport = async (req, res) => {
 
     const selectedDate = String(req.body?.selectedDate || "").trim();
     const keyHighlights = String(req.body?.keyHighlights || "").trim();
-    const meetings = Array.isArray(req.body?.meetings) ? req.body.meetings : [];
-    const followups = Array.isArray(req.body?.followups) ? req.body.followups : [];
+    const meetings = Array.isArray(req.body?.meetings)
+      ? req.body.meetings.filter(isReportStatusAllowed)
+      : [];
+    const followups = Array.isArray(req.body?.followups)
+      ? req.body.followups.filter(isReportStatusAllowed)
+      : [];
+    const meetingsCompleted = Array.isArray(req.body?.meetingsCompleted)
+      ? req.body.meetingsCompleted.filter(isReportStatusAllowed)
+      : meetings.filter((item) => String(item?.status || "").trim().toLowerCase() === "completed");
+    const followupsCompleted = Array.isArray(req.body?.followupsCompleted)
+      ? req.body.followupsCompleted.filter(isReportStatusAllowed)
+      : followups.filter((item) => String(item?.status || "").trim().toLowerCase() === "completed");
+    const meetingsCancelled = Array.isArray(req.body?.meetingsCancelled)
+      ? req.body.meetingsCancelled.filter(isReportStatusAllowed)
+      : meetings.filter((item) => ["cancelled", "canceled"].includes(String(item?.status || "").trim().toLowerCase()));
+    const followupsCancelled = Array.isArray(req.body?.followupsCancelled)
+      ? req.body.followupsCancelled.filter(isReportStatusAllowed)
+      : followups.filter((item) => ["cancelled", "canceled"].includes(String(item?.status || "").trim().toLowerCase()));
 
     if (!selectedDate) {
       return res.status(400).json({ message: "selectedDate is required" });
@@ -264,8 +285,10 @@ exports.mailReport = async (req, res) => {
       senderRole: me?.role?.name || senderRole,
       selectedDate,
       keyHighlights,
-      meetings,
-      followups,
+      meetingsCompleted,
+      followupsCompleted,
+      meetingsCancelled,
+      followupsCancelled,
     });
 
     await emailService.sendEmail({

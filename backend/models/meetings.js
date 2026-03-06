@@ -18,7 +18,7 @@ const meetingsSchema = new mongoose.Schema({
 
   leadId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Lead"
+    ref: "Leads"
   },
 
   dealId: {

@@ -310,18 +310,58 @@ export default function FollowupsAddPage() {
   }, [employeeOptions, selectedTeamId, teamOptions]);
 
   const assignableEmployeeOptions = useMemo(() => {
-    if (currentRole === "admin" || currentRole === "manager") {
-      return employeeOptions.filter((user) => user.role !== "admin" && user.role !== "manager");
+    const withSelfFirst = (users = []) => {
+      const self = users.find((user) => String(user.id) === String(currentUserId || ""));
+      const others = users.filter((user) => String(user.id) !== String(currentUserId || ""));
+      return self ? [self, ...others] : others;
+    };
+
+    if (currentRole === "admin") {
+      return withSelfFirst(
+        employeeOptions.filter(
+          (user) => user.role !== "admin" || String(user.id) === String(currentUserId || "")
+        )
+      );
+    }
+    if (currentRole === "manager") {
+      return withSelfFirst(
+        employeeOptions.filter(
+          (user) =>
+            (user.role !== "admin" && user.role !== "manager") ||
+            String(user.id) === String(currentUserId || "")
+        )
+      );
     }
     return [];
-  }, [currentRole, employeeOptions]);
+  }, [currentRole, employeeOptions, currentUserId]);
 
   const defaultAssignableUserId = useMemo(
     () => String(assignableEmployeeOptions[0]?.id || ""),
     [assignableEmployeeOptions]
   );
-  // Keep newly created records visible under "My Records" by default.
-  const assigneeFallbackId = currentUserId || defaultAssignableUserId;
+  const assigneeFallbackId = useMemo(() => {
+    if (currentRole === "admin" || currentRole === "manager") {
+      return defaultAssignableUserId || "";
+    }
+    return currentUserId || defaultAssignableUserId;
+  }, [currentRole, currentUserId, defaultAssignableUserId]);
+
+  const selectedAssigneeId = useMemo(() => {
+    if (currentRole === "admin" || currentRole === "manager") {
+      return String(formData.assignedTo || assigneeFallbackId || "");
+    }
+    return String(currentUserId || assigneeFallbackId || "");
+  }, [currentRole, formData.assignedTo, currentUserId, assigneeFallbackId]);
+
+  const assigneeScopedLeadRows = useMemo(() => {
+    if (!selectedAssigneeId) return [];
+    return leadRows.filter((row) => extractAssignedUserId(row) === selectedAssigneeId);
+  }, [leadRows, selectedAssigneeId]);
+
+  const assigneeScopedDealRows = useMemo(() => {
+    if (!selectedAssigneeId) return [];
+    return dealRows.filter((row) => extractAssignedUserId(row) === selectedAssigneeId);
+  }, [dealRows, selectedAssigneeId]);
 
   const selectedSourceInfo = useMemo(() => {
     if (!selectedSourceId) return null;
@@ -352,14 +392,9 @@ export default function FollowupsAddPage() {
   const suggestionRows = useMemo(() => {
     const query = normalizeValue(formData.searchClient);
     if (!query || selectedSourceId) return [];
-    const mineOnly = String(currentUserId || "");
 
     if (formData.sourceType === "lead") {
-      return leadRows
-        .filter((lead) => {
-          if (!mineOnly) return false;
-          return extractAssignedUserId(lead) === mineOnly;
-        })
+      return assigneeScopedLeadRows
         .filter((lead) => normalizeValue(lead.company_name).includes(query))
         .slice(0, 8)
         .map((lead) => ({
@@ -371,11 +406,7 @@ export default function FollowupsAddPage() {
         }));
     }
 
-    return dealRows
-      .filter((deal) => {
-        if (!mineOnly) return false;
-        return extractAssignedUserId(deal) === mineOnly;
-      })
+    return assigneeScopedDealRows
       .filter((deal) => normalizeValue(deal.company_name).includes(query))
       .slice(0, 8)
       .map((deal) => ({
@@ -387,7 +418,7 @@ export default function FollowupsAddPage() {
         clientId: String(deal.clientId || deal.client_id || ""),
         leadId: deal.lead_id ? String(deal.lead_id) : "",
       }));
-  }, [currentUserId, dealRows, formData.searchClient, formData.sourceType, leadRows, selectedSourceId]);
+  }, [assigneeScopedDealRows, assigneeScopedLeadRows, formData.searchClient, formData.sourceType, selectedSourceId]);
 
   const loadData = async () => {
     try {
@@ -458,6 +489,23 @@ export default function FollowupsAddPage() {
       return { ...prev, assignedTo: assigneeFallbackId };
     });
   }, [currentRole, assigneeFallbackId]);
+
+  useEffect(() => {
+    if (currentRole !== "admin" && currentRole !== "manager") return;
+    if (!selectedSourceId) return;
+    const scopedRows = formData.sourceType === "lead" ? assigneeScopedLeadRows : assigneeScopedDealRows;
+    const stillValid = scopedRows.some((row) => String(row._id) === String(selectedSourceId));
+    if (stillValid) return;
+    setSelectedSourceId("");
+    setClientSuggestions([]);
+    setFormData((prev) => ({ ...prev, searchClient: "", stage: "" }));
+  }, [
+    assigneeScopedDealRows,
+    assigneeScopedLeadRows,
+    currentRole,
+    formData.sourceType,
+    selectedSourceId,
+  ]);
 
   const resetForm = () => {
     setFormData({
@@ -610,10 +658,10 @@ export default function FollowupsAddPage() {
     if (hasExistingClient === "yes") {
       if (!String(formData.searchClient || "").trim()) return "Selection is required";
       if (!selectedSourceId) return "Select an item from suggestions";
-      if (sourceType === "lead" && !leadRows.some((row) => String(row._id) === String(selectedSourceId))) {
+      if (sourceType === "lead" && !assigneeScopedLeadRows.some((row) => String(row._id) === String(selectedSourceId))) {
         return "Selected lead is invalid";
       }
-      if (sourceType === "deal" && !dealRows.some((row) => String(row._id) === String(selectedSourceId))) {
+      if (sourceType === "deal" && !assigneeScopedDealRows.some((row) => String(row._id) === String(selectedSourceId))) {
         return "Selected deal is invalid";
       }
     } else if (!selectedSourceId) {
@@ -632,6 +680,10 @@ export default function FollowupsAddPage() {
     if (formData.durationMinutes !== "" && formData.durationMinutes !== null && formData.durationMinutes !== undefined) {
       const duration = Number(formData.durationMinutes);
       if (!Number.isFinite(duration) || duration < 1) return "Duration must be a positive number";
+    }
+
+    if ((currentRole === "admin" || currentRole === "manager") && !String(formData.assignedTo || "").trim()) {
+      return "Assigned user is required";
     }
 
     if (
@@ -750,7 +802,10 @@ export default function FollowupsAddPage() {
         // New records should start as pending; completion is an explicit action.
         status: editingRecord ? undefined : "pending",
         priority: formData.priority || "medium",
-        notes: formData.purpose || formData.taskDescription,
+        notes:
+          resolvedTarget === "meeting"
+            ? (formData.purpose || formData.taskDescription)
+            : undefined,
         durationMinutes: formData.durationMinutes || undefined,
         agenda: formData.agenda || "",
         currentLocation: formData.currentLocation.trim() || "",
@@ -823,6 +878,33 @@ export default function FollowupsAddPage() {
             <option value="deal">Deal</option>
           </select>
         </label>
+
+        {(currentRole === "admin" || currentRole === "manager") && (
+          <label>
+            Assign To*
+            <select
+              value={formData.assignedTo || ""}
+              onChange={(e) => {
+                const nextAssignee = e.target.value;
+                setSelectedSourceId("");
+                setClientSuggestions([]);
+                setFormData((p) => ({
+                  ...p,
+                  assignedTo: nextAssignee,
+                  searchClient: "",
+                  stage: "",
+                }));
+              }}
+            >
+              <option value="">--Select User--</option>
+              {assignableEmployeeOptions.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {userIdLabel(user, currentUserId)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label>
           Event Type*
@@ -1178,7 +1260,11 @@ export default function FollowupsAddPage() {
 
   const openCancelModal = () => {
     if (!selectedRecord?.item?.id) return;
-    if (isCompletedStatus(selectedRecord.item.status) || isCancelledStatus(selectedRecord.item.status)) return;
+    const isFollowup = selectedRecord.type === "followup";
+    const blocked =
+      isCancelledStatus(selectedRecord.item.status) ||
+      (!isFollowup && isCompletedStatus(selectedRecord.item.status));
+    if (blocked) return;
     setCancelModal({
       open: true,
       id: String(selectedRecord.item.id),
@@ -1192,7 +1278,7 @@ export default function FollowupsAddPage() {
     if (!cancelModal.open) return null;
     return (
       <div className="fuaModalOverlay" onClick={closeCancelModal}>
-        <form className="fuaModal" onSubmit={submitCancel} onClick={(e) => e.stopPropagation()}>
+        <form className="fuaModal fuaCancelModal" onSubmit={submitCancel} onClick={(e) => e.stopPropagation()}>
           <div className="fuaModalHead">
             <div className="fuaModalTitleWrap">
               <h3>Cancel {cancelModal.kind === "meeting" ? "Meeting" : "Follow-up"}</h3>
@@ -1204,13 +1290,14 @@ export default function FollowupsAddPage() {
               <label className="full">
                 Reason for Cancellation*
                 <textarea
+                  className="fuaCancelReason"
                   rows={4}
                   value={cancelModal.reason}
                   onChange={(e) => setCancelModal((prev) => ({ ...prev, reason: e.target.value }))}
                 />
               </label>
             </div>
-            <div className="fuaActions">
+            <div className="fuaActions fuaCancelActions">
               <button className="fuaBtn primary" type="submit" disabled={savingCancel}>
                 {savingCancel ? "Saving..." : "Save Cancellation"}
               </button>
@@ -1266,28 +1353,45 @@ export default function FollowupsAddPage() {
   const renderDetails = () => {
     if (!selectedRecord) return <div className="fuaEmpty">No details found.</div>;
     const { type, item } = selectedRecord;
+    const canCancel =
+      type === "followup"
+        ? !isCancelledStatus(item?.status)
+        : !isCompletedStatus(item?.status) && !isCancelledStatus(item?.status);
     const rows = type === "meeting"
       ? [
           ["Client", item.clientName],
+          ["Assigned To", item.assignedToName || "N/A"],
+          ["Source Type", item.sourceType || "N/A"],
+          ["Lead Id", item.leadId || "N/A"],
+          ["Deal Id", item.dealId || "N/A"],
           ["Event Type", item.eventType],
+          ["Stage", item.stage || "N/A"],
+          ["Date", formatDate(item.dueDateTime)],
           ["Time", item.time],
-          ["Status", item.status],
+          ["Status", completionText(item.status)],
           ["Priority", item.priority || "N/A"],
+          ["Reminder", item.reminderEnabled === "no" ? "No" : "Yes"],
           ["Notes", item.notes || "N/A"],
           ["Duration", item.durationMinutes || "N/A"],
           ["Agenda", item.agenda || "N/A"],
           ["Current Location", item.currentLocation || "N/A"],
+          ["Current Coordinates", item.currentExactLocation || "N/A"],
           ["Meeting Location", item.meetingLocation || "N/A"],
           ["Meeting Coordinates", item.meetingExactLocation || "N/A"],
         ]
       : [
           ["Client", item.client],
+          ["Assigned To", item.assignedToName || "N/A"],
+          ["Source Type", item.sourceType || "N/A"],
+          ["Lead Id", item.leadId || "N/A"],
+          ["Deal Id", item.dealId || "N/A"],
           ["Task", item.title],
           ["Stage", item.stage],
           ["Due", item.due],
           ["Status", completionText(item.status)],
           ["Priority", item.priority],
           ["Event Type", item.eventType || "N/A"],
+          ["Reminder", item.reminderEnabled === "no" ? "No" : "Yes"],
           ["Time", item.time || "N/A"],
           ["Notes", item.notes || "N/A"],
           ["Agenda", item.agenda || "N/A"],
@@ -1299,7 +1403,7 @@ export default function FollowupsAddPage() {
           <h3>{type === "meeting" ? "Meeting Details" : "Followup Details"}</h3>
           <div className="fuaActions">
             <button className="fuaBtn primary" type="button" onClick={openEditFromDetails}>Edit</button>
-            {!isCompletedStatus(item?.status) && !isCancelledStatus(item?.status) && (
+            {canCancel && (
               <button className="fuaBtn danger" type="button" onClick={openCancelModal}>Cancel</button>
             )}
             <button className="fuaBtn ghost" type="button" onClick={() => setActiveAction(type)}>Back</button>
