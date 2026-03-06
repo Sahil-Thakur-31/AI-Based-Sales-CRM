@@ -103,10 +103,24 @@ function App() {
           <Route path="/daily-closing/form" element={<DailyClosingForm />} />
           <Route path="/daily-closing/report" element={<DailyClosingReport />} />
 
-          <Route path="/sales-forecast" element={<SalesForecast />} />
+          <Route
+            path="/sales-forecast"
+            element={
+              <ProtectedRoute allowedRoles={["Manager", "Admin"]}>
+                <SalesForecast />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/expenses" element={<Expenses />} />
 
-          <Route path="/ai-leads" element={<AILeadGeneration />} />
+          <Route
+            path="/ai-leads"
+            element={
+              <ProtectedRoute allowedRoles={["Manager", "Admin"]}>
+                <AILeadGeneration />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/events" element={<Events />} />
           <Route path="/events/new" element={<AddEvent />} />
           <Route path="/events/register" element={<EventRegistration />} />
@@ -114,7 +128,14 @@ function App() {
           <Route path="/team-dashboard" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamDashboard /></ProtectedRoute>} />
           <Route path="/team-setup" element={<ProtectedRoute allowedRoles={["Admin"]}><TeamSetup /></ProtectedRoute>} />
           <Route path="/team-targets" element={<ProtectedRoute allowedRoles={["Manager", "Admin"]}><TeamTargets /></ProtectedRoute>} />
-          <Route path="/reports" element={<Reports />} />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute allowedRoles={["Manager", "Admin"]}>
+                <Reports />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />

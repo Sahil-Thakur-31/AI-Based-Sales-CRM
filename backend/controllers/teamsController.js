@@ -1290,10 +1290,15 @@ exports.getTeamTargets = async (req, res) => {
     const memberIds = (team.members || [])
       .map((member) => String(member.userId || ""))
       .filter((id) => isObjectId(id));
+    const teamLeadIds = (team.teamLeads || [])
+      .map((lead) => String(lead.userId || ""))
+      .filter((id) => isObjectId(id));
+    const teamUserIds = [...new Set([...teamLeadIds, ...memberIds])];
     const memberObjectIds = memberIds.map((id) => toObjectId(id));
+    const teamUserObjectIds = teamUserIds.map((id) => toObjectId(id));
 
-    const usersMap = await loadUsersMap(memberIds);
-    const [teamTargetDoc, targetDocs] = await Promise.all([
+    const usersMap = await loadUsersMap(teamUserIds);
+    const [teamTargetDoc, targetDocs, achievedAgg] = await Promise.all([
       SalesTarget.findOne({
         scope_type: "team",
         team_id: team._id,
@@ -1316,14 +1321,60 @@ exports.getTeamTargets = async (req, res) => {
           })
             .sort({ updated_at: -1, created_at: -1 })
             .lean()
+        : [],
+      teamUserObjectIds.length
+        ? Deal.aggregate([
+            {
+              $match: {
+                assignedTo: { $in: teamUserObjectIds },
+                status: "won",
+                is_deleted: { $ne: true }
+              }
+            },
+            {
+              $addFields: {
+                closedAt: { $ifNull: ["$actualCloseDate", "$updatedAt"] }
+              }
+            },
+            {
+              $match: {
+                closedAt: { $gte: periodStart, $lte: periodEnd }
+              }
+            },
+            {
+              $group: {
+                _id: "$assignedTo",
+                achievedRevenue: { $sum: { $ifNull: ["$dealValue", 0] } },
+                achievedDeals: { $sum: 1 }
+              }
+            }
+          ])
         : []
     ]);
 
+    const safeTargetDocs = Array.isArray(targetDocs) ? targetDocs : [];
+    const safeAchievedAgg = Array.isArray(achievedAgg) ? achievedAgg : [];
+
     const targetMap = new Map();
-    for (const doc of targetDocs) {
+    for (const doc of safeTargetDocs) {
       const userId = String(doc.user_id || "");
       if (!userId || targetMap.has(userId)) continue;
       targetMap.set(userId, doc);
+    }
+
+    const achievementMap = new Map();
+    let teamAchievedRevenue = 0;
+    let teamAchievedDeals = 0;
+
+    for (const row of safeAchievedAgg) {
+      const userId = String(row?._id || "");
+      if (!userId) continue;
+
+      const achievedRevenue = Number(row?.achievedRevenue || 0);
+      const achievedDeals = Number(row?.achievedDeals || 0);
+      achievementMap.set(userId, { achievedRevenue, achievedDeals });
+      teamAchievedRevenue += achievedRevenue;
+      teamAchievedDeals += achievedDeals;
     }
 
     const members = memberIds
@@ -1331,26 +1382,55 @@ exports.getTeamTargets = async (req, res) => {
         const user = usersMap.get(memberId);
         if (!user) return null;
         const target = targetMap.get(memberId);
+        const achieved = achievementMap.get(memberId) || {
+          achievedRevenue: 0,
+          achievedDeals: 0
+        };
+        const assignedRevenue = Number(target?.revenue_target || 0);
+        const assignedDeals = Number(target?.deal_target || 0);
+        const revenueProgress = assignedRevenue
+          ? Math.min(100, Math.round((achieved.achievedRevenue / assignedRevenue) * 100))
+          : 0;
+        const dealsProgress = assignedDeals
+          ? Math.min(100, Math.round((achieved.achievedDeals / assignedDeals) * 100))
+          : 0;
 
         return {
           user: mapUserForApi(user),
           targetId: target?._id || null,
-          revenueTarget: Number(target?.revenue_target || 0),
-          dealTarget: Number(target?.deal_target || 0),
+          revenueTarget: assignedRevenue,
+          dealTarget: assignedDeals,
           followupTarget: Number(target?.followup_target || 0),
           winRateTarget: Number(target?.win_rate_target || 0),
           pipelineTarget: Number(target?.pipeline_target || 0),
           stretchRevenueTarget: Number(target?.stretch_revenue_target || 0),
           bonusPercent: Number(target?.Bonus_percent || 0),
-          notes: target?.notes || ""
+          notes: target?.notes || "",
+          achievedRevenue: achieved.achievedRevenue,
+          achievedDeals: achieved.achievedDeals,
+          revenueProgress,
+          dealsProgress
         };
       })
       .filter(Boolean);
 
+    const teamAssignedRevenue = Number(teamTargetDoc?.revenue_target || 0);
+    const teamAssignedDeals = Number(teamTargetDoc?.deal_target || 0);
+    const teamRevenueProgress = teamAssignedRevenue
+      ? Math.min(100, Math.round((teamAchievedRevenue / teamAssignedRevenue) * 100))
+      : 0;
+    const teamDealsProgress = teamAssignedDeals
+      ? Math.min(100, Math.round((teamAchievedDeals / teamAssignedDeals) * 100))
+      : 0;
+
+    const teamLead = usersMap.get(String(teamLeadIds[0] || "")) || null;
+
     return res.json({
       team: {
         _id: team._id,
-        name: team.name || ""
+        name: team.name || "",
+        lead: teamLead ? mapUserForApi(teamLead) : null,
+        memberCount: memberIds.length
       },
       period: {
         periodType,
@@ -1358,9 +1438,14 @@ exports.getTeamTargets = async (req, res) => {
         periodEnd
       },
       teamTarget: {
-        revenueTarget: Number(teamTargetDoc?.revenue_target || 0),
-        dealTarget: Number(teamTargetDoc?.deal_target || 0),
-        notes: teamTargetDoc?.notes || ""
+        revenueTarget: teamAssignedRevenue,
+        dealTarget: teamAssignedDeals,
+        notes: teamTargetDoc?.notes || "",
+        achievedRevenue: teamAchievedRevenue,
+        achievedDeals: teamAchievedDeals,
+        revenueProgress: teamRevenueProgress,
+        dealsProgress: teamDealsProgress,
+        updatedAt: teamTargetDoc?.updated_at || teamTargetDoc?.created_at || null
       },
       members
     });
