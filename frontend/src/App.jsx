@@ -22,7 +22,6 @@ import QuotationDetails from './pages/modules/QuotationDetails.jsx';
 // meetings module removed
 import FollowUps from './pages/modules/FollowUps.jsx';
 import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
-import DailyClosing from './pages/modules/DailyClosing.jsx';
 import DailyClosingForm from './pages/modules/DailyClosingForm.jsx';
 import DailyClosingReport from './pages/modules/DailyClosingReport.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
@@ -101,7 +100,7 @@ function App() {
 
           <Route path="/followups" element={<FollowUps />} />
           <Route path="/followups/add" element={<FollowupsAddPage />} />
-          <Route path="/daily-closing" element={<DailyClosing />} />
+          <Route path="/daily-closing" element={<Navigate to="/daily-closing/form" replace />} />
           <Route path="/daily-closing/form" element={<DailyClosingForm />} />
           <Route path="/daily-closing/report" element={<DailyClosingReport />} />
 

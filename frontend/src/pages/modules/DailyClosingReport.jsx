@@ -527,9 +527,9 @@ export default function DailyClosingReport() {
           <button
             type="button"
             className="dailyClosingBtn dailyClosingBtnGhost"
-            onClick={() => navigate("/daily-closing")}
+            onClick={() => navigate("/calendar")}
           >
-            Back to Calendar
+            Back to Main Calendar
           </button>
         </div>
       </section>
