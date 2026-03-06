@@ -22,6 +22,7 @@ export const routeConfig = [
   { path: "/leads/new", title: "Add Lead" },
   { path: "/leads/:id", title: "Lead Details", dynamic: true },
   { path: "/clients", title: "Clients" },
+  { path: "/clients/new", title: "Add Client" },
   { path: "/clients/:id", title: "Client Details", dynamic: true },
   { path: "/deals", title: "Deals" },
   { path: "/deals/:id", title: "Deal Details", dynamic: true },
