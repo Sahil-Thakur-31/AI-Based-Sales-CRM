@@ -90,7 +90,7 @@ export default function DailyClosingForm() {
   };
 
   const handleBack = () => {
-    navigate("/daily-closing", {
+    navigate("/calendar", {
       state: {
         selectedDate: formatLocalDateInput(selectedDate),
       },
@@ -154,7 +154,7 @@ export default function DailyClosingForm() {
                 className="dailyClosingBtn dailyClosingBtnGhost"
                 onClick={handleBack}
               >
-                Back to Calendar
+                Back to Main Calendar
               </button>
             </div>
 

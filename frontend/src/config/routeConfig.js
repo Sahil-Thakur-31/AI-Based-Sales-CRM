@@ -31,7 +31,6 @@ export const routeConfig = [
 
   { path: "/followups", title: "Follow-ups" },
   { path: "/followups/add", title: "Add Followup and Meeting" },
-  { path: "/daily-closing", title: "Daily Closing" },
   { path: "/daily-closing/form", title: "Daily Closing Form" },
   { path: "/daily-closing/report", title: "Daily Closing Report" },
 

@@ -36,7 +36,6 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
     { name: "Deals", icon: "\u{1F4BC}", path: "/deals" },
     { name: "Quotations", icon: "\u{1F9FE}", path: "/quotations" },
     { name: "Follow-ups", icon: "\u23F0", path: "/followups" },
-    { name: "Daily Closing", icon: "\u{1F5D3}", path: "/daily-closing" },
     { name: "Sales Forecasting", icon: "\u{1F4C8}", path: "/sales-forecast" },
     { name: "Expenses", icon: "\u{1F4B0}", path: "/expenses" },
     { name: "AI Lead Gen", icon: "\u{1F916}", path: "/ai-leads" },
