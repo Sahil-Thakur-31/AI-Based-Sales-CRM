@@ -50,11 +50,17 @@ const getDurationText = (startDate, endDate) => {
 
 const getLocationText = (eventItem) => {
   const city = eventItem.location?.city;
-  return [eventItem.venue, city].filter(Boolean).join(", ") || "Location TBA";
+  const state = eventItem.location?.State || eventItem.location?.state;
+  return [eventItem.venue, city, state].filter(Boolean).join(", ") || "Location TBA";
 };
+
+const contains = (value, query) => String(value || "").toLowerCase().includes(query);
 
 const EventExpo = () => {
   const navigate = useNavigate();
+  const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+  const isAdminOrManager = roleName === "admin" || roleName === "manager";
+  const isRestrictedUser = !isAdminOrManager;
   const [events, setEvents] = useState([]);
   const [summary, setSummary] = useState({
     upcomingEvents: 0,
@@ -144,14 +150,24 @@ const EventExpo = () => {
     const set = new Set();
     events.forEach((item) => {
       if (item.location?.city) set.add(item.location.city);
+      if (item.location?.State) set.add(item.location.State);
+      if (item.location?.state) set.add(item.location.state);
+      if (item.location?.city && (item.location?.State || item.location?.state)) {
+        set.add(`${item.location.city}, ${item.location?.State || item.location?.state}`);
+      }
       if (item.venue) set.add(item.venue);
+      if (item.address) set.add(item.address);
       if (item.name) set.add(item.name);
     });
     return Array.from(set);
   }, [events]);
 
   const filteredEvents = useMemo(() => {
-    const eventsToFilter = events.length ? events : [{ ...DEMO_EVENT, isAttending: demoAttending }];
+    const eventsToFilter = events.length
+      ? events
+      : isRestrictedUser
+        ? []
+        : [{ ...DEMO_EVENT, isAttending: demoAttending }];
     const query = locationQuery.trim().toLowerCase();
     const now = new Date();
 
@@ -159,9 +175,12 @@ const EventExpo = () => {
       const matchesIndustry = industryFilter === "all" || eventItem.industry?._id === industryFilter;
       const matchesLocation =
         !query ||
-        eventItem.location?.city?.toLowerCase().includes(query) ||
-        eventItem.venue?.toLowerCase().includes(query) ||
-        eventItem.name?.toLowerCase().includes(query);
+        contains(eventItem.location?.city, query) ||
+        contains(eventItem.location?.State, query) ||
+        contains(eventItem.location?.state, query) ||
+        contains(eventItem.venue, query) ||
+        contains(eventItem.address, query) ||
+        contains(eventItem.name, query);
 
       let matchesQuick = true;
       if (quickFilter === "high-priority") matchesQuick = eventItem.priorityTag === "high" || eventItem.priorityTag === "strategic";
@@ -176,12 +195,14 @@ const EventExpo = () => {
 
       return matchesIndustry && matchesLocation && matchesQuick;
     });
-  }, [events, industryFilter, locationQuery, quickFilter, demoAttending]);
+  }, [events, industryFilter, locationQuery, quickFilter, demoAttending, isRestrictedUser]);
 
   const registeredCount = Number(summary.registeredEvents || 0);
   const attendingCount = Number(summary.attendingEvents || 0);
   const avgAiScore = Number(summary.avgAiScore || 0);
-  const upcomingCount = Number(summary.upcomingEvents || 0) || (events.length ? events.length : 1);
+  const upcomingCount = Number(summary.upcomingEvents || 0) || (events.length ? events.length : 0);
+  const invitationCount = upcomingCount;
+  const pendingInvitationCount = Math.max(0, invitationCount - attendingCount);
   const lastUpdatedLabel = summary.lastUpdatedAt
     ? new Date(summary.lastUpdatedAt).toLocaleString("en-IN", {
       day: "2-digit",
@@ -201,39 +222,60 @@ const EventExpo = () => {
         </div>
       </div>
 
-      <div className="event-summary-cards">
-        <div className="event-card event-card-accent-blue">
-          <h4>Upcoming Events</h4>
-          <h2>{upcomingCount}</h2>
-          <p>Available in your pipeline</p>
-        </div>
+      <div className={`event-summary-cards ${isRestrictedUser ? "event-summary-cards-user" : ""}`}>
+        {isRestrictedUser ? (
+          <>
+            <div className="event-card event-card-accent-blue">
+              <h4>Total Invitations</h4>
+              <h2>{invitationCount}</h2>
+              <p>Events assigned to you</p>
+            </div>
 
-        <div className="event-card event-card-accent-green">
-          <h4>Registered</h4>
-          <h2>{registeredCount}</h2>
-          <p>{attendingCount} attending confirmed</p>
-        </div>
+            <div className="event-card event-card-accent-green">
+              <h4>Attending</h4>
+              <h2>{attendingCount}</h2>
+              <p>{pendingInvitationCount} pending response</p>
+            </div>
 
-        <div className="event-card event-card-accent-orange">
-          <h4>Avg AI Score</h4>
-          <h2>{avgAiScore.toFixed(1)}</h2>
-          <p>Across tracked events</p>
-        </div>
+            <div className="event-card event-card-accent-purple">
+              <h4>Last Updated</h4>
+              <h2>{loading ? "..." : "Live"}</h2>
+              <p>{lastUpdatedLabel}</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="event-card event-card-accent-blue">
+              <h4>Upcoming Events</h4>
+              <h2>{upcomingCount}</h2>
+              <p>Available in your pipeline</p>
+            </div>
 
-        <div className="event-card event-card-accent-purple">
-          <h4>Last Updated</h4>
-          <h2>{loading ? "..." : "Live"}</h2>
-          <p>{lastUpdatedLabel}</p>
-        </div>
+            <div className="event-card event-card-accent-green">
+              <h4>Registered</h4>
+              <h2>{registeredCount}</h2>
+              <p>{attendingCount} attending confirmed</p>
+            </div>
+
+            <div className="event-card event-card-accent-orange">
+              <h4>Avg AI Score</h4>
+              <h2>{avgAiScore.toFixed(1)}</h2>
+              <p>Across tracked events</p>
+            </div>
+
+            <div className="event-card event-card-accent-purple">
+              <h4>Last Updated</h4>
+              <h2>{loading ? "..." : "Live"}</h2>
+              <p>{lastUpdatedLabel}</p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="event-section">
         <div className="event-section-header">
           <div className="event-section-title-wrap">
             <h3>Upcoming Events & Expos</h3>
-            <button className="add-event-btn-section" onClick={openAddEventPage}>
-              + Add Event
-            </button>
           </div>
 
           <div className="event-dropdowns">
@@ -257,10 +299,14 @@ const EventExpo = () => {
             <input
               type="search"
               list="event-city-list"
-              placeholder="Search location (city/venue/event)"
+              placeholder="Search location (city/state/venue/event)"
               value={locationQuery}
               onChange={(event) => setLocationQuery(event.target.value)}
             />
+
+            <button className="add-event-btn-section" onClick={openAddEventPage}>
+              + Add Event
+            </button>
             <datalist id="event-city-list">
               {locationOptions.map((option) => (
                 <option key={option} value={option} />
@@ -294,6 +340,11 @@ const EventExpo = () => {
           const score = Number(eventItem.aiRelevanceScore || 0);
           const scoreLabel = score >= 90 ? "Must Attend" : score >= 70 ? "Strong Fit" : "Evaluate";
           const isAttending = Boolean(eventItem.isAttending);
+          const attendingUsers = Array.isArray(eventItem.attendedBy)
+            ? eventItem.attendedBy
+              .map((user) => user?.name || user?.email || "")
+              .filter(Boolean)
+            : [];
 
           return (
             <div className="event-item" key={eventItem._id}>
@@ -319,12 +370,21 @@ const EventExpo = () => {
                   AI Recommendation: {eventItem.aiRecommendation || "No AI recommendation available yet."}
                 </div>
 
+                {isAdminOrManager && (
+                  <div className="event-attendance-meta">
+                    <strong>Attending:</strong>{" "}
+                    {attendingUsers.length > 0 ? attendingUsers.join(", ") : "No one marked attending yet"}
+                  </div>
+                )}
+
                 <div className="event-actions">
-                  <button className="primary" onClick={() => openRegistrationForm(eventItem)}>
-                    {eventItem.isRegistered ? "View Registration" : "Register & Attend"}
-                  </button>
+                  {!isRestrictedUser && (
+                    <button className="primary" onClick={() => openRegistrationForm(eventItem)}>
+                      {eventItem.isRegistered ? "View Registration" : "Register & Attend"}
+                    </button>
+                  )}
                   <button
-                    className={isAttending ? "secondary-active" : ""}
+                    className={`attend-btn ${isAttending ? "secondary-active" : ""}`}
                     onClick={() => toggleAttending(eventItem._id, isAttending)}
                   >
                     {isAttending ? "Attending" : "Mark Attending"}
@@ -347,29 +407,31 @@ const EventExpo = () => {
         })}
       </div>
 
-      <div className="event-analytics">
-        <h3>Event Performance Analytics</h3>
+      {!isRestrictedUser && (
+        <div className="event-analytics">
+          <h3>Event Performance Analytics</h3>
 
-        <div className="analytics-cards">
-          <div className="analytics-card">
-            <h4>Registered Events</h4>
-            <h2>{registeredCount}</h2>
-            <p>Based on your logged-in user activity</p>
-          </div>
+          <div className="analytics-cards">
+            <div className="analytics-card">
+              <h4>Registered Events</h4>
+              <h2>{registeredCount}</h2>
+              <p>Based on your logged-in user activity</p>
+            </div>
 
-          <div className="analytics-card">
-            <h4>Attending Events</h4>
-            <h2>{attendingCount}</h2>
-            <p>Marked for participation</p>
-          </div>
+            <div className="analytics-card">
+              <h4>Attending Events</h4>
+              <h2>{attendingCount}</h2>
+              <p>Marked for participation</p>
+            </div>
 
-          <div className="analytics-card">
-            <h4>Avg AI Event Score</h4>
-            <h2>{avgAiScore.toFixed(1)}</h2>
-            <p>AI relevance from saved events</p>
+            <div className="analytics-card">
+              <h4>Avg AI Event Score</h4>
+              <h2>{avgAiScore.toFixed(1)}</h2>
+              <p>AI relevance from saved events</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

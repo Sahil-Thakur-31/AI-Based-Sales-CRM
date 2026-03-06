@@ -8,7 +8,7 @@ const AddEvent = () => {
 
   const [formData, setFormData] = useState({
     eventName: "",
-    industry: "",
+    industryText: "",
     startDate: "",
     endDate: "",
     location: "",
@@ -22,7 +22,6 @@ const AddEvent = () => {
     banner: null,
     priorityTag: "medium"
   });
-  const [industries, setIndustries] = useState([]);
   const [locations, setLocations] = useState([]);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -34,14 +33,9 @@ const AddEvent = () => {
     const loadMeta = async () => {
       try {
         const { data } = await API.get("/events/meta");
-        const industryList = Array.isArray(data?.industries) ? data.industries : [];
         const locationList = Array.isArray(data?.locations) ? data.locations : [];
 
-        setIndustries(industryList);
         setLocations(locationList);
-        if (industryList.length) {
-          setFormData((prev) => ({ ...prev, industry: prev.industry || industryList[0]._id }));
-        }
       } catch (err) {
         setError(err?.response?.data?.message || "Failed to load event form metadata");
       }
@@ -68,7 +62,7 @@ const AddEvent = () => {
     try {
       await API.post("/events", {
         name: formData.eventName.trim(),
-        industry: formData.industry,
+        industryText: formData.industryText.trim(),
         startDate: formData.startDate,
         endDate: formData.endDate || formData.startDate,
         venue: formData.venue || formData.location,
@@ -128,19 +122,14 @@ const AddEvent = () => {
 
                 <label>
                   Industry *
-                  <select
-                    name="industry"
-                    value={formData.industry}
+                  <input
+                    type="text"
+                    name="industryText"
+                    value={formData.industryText}
                     onChange={handleChange}
+                    placeholder="Type industry name"
                     required
-                  >
-                    {!industries.length && <option value="">No industries found</option>}
-                    {industries.map((item) => (
-                      <option key={item._id} value={item._id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
 
                 <label>
@@ -178,7 +167,7 @@ const AddEvent = () => {
                   <datalist id="event-location-list">
                     {locations.map((location) => (
                       <option
-                        key={location._id}
+                        key={`${location.city || ""}-${location.State || location.state || ""}`}
                         value={location.city}
                       />
                     ))}

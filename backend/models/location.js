@@ -55,6 +55,7 @@ const locationSchema = new mongoose.Schema({
 });
 
 locationSchema.index({ pincode: 1 });
+locationSchema.index({ city: 1 });
 locationSchema.index({ country: 1, state: 1, city: 1, area: 1 });
 
 locationSchema.pre("save", function syncLegacyAndNewFields(next) {

@@ -24,6 +24,7 @@ const EventRegistration = () => {
   );
 
   const isPaidEvent = eventDetails.registrationFee > 0;
+  const canSubmitEvent = Boolean(eventDetails.eventId);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -81,8 +82,8 @@ const EventRegistration = () => {
     event.preventDefault();
     setError("");
 
-    if (!eventDetails.eventId) {
-      setError("This event cannot be registered. Please open a valid event from the Events page.");
+    if (!canSubmitEvent) {
+      setError("Open this page from a valid event to submit registration.");
       return;
     }
 
@@ -123,12 +124,14 @@ const EventRegistration = () => {
   useEffect(() => {
     if (usersLoadedRef.current) return;
     usersLoadedRef.current = true;
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
     const loadUsers = async () => {
       try {
         const { data } = await API.get("/users");
         setAllUsers(Array.isArray(data) ? data : []);
-      } catch (err) {
+      } catch {
         setAllUsers([]);
       }
     };
@@ -137,7 +140,7 @@ const EventRegistration = () => {
 
   useEffect(() => {
     const loadSavedRegistration = async () => {
-      if (!eventDetails.eventId) return;
+      if (!canSubmitEvent) return;
       if (!state?.isRegistered) return;
 
       const fetchKey = String(eventDetails.eventId);
@@ -185,7 +188,7 @@ const EventRegistration = () => {
     };
 
     loadSavedRegistration();
-  }, [eventDetails.eventId, state?.isRegistered]);
+  }, [canSubmitEvent, eventDetails.eventId, state?.isRegistered]);
 
   return (
     <div className="event-registration-page">
@@ -217,6 +220,9 @@ const EventRegistration = () => {
       </section>
 
       <section className="event-form-card">
+        {!canSubmitEvent && (
+          <p className="loading-note">Open this page from an event card to continue.</p>
+        )}
         {loadingRegistration && !submitted && (
           <p className="loading-note">Loading saved registration...</p>
         )}
@@ -406,7 +412,7 @@ const EventRegistration = () => {
               {error && <p className="error-text">{error}</p>}
 
               <div className="submit-row">
-                <button className="submit-btn" type="submit" disabled={submitting}>
+                <button className="submit-btn" type="submit" disabled={submitting || !canSubmitEvent}>
                   {submitting ? "Submitting..." : "Submit Registration"}
                 </button>
               </div>

@@ -23,6 +23,7 @@ const Meeting = require("./models/meetings");
 const teamRoutes = require("./routes/teamRoutes");
 const ocrRoutes = require("./routes/ocr");
 const eventsRoutes = require("./routes/eventsRoutes");
+const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -59,6 +60,7 @@ app.use("/followups", followupsRoutes);
 app.use("/teams", teamRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/events", eventsRoutes);
+app.use("/ai-leads", aiLeadsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/ocr", ocrRoutes);
 app.use("/events", eventsRoutes);

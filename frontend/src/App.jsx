@@ -24,7 +24,7 @@ import FollowUps from './pages/modules/FollowUps.jsx';
 import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
-import AILeads from './pages/modules/AILeads.jsx';
+import AILeadGeneration from './pages/modules/AILeadGeneration.jsx';
 import Events from './pages/modules/Events.jsx';
 import EventRegistration from './pages/modules/EventRegistration.jsx';
 import AddEvent from './pages/modules/AddEvent.jsx';
@@ -97,7 +97,7 @@ function App() {
           <Route path="/sales-forecast" element={<SalesForecast />} />
           <Route path="/expenses" element={<Expenses />} />
 
-          <Route path="/ai-leads" element={<AILeads />} />
+          <Route path="/ai-leads" element={<AILeadGeneration />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/new" element={<AddEvent />} />
           <Route path="/events/register" element={<EventRegistration />} />
