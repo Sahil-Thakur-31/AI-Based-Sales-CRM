@@ -388,6 +388,21 @@
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
+.event-actions .registered-btn {
+  background: #e7f0ff;
+  border: 1px solid #bfd6ff;
+  color: #1e40af;
+  box-shadow: 0 6px 14px rgba(30, 64, 175, 0.16);
+  font-weight: 700;
+}
+
+.event-actions .registered-btn:hover {
+  background: #dbe9ff;
+  border-color: #9fc2ff;
+  color: #1e3a8a;
+  box-shadow: 0 8px 18px rgba(30, 64, 175, 0.2);
+}
+
 .event-actions .attend-btn {
   background: #2ecc71;
   color: #ffffff;

@@ -625,31 +625,41 @@ function LeadsDashboard({ defaultView = "leads" }) {
           <thead>
             <tr>
               <th>Company</th>
-              <th>Contact</th>
+              {viewMode === "deals" && <th className="col-contact">Contact</th>}
               <th>Industry</th>
               <th>Value</th>
+              {viewMode === "leads" && <th>Stage</th>}
               {viewMode === "leads" && <th>AI Score</th>}
               {viewMode === "deals" && <th>Stage</th>}
-              <th>Last Contact</th>
+              <th className="col-last-contact">Last Contact</th>
               <th>Next Action</th>
               {activeTab === "deleted" && <th>Delete Reason</th>}
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={9}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
-            {!loading && paginatedRows.length === 0 && <tr><td colSpan={9}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
+            {loading && <tr><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
+            {!loading && paginatedRows.length === 0 && <tr><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
             {!loading && paginatedRows.map((row) => {
               const t = getTemperature(row);
               return (
                 <tr key={row._id}>
                   <td className="company-cell">{row.company_name || "-"}</td>
-                  <td>
-                    <div className="contact-name">{row.primary_contact?.name || "-"}</div>
-                    <small className="contact-subtext">{row.primary_contact?.email || row.primary_contact?.phone || "-"}</small>
-                  </td>
+                  {viewMode === "deals" && (
+                    <td className="deal-contact-cell">
+                      <div className="contact-name">{row.primary_contact?.name || "-"}</div>
+                      <small className="contact-subtext">{row.primary_contact?.email || row.primary_contact?.phone || "-"}</small>
+                    </td>
+                  )}
                   <td>{row.industry || "-"}</td>
                   <td>{formatCurrency(row.deal_value_estimate)}</td>
+                  {viewMode === "leads" && (
+                    <td>
+                      <span className="stage-chip">
+                        {row.stage || "-"}
+                      </span>
+                    </td>
+                  )}
                   {viewMode === "leads" && (
                     <td>
                       <span className={`ai-chip ${t}`}>
@@ -665,7 +675,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
                       </span>
                     </td>
                   )}
-                  <td>{formatDate(row.last_contact_date)}</td>
+                  <td className="last-contact-cell">{formatDate(row.last_contact_date)}</td>
                   <td>{row.next_action || "-"}</td>
                   {activeTab === "deleted" && (
                     <td>

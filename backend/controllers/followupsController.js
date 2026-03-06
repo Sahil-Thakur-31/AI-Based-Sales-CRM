@@ -175,6 +175,66 @@ function isMeetingLikeFollowup(doc) {
   return action.includes("meeting");
 }
 
+function getDurationMinutes(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) return 45;
+  return Math.floor(n);
+}
+
+function intervalsOverlap(startA, endA, startB, endB) {
+  return startA < endB && startB < endA;
+}
+
+async function ensureNoMeetingTimeConflict({
+  assignedTo,
+  dueDateTime,
+  durationMinutes,
+  excludeFollowupId = null,
+}) {
+  const assigneeId = String(assignedTo || "").trim();
+  if (!assigneeId || !mongoose.Types.ObjectId.isValid(assigneeId)) return;
+
+  const start = new Date(dueDateTime);
+  if (Number.isNaN(start.getTime())) return;
+  const end = new Date(start.getTime() + getDurationMinutes(durationMinutes) * 60 * 1000);
+
+  const query = {
+    is_deleted: { $ne: true },
+    assignedTo: new mongoose.Types.ObjectId(assigneeId),
+    status: { $nin: ["cancelled"] },
+    $or: [{ kind: "meeting" }, { actionType: { $regex: "meeting", $options: "i" } }],
+    dueDateTime: {
+      $gte: new Date(start.getTime() - 24 * 60 * 60 * 1000),
+      $lt: new Date(end.getTime() + 24 * 60 * 60 * 1000),
+    },
+  };
+
+  if (excludeFollowupId && mongoose.Types.ObjectId.isValid(String(excludeFollowupId))) {
+    query._id = { $ne: new mongoose.Types.ObjectId(String(excludeFollowupId)) };
+  }
+
+  const candidates = await Followup.find(query)
+    .select("_id title dueDateTime durationMinutes kind actionType status")
+    .lean();
+
+  const conflict = candidates.find((row) => {
+    if (!isMeetingLikeFollowup(row)) return false;
+    const rowStart = new Date(row.dueDateTime);
+    if (Number.isNaN(rowStart.getTime())) return false;
+    const rowEnd = new Date(rowStart.getTime() + getDurationMinutes(row.durationMinutes) * 60 * 1000);
+    return intervalsOverlap(start, end, rowStart, rowEnd);
+  });
+
+  if (conflict) {
+    const when = new Date(conflict.dueDateTime).toLocaleString("en-IN");
+    const err = new Error(
+      `Assignee already has a meeting at this time (${conflict.title || "Meeting"} on ${when}).`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+}
+
 async function syncMeetingMirrorFromFollowup(doc, actorId) {
   if (!isMeetingLikeFollowup(doc)) return;
 
@@ -253,6 +313,17 @@ async function logUserDailyActivity({
 function getReminderOffsetMinutes(settings) {
   if (!settings) return 30;
 
+  if (Array.isArray(settings.reminderOptions) && settings.reminderOptions.length > 0) {
+    const first = settings.reminderOptions[0];
+    const value = Number(first?.value);
+    const unit = String(first?.unit || "").toLowerCase();
+    if (Number.isFinite(value) && value >= 1) {
+      if (unit === "minutes") return Math.floor(value);
+      if (unit === "hours") return Math.floor(value * 60);
+      if (unit === "days") return Math.floor(value * 24 * 60);
+    }
+  }
+
   if (settings.reminderTiming === "15min") return 15;
   if (settings.reminderTiming === "30min") return 30;
   if (settings.reminderTiming === "1hr") return 60;
@@ -282,32 +353,11 @@ function getNotificationCompanyName(doc) {
   return String(doc?.clientName || "").trim() || "the selected company";
 }
 
-async function createFollowupAssignmentNotification(doc) {
-  if (!doc?._id) return;
-
-  const assignedToId = String(doc?.assignedTo?._id || doc?.assignedTo || "").trim();
-  if (!assignedToId || !mongoose.Types.ObjectId.isValid(assignedToId)) return;
-
-  const dueAt = new Date(doc?.dueDateTime);
-  const dueText = Number.isNaN(dueAt.getTime()) ? "the selected time" : dueAt.toLocaleString("en-IN");
-  const companyName = getNotificationCompanyName(doc);
-  const itemType = doc?.kind === "meeting" ? "Meeting" : "Follow-up";
-
-  await Notification.create({
-    userId: new mongoose.Types.ObjectId(assignedToId),
-    title: `${itemType} Assigned`,
-    message: `${itemType} for ${companyName} is assigned to you on ${dueText}.`,
-    type: "info",
-    relatedId: doc._id,
-    relatedType: "Followup",
-  });
-}
-
 async function createFollowupNotification(doc, userId, eventType) {
   if (!doc || !userId) return;
   if (doc.reminderEnabled === false && eventType === "created") return;
   const settings = await CRMSettings.findOne({ userId }).lean();
-  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp) return;
+  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) return;
 
   const isMeeting = doc.kind === "meeting";
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
@@ -349,7 +399,7 @@ async function createFollowupAssignmentNotification(doc) {
   if (!userId) return;
 
   const settings = await CRMSettings.findOne({ userId }).lean();
-  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp) return;
+  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) return;
 
   const isMeeting = doc.kind === "meeting";
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
@@ -360,7 +410,7 @@ async function createFollowupAssignmentNotification(doc) {
   await Notification.create({
     userId,
     title: `${itemLabel} Assigned to You`,
-    message: `${itemType} for ${companyName} has been assigned to you${dueAt ? ` — due ${dueAt}` : ""}.`,
+    message: `${itemType} for ${companyName} has been assigned to you${dueAt ? ` - due ${dueAt}` : ""}.`,
     type: "info",
     relatedId: doc._id,
     relatedType: "Followup",
@@ -369,7 +419,12 @@ async function createFollowupAssignmentNotification(doc) {
 
 exports.list = async (req, res) => {
   try {
-    const allowedIds = await getAccessibleUserIds(req.user);
+    const mineOnly =
+      req.query.mine_only === "true" ||
+      req.query.mine_only === true ||
+      req.query.own_only === "true" ||
+      req.query.own_only === true;
+    const allowedIds = mineOnly ? [String(req.user._id)] : await getAccessibleUserIds(req.user);
     const q = {
       is_deleted: { $ne: true },
       assignedTo: { $in: allowedIds.map((id) => new mongoose.Types.ObjectId(id)) },
@@ -559,6 +614,14 @@ exports.create = async (req, res) => {
       exactLocation: req.body.meetingExactLocation || req.body.exactLocation || "",
     };
 
+    if (isMeetingLikeFollowup(payload)) {
+      await ensureNoMeetingTimeConflict({
+        assignedTo,
+        dueDateTime: payload.dueDateTime,
+        durationMinutes: payload.durationMinutes,
+      });
+    }
+
     const doc = await Followup.create(payload);
 
     await appendHistory({
@@ -610,6 +673,9 @@ exports.create = async (req, res) => {
     res.status(201).json(created);
   } catch (err) {
     console.error("followups.create error:", err);
+    if (err?.statusCode === 409) {
+      return res.status(409).json({ message: err.message || "Meeting time conflict" });
+    }
     res.status(500).json({ message: "Failed to create followup" });
   }
 };
@@ -667,6 +733,15 @@ exports.update = async (req, res) => {
 
     const errors = validatePayload(merged);
     if (errors.length) return res.status(400).json({ message: "Validation failed", errors });
+
+    if (isMeetingLikeFollowup(merged)) {
+      await ensureNoMeetingTimeConflict({
+        assignedTo: nextAssigned,
+        dueDateTime: merged.dueDateTime,
+        durationMinutes: merged.durationMinutes,
+        excludeFollowupId: current._id,
+      });
+    }
 
     await Followup.updateOne({ _id: current._id }, { $set: merged });
     const updatedDoc = await Followup.findById(current._id);
@@ -727,6 +802,9 @@ exports.update = async (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error("followups.update error:", err);
+    if (err?.statusCode === 409) {
+      return res.status(409).json({ message: err.message || "Meeting time conflict" });
+    }
     res.status(500).json({ message: "Failed to update followup" });
   }
 };

@@ -173,7 +173,27 @@ exports.getEventMeta = async (req, res) => {
 exports.getEvents = async (req, res) => {
   try {
     const filter = buildListFilter(req.query, req.user?._id);
-    if (isRestrictedUser(req.user?.role)) {
+    const mineOnly =
+      req.query.mine_only === "true" ||
+      req.query.mine_only === true ||
+      req.query.own_only === "true" ||
+      req.query.own_only === true;
+
+    if (mineOnly) {
+      const ownFilter = {
+        $or: [
+          { "registrations.attendeeUsers": req.user?._id },
+          { registeredBy: req.user?._id },
+          { attendedBy: req.user?._id },
+        ],
+      };
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, ownFilter];
+        delete filter.$or;
+      } else {
+        Object.assign(filter, ownFilter);
+      }
+    } else if (isRestrictedUser(req.user?.role)) {
       filter["registrations.attendeeUsers"] = req.user?._id;
     }
     const sort = { startDate: 1, createdAt: -1 };

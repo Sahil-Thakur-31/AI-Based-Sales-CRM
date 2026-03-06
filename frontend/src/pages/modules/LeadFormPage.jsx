@@ -1092,15 +1092,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               <button
                 type="button"
                 onClick={() => setSourceMenuOpen((prev) => !prev)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "10px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  background: "#fff",
-                  cursor: "pointer",
-                }}
+                className="crm-source-trigger"
               >
                 {sourceDisplayValue === "-" ? "Select Source" : sourceDisplayValue}
               </button>
@@ -1121,7 +1113,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                   <div style={{ maxHeight: "400px", overflowY: "auto" }}>
                     <div
                       onClick={() => handleSourceMenuSelect("source", "")}
-                      style={{ padding: "8px 12px", cursor: "pointer" }}
+                      className="crm-source-menu-item"
                     >
                       Select Source
                     </div>
@@ -1129,7 +1121,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                       <div
                         key={s._id}
                         onClick={() => handleSourceMenuSelect("source", String(s._id))}
-                        style={{ padding: "8px 12px", cursor: "pointer" }}
+                        className="crm-source-menu-item"
                       >
                         {s.name}
                       </div>
@@ -1141,7 +1133,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                           setSourceSubmenu({ type: "reference", sourceId: String(sourceItem._id) });
                           setSourceSubmenuTop(e.currentTarget.offsetTop);
                         }}
-                        style={{ position: "relative", padding: "8px 12px", cursor: "pointer" }}
+                        className={`crm-source-menu-item crm-source-parent ${sourceSubmenu.type === "reference" && sourceSubmenu.sourceId === String(sourceItem._id) ? "active" : ""}`}
                       >
                         <span>{sourceItem.name}</span>
                         <span style={{ float: "right" }}>{sourceSubmenuDirection === "left" ? "<" : ">"}</span>
@@ -1154,7 +1146,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                           setSourceSubmenu({ type: "event", sourceId: String(sourceItem._id) });
                           setSourceSubmenuTop(e.currentTarget.offsetTop);
                         }}
-                        style={{ position: "relative", padding: "8px 12px", cursor: "pointer" }}
+                        className={`crm-source-menu-item crm-source-parent ${sourceSubmenu.type === "event" && sourceSubmenu.sourceId === String(sourceItem._id) ? "active" : ""}`}
                       >
                         <span>{sourceItem.name}</span>
                         <span style={{ float: "right" }}>{sourceSubmenuDirection === "left" ? "<" : ">"}</span>
@@ -1185,7 +1177,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                             <div
                               key={`${sourceSubmenu.sourceId}-${u._id}`}
                               onClick={() => handleSourceMenuSelect("reference", sourceSubmenu.sourceId, String(u._id))}
-                              style={{ padding: "8px 12px", cursor: "pointer" }}
+                              className="crm-source-menu-item"
                             >
                               {u.name}
                             </div>
@@ -1199,7 +1191,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                             <div
                               key={`${sourceSubmenu.sourceId}-${ev._id}`}
                               onClick={() => handleSourceMenuSelect("event", sourceSubmenu.sourceId, String(ev._id))}
-                              style={{ padding: "8px 12px", cursor: "pointer" }}
+                              className="crm-source-menu-item"
                             >
                               {ev.name}
                             </div>

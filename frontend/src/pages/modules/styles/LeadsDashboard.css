@@ -191,18 +191,13 @@
   background: #ffffff;
   border: 1px solid #e6ebf2;
   border-radius: 0 0 16px 16px;
-  overflow: hidden;
-  min-height: 400px;
-  /* Helps avoid jitter when pagination reduces row count */
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  overflow-x: auto;   /* allow table scroll only if needed */
+  overflow-y: hidden; /* remove vertical scrollbar */
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
 }
 
 thead {
@@ -249,6 +244,27 @@ td {
 .contact-subtext {
   color: #5f7091;
   font-size: 13px;
+}
+
+.col-contact,
+.deal-contact-cell {
+  width: 220px;
+  max-width: 220px;
+}
+
+.deal-contact-cell .contact-name,
+.deal-contact-cell .contact-subtext {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.col-last-contact,
+.last-contact-cell {
+  width: 130px;
+  min-width: 130px;
+  white-space: nowrap;
 }
 
 .ai-chip {
@@ -711,6 +727,18 @@ td {
   border-radius: 10px;
   border: 1px solid #d1d5db;
   background: white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.field select:hover {
+  border-color: #a5b4fc;
+  background: #f8faff;
+}
+
+.field select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 .crm-popup-input {
@@ -847,4 +875,146 @@ td {
   border-radius: 999px;
   background: #e0e7ff;
   color: #4338ca;
+}
+
+/* ================= SOURCE CASCADE MENU ================= */
+.crm-source-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.crm-source-trigger {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.crm-source-trigger:hover {
+  border-color: #a5b4fc;
+  background: #f8faff;
+}
+
+.crm-source-trigger:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.crm-source-menu-item:hover {
+  background: #2b69c7;
+  color: #ffffff;
+}
+
+.crm-source-parent.active {
+  background: #2b69c7;
+  color: #ffffff;
+}
+
+/* ================= RESPONSIVE POLISH ================= */
+@media (max-width: 1024px) {
+  .leads-header {
+    padding: 16px 16px 0;
+  }
+
+  .filters input[type="text"] {
+    min-width: 220px;
+    flex: 1 1 220px;
+  }
+
+  .filters select {
+    min-width: 170px;
+    flex: 1 1 170px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .top-actions {
+    flex-direction: column;
+  }
+
+  .top-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .status-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 4px;
+    padding-bottom: 6px;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+  }
+
+  .filters {
+    gap: 10px;
+  }
+
+  .filters input[type="text"],
+  .filters select,
+  .add-deal-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .add-deal-btn {
+    margin-left: 0;
+    justify-content: center;
+  }
+
+  .table-wrapper {
+    border-radius: 0 0 12px 12px;
+  }
+
+  table {
+    min-width: 720px;
+  }
+
+  .row-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .row-actions .view-btn,
+  .row-actions .quote-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .lead-page {
+    padding: 0 12px 16px;
+  }
+
+  .lead-form {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .contact-card {
+    padding: 14px;
+  }
+
+  .form-actions .edit-btn,
+  .form-actions .convert-btn,
+  .form-actions .soft-delete-btn,
+  .form-actions .save-btn {
+    width: 100%;
+  }
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import API from "../../api";
 import LeadFormPage from "./LeadFormPage";
 import "./styles/FollowupAddPage.css";
@@ -202,6 +203,7 @@ function isCancelledStatus(status = "") {
 }
 
 export default function FollowupsAddPage() {
+  const location = useLocation();
   const [activeAction, setActiveAction] = useState("add");
   const [activeStage, setActiveStage] = useState("P1");
   const [formTarget, setFormTarget] = useState("followup");
@@ -235,6 +237,12 @@ export default function FollowupsAddPage() {
   const [cancelModal, setCancelModal] = useState(EMPTY_CANCEL_MODAL);
   const [cancelModalError, setCancelModalError] = useState("");
   const [savingCancel, setSavingCancel] = useState(false);
+  const selectedDateFromRoute = useMemo(() => {
+    const fromState = String(location.state?.selectedDate || "").trim();
+    const fromQuery = String(new URLSearchParams(location.search).get("date") || "").trim();
+    const candidate = fromState || fromQuery;
+    return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : "";
+  }, [location.search, location.state?.selectedDate]);
 
   const visibleFollowups = useMemo(
     () =>
@@ -406,6 +414,18 @@ export default function FollowupsAddPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedDateFromRoute) return;
+    setFormData((prev) => {
+      if (prev.date) return prev;
+      return {
+        ...prev,
+        date: selectedDateFromRoute,
+        time: prev.time || getNowTimeHHMM(),
+      };
+    });
+  }, [selectedDateFromRoute]);
 
   useEffect(() => {
     const rawRole = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
@@ -763,7 +783,11 @@ export default function FollowupsAddPage() {
       resetForm();
     } catch (err) {
       console.error(err);
-      setFormError(err?.response?.data?.errors?.[0] || "Failed to save");
+      setFormError(
+        err?.response?.data?.errors?.[0] ||
+        err?.response?.data?.message ||
+        "Failed to save"
+      );
     }
   };
 
