@@ -30,19 +30,19 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
   if (normalizedRole === "manager") dashboardPath = "/managerhome";
 
   const menuItems = [
-    { name: "My Dashboard", icon: "\u{1F4CA}", path: dashboardPath },
-    { name: "Leads", icon: "\u{1F3AF}", path: "/leads" },
-    { name: "Clients", icon: "\u{1F464}", path: "/clients" },
-    { name: "Deals", icon: "\u{1F4BC}", path: "/deals" },
-    { name: "Quotations", icon: "\u{1F9FE}", path: "/quotations" },
-    { name: "Follow-ups", icon: "\u23F0", path: "/followups" },
-    { name: "Sales Forecasting", icon: "\u{1F4C8}", path: "/sales-forecast" },
-    { name: "Expenses", icon: "\u{1F4B0}", path: "/expenses" },
-    { name: "AI Lead Gen", icon: "\u{1F916}", path: "/ai-leads" },
-    { name: "Events & Expos", icon: "\u{1F3AA}", path: "/events" },
-    ...(isAdminOrManager ? [{ name: "Team Dashboard", icon: "\u{1F465}", path: "/team-dashboard" }] : []),
-    { name: "Reports", icon: "\u{1F4C4}", path: "/reports" },
-    { name: "Settings", icon: "\u2699\uFE0F", path: "/settings" }
+    { name: "My Dashboard", iconClass: "bi bi-columns-gap", path: dashboardPath },
+    { name: "Leads", iconClass: "bi bi-person-plus", path: "/leads" },
+    { name: "Clients", iconClass: "bi bi-people", path: "/clients" },
+    { name: "Deals", iconClass: "bi bi-briefcase", path: "/deals" },
+    { name: "Quotations", iconClass: "bi bi-receipt", path: "/quotations" },
+    { name: "Follow-ups", iconClass: "bi bi-alarm", path: "/followups" },
+    { name: "Sales Forecasting", iconClass: "bi bi-graph-up-arrow", path: "/sales-forecast" },
+    { name: "Expenses", iconClass: "bi bi-cash-stack", path: "/expenses" },
+    { name: "AI Lead Gen", iconClass: "bi bi-robot", path: "/ai-leads" },
+    { name: "Events & Expos", iconClass: "bi bi-calendar-event", path: "/events" },
+    ...(isAdminOrManager ? [{ name: "Team Dashboard", iconClass: "bi bi-people-fill", path: "/team-dashboard" }] : []),
+    { name: "Reports", iconClass: "bi bi-bar-chart-line", path: "/reports" },
+    { name: "Settings", iconClass: "bi bi-gear", path: "/settings" }
   ];
 
   return (
@@ -106,7 +106,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
                 className={`sidebar-item ${(isActive || (isFollowups && isFollowupsAddActive)) ? "active" : ""}`}
                 onClick={() => navigate(item.path)}
               >
-                <span className="sidebar-icon">{item.icon}</span>
+                <span className="sidebar-icon"><i className={item.iconClass} /></span>
                 <span className="sidebar-text">{item.name}</span>
               </div>
 
