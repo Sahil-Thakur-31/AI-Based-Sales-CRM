@@ -120,6 +120,24 @@ const buildListFilter = (query, userId) => {
   return filter;
 };
 
+const softDeleteExpiredEvents = async () => {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  await Event.updateMany(
+    {
+      is_deleted: false,
+      endDate: { $lt: startOfToday }
+    },
+    {
+      $set: {
+        is_deleted: true,
+        status: "completed"
+      }
+    }
+  );
+};
+
 exports.getEventMeta = async (req, res) => {
   try {
     const [industries, locations, sources] = await Promise.all([
@@ -172,6 +190,8 @@ exports.getEventMeta = async (req, res) => {
 
 exports.getEvents = async (req, res) => {
   try {
+    await softDeleteExpiredEvents();
+
     const filter = buildListFilter(req.query, req.user?._id);
     const mineOnly =
       req.query.mine_only === "true" ||
@@ -195,6 +215,26 @@ exports.getEvents = async (req, res) => {
       }
     } else if (isRestrictedUser(req.user?.role)) {
       filter["registrations.attendeeUsers"] = req.user?._id;
+      const aiSources = await Source.find({
+        is_deleted: false,
+        name: { $regex: "ai", $options: "i" }
+      })
+        .select("_id")
+        .lean();
+      const aiSourceIds = aiSources.map((item) => item._id);
+      filter.$and = [
+        ...(Array.isArray(filter.$and) ? filter.$and : []),
+        {
+          $or: [
+            { aiRecommendation: { $exists: false } },
+            { aiRecommendation: null },
+            { aiRecommendation: "" }
+          ]
+        },
+        aiSourceIds.length
+          ? { $or: [{ source: { $exists: false } }, { source: null }, { source: { $nin: aiSourceIds } }] }
+          : { $or: [{ source: { $exists: false } }, { source: null }] }
+      ];
     }
     const sort = { startDate: 1, createdAt: -1 };
 
@@ -209,10 +249,37 @@ exports.getEvents = async (req, res) => {
 
 exports.getEventSummary = async (req, res) => {
   try {
+    await softDeleteExpiredEvents();
+
     const userId = req.user?._id;
-    const salesOnlyFilter = isRestrictedUser(req.user?.role)
+    let salesOnlyFilter = isRestrictedUser(req.user?.role)
       ? { is_deleted: false, status: "upcoming", "registrations.attendeeUsers": userId }
       : { is_deleted: false, status: "upcoming" };
+
+    if (isRestrictedUser(req.user?.role)) {
+      const aiSources = await Source.find({
+        is_deleted: false,
+        name: { $regex: "ai", $options: "i" }
+      })
+        .select("_id")
+        .lean();
+      const aiSourceIds = aiSources.map((item) => item._id);
+      salesOnlyFilter = {
+        ...salesOnlyFilter,
+        $and: [
+          {
+            $or: [
+              { aiRecommendation: { $exists: false } },
+              { aiRecommendation: null },
+              { aiRecommendation: "" }
+            ]
+          },
+          aiSourceIds.length
+            ? { $or: [{ source: { $exists: false } }, { source: null }, { source: { $nin: aiSourceIds } }] }
+            : { $or: [{ source: { $exists: false } }, { source: null }] }
+        ]
+      };
+    }
 
     const [upcomingEvents, registeredEvents, attendingEvents, avgAi, lastUpdated] = await Promise.all([
       Event.countDocuments(salesOnlyFilter),
@@ -431,6 +498,24 @@ exports.registerForEvent = async (req, res) => {
     const payment = registrationData.payment || {};
     const amountPaid = Number(payment.amountPaid || 0);
     const currentUserId = String(req.user._id);
+
+    if (attendeeUsers.length) {
+      const selectedUsers = await User.find({
+        _id: { $in: attendeeUsers },
+        is_deleted: { $ne: true }
+      })
+        .populate("role", "name")
+        .select("_id role")
+        .lean();
+
+      const hasAdminAttendee = selectedUsers.some(
+        (user) => String(user?.role?.name || "").trim().toLowerCase() === "admin"
+      );
+
+      if (hasAdminAttendee) {
+        return res.status(400).json({ message: "Admin users cannot be selected as attendees" });
+      }
+    }
 
     if (!event.registeredBy.some((id) => String(id) === currentUserId)) {
       event.registeredBy.push(req.user._id);
