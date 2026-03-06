@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const { normalizePhone } = require("../utils/phoneUtils");
 
+const DEFAULT_NEW_USER_PASSWORD = process.env.DEFAULT_NEW_USER_PASSWORD || "Adcs@1234";
+
 const resolveRoleId = async (roleValue) => {
 
   if (!roleValue) {
@@ -382,6 +384,8 @@ const createUser = async (req, res) => {
         message: "Name, email, role required"
       });
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+
     const roleId = await resolveRoleId(role);
 
     if (!roleId)
@@ -389,20 +393,47 @@ const createUser = async (req, res) => {
         message: "Invalid role"
       });
 
-    const exists = await User.findOne({
-      email,
+    const activeUser = await User.findOne({
+      email: normalizedEmail,
       is_deleted: { $ne: true }
     });
 
-    if (exists)
+    if (activeUser)
       return res.status(400).json({
         message: "Email already exists"
       });
-    const passwordHash = await bcrypt.hash("Adcs@1234", 10);
+
+    const passwordHash = await bcrypt.hash(DEFAULT_NEW_USER_PASSWORD, 10);
+
+    const softDeletedUser = await User.findOne({
+      email: normalizedEmail,
+      is_deleted: true
+    });
+
+    if (softDeletedUser) {
+      const revived = await User.findByIdAndUpdate(
+        softDeletedUser._id,
+        {
+          name,
+          email: normalizedEmail,
+          role: roleId,
+          passwordHash,
+          joiningDate: new Date(),
+          is_deleted: false,
+          is_active: true,
+          updatedAt: new Date()
+        },
+        {
+          returnDocument: "after",
+          runValidators: true
+        }
+      );
+      return res.status(201).json(revived);
+    }
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       role: roleId,
       passwordHash,
       joiningDate: new Date(),
