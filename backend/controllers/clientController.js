@@ -112,6 +112,24 @@ exports.getClients = async (req, res) => {
     const contactsCountMap = new Map(
       contactsAgg.map((item) => [String(item._id), item.count])
     );
+    const primaryContacts = clientIds.length
+      ? await ClientContact.find({
+        client_id: { $in: clientIds },
+        is_active: { $ne: false }
+      })
+        .sort({ is_primary: -1, createdAt: 1 })
+        .lean()
+      : [];
+    const primaryContactMap = new Map();
+    for (const contact of primaryContacts) {
+      const key = String(contact?.client_id || "");
+      if (!key || primaryContactMap.has(key)) continue;
+      primaryContactMap.set(key, {
+        name: contact?.name || "",
+        email: contact?.email || "",
+        phone: contact?.phone || ""
+      });
+    }
 
     const data = clients.map((client) => ({
       _id: client._id,
@@ -128,7 +146,8 @@ exports.getClients = async (req, res) => {
       expo_event_id: client.expo_event_id || "",
       deal_count: client.deal_count || 0,
       GST_no: client.GST_no || "",
-      contactsCount: contactsCountMap.get(String(client._id)) || 0
+      contactsCount: contactsCountMap.get(String(client._id)) || 0,
+      primaryContact: primaryContactMap.get(String(client._id)) || null
     }));
 
     res.json(data);

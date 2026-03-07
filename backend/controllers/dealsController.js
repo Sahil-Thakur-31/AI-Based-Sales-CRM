@@ -81,10 +81,17 @@ exports.getDeals = async (req, res) => {
   try {
     const deletedOnly =
       req.query.deleted_only === "true" || req.query.deleted_only === true;
+    const clientIdFilter = String(req.query.client_id || req.query.clientId || "").trim();
 
     const filter = deletedOnly
       ? { is_deleted: true }
       : { is_deleted: { $ne: true } };
+    if (clientIdFilter) {
+      if (!mongoose.Types.ObjectId.isValid(clientIdFilter)) {
+        return res.status(400).json({ message: "Invalid client id" });
+      }
+      filter.client_id = new mongoose.Types.ObjectId(clientIdFilter);
+    }
 
     let dealsQuery = Deal.find(filter).sort({ updatedAt: -1 });
 

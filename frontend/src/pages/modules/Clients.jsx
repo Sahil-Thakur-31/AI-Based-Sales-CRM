@@ -75,7 +75,8 @@ export default function Clients() {
         String(row.name || "").toLowerCase().includes(lower) ||
         String(row.industryName || "").toLowerCase().includes(lower) ||
         String(row.sourceName || "").toLowerCase().includes(lower) ||
-        String(row.website || "").toLowerCase().includes(lower);
+        String(row.primaryContact?.name || "").toLowerCase().includes(lower) ||
+        String(row.primaryContact?.email || "").toLowerCase().includes(lower);
 
       const matchesIndustry = industryFilter === "All" || row.industryName === industryFilter;
       const matchesSource = sourceFilter === "All" || row.sourceName === sourceFilter;
@@ -179,22 +180,21 @@ export default function Clients() {
               <th>Client</th>
               <th>Industry</th>
               <th>Source</th>
-              <th>Contacts</th>
+              <th>Contact</th>
               <th>Deals</th>
-              <th>Website</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={7}>Loading clients...</td>
+                <td colSpan={6}>Loading clients...</td>
               </tr>
             )}
 
             {!loading && paginatedRows.length === 0 && (
               <tr>
-                <td colSpan={7}>No clients found</td>
+                <td colSpan={6}>No clients found</td>
               </tr>
             )}
 
@@ -204,9 +204,13 @@ export default function Clients() {
                   <td className="company-cell">{client.name || "-"}</td>
                   <td>{client.industryName || "-"}</td>
                   <td>{client.sourceName || "-"}</td>
-                  <td>{client.contactsCount || 0}</td>
+                  <td>
+                    <div className="deal-contact-cell">
+                      <span className="contact-name">{client.primaryContact?.name || "-"}</span>
+                      <span className="contact-subtext">{client.primaryContact?.email || "-"}</span>
+                    </div>
+                  </td>
                   <td>{client.deal_count || 0}</td>
-                  <td>{client.website || "-"}</td>
                   <td>
                     <div className="row-actions">
                       {activeTab === "active" ? (

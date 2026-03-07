@@ -227,17 +227,8 @@ export default function TeamTargetsAdmin() {
   return (
     <div className="team-targets-page team-targets-admin-page">
       <div className="team-targets-shell team-targets-shell-wide team-targets-admin-shell">
-        <section className="team-targets-head team-targets-admin-head">
-          <div>
-            <h2>Team Targets - Admin</h2>
-            <p>View and manage targets for all teams in one place.</p>
-          </div>
-          <button className="team-targets-btn secondary" onClick={() => navigate("/team-dashboard")}>
-            Back To Team Dashboard
-          </button>
-        </section>
+        <section className="team-targets-head team-targets-admin-head team-targets-admin-head-merged">
 
-        <section className="team-targets-card team-targets-admin-filters-card">
           <div className="team-targets-filters">
             <label>
               <span>Period Type</span>
@@ -254,9 +245,12 @@ export default function TeamTargetsAdmin() {
                 onChange={(e) => setPeriodStart(e.target.value)}
               />
             </label>
-            <div className="team-targets-filter-action">
+            <div className="team-targets-filter-action team-targets-admin-actions">
               <button className="team-targets-btn secondary" onClick={refreshAll} disabled={refreshing || loading}>
                 {refreshing ? "Refreshing..." : "Refresh"}
+              </button>
+              <button className="team-targets-btn secondary" onClick={() => navigate("/team-dashboard")}>
+                Back To Team Dashboard
               </button>
             </div>
           </div>

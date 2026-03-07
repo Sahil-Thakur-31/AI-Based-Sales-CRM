@@ -39,6 +39,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const dealView = embedded ? forcedView === "deal" : searchParams.get("view") === "deal";
   const clientView = formMode === "client" || searchParams.get("view") === "client";
   const dealIdFromQuery = searchParams.get("dealId") || (dealView ? String(id || "") : "");
+  const clientIdFromQuery = searchParams.get("clientId") || "";
   const shouldStartInEditMode = embedded
     ? true
     : !deletedView && (isNew || searchParams.get("edit") === "true");
@@ -337,6 +338,69 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
     loadData();
   }, [id, isNew, deletedView, dealView, dealIdFromQuery, clientView]);
+
+  useEffect(() => {
+    const prefillDealFromClient = async () => {
+      if (!isNew || !dealView || !clientIdFromQuery) return;
+
+      try {
+        const { data } = await API.get(`/clients/${clientIdFromQuery}`);
+        const loadedClient = data?.client || {};
+        const loadedLocation = loadedClient?.location || {};
+
+        setLead((prev) => ({
+          ...prev,
+          company_name: loadedClient?.name || prev.company_name || "",
+          industry: loadedClient?.industry || prev.industry || "",
+          employee_count: loadedClient?.employeeCount ?? prev.employee_count ?? "",
+          turnover_range: loadedClient?.turnoverRange || prev.turnover_range || "",
+          Address: loadedClient?.Address || prev.Address || "",
+          website: loadedClient?.website || prev.website || "",
+          source: loadedClient?.source || prev.source || "",
+          referred_by_user: loadedClient?.referred_by_user || prev.referred_by_user || "",
+          expo_event_id: loadedClient?.expo_event_id || prev.expo_event_id || "",
+          country: loadedClient?.country || loadedLocation?.country || prev.country || "",
+          State:
+            loadedClient?.State ||
+            loadedClient?.state ||
+            loadedLocation?.State ||
+            loadedLocation?.state ||
+            prev.State ||
+            "",
+          city: loadedClient?.city || loadedLocation?.city || prev.city || "",
+          zone:
+            loadedClient?.zone ||
+            loadedClient?.area ||
+            loadedLocation?.zone ||
+            loadedLocation?.area ||
+            prev.zone ||
+            "",
+          assigned_to: prev.assigned_to || currentUserId || "",
+          is_existing_company: true,
+        }));
+
+        if (Array.isArray(data?.contacts) && data.contacts.length) {
+          setContacts(
+            data.contacts.map((contact) => ({
+              _id: contact?._id || "",
+              name: contact?.name || "",
+              designation: contact?.designation || "",
+              phone: contact?.phone || "",
+              email: contact?.email || "",
+              linkedin: contact?.linkedin || "",
+              is_primary: Boolean(contact?.is_primary),
+              is_active: contact?.is_active !== false,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("prefill deal from client error", err);
+      }
+    };
+
+    prefillDealFromClient();
+  }, [isNew, dealView, clientIdFromQuery, currentUserId]);
+
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
@@ -776,6 +840,39 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       },
       { confirmLabel: "Delete", variant: "danger" }
     );
+  };
+
+  const handleDeleteClient = async () => {
+    if (isNew) return;
+
+    showConfirm(
+      "Delete Client",
+      "Are you sure you want to delete this client?",
+      async () => {
+        try {
+          await API.put(`/clients/delete/${id}`);
+          navigate("/clients");
+        } catch (err) {
+          console.error("delete client error", err);
+          showAlert(
+            "Delete Failed",
+            err.response?.data?.message || "Failed to delete client",
+            "error"
+          );
+        }
+      },
+      { confirmLabel: "Delete", variant: "danger" }
+    );
+  };
+
+  const handleAddDealFromClient = () => {
+    if (!id) return;
+    navigate(`/leads/new?view=deal&clientId=${id}`);
+  };
+
+  const handleViewClientDeal = () => {
+    if (!id) return;
+    navigate(`/clients/${id}/deals`);
   };
 
   const handleDeleteDeal = async () => {
@@ -1438,28 +1535,50 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                   <button className="edit-btn" onClick={() => setEditMode(true)}>
                     Edit
                   </button>
-                  {dealView && dealId && (
-                    <button
-                      className="convert-btn"
-                      onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
-                      disabled={lead.isActive === false}
-                      title={lead.isActive === false ? "Cannot create quotes for inactive deals." : ""}
-                    >
-                      Create Quote
-                    </button>
-                  )}
-                  {!clientView && !dealView && !isConvertedLead && (
-                    <button className="convert-btn" onClick={handleConvertToDeal}>
-                      Convert to Deal
-                    </button>
-                  )}
-                  {isAdminOrManager && !clientView && (
-                    <button
-                      className="soft-delete-btn"
-                      onClick={dealView ? handleDeleteDeal : handleSoftDelete}
-                    >
-                      {dealView ? "Delete Deal" : "Delete"}
-                    </button>
+                  {clientView ? (
+                    <>
+                      <button className="convert-btn" onClick={handleAddDealFromClient}>
+                        Add Deal
+                      </button>
+                      <button
+                        className="convert-btn"
+                        onClick={handleViewClientDeal}
+                        title="View deals linked to this client"
+                      >
+                        View Deal
+                      </button>
+                      {isAdminOrManager && (
+                        <button className="soft-delete-btn" onClick={handleDeleteClient}>
+                          Delete
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {dealView && dealId && (
+                        <button
+                          className="convert-btn"
+                          onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
+                          disabled={lead.isActive === false}
+                          title={lead.isActive === false ? "Cannot create quotes for inactive deals." : ""}
+                        >
+                          Create Quote
+                        </button>
+                      )}
+                      {!dealView && !isConvertedLead && (
+                        <button className="convert-btn" onClick={handleConvertToDeal}>
+                          Convert to Deal
+                        </button>
+                      )}
+                      {isAdminOrManager && (
+                        <button
+                          className="soft-delete-btn"
+                          onClick={dealView ? handleDeleteDeal : handleSoftDelete}
+                        >
+                          {dealView ? "Delete Deal" : "Delete"}
+                        </button>
+                      )}
+                    </>
                   )}
                 </>
               )}

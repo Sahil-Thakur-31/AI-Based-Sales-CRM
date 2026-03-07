@@ -6,7 +6,9 @@ export default function AdminCrud({
   title,
   endpoint,
   columns,
-  rowFilter
+  rowFilter,
+  isRowProtected,
+  protectedRowMessage
 }) {
   const [data, setData] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -20,6 +22,9 @@ export default function AdminCrud({
   useEffect(() => {
     fetchData();
   }, []);
+
+  const isProtected = (item) =>
+    typeof isRowProtected === "function" && Boolean(isRowProtected(item));
 
   async function fetchData() {
     try {
@@ -42,6 +47,10 @@ export default function AdminCrud({
   }
 
   function openEditForm(item) {
+    if (isProtected(item)) {
+      alert(protectedRowMessage || "This item is protected and cannot be edited");
+      return;
+    }
     setEditingId(item._id);
     setForm(item);
     setFormVisible(true);
@@ -49,6 +58,15 @@ export default function AdminCrud({
 
   async function save() {
     try {
+      const missingRequired = columns.find((col) => {
+        if (!col.required) return false;
+        return String(form?.[col.field] ?? "").trim() === "";
+      });
+      if (missingRequired) {
+        alert(`${missingRequired.label} is required`);
+        return;
+      }
+
       console.log("Saving:", form);
       let res;
       if (editingId)
@@ -65,6 +83,11 @@ export default function AdminCrud({
   }
 
   async function deleteOne(id) {
+    const item = (data || []).find((row) => String(row?._id || "") === String(id));
+    if (item && isProtected(item)) {
+      alert(protectedRowMessage || "This item is protected and cannot be deleted");
+      return;
+    }
     if (!window.confirm("Delete item?")) return;
     try {
       console.log("Deleting:", id);
@@ -81,13 +104,24 @@ export default function AdminCrud({
 
     if (!window.confirm("Delete selected items?")) return;
 
+    const protectedIds = new Set(
+      (data || [])
+        .filter((item) => isProtected(item))
+        .map((item) => String(item?._id || ""))
+    );
+    const allowedIds = selected.filter((id) => !protectedIds.has(String(id)));
+    if (!allowedIds.length) {
+      alert(protectedRowMessage || "Selected items are protected and cannot be deleted");
+      return;
+    }
+
     await Promise.all(
-      selected.map(id =>
+      allowedIds.map(id =>
         API.put(`${endpoint}/delete/${id}`)
       )
     );
 
-    setSelected([]);
+    setSelected((prev) => prev.filter((id) => protectedIds.has(String(id))));
 
     fetchData();
 
@@ -144,7 +178,11 @@ export default function AdminCrud({
   }, [data, rowFilter]);
 
   const selectableIds = useMemo(
-    () => visibleData.map((item) => String(item?._id || "")).filter(Boolean),
+    () =>
+      visibleData
+        .filter((item) => !isProtected(item))
+        .map((item) => String(item?._id || ""))
+        .filter(Boolean),
     [visibleData]
   );
 
@@ -286,6 +324,7 @@ export default function AdminCrud({
                 <input
                   type="checkbox"
                   checked={selected.includes(item._id)}
+                  disabled={isProtected(item)}
                   onChange={() => toggleSelect(item._id)}
                 />
 
@@ -307,6 +346,7 @@ export default function AdminCrud({
 
                 <button
                   className="admin-config-btn"
+                  disabled={isProtected(item)}
                   onClick={() => openEditForm(item)}
                 >
                   Edit
@@ -314,6 +354,7 @@ export default function AdminCrud({
 
                 <button
                   className="admin-config-btn admin-config-btn-danger"
+                  disabled={isProtected(item)}
                   onClick={() => deleteOne(item._id)}
                 >
                   Delete
@@ -380,6 +421,7 @@ export default function AdminCrud({
               return (
                 <input
                   key={col.field}
+                  type={col.inputType || "text"}
                   placeholder={col.label}
                   value={form[col.field] || ""}
                   onChange={e =>

@@ -15,9 +15,11 @@ import Leads from './pages/modules/Leads.jsx';
 import LeadFormPage from './pages/modules/LeadFormPage.jsx'
 
 import Clients from './pages/modules/Clients.jsx';
+import ClientDeals from './pages/modules/ClientDeals.jsx';
 import Quotations from './pages/modules/Quotations.jsx';
 import NewQuotation from './pages/modules/NewQuotation.jsx';
 import QuotationDetails from './pages/modules/QuotationDetails.jsx';
+import Notifications from './pages/modules/Notifications.jsx';
 // meetings module removed
 import FollowUps from './pages/modules/FollowUps.jsx';
 import FollowupsAddPage from './pages/modules/FollowupsAddPage.jsx';
@@ -92,10 +94,12 @@ function App() {
           <Route path="/clients" element={<Clients />} />
           <Route path="/clients/new" element={<LeadFormPage formMode="client" />} />
           <Route path="/clients/:id" element={<LeadFormPage formMode="client" />} />
+          <Route path="/clients/:id/deals" element={<ClientDeals />} />
           <Route path="/deals" element={<Leads defaultView="deals" />} />
           <Route path="/quotations" element={<Quotations />} />
           <Route path="/quotations/new" element={<NewQuotation />} />
           <Route path="/quotations/:id" element={<QuotationDetails />} />
+          <Route path="/notifications" element={<Notifications />} />
 
           <Route path="/followups" element={<FollowUps />} />
           <Route path="/followups/add" element={<FollowupsAddPage />} />

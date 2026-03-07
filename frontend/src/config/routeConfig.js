@@ -24,11 +24,13 @@ export const routeConfig = [
   { path: "/clients", title: "Clients" },
   { path: "/clients/new", title: "Add Client" },
   { path: "/clients/:id", title: "Client Details", dynamic: true },
+  { path: "/clients/:id/deals", title: "Client Deals", dynamic: true },
   { path: "/deals", title: "Deals" },
   { path: "/deals/:id", title: "Deal Details", dynamic: true },
   { path: "/quotations", title: "Quotations" },
   { path: "/quotations/new", title: "New Quotation" },
   { path: "/quotations/:id", title: "Quotation Details", dynamic: true },
+  { path: "/notifications", title: "Notifications" },
 
   { path: "/followups", title: "Follow-ups" },
   { path: "/followups/add", title: "Add Followup and Meeting" },

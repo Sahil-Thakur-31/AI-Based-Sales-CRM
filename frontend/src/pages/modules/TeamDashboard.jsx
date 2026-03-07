@@ -122,7 +122,9 @@ function emptyPipelineDetail() {
 export default function TeamDashboard() {
   const navigate = useNavigate();
   const roleName = localStorage.getItem("RoleName") || "";
-  const canCreateTeam = roleName === "Admin";
+  const normalizedRoleName = String(roleName).trim().toLowerCase();
+  const isAdminUser = normalizedRoleName === "admin";
+  const canCreateTeam = isAdminUser;
 
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -169,9 +171,9 @@ export default function TeamDashboard() {
     () => teams.find((team) => String(team._id) === String(selectedTeamId)) || null,
     [teams, selectedTeamId]
   );
-  const canAssignTargets = roleName === "Admin" || Boolean(selectedTeam?.canManage);
+  const canAssignTargets = isAdminUser || Boolean(selectedTeam?.canManage);
   const assignTargetsPath =
-    roleName === "Admin"
+    isAdminUser
       ? `/team-targets/admin?teamId=${selectedTeamId}`
       : `/team-targets/manage?teamId=${selectedTeamId}`;
 
@@ -679,17 +681,23 @@ export default function TeamDashboard() {
             </button>
           ) : null}
 
-          <select
-            className="team-dashboard-select"
-            value={selectedTeamId}
-            onChange={(e) => setSelectedTeamId(e.target.value)}
-          >
-            {teams.map((team) => (
-              <option key={team._id} value={team._id}>
-                {team.name || "Untitled Team"} ({team.totalPeople || 0})
-              </option>
-            ))}
-          </select>
+          {isAdminUser ? (
+            <select
+              className="team-dashboard-select"
+              value={selectedTeamId}
+              onChange={(e) => setSelectedTeamId(e.target.value)}
+            >
+              {teams.map((team) => (
+                <option key={team._id} value={team._id}>
+                  {team.name || "Untitled Team"} ({team.totalPeople || 0})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="team-dashboard-current-team">
+              {selectedTeam?.name || dashboardData?.team?.name || "My Team"}
+            </div>
+          )}
 
           <button className="team-btn team-btn-secondary" onClick={onRefresh}>
             Refresh
