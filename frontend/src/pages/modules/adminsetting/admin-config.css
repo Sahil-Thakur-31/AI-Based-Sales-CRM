@@ -133,6 +133,10 @@
   gap: 10px;
 }
 
+.admin-config-form-error {
+  margin-top: -2px;
+}
+
 .org-metric-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -36,9 +36,12 @@ function Login() {
         setLogininfo(copyloginInfo);
         setFieldErrors((prev) => ({ ...prev, [name]: "" }));
         setErrorMsg("");
+        setSuccessMsg("");
     }
 
     const navigate = useNavigate();
+    const feedbackMsg = errorMsg || successMsg;
+    const isSuccessFeedback = !errorMsg && Boolean(successMsg);
 
     const handleLogin = async (e) => {
         e.preventDefault()
@@ -97,7 +100,6 @@ function Login() {
         <div className="login-wrapper">
             <div className='container'>
                 <h1>login</h1>
-                {successMsg && <div className="form-message primary">{successMsg}</div>}
                 <form onSubmit={handleLogin}>
                     <div>
                         <label>Email</label>
@@ -121,7 +123,10 @@ function Login() {
                             className={fieldErrors.password ? "form-field-invalid" : ""}
                         />
                     </div>
-                    <FormErrorSlot message={errorMsg} className="form-error-slot-global form-error-slot-center" />
+                    <FormErrorSlot
+                        message={feedbackMsg}
+                        className={`form-error-slot-global form-error-slot-center login-feedback-slot ${isSuccessFeedback ? "login-feedback-slot-success" : ""}`}
+                    />
                     <button type='Submit' disabled={loading}>login</button>
                     <span className="form-footer-link">
                         <Link to='/forgot-password'> Forgot password</Link>
