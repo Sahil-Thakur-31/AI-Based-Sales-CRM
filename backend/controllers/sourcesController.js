@@ -1,7 +1,55 @@
 const Source = require("../models/sources");
 
+const SYSTEM_SOURCES = [
+  { name: "Reference", url: "https://example.com/reference" },
+  { name: "Event & Expo", url: "https://example.com/events-expo" },
+];
+
+function normalizeName(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isSystemSourceName(name = "") {
+  const normalized = normalizeName(name);
+  return SYSTEM_SOURCES.some((source) => normalizeName(source.name) === normalized);
+}
+
+function escapeRegExp(value = "") {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function ensureSystemSources() {
+  for (const source of SYSTEM_SOURCES) {
+    const existing = await Source.findOne({
+      name: { $regex: `^${escapeRegExp(source.name)}$`, $options: "i" },
+    });
+
+    if (!existing) {
+      await Source.create({
+        name: source.name,
+        url: source.url,
+        is_deleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      continue;
+    }
+
+    const updates = {};
+    if (existing.name !== source.name) updates.name = source.name;
+    if (!String(existing.url || "").trim()) updates.url = source.url;
+    if (existing.is_deleted) updates.is_deleted = false;
+    if (Object.keys(updates).length) {
+      updates.updatedAt = new Date();
+      await Source.updateOne({ _id: existing._id }, { $set: updates });
+    }
+  }
+}
+
 exports.getSources = async (req, res) => {
   try {
+    await ensureSystemSources();
+
     const data = await Source.find({ is_deleted: false })
       .populate("createdBy", "name")
       .sort({ name: 1 });
@@ -21,9 +69,17 @@ exports.createSource = async (req, res) => {
     if (!name) {
       return res.status(400).json({ message: "Source name is required" });
     }
+    if (!url) {
+      return res.status(400).json({ message: "Source URL is required" });
+    }
+    if (isSystemSourceName(name)) {
+      return res.status(409).json({
+        message: "Reference and Event & Expo are system sources and already available",
+      });
+    }
 
     const duplicate = await Source.findOne({
-      name: { $regex: `^${name}$`, $options: "i" },
+      name: { $regex: `^${escapeRegExp(name)}$`, $options: "i" },
       is_deleted: false
     });
     if (duplicate) {
@@ -53,10 +109,29 @@ exports.updateSource = async (req, res) => {
     if (!name) {
       return res.status(400).json({ message: "Source name is required" });
     }
+    if (!url) {
+      return res.status(400).json({ message: "Source URL is required" });
+    }
+
+    const existing = await Source.findById(req.params.id);
+    if (!existing || existing.is_deleted) {
+      return res.status(404).json({ message: "Source not found or deleted" });
+    }
+
+    if (isSystemSourceName(existing.name)) {
+      return res.status(403).json({
+        message: "Reference and Event & Expo are system sources and cannot be edited",
+      });
+    }
+    if (isSystemSourceName(name)) {
+      return res.status(409).json({
+        message: "Reference and Event & Expo are reserved system source names",
+      });
+    }
 
     const duplicate = await Source.findOne({
       _id: { $ne: req.params.id },
-      name: { $regex: `^${name}$`, $options: "i" },
+      name: { $regex: `^${escapeRegExp(name)}$`, $options: "i" },
       is_deleted: false
     });
     if (duplicate) {
@@ -82,6 +157,16 @@ exports.updateSource = async (req, res) => {
 
 exports.deleteSource = async (req, res) => {
   try {
+    const existing = await Source.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "Source not found" });
+    }
+    if (isSystemSourceName(existing.name)) {
+      return res.status(403).json({
+        message: "Reference and Event & Expo are system sources and cannot be deleted",
+      });
+    }
+
     const source = await Source.findByIdAndUpdate(
       req.params.id,
       { is_deleted: true, updatedAt: new Date() },
@@ -101,6 +186,25 @@ exports.deleteSource = async (req, res) => {
 
 exports.activateSource = async (req, res) => {
   try {
+    const existing = await Source.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "Source not found" });
+    }
+    if (isSystemSourceName(existing.name)) {
+      const updates = {
+        is_deleted: false,
+        updatedAt: new Date(),
+      };
+      if (!String(existing.url || "").trim()) {
+        const fallback = SYSTEM_SOURCES.find(
+          (source) => normalizeName(source.name) === normalizeName(existing.name)
+        );
+        if (fallback?.url) updates.url = fallback.url;
+      }
+      await Source.updateOne({ _id: existing._id }, { $set: updates });
+      return res.json({ message: "Source activated" });
+    }
+
     const source = await Source.findByIdAndUpdate(
       req.params.id,
       { is_deleted: false, updatedAt: new Date() },

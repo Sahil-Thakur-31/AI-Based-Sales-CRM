@@ -1,8 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import Pagination from "../../components/Pagination";
 import "./styles/LeadsDashboard.css";
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -17,6 +36,10 @@ export default function Clients() {
   const [sourceFilter, setSourceFilter] = useState("All");
   const [activeTab, setActiveTab] = useState("active");
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedClientId, setExpandedClientId] = useState("");
+  const [clientDealsById, setClientDealsById] = useState({});
+  const [clientDealsLoadingById, setClientDealsLoadingById] = useState({});
+  const [clientDealsErrorById, setClientDealsErrorById] = useState({});
 
   const itemsPerPage = 6;
 
@@ -75,7 +98,8 @@ export default function Clients() {
         String(row.name || "").toLowerCase().includes(lower) ||
         String(row.industryName || "").toLowerCase().includes(lower) ||
         String(row.sourceName || "").toLowerCase().includes(lower) ||
-        String(row.website || "").toLowerCase().includes(lower);
+        String(row.primaryContact?.name || "").toLowerCase().includes(lower) ||
+        String(row.primaryContact?.email || "").toLowerCase().includes(lower);
 
       const matchesIndustry = industryFilter === "All" || row.industryName === industryFilter;
       const matchesSource = sourceFilter === "All" || row.sourceName === sourceFilter;
@@ -86,6 +110,10 @@ export default function Clients() {
   useEffect(() => {
     setCurrentPage(1);
   }, [query, industryFilter, sourceFilter, activeTab, filteredRows.length]);
+
+  useEffect(() => {
+    setExpandedClientId("");
+  }, [activeTab, currentPage, query, industryFilter, sourceFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = filteredRows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -113,6 +141,54 @@ export default function Clients() {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to restore client");
+    }
+  };
+
+  const loadClientDeals = async (clientId) => {
+    const id = String(clientId || "");
+    if (!id) return;
+
+    try {
+      setClientDealsLoadingById((prev) => ({ ...prev, [id]: true }));
+      setClientDealsErrorById((prev) => ({ ...prev, [id]: "" }));
+
+      const { data } = await API.get("/deals", { params: { client_id: id } });
+      const rows = Array.isArray(data) ? data : [];
+
+      rows.sort(
+        (a, b) =>
+          new Date(b?.last_contact_date || b?.updatedAt || b?.createdAt || 0) -
+          new Date(a?.last_contact_date || a?.updatedAt || a?.createdAt || 0)
+      );
+
+      setClientDealsById((prev) => ({ ...prev, [id]: rows }));
+    } catch (err) {
+      console.error("client deals load error", err);
+      setClientDealsById((prev) => ({ ...prev, [id]: [] }));
+      setClientDealsErrorById((prev) => ({
+        ...prev,
+        [id]: err?.response?.data?.message || "Failed to load previous deals",
+      }));
+    } finally {
+      setClientDealsLoadingById((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleClientRowToggle = async (clientId) => {
+    if (activeTab !== "active") return;
+    const id = String(clientId || "");
+    if (!id) return;
+
+    if (expandedClientId === id) {
+      setExpandedClientId("");
+      return;
+    }
+
+    setExpandedClientId(id);
+
+    const alreadyLoaded = Object.prototype.hasOwnProperty.call(clientDealsById, id);
+    if (!alreadyLoaded && !clientDealsLoadingById[id]) {
+      await loadClientDeals(id);
     }
   };
 
@@ -166,7 +242,7 @@ export default function Clients() {
             onClick={() => navigate("/clients/new")}
             style={{ marginLeft: "10px" }}
           >
-            <span className="action-icon" style={{ marginRight: "4px" }}>➕</span>
+            <span className="action-icon" style={{ marginRight: "4px" }}>+</span>
             Add Client
           </button>
         </div>
@@ -179,64 +255,142 @@ export default function Clients() {
               <th>Client</th>
               <th>Industry</th>
               <th>Source</th>
-              <th>Contacts</th>
+              <th>Contact</th>
               <th>Deals</th>
-              <th>Website</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={7}>Loading clients...</td>
+                <td colSpan={6}>Loading clients...</td>
               </tr>
             )}
 
             {!loading && paginatedRows.length === 0 && (
               <tr>
-                <td colSpan={7}>No clients found</td>
+                <td colSpan={6}>No clients found</td>
               </tr>
             )}
 
             {!loading &&
-              paginatedRows.map((client) => (
-                <tr key={client._id}>
-                  <td className="company-cell">{client.name || "-"}</td>
-                  <td>{client.industryName || "-"}</td>
-                  <td>{client.sourceName || "-"}</td>
-                  <td>{client.contactsCount || 0}</td>
-                  <td>{client.deal_count || 0}</td>
-                  <td>{client.website || "-"}</td>
-                  <td>
-                    <div className="row-actions">
-                      {activeTab === "active" ? (
-                        <>
-                          <button className="view-btn" onClick={() => navigate(`/clients/${client._id}`)}>
-                            View More
-                          </button>
-                          {isAdminOrManager && (
+              paginatedRows.map((client) => {
+                const clientId = String(client?._id || "");
+                const expanded = activeTab === "active" && expandedClientId === clientId;
+                const deals = clientDealsById[clientId] || [];
+                const dealsLoading = Boolean(clientDealsLoadingById[clientId]);
+                const dealsError = clientDealsErrorById[clientId] || "";
+
+                return (
+                  <Fragment key={clientId}>
+                    <tr
+                      className={activeTab === "active" ? "client-latest-row client-latest-row-clickable" : ""}
+                      onClick={() => handleClientRowToggle(clientId)}
+                    >
+                      <td className="company-cell">{client.name || "-"}</td>
+                      <td>{client.industryName || "-"}</td>
+                      <td>{client.sourceName || "-"}</td>
+                      <td>
+                        <div className="deal-contact-cell">
+                          <span className="contact-name">{client.primaryContact?.name || "-"}</span>
+                          <span className="contact-subtext">{client.primaryContact?.email || "-"}</span>
+                        </div>
+                      </td>
+                      <td>{client.deal_count || 0}</td>
+                      <td>
+                        <div className="row-actions">
+                          {activeTab === "active" ? (
+                            <>
+                              <button
+                                className="view-btn"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/clients/${clientId}`);
+                                }}
+                              >
+                                View More
+                              </button>
+                              {isAdminOrManager && (
+                                <button
+                                  className="soft-delete-btn"
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleDeleteClient(clientId);
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </>
+                          ) : (
                             <button
-                              className="soft-delete-btn"
+                              className="convert-btn"
                               type="button"
-                              onClick={() => handleDeleteClient(client._id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleRestoreClient(clientId);
+                              }}
                             >
-                              Delete
+                              Restore
                             </button>
                           )}
-                        </>
-                      ) : (
-                        <button
-                          className="convert-btn"
-                          type="button"
-                          onClick={() => handleRestoreClient(client._id)}
-                        >
-                          Restore
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {expanded ? (
+                      <tr className="client-accordion-panel-row">
+                        <td colSpan={6}>
+                          <div className="client-accordion-panel">
+                            {dealsLoading ? (
+                              <div className="client-history-empty">Loading deals...</div>
+                            ) : dealsError ? (
+                              <div className="client-history-empty">{dealsError}</div>
+                            ) : deals.length === 0 ? (
+                              <div className="client-history-empty">No previous deals found for this client.</div>
+                            ) : (
+                              deals.map((deal, index) => {
+                                const dealId = String(deal?._id || deal?.deal_id || "");
+                                const updatedOn =
+                                  deal?.last_contact_date || deal?.updatedAt || deal?.createdAt || null;
+
+                                return (
+                                  <div key={dealId || `${clientId}-${index}`} className="client-history-card">
+                                    <div className="client-history-inline">
+                                      <span className="client-history-badge">
+                                        {index === 0 ? "Latest" : "Previous"}
+                                      </span>
+                                      <strong>{deal?.company_name || client.name || "Untitled Deal"}</strong>
+                                      <span>Stage: {deal?.stage || "-"}</span>
+                                      <span>Status: {deal?.status || "-"}</span>
+                                      <span>Value: {formatCurrency(deal?.deal_value_estimate || 0)}</span>
+                                      <span>Updated: {formatDate(updatedOn)}</span>
+                                    </div>
+                                    <div className="client-history-actions">
+                                      <button
+                                        className="view-btn"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          if (!dealId) return;
+                                          navigate(`/leads/${dealId}?view=deal&dealId=${dealId}`);
+                                        }}
+                                        disabled={!dealId}
+                                      >
+                                        View
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
           </tbody>
         </table>
       </div>
@@ -251,3 +405,4 @@ export default function Clients() {
     </div>
   );
 }
+

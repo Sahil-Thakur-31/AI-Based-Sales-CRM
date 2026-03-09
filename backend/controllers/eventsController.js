@@ -7,6 +7,7 @@ const Notification = require("../models/notifications");
 const Team = require("../models/teams");
 const User = require("../models/users");
 const Role = require("../models/roles");
+const { syncSingleCrmItemToGoogle } = require("../services/googleCalendarSync");
 
 const sanitizeObjectIdList = (values = []) => {
   if (!Array.isArray(values)) return [];
@@ -82,6 +83,30 @@ const formatEvent = (eventDoc, userId) => {
     isRegistered: Boolean(isRegistered),
     isAttending: Boolean(isAttending)
   };
+};
+
+const syncEventToGoogleForAttendees = async (event, attendeesList) => {
+  if (!event || !event.startDate) return;
+  const syncItem = {
+    id: `event-${String(event._id)}`,
+    type: "event_expo",
+    title: String(event.name || "Event & Expo"),
+    start: new Date(event.startDate).toISOString(),
+    end: event.endDate ? new Date(event.endDate).toISOString() : new Date(event.startDate).toISOString(),
+    allDay: true,
+    notes: String(event.description || ""),
+    location: String(event.venue || event.address || ""),
+    isPrompt: false,
+  };
+
+  const users = [...new Set(attendeesList.map(String).filter(Boolean))];
+  for (const uid of users) {
+    try {
+      await syncSingleCrmItemToGoogle(syncItem, uid);
+    } catch (err) {
+      console.error(`events gcal sync error for user ${uid}:`, err);
+    }
+  }
 };
 
 const buildListFilter = (query, userId) => {
@@ -434,6 +459,14 @@ exports.createEvent = async (req, res) => {
 
     const populated = await populateEventQuery(Event.findById(event._id));
 
+    // Try syncing back to the creator initially, and anyone registered.
+    const attendeesList = [
+      String(req.user?._id),
+      ...(populated.registeredBy || []),
+      ...(populated.attendedBy || [])
+    ];
+    await syncEventToGoogleForAttendees(populated, attendeesList);
+
     res.status(201).json(formatEvent(populated, req.user?._id));
   } catch (error) {
     console.error(error);
@@ -469,6 +502,14 @@ exports.updateEvent = async (req, res) => {
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
+
+    const attendeesList = [
+      String(req.user?._id),
+      ...(event.registeredBy || []),
+      ...(event.attendedBy || []),
+      ...(event.registrations || []).flatMap((r) => r.attendeeUsers || [])
+    ];
+    await syncEventToGoogleForAttendees(event, attendeesList);
 
     res.json(formatEvent(event, req.user?._id));
   } catch (error) {
@@ -575,6 +616,13 @@ exports.registerForEvent = async (req, res) => {
 
     const populated = await populateEventQuery(Event.findById(event._id));
 
+    const allAttendeesList = [
+      ...(populated.registeredBy || []),
+      ...(populated.attendedBy || []),
+      ...(populated.registrations || []).flatMap((r) => r.attendeeUsers || [])
+    ];
+    await syncEventToGoogleForAttendees(populated, allAttendeesList);
+
     res.json(formatEvent(populated, req.user?._id));
   } catch (error) {
     console.error(error);
@@ -670,6 +718,13 @@ exports.toggleAttending = async (req, res) => {
         );
       }
     }
+
+    const allAttendeesList = [
+      ...(event.registeredBy || []),
+      ...(event.attendedBy || []),
+      ...(event.registrations || []).flatMap((r) => r.attendeeUsers || [])
+    ];
+    await syncEventToGoogleForAttendees(event, allAttendeesList);
 
     res.json(formatEvent(event, req.user?._id));
   } catch (error) {

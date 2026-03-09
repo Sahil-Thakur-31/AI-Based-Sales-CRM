@@ -199,12 +199,12 @@ export default function TeamTargetsManager() {
   return (
     <div className="team-targets-page">
       <div className="team-targets-shell">
-        <section className="team-targets-head">
+        <section className="team-targets-head team-targets-manager-head">
           <div>
-            <h2>Member Targets - Manager</h2>
-            <p>
-              Team: <strong>{teamPayload?.team?.name || "-"}</strong>
-            </p>
+            <div className="team-targets-manager-team-row">
+              <p className="team-targets-manager-team-label">Team:</p>
+              <p className="team-targets-manager-team-name">{teamPayload?.team?.name || "-"}</p>
+            </div>
           </div>
           <button className="team-targets-btn secondary" onClick={() => navigate("/team-dashboard")}>
             Back To Team Dashboard
