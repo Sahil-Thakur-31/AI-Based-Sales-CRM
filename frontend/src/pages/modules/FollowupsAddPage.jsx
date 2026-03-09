@@ -1047,7 +1047,7 @@ export default function FollowupsAddPage() {
                       {userIdLabel(user, currentUserId)}
                     </option>
                   ))}
-                </select>
+                </input>
               </label>
               <label className="fuaBinaryOption">
                 <input
