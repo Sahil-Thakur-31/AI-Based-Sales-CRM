@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import API from "../../api";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import { minLength } from "../../utils/formValidation";
+import { handleError, handleSuccess } from "../../utils";
 import LeadFormPage from "./LeadFormPage";
 import "./styles/Followups.css";
 import "./styles/FollowupAddPage.css";
@@ -924,6 +925,11 @@ export default function FollowupsAddPage() {
         err?.response?.data?.message ||
         "Failed to save"
       );
+      handleError(
+        err?.response?.data?.errors?.[0] ||
+        err?.response?.data?.message ||
+        "Failed to save"
+      );
     }
   };
 
@@ -1020,16 +1026,44 @@ export default function FollowupsAddPage() {
                   setClientSuggestions([]);
                   setFormData((p) => ({
                     ...EMPTY_FORM,
-                    sourceType: p.sourceType === "deal" ? "deal" : "lead",
+                    sourceType: nextSourceType,
                     assignedTo: p.assignedTo || assigneeFallbackId || "",
                     eventType: p.eventType,
                     date: p.date,
                     time: p.time,
                     priority: p.priority,
+                  }));
+                }}
+              >
+                <option value="lead">Lead</option>
+                <option value="deal">Deal</option>
+              </select>
+            </label>
+
+            {(currentRole === "admin" || currentRole === "manager") && (
+              <label>
+                Assign To*
+                <select
+                  value={formData.assignedTo || ""}
+                  onChange={(e) => {
+                    const nextAssignee = e.target.value;
+                    setSelectedSourceId("");
+                    setClientSuggestions([]);
+                    setFormData((p) => ({
+                      ...p,
+                      assignedTo: nextAssignee,
+                      searchClient: "",
+                      stage: "",
                     }));
                   }}
-                />
-                <span>Existing Client/Lead</span>
+                >
+                  <option value="">--Select User--</option>
+                  {assignableEmployeeOptions.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {userIdLabel(user, currentUserId)}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="fuaBinaryOption">
                 <input
@@ -1107,99 +1141,219 @@ export default function FollowupsAddPage() {
                 ))}
               </div>
             )}
-          </div>
-        </label>
 
-        {selectedSourceInfo && (
-          <div className="fuaSelectedInfo full">
-            <div className="fuaSelectedGrid">
-              <div className="fuaSelectedItem">
-                <div className="key">{formData.sourceType === "lead" ? "Lead Name" : "Client Name"}</div>
-                <div className="val">{selectedSourceInfo.title}</div>
-              </div>
-              <div className="fuaSelectedItem">
-                <div className="key">{formData.sourceType === "lead" ? "Lead Mobile" : "Client Mobile"}</div>
-                <div className="val">{selectedSourceInfo.phone}</div>
-              </div>
-              <div className="fuaSelectedItem">
-                <div className="key">{formData.sourceType === "lead" ? "Lead Email" : "Client Email"}</div>
-                <div className="val">{selectedSourceInfo.email}</div>
-              </div>
-              <div className="fuaSelectedItem">
-                <div className="key">{selectedSourceInfo.extraOneLabel}</div>
-                <div className="val">{selectedSourceInfo.extraOneValue}</div>
+            <label>
+              Event Type*
+              <select value={formData.eventType} onChange={(e) => setFormData((p) => ({ ...p, eventType: e.target.value }))}>
+                <option value="">--Please Select--</option>
+                <option value="Physical Meeting">Physical Meeting</option>
+                <option value="Online Meeting">Online Meeting</option>
+                <option value="Follow Up Phone Call">Follow Up Phone Call</option>
+              </select>
+            </label>
+
+            <label>
+              Time*
+              <input type="time" value={formData.time} onChange={(e) => setFormData((p) => ({ ...p, time: e.target.value }))} />
+            </label>
+
+            <label>
+              Date*
+              <input type="date" value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} />
+            </label>
+
+            <div className="full fuaInlineField">
+              <div className="fuaInlineFieldLabel">Reminder</div>
+              <div className="fuaInlineFieldContent">
+                <div className="fuaBinaryRow">
+                  <label className="fuaBinaryOption">
+                    <input
+                      type="radio"
+                      name="reminderEnabled"
+                      checked={formData.reminderEnabled !== "no"}
+                      onChange={() => setFormData((p) => ({ ...p, reminderEnabled: "yes" }))}
+                    />
+                    <span>Yes</span>
+                  </label>
+                  <label className="fuaBinaryOption">
+                    <input
+                      type="radio"
+                      name="reminderEnabled"
+                      checked={formData.reminderEnabled === "no"}
+                      onChange={() => setFormData((p) => ({ ...p, reminderEnabled: "no" }))}
+                    />
+                    <span>No</span>
+                  </label>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-          </>
-        ) : null}
 
-        <label className="full">
-          Purpose / Task Description*
-          <input type="text" placeholder="Purpose of meeting / task" value={formData.taskDescription || formData.purpose} onChange={(e) => setFormData((p) => ({ ...p, purpose: e.target.value, taskDescription: e.target.value }))} />
-        </label>
-
-        <label className="full">
-          {isPastSelected ? "MOM*" : "Agenda of Meeting*"}
-          <input
-            type="text"
-            placeholder={isPastSelected ? "Enter MOM" : "Enter agenda of meeting"}
-            value={formData.agenda}
-            onChange={(e) => setFormData((p) => ({ ...p, agenda: e.target.value }))}
-          />
-        </label>
-
-        {isPastSelected && (
-          <label>
-            Status
-            <input type="text" value="Completed" readOnly />
-          </label>
-        )}
-
-        {formData.sourceType !== "existingClient" && (
-          <label>
-            Stage
-            <input type="text" value={formData.stage || "No stage found"} readOnly />
-          </label>
-        )}
-
-        <label>
-          Priority
-          <select value={formData.priority} onChange={(e) => setFormData((p) => ({ ...p, priority: e.target.value }))}>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </label>
-
-        {formData.eventType === "Online Meeting" && (
-          <>
-            <label>
-              Duration of Meeting (minutes)
-              <input type="number" min="1" placeholder="30" value={formData.durationMinutes} onChange={(e) => setFormData((p) => ({ ...p, durationMinutes: e.target.value }))} />
-            </label>
-          </>
-        )}
-
-        {formData.eventType === "Physical Meeting" && (
-          <>
-            <div className="fuaHint full">Provide either Current Location or Meeting Location.</div>
-            <label className="full">
-              Current Location
-              <div className="fuaSuggestField">
-                <input
-                  type="text"
-                  placeholder="Use current location or enter manually"
-                  value={formData.currentLocation}
-                  onChange={(e) => setFormData((p) => ({ ...p, currentLocation: e.target.value }))}
-                />
-                <button className="fuaBtn ghost" type="button" onClick={fillCurrentLocation} disabled={locatingCurrent}>
-                  {locatingCurrent ? "Locating..." : "Use Current Location"}
-                </button>
+            <div className="full fuaInlineField">
+              <div className="fuaInlineFieldLabel">Client Type*</div>
+              <div className="fuaInlineFieldContent">
+                <div className="fuaBinaryRow">
+                  <label className="fuaBinaryOption">
+                    <input
+                      type="radio"
+                      name="clientType"
+                      checked={hasExistingClient === "yes"}
+                      onChange={() => {
+                        setHasExistingClient("yes");
+                        setSelectedSourceId("");
+                        setClientSuggestions([]);
+                        setFormData((p) => ({
+                          ...EMPTY_FORM,
+                          sourceType: p.sourceType === "deal" ? "deal" : "lead",
+                          assignedTo: p.assignedTo || assigneeFallbackId || "",
+                          eventType: p.eventType,
+                          date: p.date,
+                          time: p.time,
+                          priority: p.priority,
+                        }));
+                      }}
+                    />
+                    <span>Existing Client/Lead</span>
+                  </label>
+                  <label className="fuaBinaryOption">
+                    <input
+                      type="radio"
+                      name="clientType"
+                      checked={hasExistingClient === "no"}
+                      onChange={() => setHasExistingClient("no")}
+                    />
+                    <span>Add New Client/Lead</span>
+                  </label>
+                  {hasExistingClient === "no" && (
+                    <div className="fuaInlineCreateActions">
+                      <button className="fuaBtn ghost" type="button" onClick={() => openQuickCreateModal("lead")}>
+                        Add New Lead
+                      </button>
+                      <button className="fuaBtn ghost" type="button" onClick={() => openQuickCreateModal("deal")}>
+                        Add New Deal
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+
+            {hasExistingClient === "yes" ? (
+              <>
+                <label>
+                  {formData.sourceType === "lead" ? "Search Existing Lead*" : "Search Existing Client*"}
+                  <div className="fuaSuggestField">
+                    <input
+                      type="text"
+                      placeholder={formData.sourceType === "lead" ? "Type Lead Name" : "Type Client Name"}
+                      value={formData.searchClient}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setSelectedSourceId("");
+                        setFormData((p) => ({ ...p, searchClient: next, stage: "" }));
+                      }}
+                    />
+                    {!selectedSourceId && clientSuggestions.length > 0 && (
+                      <div className="fuaSuggestList">
+                        {clientSuggestions.map((c) => (
+                          <button key={String(c.id)} type="button" className="fuaSuggestItem" onClick={() => applyClientSelection(c)}>
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </label>
+
+                {selectedSourceInfo && (
+                  <div className="fuaSelectedInfo full">
+                    <div className="fuaSelectedGrid">
+                      <div className="fuaSelectedItem">
+                        <div className="key">{formData.sourceType === "lead" ? "Lead Name" : "Client Name"}</div>
+                        <div className="val">{selectedSourceInfo.title}</div>
+                      </div>
+                      <div className="fuaSelectedItem">
+                        <div className="key">{formData.sourceType === "lead" ? "Lead Mobile" : "Client Mobile"}</div>
+                        <div className="val">{selectedSourceInfo.phone}</div>
+                      </div>
+                      <div className="fuaSelectedItem">
+                        <div className="key">{formData.sourceType === "lead" ? "Lead Email" : "Client Email"}</div>
+                        <div className="val">{selectedSourceInfo.email}</div>
+                      </div>
+                      <div className="fuaSelectedItem">
+                        <div className="key">{selectedSourceInfo.extraOneLabel}</div>
+                        <div className="val">{selectedSourceInfo.extraOneValue}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
+
+            <label className="full">
+              Purpose / Task Description*
+              <input type="text" placeholder="Purpose of meeting / task" value={formData.taskDescription || formData.purpose} onChange={(e) => setFormData((p) => ({ ...p, purpose: e.target.value, taskDescription: e.target.value }))} />
             </label>
-            {/* <label className="full">
+
+            <label className="full">
+              {isPastSelected ? "MOM*" : "Agenda of Meeting*"}
+              <input
+                type="text"
+                placeholder={isPastSelected ? "Enter MOM" : "Enter agenda of meeting"}
+                value={formData.agenda}
+                onChange={(e) => setFormData((p) => ({ ...p, agenda: e.target.value }))}
+              />
+            </label>
+
+            {isPastSelected && (
+              <label>
+                Status
+                <input type="text" value="Completed" readOnly />
+              </label>
+            )}
+
+            {formData.sourceType !== "existingClient" && (
+              <label>
+                Stage
+                <input type="text" value={formData.stage || "No stage found"} readOnly />
+              </label>
+            )}
+
+            <label>
+              Priority
+              <select value={formData.priority} onChange={(e) => setFormData((p) => ({ ...p, priority: e.target.value }))}>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </label>
+
+            {formData.eventType === "Online Meeting" && (
+              <>
+                <label>
+                  Duration of Meeting (minutes)
+                  <input type="number" min="1" placeholder="30" value={formData.durationMinutes} onChange={(e) => setFormData((p) => ({ ...p, durationMinutes: e.target.value }))} />
+                </label>
+              </>
+            )}
+
+            {formData.eventType === "Physical Meeting" && (
+              <>
+                <div className="fuaHint full">Provide either Current Location or Meeting Location.</div>
+                <label className="full">
+                  Current Location
+                  <div className="fuaSuggestField">
+                    <input
+                      type="text"
+                      placeholder="Use current location or enter manually"
+                      value={formData.currentLocation}
+                      onChange={(e) => setFormData((p) => ({ ...p, currentLocation: e.target.value }))}
+                    />
+                    <button className="fuaBtn ghost" type="button" onClick={fillCurrentLocation} disabled={locatingCurrent}>
+                      {locatingCurrent ? "Locating..." : "Use Current Location"}
+                    </button>
+                  </div>
+                </label>
+                {/* <label className="full">
               Meeting Location*
               <input
                 type="text"
@@ -1208,52 +1362,52 @@ export default function FollowupsAddPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, meetingLocation: e.target.value }))}
               />
             </label> */}
-            <label className="full">
-              Meeting Location
-              <div className="fuaSuggestField">
-                <input
-                  type="text"
-                  placeholder="Type area, landmark, city..."
-                  value={formData.meetingLocationSearch}
-                  onChange={(e) => setFormData((p) => ({ ...p, meetingLocationSearch: e.target.value, meetingExactLocation: "" }))}
-                />
-                {loadingLocationSuggestions && <span className="fuaHint">Searching places...</span>}
-                {locationSuggestions.length > 0 && (
-                  <div className="fuaSuggestList">
-                    {locationSuggestions.map((loc) => (
-                      <button
-                        key={`${loc.place_id}-${loc.lat}-${loc.lon}`}
-                        className="fuaSuggestItem"
-                        type="button"
-                        onClick={() => {
-                          setFormData((p) => ({
-                            ...p,
-                            meetingLocationSearch: loc.display_name || p.meetingLocationSearch,
-                            meetingLocation: p.meetingLocation || loc.display_name || "",
-                            meetingExactLocation: `${Number(loc.lat).toFixed(6)}, ${Number(loc.lon).toFixed(6)}`,
-                          }));
-                          setLocationSuggestions([]);
-                        }}
-                      >
-                        {loc.display_name}
-                      </button>
-                    ))}
+                <label className="full">
+                  Meeting Location
+                  <div className="fuaSuggestField">
+                    <input
+                      type="text"
+                      placeholder="Type area, landmark, city..."
+                      value={formData.meetingLocationSearch}
+                      onChange={(e) => setFormData((p) => ({ ...p, meetingLocationSearch: e.target.value, meetingExactLocation: "" }))}
+                    />
+                    {loadingLocationSuggestions && <span className="fuaHint">Searching places...</span>}
+                    {locationSuggestions.length > 0 && (
+                      <div className="fuaSuggestList">
+                        {locationSuggestions.map((loc) => (
+                          <button
+                            key={`${loc.place_id}-${loc.lat}-${loc.lon}`}
+                            className="fuaSuggestItem"
+                            type="button"
+                            onClick={() => {
+                              setFormData((p) => ({
+                                ...p,
+                                meetingLocationSearch: loc.display_name || p.meetingLocationSearch,
+                                meetingLocation: p.meetingLocation || loc.display_name || "",
+                                meetingExactLocation: `${Number(loc.lat).toFixed(6)}, ${Number(loc.lon).toFixed(6)}`,
+                              }));
+                              setLocationSuggestions([]);
+                            }}
+                          >
+                            {loc.display_name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </label>
+                {selectedLatLng && (
+                  <div className="fuaMapWrap full">
+                    <iframe
+                      title="Selected location map"
+                      className="fuaMap"
+                      loading="lazy"
+                      src={buildOsmEmbedUrl(selectedLatLng.lat, selectedLatLng.lng)}
+                    />
                   </div>
                 )}
-              </div>
-            </label>
-            {selectedLatLng && (
-              <div className="fuaMapWrap full">
-                <iframe
-                  title="Selected location map"
-                  className="fuaMap"
-                  loading="lazy"
-                  src={buildOsmEmbedUrl(selectedLatLng.lat, selectedLatLng.lng)}
-                />
-              </div>
+              </>
             )}
-          </>
-        )}
           </div>
 
           <FormErrorSlot message={formError} className="form-error-slot-global" />

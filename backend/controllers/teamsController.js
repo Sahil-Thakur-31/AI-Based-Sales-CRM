@@ -532,10 +532,7 @@ async function resolveTeamForDashboard(requester, teamId) {
   const query = {};
 
   if (!isAdmin(requester.role)) {
-    query.$or = [
-      { "teamLeads.userId": requester._id },
-      { members: { $elemMatch: { userId: requester._id } } }
-    ];
+    query["teamLeads.userId"] = requester._id;
   }
 
   if (teamId) {
@@ -837,12 +834,7 @@ exports.listTeams = async (req, res) => {
 
     const filter = isAdmin(req.user.role)
       ? {}
-      : {
-          $or: [
-            { "teamLeads.userId": req.user._id },
-            { members: { $elemMatch: { userId: req.user._id } } }
-          ]
-        };
+      : { "teamLeads.userId": req.user._id };
 
     const teams = await Team.find(filter).sort({ updatedAt: -1, createdAt: -1 }).lean();
 

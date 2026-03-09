@@ -30,6 +30,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const navigate = useNavigate();
 
   const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
+  const isAdmin = roleName === "admin";
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
   const currentUserId = getUserIdFromToken();
 
@@ -39,6 +40,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const dealView = embedded ? forcedView === "deal" : searchParams.get("view") === "deal";
   const clientView = formMode === "client" || searchParams.get("view") === "client";
   const dealIdFromQuery = searchParams.get("dealId") || (dealView ? String(id || "") : "");
+  const clientIdFromQuery = searchParams.get("clientId") || "";
   const shouldStartInEditMode = embedded
     ? true
     : !deletedView && (isNew || searchParams.get("edit") === "true");
@@ -69,6 +71,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   }, [shouldStartInEditMode]);
 
   const [lead, setLead] = useState({
+    deal_name: "",
     company_name: "",
     industry: "",
     employee_count: "",
@@ -192,9 +195,76 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   useEffect(() => {
     const loadData = async () => {
       if (isNew) return;
-      if (clientView) return;
 
       try {
+        if (clientView) {
+          const { data } = await API.get(`/clients/${id}`, {
+            params: { include_deleted: deletedView },
+          });
+
+          const loadedClient = data?.client || data || {};
+          const loadedLocation = loadedClient?.location || {};
+
+          setLead((prev) => ({
+            ...prev,
+            company_name: loadedClient?.name || "",
+            industry: loadedClient?.industry?._id || loadedClient?.industry || "",
+            employee_count: loadedClient?.employeeCount ?? "",
+            turnover_range: loadedClient?.turnoverRange || "",
+            Address: loadedClient?.Address || "",
+            website: loadedClient?.website || "",
+            source: loadedClient?.source?._id || loadedClient?.source || "",
+            referred_by_user:
+              loadedClient?.referred_by_user?._id || loadedClient?.referred_by_user || "",
+            expo_event_id: loadedClient?.expo_event_id?._id || loadedClient?.expo_event_id || "",
+            country: loadedClient?.country || loadedLocation?.country || "",
+            State:
+              loadedClient?.State ||
+              loadedClient?.state ||
+              loadedLocation?.State ||
+              loadedLocation?.state ||
+              "",
+            city: loadedClient?.city || loadedLocation?.city || "",
+            zone:
+              loadedClient?.zone ||
+              loadedClient?.area ||
+              loadedLocation?.zone ||
+              loadedLocation?.area ||
+              "",
+            location: loadedClient?.location?._id || loadedClient?.location || "",
+            contact_history: [],
+            assigned_to: "",
+          }));
+
+          if (Array.isArray(data?.contacts)) {
+            const mappedContacts = data.contacts.map((contact) => ({
+              _id: contact?._id || "",
+              name: contact?.name || "",
+              designation: contact?.designation || "",
+              phone: contact?.phone || "",
+              email: contact?.email || "",
+              linkedin: contact?.linkedin || "",
+              is_primary: Boolean(contact?.is_primary),
+              is_active: contact?.is_active !== false,
+            }));
+            setContacts(
+              mappedContacts.length
+                ? mappedContacts
+                : [
+                  {
+                    name: "",
+                    designation: "",
+                    phone: "",
+                    email: "",
+                    linkedin: "",
+                    is_primary: true,
+                  },
+                ]
+            );
+          }
+
+          return;
+        }
         // 🔹 If viewing deal → load deal
         if (dealView && dealIdFromQuery) {
           const { data } = await API.get(`/deals/${dealIdFromQuery}`, {
@@ -270,6 +340,69 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
     loadData();
   }, [id, isNew, deletedView, dealView, dealIdFromQuery, clientView]);
+
+  useEffect(() => {
+    const prefillDealFromClient = async () => {
+      if (!isNew || !dealView || !clientIdFromQuery) return;
+
+      try {
+        const { data } = await API.get(`/clients/${clientIdFromQuery}`);
+        const loadedClient = data?.client || {};
+        const loadedLocation = loadedClient?.location || {};
+
+        setLead((prev) => ({
+          ...prev,
+          company_name: loadedClient?.name || prev.company_name || "",
+          industry: loadedClient?.industry || prev.industry || "",
+          employee_count: loadedClient?.employeeCount ?? prev.employee_count ?? "",
+          turnover_range: loadedClient?.turnoverRange || prev.turnover_range || "",
+          Address: loadedClient?.Address || prev.Address || "",
+          website: loadedClient?.website || prev.website || "",
+          source: loadedClient?.source || prev.source || "",
+          referred_by_user: loadedClient?.referred_by_user || prev.referred_by_user || "",
+          expo_event_id: loadedClient?.expo_event_id || prev.expo_event_id || "",
+          country: loadedClient?.country || loadedLocation?.country || prev.country || "",
+          State:
+            loadedClient?.State ||
+            loadedClient?.state ||
+            loadedLocation?.State ||
+            loadedLocation?.state ||
+            prev.State ||
+            "",
+          city: loadedClient?.city || loadedLocation?.city || prev.city || "",
+          zone:
+            loadedClient?.zone ||
+            loadedClient?.area ||
+            loadedLocation?.zone ||
+            loadedLocation?.area ||
+            prev.zone ||
+            "",
+          assigned_to: prev.assigned_to || currentUserId || "",
+          is_existing_company: true,
+        }));
+
+        if (Array.isArray(data?.contacts) && data.contacts.length) {
+          setContacts(
+            data.contacts.map((contact) => ({
+              _id: contact?._id || "",
+              name: contact?.name || "",
+              designation: contact?.designation || "",
+              phone: contact?.phone || "",
+              email: contact?.email || "",
+              linkedin: contact?.linkedin || "",
+              is_primary: Boolean(contact?.is_primary),
+              is_active: contact?.is_active !== false,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("prefill deal from client error", err);
+      }
+    };
+
+    prefillDealFromClient();
+  }, [isNew, dealView, clientIdFromQuery, currentUserId]);
+
   /* ================= LOAD DROPDOWNS ================= */
   useEffect(() => {
     const load = async () => {
@@ -573,7 +706,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           referred_by_user: lead.referred_by_user || "",
           expo_event_id: lead.expo_event_id || "",
           deal_count: 0,
-          location: selectedLocationId || null,
+          location: selectedLocationId || lead.location || null,
           contacts: contacts.map((contact) => ({
             name: contact.name || "",
             designation: contact.designation || "",
@@ -584,7 +717,9 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           }))
         };
 
-        response = await API.post("/clients", payload);
+        response = isNew
+          ? await API.post("/clients", payload)
+          : await API.put(`/clients/${id}`, payload);
       } else {
         const payload = {
           ...lead,
@@ -593,7 +728,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
         response = isNew
           ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
-          : await API.put(`/leads/${id}`, payload);
+          : await API.put(dealView ? `/deals/${dealIdFromQuery || id}` : `/leads/${id}`, payload);
       }
 
       const data = response.data;
@@ -665,6 +800,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       mode = "confirm",
     } = {}
   ) => {
+    setDealDeleteReason("");
     setPopup({
       open: true,
       mode,
@@ -709,6 +845,34 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     );
   };
 
+  const handleDeleteClient = async () => {
+    if (isNew) return;
+
+    showConfirm(
+      "Delete Client",
+      "Are you sure you want to delete this client?",
+      async () => {
+        try {
+          await API.put(`/clients/delete/${id}`);
+          navigate("/clients");
+        } catch (err) {
+          console.error("delete client error", err);
+          showAlert(
+            "Delete Failed",
+            err.response?.data?.message || "Failed to delete client",
+            "error"
+          );
+        }
+      },
+      { confirmLabel: "Delete", variant: "danger" }
+    );
+  };
+
+  const handleAddDealFromClient = () => {
+    if (!id) return;
+    navigate(`/leads/new?view=deal&clientId=${id}`);
+  };
+
   const handleDeleteDeal = async () => {
     if (!dealId) {
       showAlert("Delete Failed", "Deal ID is missing.", "error");
@@ -747,23 +911,40 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const handleConvertToDeal = async () => {
     if (isNew || lead.converted_to_deal || lead.converted_deal_id) return;
 
-    try {
-      const response = await API.put(`/leads/${id}/convert-to-deal`);
-      const updatedLead = response.data?.lead || lead;
+    showConfirm(
+      "Convert To Deal",
+      "Enter the deal name for this converted lead.",
+      async (enteredDealName) => {
+        const dealName = String(enteredDealName || "").trim();
+        if (!dealName) {
+          showAlert("Deal Name Required", "Please enter a deal name.", "warning");
+          return;
+        }
 
-      setLead((prev) => ({
-        ...prev,
-        ...updatedLead,
-      }));
-      showAlert("Converted", "Lead converted to deal successfully.", "success");
-    } catch (err) {
-      console.error("convert lead error", err);
-      showAlert(
-        "Convert Failed",
-        err.response?.data?.message || "Failed to convert lead",
-        "error"
-      );
-    }
+        try {
+          const response = await API.put(`/leads/${id}/convert-to-deal`, {
+            deal_name: dealName,
+          });
+          const updatedLead = response.data?.lead || lead;
+          const createdDeal = response.data?.deal || null;
+
+          setLead((prev) => ({
+            ...prev,
+            ...updatedLead,
+            deal_name: createdDeal?.deal_name || dealName,
+          }));
+          showAlert("Converted", "Lead converted to deal successfully.", "success");
+        } catch (err) {
+          console.error("convert lead error", err);
+          showAlert(
+            "Convert Failed",
+            err.response?.data?.message || "Failed to convert lead",
+            "error"
+          );
+        }
+      },
+      { confirmLabel: "Convert", variant: "success", mode: "input-confirm" }
+    );
   };
 
   const handleRestoreLead = async () => {
@@ -866,7 +1047,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               : clientView
                 ? `Client - ${lead.company_name || "Details"}`
                 : dealView
-                  ? `Deal - ${lead.company_name || "Details"}`
+                  ? `Deal - ${lead.deal_name || lead.company_name || "Details"}`
                   : lead.company_name}
           </h2>
           <BackButton />
@@ -889,6 +1070,15 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       {/* ================= COMPANY INFO ================= */}
       <div className="lead-form">
+        {(dealView || lead.deal_name) && (
+          <Field
+            label="Deal Name"
+            name="deal_name"
+            value={lead.deal_name}
+            onChange={handleLeadChange}
+            editMode={editMode}
+          />
+        )}
         <div className="field company-autocomplete-field">
           <label>Company Name</label>
           {editMode ? (
@@ -1209,21 +1399,23 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           )}
         </div>
 
-        <div className="field">
-          <label>{dealView ? "Assign Deal To" : "Assign Lead To"}</label>
-          {editMode && isAdminOrManager ? (
-            <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
-              <option value="">Select User</option>
-              {assignableUsers.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
-          )}
-        </div>
+        {!clientView && (
+          <div className="field">
+            <label>{dealView ? "Assign Deal To" : "Assign Lead To"}</label>
+            {editMode && isAdminOrManager ? (
+              <select name="assigned_to" value={lead.assigned_to || ""} onChange={handleLeadChange}>
+                <option value="">Select User</option>
+                {assignableUsers.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{users.find((u) => u._id === lead.assigned_to)?.name || "-"}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ================= CONTACTS ================= */}
@@ -1367,28 +1559,43 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                   <button className="edit-btn" onClick={() => setEditMode(true)}>
                     Edit
                   </button>
-                  {dealView && dealId && (
-                    <button
-                      className="convert-btn"
-                      onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
-                      disabled={lead.isActive === false}
-                      title={lead.isActive === false ? "Cannot create quotes for inactive deals." : ""}
-                    >
-                      Create Quote
-                    </button>
-                  )}
-                  {!clientView && !dealView && !isConvertedLead && (
-                    <button className="convert-btn" onClick={handleConvertToDeal}>
-                      Convert to Deal
-                    </button>
-                  )}
-                  {isAdminOrManager && !clientView && (
-                    <button
-                      className="soft-delete-btn"
-                      onClick={dealView ? handleDeleteDeal : handleSoftDelete}
-                    >
-                      {dealView ? "Delete Deal" : "Delete"}
-                    </button>
+                  {clientView ? (
+                    <>
+                      <button className="convert-btn" onClick={handleAddDealFromClient}>
+                        Add Deal
+                      </button>
+                      {isAdminOrManager && (
+                        <button className="soft-delete-btn" onClick={handleDeleteClient}>
+                          Delete
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {dealView && dealId && !isAdmin && (
+                        <button
+                          className="convert-btn"
+                          onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
+                          disabled={lead.isActive === false}
+                          title={lead.isActive === false ? "Cannot create quotes for inactive deals." : ""}
+                        >
+                          Create Quote
+                        </button>
+                      )}
+                      {!dealView && !isConvertedLead && (
+                        <button className="convert-btn" onClick={handleConvertToDeal}>
+                          Convert to Deal
+                        </button>
+                      )}
+                      {isAdminOrManager && (
+                        <button
+                          className="soft-delete-btn"
+                          onClick={dealView ? handleDeleteDeal : handleSoftDelete}
+                        >
+                          {dealView ? "Delete Deal" : "Delete"}
+                        </button>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -1406,7 +1613,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               <input
                 className="crm-popup-input"
                 type="text"
-                placeholder="Enter delete reason"
+                placeholder={popup.title === "Convert To Deal" ? "Enter deal name" : "Enter delete reason"}
                 value={dealDeleteReason}
                 onChange={(e) => setDealDeleteReason(e.target.value)}
               />

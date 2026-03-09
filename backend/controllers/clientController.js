@@ -112,6 +112,24 @@ exports.getClients = async (req, res) => {
     const contactsCountMap = new Map(
       contactsAgg.map((item) => [String(item._id), item.count])
     );
+    const primaryContacts = clientIds.length
+      ? await ClientContact.find({
+        client_id: { $in: clientIds },
+        is_active: { $ne: false }
+      })
+        .sort({ is_primary: -1, createdAt: 1 })
+        .lean()
+      : [];
+    const primaryContactMap = new Map();
+    for (const contact of primaryContacts) {
+      const key = String(contact?.client_id || "");
+      if (!key || primaryContactMap.has(key)) continue;
+      primaryContactMap.set(key, {
+        name: contact?.name || "",
+        email: contact?.email || "",
+        phone: contact?.phone || ""
+      });
+    }
 
     const data = clients.map((client) => ({
       _id: client._id,
@@ -128,7 +146,8 @@ exports.getClients = async (req, res) => {
       expo_event_id: client.expo_event_id || "",
       deal_count: client.deal_count || 0,
       GST_no: client.GST_no || "",
-      contactsCount: contactsCountMap.get(String(client._id)) || 0
+      contactsCount: contactsCountMap.get(String(client._id)) || 0,
+      primaryContact: primaryContactMap.get(String(client._id)) || null
     }));
 
     res.json(data);
@@ -145,7 +164,11 @@ exports.getClientById = async (req, res) => {
     const client = await Client.findOne({
       _id: req.params.id,
       is_deleted: { $ne: true }
-    }).lean();
+    })
+      .populate("industry", "name")
+      .populate("source", "name")
+      .populate("location", "country state State city zone area district pincode")
+      .lean();
 
     if (!client) {
       return res.status(404).json({
@@ -164,12 +187,14 @@ exports.getClientById = async (req, res) => {
       client: {
         _id: client._id,
         name: client.name || "",
-        industry: client.industry || "",
+        industry: client.industry?._id || client.industry || "",
+        industryName: client.industry?.name || "",
         Address: client.Address || "",
         employeeCount: client.employeeCount ?? "",
         turnoverRange: client.turnoverRange || "",
         website: client.website || "",
-        source: client.source || "",
+        source: client.source?._id || client.source || "",
+        sourceName: client.source?.name || "",
         referred_by_user: client.referred_by_user || "",
         expo_event_id: client.expo_event_id || "",
         deal_count: client.deal_count ?? 0,
@@ -178,7 +203,15 @@ exports.getClientById = async (req, res) => {
         Aadhar_doc: client.Aadhar_doc || "",
         PanCard_doc: client.PanCard_doc || "",
         Other_docs: client.Other_docs || "",
-        location: client.location || "",
+        location: client.location?._id || client.location || "",
+        country: client.location?.country || "",
+        state: client.location?.state || client.location?.State || "",
+        State: client.location?.State || client.location?.state || "",
+        district: client.location?.district || "",
+        city: client.location?.city || "",
+        area: client.location?.area || client.location?.zone || "",
+        zone: client.location?.zone || client.location?.area || "",
+        pincode: client.location?.pincode || "",
         createdAt: client.createdAt || null,
         updatedAt: client.updatedAt || null
       },

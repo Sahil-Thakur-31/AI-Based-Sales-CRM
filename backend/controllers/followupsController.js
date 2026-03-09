@@ -293,8 +293,7 @@ async function ensureNoMeetingTimeConflict({
   const query = {
     is_deleted: { $ne: true },
     assignedTo: new mongoose.Types.ObjectId(assigneeId),
-    status: { $nin: ["cancelled"] },
-    $or: [{ kind: "meeting" }, { actionType: { $regex: "meeting", $options: "i" } }],
+    status: { $nin: ["cancelled", "completed"] },
     dueDateTime: {
       $gte: new Date(start.getTime() - 24 * 60 * 60 * 1000),
       $lt: new Date(end.getTime() + 24 * 60 * 60 * 1000),
@@ -310,7 +309,6 @@ async function ensureNoMeetingTimeConflict({
     .lean();
 
   const conflict = candidates.find((row) => {
-    if (!isMeetingLikeFollowup(row)) return false;
     const rowStart = new Date(row.dueDateTime);
     if (Number.isNaN(rowStart.getTime())) return false;
     const rowEnd = new Date(rowStart.getTime() + getDurationMinutes(row.durationMinutes) * 60 * 1000);
@@ -320,7 +318,7 @@ async function ensureNoMeetingTimeConflict({
   if (conflict) {
     const when = new Date(conflict.dueDateTime).toLocaleString("en-IN");
     const err = new Error(
-      `Assignee already has a meeting at this time (${conflict.title || "Meeting"} on ${when}).`
+      `You cant schedule this! Assignee already has an event at this time (${conflict.title || "Meeting"} on ${when}).`
     );
     err.statusCode = 409;
     throw err;
@@ -737,13 +735,11 @@ exports.create = async (req, res) => {
       exactLocation: req.body.meetingExactLocation || req.body.exactLocation || "",
     };
 
-    if (isMeetingLikeFollowup(payload)) {
-      await ensureNoMeetingTimeConflict({
-        assignedTo,
-        dueDateTime: payload.dueDateTime,
-        durationMinutes: payload.durationMinutes,
-      });
-    }
+    await ensureNoMeetingTimeConflict({
+      assignedTo,
+      dueDateTime: payload.dueDateTime,
+      durationMinutes: payload.durationMinutes,
+    });
 
     const doc = await Followup.create(payload);
 
@@ -878,14 +874,12 @@ exports.update = async (req, res) => {
     const errors = validatePayload(merged);
     if (errors.length) return res.status(400).json({ message: "Validation failed", errors });
 
-    if (isMeetingLikeFollowup(merged)) {
-      await ensureNoMeetingTimeConflict({
-        assignedTo: nextAssigned,
-        dueDateTime: merged.dueDateTime,
-        durationMinutes: merged.durationMinutes,
-        excludeFollowupId: current._id,
-      });
-    }
+    await ensureNoMeetingTimeConflict({
+      assignedTo: nextAssigned,
+      dueDateTime: merged.dueDateTime,
+      durationMinutes: merged.durationMinutes,
+      excludeFollowupId: current._id,
+    });
 
     await Followup.updateOne({ _id: current._id }, { $set: merged });
     const updatedDoc = await Followup.findById(current._id);
@@ -1015,7 +1009,7 @@ exports.updateStatus = async (req, res) => {
           ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
           : status === "cancelled"
             ? `Status changed to cancelled${updated.cancelReason ? ` | Reason: ${updated.cancelReason}` : ""}`
-          : `Status changed to ${status}`,
+            : `Status changed to ${status}`,
       performedBy: req.user._id,
     });
 

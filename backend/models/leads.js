@@ -90,6 +90,10 @@ const leadsSchema = new mongoose.Schema(
       default: false,
     },
 
+    deal_name: {
+      type: String,
+    },
+
     next_action: {
       type: String,
     },

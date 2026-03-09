@@ -41,6 +41,20 @@
   box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);
 }
 
+.team-dashboard-current-team {
+  min-width: 260px;
+  border: 1px solid #d9e1ec;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .team-btn {
   border: 1px solid transparent;
   border-radius: 10px;
@@ -1344,6 +1358,11 @@
   }
 
   .team-dashboard-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .team-dashboard-current-team {
     min-width: 0;
     width: 100%;
   }

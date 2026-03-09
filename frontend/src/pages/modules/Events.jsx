@@ -123,6 +123,7 @@ const EventExpo = () => {
   }, []);
 
   const openAddEventPage = () => {
+    if (!isAdminOrManager) return;
     navigate("/events/new");
   };
 
@@ -338,9 +339,11 @@ const EventExpo = () => {
               onChange={(event) => setLocationQuery(event.target.value)}
             />
 
-            <button className="add-event-btn-section" onClick={openAddEventPage}>
-              + Add Event
-            </button>
+            {isAdminOrManager && (
+              <button className="add-event-btn-section" onClick={openAddEventPage}>
+                + Add Event
+              </button>
+            )}
             <datalist id="event-city-list">
               {locationOptions.map((option) => (
                 <option key={option} value={option} />

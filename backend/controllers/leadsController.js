@@ -16,6 +16,15 @@ const { normalizePhone } = require("../utils/phoneUtils");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 
+function getRoleName(user = {}) {
+  return String(user?.role || "").trim().toLowerCase();
+}
+
+function isPrivilegedUser(user = {}) {
+  const roleName = getRoleName(user);
+  return roleName === "admin" || roleName === "manager";
+}
+
 function normalizeContacts(contacts = []) {
   if (!Array.isArray(contacts)) return [];
 
@@ -562,6 +571,11 @@ exports.getLeads = async (req, res) => {
           },
         ],
       };
+
+    if (!isPrivilegedUser(req.user)) {
+      filter.assigned_to = req.user?._id || null;
+    }
+
     let leadsQuery = Leads.find(filter).sort({ updated_at: -1 });
     if (!Number.isNaN(limit) && limit > 0) {
       leadsQuery = leadsQuery.limit(limit);
@@ -672,12 +686,18 @@ exports.getLeadById = async (req, res) => {
     const includeDeleted =
       req.query.include_deleted === "true" || req.query.include_deleted === true;
 
-    const lead = await Leads.findOne({
+    const leadFilter = {
       _id: req.params.id,
       ...(includeDeleted
         ? {}
         : { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] }),
-    }).lean();
+    };
+
+    if (!isPrivilegedUser(req.user)) {
+      leadFilter.assigned_to = req.user?._id || null;
+    }
+
+    const lead = await Leads.findOne(leadFilter).lean();
 
     if (!lead) {
       return res.status(404).json({ message: "Lead not found" });
@@ -744,6 +764,9 @@ exports.createLead = async (req, res) => {
 
     if (userRole !== "admin" && userRole !== "manager") {
       leadPayload.assigned_to = actorId;
+    }
+    if (!leadPayload.stage) {
+      leadPayload.stage = "P1";
     }
     if (leadPayload.assigned_to && (await isAdminAssignee(leadPayload.assigned_to))) {
       return res.status(400).json({ message: "Lead cannot be assigned to an admin user" });
@@ -817,20 +840,24 @@ exports.updateLead = async (req, res) => {
     }
 
     // Fetch old assigned_to before updating
-    const oldLead = await Leads.findById(req.params.id).select("assigned_to company_name").lean();
+    const accessFilter = {
+      _id: req.params.id,
+      $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
+    };
+    if (!isPrivilegedUser(req.user)) {
+      accessFilter.assigned_to = req.user?._id || null;
+    }
+
+    const oldLead = await Leads.findOne(accessFilter).select("assigned_to company_name").lean();
+    if (!oldLead) {
+      return res.status(404).json({ message: "Lead not found" });
+    }
 
     const lead = await Leads.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }],
-      },
+      accessFilter,
       leadPayload,
       { returnDocument: "after" }
     ).lean();
-
-    if (!lead) {
-      return res.status(404).json({ message: "Lead not found" });
-    }
 
     if (Array.isArray(req.body.contacts)) {
       await LeadContacts.deleteMany({ lead_id: req.params.id });
@@ -949,6 +976,13 @@ exports.convertLeadToDeal = async (req, res) => {
       });
     }
 
+    const requestedDealName = String(
+      req.body?.deal_name || req.body?.dealName || ""
+    ).trim();
+    if (!requestedDealName) {
+      return res.status(400).json({ message: "Deal name is required" });
+    }
+
     const industryId = await resolveIndustryId(lead.industry);
 
     const normalizedCompanyName = (lead.company_name || "").trim();
@@ -995,32 +1029,48 @@ exports.convertLeadToDeal = async (req, res) => {
       );
     }
 
-    const primaryLeadContact = await LeadContacts.findOne({ lead_id: lead._id })
+    const leadContacts = await LeadContacts.find({ lead_id: lead._id })
       .sort({ is_primary: -1, created_at: 1 })
       .lean();
 
-    let clientContact = null;
-    if (primaryLeadContact?.name) {
-      clientContact = await ClientContact.findOne({
+    if (leadContacts.length) {
+      const existingClientContacts = await ClientContact.find({
         client_id: String(client._id),
-        name: primaryLeadContact.name,
         is_active: true,
-      });
+      })
+        .select("name phone email")
+        .lean();
 
-      if (!clientContact) {
-        clientContact = await ClientContact.create({
+      const contactKey = (c = {}) =>
+        [
+          String(c.name || "").trim().toLowerCase(),
+          String(c.email || "").trim().toLowerCase(),
+          String(c.phone || "").trim(),
+        ].join("|");
+
+      const existingKeys = new Set(existingClientContacts.map(contactKey));
+      const newContacts = leadContacts
+        .filter((contact) => String(contact?.name || "").trim())
+        .filter((contact) => !existingKeys.has(contactKey(contact)))
+        .map((contact, index) => ({
           client_id: String(client._id),
-          name: primaryLeadContact.name,
-          designation: primaryLeadContact.designation || "",
-          phone: primaryLeadContact.phone || "",
-          email: primaryLeadContact.email || "",
-          linkedin: primaryLeadContact.linkedin || "",
+          name: String(contact.name || "").trim(),
+          designation: contact.designation || "",
+          phone: contact.phone || "",
+          email: contact.email || "",
+          linkedin: contact.linkedin || "",
           createdBy: actorId,
           createdAt: new Date(),
           updatedAt: new Date(),
           is_deleted: null,
           is_active: true,
-        });
+          is_primary:
+            contact.is_primary === true ||
+            (index === 0 && existingClientContacts.length === 0),
+        }));
+
+      if (newContacts.length) {
+        await ClientContact.insertMany(newContacts);
       }
     }
 
@@ -1028,6 +1078,7 @@ exports.convertLeadToDeal = async (req, res) => {
     expectedCloseDate.setDate(expectedCloseDate.getDate() + 30);
 
     const deal = await Deal.create({
+      deal_name: requestedDealName,
       client_id: client._id,
       lead_id: lead._id,
       assignedTo: lead.assigned_to || null,
@@ -1048,7 +1099,6 @@ exports.convertLeadToDeal = async (req, res) => {
       movedAt: new Date(),
       movedBy: actorId,
     });
-
     await Client.updateOne(
       { _id: client._id },
       { $inc: { deal_count: 1 }, $set: { updatedAt: new Date() } }
@@ -1058,6 +1108,7 @@ exports.convertLeadToDeal = async (req, res) => {
     lead.is_existing_client = true;
     lead.status = "converted";
     lead.converted_deal_id = deal._id;
+    lead.deal_name = requestedDealName;
     await lead.save();
 
     res.json({

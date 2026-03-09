@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { routeConfig } from "../config/routeConfig";
 import API from "../api";
 import Logout from "./Logout";
@@ -28,6 +28,18 @@ function saveSeenNotificationIds(ids) {
   }
 }
 
+function toPathRegex(pathPattern = "") {
+  const escaped = String(pathPattern)
+    .split("/")
+    .map((segment) => {
+      if (!segment) return "";
+      if (segment.startsWith(":")) return "[^/]+";
+      return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("/");
+  return new RegExp(`^${escaped}$`);
+}
+
 function Navbar() {
 
   const location = useLocation();
@@ -41,16 +53,14 @@ function Navbar() {
 
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [refreshingApp, setRefreshingApp] = useState(false);
   const [seenNotificationIds, setSeenNotificationIds] = useState(() => getSeenNotificationIds());
   const fallbackRole = localStorage.getItem("RoleName") || "";
   const roleName = String(user?.role?.name || user?.role || fallbackRole).trim().toLowerCase();
   const isAdmin = roleName === "admin";
 
-  /* timers */
-  const profileMenuTimer = useRef(null);
-  const adminMenuTimer = useRef(null);
-  const notificationTimer = useRef(null);
+  const profileMenuRef = useRef(null);
+  const adminMenuRef = useRef(null);
+  const notificationMenuRef = useRef(null);
 
 
   /* Fetch user */
@@ -130,6 +140,17 @@ function Navbar() {
     }).length;
   }, [notifications, seenNotificationIds]);
 
+  const latestNotifications = useMemo(
+    () => notifications.slice(0, 10),
+    [notifications]
+  );
+
+  const closeAllMenus = useCallback(() => {
+    setShowAdminMenu(false);
+    setShowNotifications(false);
+    setShowProfileMenu(false);
+  }, []);
+
   const markNotificationsSeen = async (items = []) => {
     const ids = items
       .map((item) => String(item?._id || ""))
@@ -169,6 +190,34 @@ function Navbar() {
 
   }, [showNotifications, notifications, unreadCount]);
 
+  useEffect(() => {
+    const handleDocumentClick = (event) => {
+      const target = event.target;
+      if (
+        adminMenuRef.current?.contains(target) ||
+        notificationMenuRef.current?.contains(target) ||
+        profileMenuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      closeAllMenus();
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        closeAllMenus();
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [closeAllMenus]);
+
 
   /* Module title */
   const moduleName = useMemo(() => {
@@ -184,20 +233,15 @@ function Navbar() {
       return query.get("view") === "deal" ? "Deal Details" : "Lead Details";
     }
 
-    const sortedRoutes = [...routeConfig].sort(
-      (a, b) => b.path.length - a.path.length
-    );
+    const exactRoute = routeConfig.find((route) => currentPath === route.path);
+    if (exactRoute) return exactRoute.title;
 
-    const route = sortedRoutes.find(r => {
-      if (r.dynamic) {
-        const base = r.path.replace("/:id", "");
-        return currentPath.startsWith(base);
-      }
+    const dynamicRoute = [...routeConfig]
+      .filter((route) => route.dynamic)
+      .sort((a, b) => b.path.length - a.path.length)
+      .find((route) => toPathRegex(route.path).test(currentPath));
 
-      return currentPath === r.path;
-    });
-
-    return route?.title || "Dashboard";
+    return dynamicRoute?.title || "Dashboard";
 
   }, [location.pathname, location.search]);
 
@@ -218,77 +262,30 @@ function Navbar() {
 
   };
 
-  const handleGlobalRefresh = () => {
-
-    if (refreshingApp) return;
-
-    setRefreshingApp(true);
-    window.location.reload();
-
+  const navigateFromDropdown = (path) => {
+    closeAllMenus();
+    navigate(path);
   };
 
-
-  /* PROFILE hover handlers */
-  const handleProfileEnter = () => {
-
-    if (profileMenuTimer.current)
-      clearTimeout(profileMenuTimer.current);
-
-    setShowProfileMenu(true);
-
+  const handleAdminToggle = () => {
+    const next = !showAdminMenu;
+    closeAllMenus();
+    if (next) setShowAdminMenu(true);
   };
 
-  const handleProfileLeave = () => {
-
-    profileMenuTimer.current = setTimeout(() => {
-
-      setShowProfileMenu(false);
-
-    }, 60);
-
+  const handleNotificationToggle = () => {
+    const next = !showNotifications;
+    closeAllMenus();
+    if (next) {
+      setShowNotifications(true);
+      fetchNotifications();
+    }
   };
 
-
-  /* ADMIN hover handlers */
-  const handleAdminEnter = () => {
-
-    if (adminMenuTimer.current)
-      clearTimeout(adminMenuTimer.current);
-
-    setShowAdminMenu(true);
-
-  };
-
-  const handleAdminLeave = () => {
-
-    adminMenuTimer.current = setTimeout(() => {
-
-      setShowAdminMenu(false);
-
-    }, 60);
-
-  };
-
-
-  /* NOTIFICATION hover handlers */
-  const handleNotificationEnter = () => {
-
-    if (notificationTimer.current)
-      clearTimeout(notificationTimer.current);
-
-    setShowNotifications(true);
-    fetchNotifications();
-
-  };
-
-  const handleNotificationLeave = () => {
-
-    notificationTimer.current = setTimeout(() => {
-
-      setShowNotifications(false);
-
-    }, 60);
-
+  const handleProfileToggle = () => {
+    const next = !showProfileMenu;
+    closeAllMenus();
+    if (next) setShowProfileMenu(true);
   };
 
 
@@ -319,46 +316,51 @@ function Navbar() {
         {isAdmin && (
 
           <div
+            ref={adminMenuRef}
             className="admin-menu-container"
-            onMouseEnter={handleAdminEnter}
-            onMouseLeave={handleAdminLeave}
           >
 
-            <button className="nav-icon-btn">
+            <button
+              type="button"
+              className="nav-icon-btn"
+              onClick={handleAdminToggle}
+              aria-expanded={showAdminMenu}
+              aria-label="Open admin menu"
+            >
               <img src={userIcon} alt="settings" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
             </button>
 
             <div className={`admin-dropdown ${showAdminMenu ? "visible" : "hidden"}`}>
 
-              <div onClick={() => navigate("/products")}>
+              <div onClick={() => navigateFromDropdown("/products")}>
                 Products
               </div>
 
-              <div onClick={() => navigate("/taxes")}>
+              <div onClick={() => navigateFromDropdown("/taxes")}>
                 Tax
               </div>
 
-              <div onClick={() => navigate("/roles")}>
+              <div onClick={() => navigateFromDropdown("/roles")}>
                 Roles
               </div>
 
-              <div onClick={() => navigate("/manageusers")}>
+              <div onClick={() => navigateFromDropdown("/manageusers")}>
                 Users
               </div>
 
-              <div onClick={() => navigate("/industry")}>
+              <div onClick={() => navigateFromDropdown("/industry")}>
                 Industry
               </div>
 
-              <div onClick={() => navigate("/sources")}>
+              <div onClick={() => navigateFromDropdown("/sources")}>
                 Sources
               </div>
 
-              <div onClick={() => navigate("/organization")}>
+              <div onClick={() => navigateFromDropdown("/organization")}>
                 Organization
               </div>
 
-              <div onClick={() => navigate("/quotation-clauses")}>
+              <div onClick={() => navigateFromDropdown("/quotation-clauses")}>
                 Quotation Clauses
               </div>
 
@@ -379,12 +381,17 @@ function Navbar() {
 
         {/* NOTIFICATIONS */}
         <div
+          ref={notificationMenuRef}
           className="notification-container"
-          onMouseEnter={handleNotificationEnter}
-          onMouseLeave={handleNotificationLeave}
         >
 
-          <button className="nav-icon-btn">
+          <button
+            type="button"
+            className="nav-icon-btn"
+            onClick={handleNotificationToggle}
+            aria-expanded={showNotifications}
+            aria-label="Open notifications"
+          >
             <img src={notificationIcon} alt="notifications" style={{ width: "40px", height: "40px", objectFit: "contain" }} />
             {unreadCount > 0 ? (
               <span className="notification-badge">
@@ -413,7 +420,7 @@ function Navbar() {
 
             ) : (
 
-              notifications.map(n => (
+              latestNotifications.map(n => (
 
                 <div key={n._id} className="notification-item">
 
@@ -435,6 +442,16 @@ function Navbar() {
 
             )}
 
+            <div className="notification-footer">
+              <button
+                type="button"
+                className="notification-view-more-btn"
+                onClick={() => navigateFromDropdown("/notifications")}
+              >
+                View More
+              </button>
+            </div>
+
           </div>
 
         </div>
@@ -442,12 +459,11 @@ function Navbar() {
 
         {/* PROFILE MENU */}
         <div
+          ref={profileMenuRef}
           className="profile-menu-container"
-          onMouseEnter={handleProfileEnter}
-          onMouseLeave={handleProfileLeave}
         >
 
-          <div className="profile-section">
+          <div className="profile-section" onClick={handleProfileToggle}>
 
             <div className="profile-info">
 
@@ -482,7 +498,7 @@ function Navbar() {
 
           <div className={`profile-dropdown ${showProfileMenu ? "visible" : "hidden"}`}>
 
-            <div onClick={() => navigate("/profile")}>
+            <div onClick={() => navigateFromDropdown("/profile")}>
               My Profile
             </div>
 

@@ -450,6 +450,10 @@ const ExpenseDashboard = () => {
     event.target.value = "";
   };
 
+  const handleRemoveReceipt = (indexToRemove) => {
+    setReceiptFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
   return (
     <div className="expense-dashboard">
       <div className="expense-cards">
@@ -611,7 +615,6 @@ const ExpenseDashboard = () => {
               <th>Category</th>
               <th>Type</th>
               <th>User</th>
-              <th>Amount</th>
               <th>Total</th>
               <th>Date</th>
               <th>Status</th>
@@ -626,7 +629,6 @@ const ExpenseDashboard = () => {
                   <td>{exp.categoryLabel}</td>
                   <td>{exp.referenceType || "-"}</td>
                   <td>{exp.user}</td>
-                  <td>Rs. {exp.amount.toFixed(2)}</td>
                   <td>Rs. {exp.total.toFixed(2)}</td>
                   <td>{exp.date}</td>
                   <td>
@@ -823,7 +825,20 @@ const ExpenseDashboard = () => {
                   {receiptFiles.length > 0 && (
                     <div className="expense-selected-receipts">
                       {receiptFiles.map((file, index) => (
-                        <span key={`${file.name}-${file.lastModified}-${index}`}>{file.name}</span>
+                        <div
+                          className="expense-selected-receipt-item"
+                          key={`${file.name}-${file.lastModified}-${index}`}
+                        >
+                          <span title={file.name}>{file.name}</span>
+                          <button
+                            type="button"
+                            className="expense-remove-receipt-btn"
+                            onClick={() => handleRemoveReceipt(index)}
+                            aria-label={`Remove ${file.name}`}
+                          >
+                            x
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}

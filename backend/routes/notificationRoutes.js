@@ -99,6 +99,12 @@ function getDayBounds(date = new Date()) {
   return { start, end };
 }
 
+function formatReminderDateTime(value) {
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleString("en-IN");
+}
+
 
 /*
 GET ALL NOTIFICATIONS FOR LOGGED IN USER
@@ -218,6 +224,89 @@ router.get("/", authenticate, async (req, res) => {
 
   }
 
+});
+
+/*
+GET UPCOMING REMINDERS FOR LOGGED IN USER
+*/
+router.get("/reminders", authenticate, async (req, res) => {
+  try {
+    const now = new Date();
+    const limitRaw = Number(req.query.limit);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 200;
+    const userId = req.user._id;
+
+    const [followups, events] = await Promise.all([
+      Followup.find({
+        is_deleted: false,
+        assignedTo: userId,
+        reminderEnabled: { $ne: false },
+        status: { $in: ["pending", "overdue"] },
+        dueDateTime: { $gte: now },
+      })
+        .select("_id leadId kind actionType clientName title dueDateTime")
+        .sort({ dueDateTime: 1 })
+        .limit(limit)
+        .lean(),
+      Event.find({
+        is_deleted: false,
+        status: "upcoming",
+        startDate: { $gte: now },
+        $or: [
+          { "registrations.attendeeUsers": userId },
+          { registeredBy: userId },
+          { attendedBy: userId },
+        ],
+      })
+        .select("_id name venue startDate endDate")
+        .sort({ startDate: 1 })
+        .limit(limit)
+        .lean(),
+    ]);
+
+    const followupReminders = followups.map((item) => {
+      const isMeeting = item.kind === "meeting";
+      const label = isMeeting ? "Meeting Reminder" : "Follow-up Reminder";
+      const itemType = getNotificationItemType(item);
+      const companyName = getNotificationCompanyName(item);
+      return {
+        _id: `${isMeeting ? "meeting" : "followup"}-upcoming-${item._id}`,
+        title: label,
+        message: `${itemType} for ${companyName} is scheduled on ${formatReminderDateTime(item.dueDateTime)}.`,
+        type: "info",
+        relatedId: item.leadId || item._id,
+        relatedType: isMeeting ? "Meeting" : "Followup",
+        reminderAt: item.dueDateTime,
+        createdAt: item.dueDateTime,
+        sourceType: isMeeting ? "meeting" : "followup",
+      };
+    });
+
+    const eventReminders = events.map((item) => {
+      const venue = String(item.venue || "").trim();
+      const venueText = venue ? ` at ${venue}` : "";
+      return {
+        _id: `event-upcoming-${item._id}`,
+        title: "Event Reminder",
+        message: `${item.name || "Event"} starts on ${formatReminderDateTime(item.startDate)}${venueText}.`,
+        type: "info",
+        relatedId: item._id,
+        relatedType: "event",
+        reminderAt: item.startDate,
+        createdAt: item.startDate,
+        sourceType: "event",
+      };
+    });
+
+    const reminders = [...followupReminders, ...eventReminders]
+      .sort((a, b) => new Date(a.reminderAt) - new Date(b.reminderAt))
+      .slice(0, limit);
+
+    res.json(reminders);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch reminders" });
+  }
 });
 
 

@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const dealsSchema = new mongoose.Schema(
   {
+    deal_name: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     client_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "client",

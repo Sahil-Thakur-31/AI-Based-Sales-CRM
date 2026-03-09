@@ -75,6 +75,8 @@ function buildClientAddress(client) {
 export default function QuotationDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+  const isAdmin = roleName === "admin";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -222,27 +224,29 @@ export default function QuotationDetails() {
         </button>
 
         <div className="qdoc-top-actions-right">
-          <button
-            className="qdoc-btn qdoc-btn-primary"
-            disabled={!canCreateNewVersion}
-            title={
-              canCreateNewVersion
-                ? "Create a new quotation version"
-                : "New version is allowed only when latest quotation is expired or rejected"
-            }
-            onClick={() => {
-              if (!canCreateNewVersion) return;
-              const sourceQuery =
-                quoteType === "lead"
-                  ? `leadId=${detail?.quotation?.leadId || ""}`
-                  : `dealId=${detail?.quotation?.dealId || ""}`;
-              navigate(
-                `/quotations/new?${sourceQuery}&fromQuoteId=${detail?.quotation?._id || ""}`
-              );
-            }}
-          >
-            New Version
-          </button>
+          {!isAdmin ? (
+            <button
+              className="qdoc-btn qdoc-btn-primary"
+              disabled={!canCreateNewVersion}
+              title={
+                canCreateNewVersion
+                  ? "Create a new quotation version"
+                  : "New version is allowed only when latest quotation is expired or rejected"
+              }
+              onClick={() => {
+                if (!canCreateNewVersion) return;
+                const sourceQuery =
+                  quoteType === "lead"
+                    ? `leadId=${detail?.quotation?.leadId || ""}`
+                    : `dealId=${detail?.quotation?.dealId || ""}`;
+                navigate(
+                  `/quotations/new?${sourceQuery}&fromQuoteId=${detail?.quotation?._id || ""}`
+                );
+              }}
+            >
+              New Version
+            </button>
+          ) : null}
 
           <button className="qdoc-btn qdoc-btn-success" onClick={handlePrint}>
             Print

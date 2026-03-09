@@ -4,6 +4,7 @@ const User = require("../models/users");
 const Team = require("../models/teams");
 const Organization = require("../models/organization");
 const emailService = require("../services/emailService");
+const { syncSingleCrmItemToGoogle } = require("../services/googleCalendarSync");
 
 function parseDateOnlyInput(value) {
   const raw = String(value || "").trim();
@@ -198,6 +199,25 @@ exports.submit = async (req, res) => {
         key_highlights: keyHighlights,
         user_id: userId,
       });
+    }
+
+    // Sync daily closing to Google Calendar as an all-day event
+    const isoDate = dayRange.start.toISOString();
+    const syncItem = {
+      id: `daily-${String(highlightsDoc._id || dayRange.start)}`,
+      type: "daily_closing",
+      title: "Daily Closing Task",
+      start: isoDate,
+      end: isoDate,
+      allDay: true,
+      notes: highlightsDoc.key_highlights || "",
+      location: "",
+      isPrompt: false,
+    };
+    try {
+      await syncSingleCrmItemToGoogle(syncItem, userId);
+    } catch (gcalErr) {
+      console.error("dailyClosing.submit gcal sync error:", gcalErr);
     }
 
     return res.status(200).json({
