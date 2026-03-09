@@ -30,6 +30,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const navigate = useNavigate();
 
   const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
+  const isAdmin = roleName === "admin";
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
   const currentUserId = getUserIdFromToken();
 
@@ -70,6 +71,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   }, [shouldStartInEditMode]);
 
   const [lead, setLead] = useState({
+    deal_name: "",
     company_name: "",
     industry: "",
     employee_count: "",
@@ -249,15 +251,15 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               mappedContacts.length
                 ? mappedContacts
                 : [
-                    {
-                      name: "",
-                      designation: "",
-                      phone: "",
-                      email: "",
-                      linkedin: "",
-                      is_primary: true,
-                    },
-                  ]
+                  {
+                    name: "",
+                    designation: "",
+                    phone: "",
+                    email: "",
+                    linkedin: "",
+                    is_primary: true,
+                  },
+                ]
             );
           }
 
@@ -726,7 +728,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
         response = isNew
           ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
-          : await API.put(`/leads/${id}`, payload);
+          : await API.put(dealView ? `/deals/${dealIdFromQuery || id}` : `/leads/${id}`, payload);
       }
 
       const data = response.data;
@@ -798,6 +800,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       mode = "confirm",
     } = {}
   ) => {
+    setDealDeleteReason("");
     setPopup({
       open: true,
       mode,
@@ -908,23 +911,40 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const handleConvertToDeal = async () => {
     if (isNew || lead.converted_to_deal || lead.converted_deal_id) return;
 
-    try {
-      const response = await API.put(`/leads/${id}/convert-to-deal`);
-      const updatedLead = response.data?.lead || lead;
+    showConfirm(
+      "Convert To Deal",
+      "Enter the deal name for this converted lead.",
+      async (enteredDealName) => {
+        const dealName = String(enteredDealName || "").trim();
+        if (!dealName) {
+          showAlert("Deal Name Required", "Please enter a deal name.", "warning");
+          return;
+        }
 
-      setLead((prev) => ({
-        ...prev,
-        ...updatedLead,
-      }));
-      showAlert("Converted", "Lead converted to deal successfully.", "success");
-    } catch (err) {
-      console.error("convert lead error", err);
-      showAlert(
-        "Convert Failed",
-        err.response?.data?.message || "Failed to convert lead",
-        "error"
-      );
-    }
+        try {
+          const response = await API.put(`/leads/${id}/convert-to-deal`, {
+            deal_name: dealName,
+          });
+          const updatedLead = response.data?.lead || lead;
+          const createdDeal = response.data?.deal || null;
+
+          setLead((prev) => ({
+            ...prev,
+            ...updatedLead,
+            deal_name: createdDeal?.deal_name || dealName,
+          }));
+          showAlert("Converted", "Lead converted to deal successfully.", "success");
+        } catch (err) {
+          console.error("convert lead error", err);
+          showAlert(
+            "Convert Failed",
+            err.response?.data?.message || "Failed to convert lead",
+            "error"
+          );
+        }
+      },
+      { confirmLabel: "Convert", variant: "success", mode: "input-confirm" }
+    );
   };
 
   const handleRestoreLead = async () => {
@@ -1027,7 +1047,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               : clientView
                 ? `Client - ${lead.company_name || "Details"}`
                 : dealView
-                  ? `Deal - ${lead.company_name || "Details"}`
+                  ? `Deal - ${lead.deal_name || lead.company_name || "Details"}`
                   : lead.company_name}
           </h2>
           <BackButton />
@@ -1050,6 +1070,15 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       {/* ================= COMPANY INFO ================= */}
       <div className="lead-form">
+        {(dealView || lead.deal_name) && (
+          <Field
+            label="Deal Name"
+            name="deal_name"
+            value={lead.deal_name}
+            onChange={handleLeadChange}
+            editMode={editMode}
+          />
+        )}
         <div className="field company-autocomplete-field">
           <label>Company Name</label>
           {editMode ? (
@@ -1543,7 +1572,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                     </>
                   ) : (
                     <>
-                      {dealView && dealId && (
+                      {dealView && dealId && !isAdmin && (
                         <button
                           className="convert-btn"
                           onClick={() => navigate(`/quotations/new?dealId=${dealId}`)}
@@ -1584,7 +1613,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               <input
                 className="crm-popup-input"
                 type="text"
-                placeholder="Enter delete reason"
+                placeholder={popup.title === "Convert To Deal" ? "Enter deal name" : "Enter delete reason"}
                 value={dealDeleteReason}
                 onChange={(e) => setDealDeleteReason(e.target.value)}
               />

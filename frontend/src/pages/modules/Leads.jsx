@@ -504,6 +504,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
   };
 
   const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
+  const isAdmin = roleName === "admin";
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
 
   return (
@@ -644,7 +645,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
               const t = getTemperature(row);
               return (
                 <tr key={row._id}>
-                  <td className="company-cell">{row.company_name || "-"}</td>
+                  <td className="company-cell" title={viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}>
+                    {viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}
+                  </td>
                   {viewMode === "deals" && (
                     <td className="deal-contact-cell">
                       <div className="contact-name">{row.primary_contact?.name || "-"}</div>
@@ -722,7 +725,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
                         </button>
                       )}
 
-                      {viewMode === "deals" && activeTab === "active" && (
+                      {viewMode === "deals" && activeTab === "active" && !isAdmin && (
                         <button
                           className="view-btn quote-btn"
                           disabled={!row._id || row.isActive === false}
@@ -796,30 +799,30 @@ function LeadsDashboard({ defaultView = "leads" }) {
 
               <div className="expense-upload-box">
                 <input
-  type="file"
-  accept="image/*"
-  onChange={async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
 
-    const formData = new FormData();
-    formData.append("card", file);
+                    const formData = new FormData();
+                    formData.append("card", file);
 
-    try {
-      const res = await API.post("/ocr/scan-business-card", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+                    try {
+                      const res = await API.post("/ocr/scan-business-card", formData, {
+                        headers: { "Content-Type": "multipart/form-data" }
+                      });
 
-      alert("Lead created successfully!");
-      setShowOcrModal(false);
-      window.location.reload();
+                      alert("Lead created successfully!");
+                      setShowOcrModal(false);
+                      window.location.reload();
 
-    } catch (err) {
-      console.error(err);
-      alert("OCR failed");
-    }
-  }}
-/>
+                    } catch (err) {
+                      console.error(err);
+                      alert("OCR failed");
+                    }
+                  }}
+                />
                 <p>Drop file or click to upload</p>
                 <span>Supports: JPG, PNG, PDF</span>
 

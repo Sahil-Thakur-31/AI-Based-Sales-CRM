@@ -6,6 +6,7 @@ const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
 const User = require("../models/users");
 const Followup = require("../models/followUp");
+const Location = require("../models/location");
 
 function mapTemperatureFromLead(lead) {
   const temp = (lead?.lead_temperature || "").toLowerCase();
@@ -77,6 +78,123 @@ async function isAdminAssignee(userId) {
   return roleName === "admin";
 }
 
+function getRoleName(user = {}) {
+  return String(user?.role || "").trim().toLowerCase();
+}
+
+function isPrivilegedUser(user = {}) {
+  const roleName = getRoleName(user);
+  return roleName === "admin" || roleName === "manager";
+}
+
+async function getAccessibleLeadIdsForUser(userId) {
+  if (!userId) return [];
+  const leadIds = await Leads.find({ assigned_to: userId }).distinct("_id");
+  return leadIds;
+}
+
+async function buildDealAccessFilter(user = {}, baseFilter = {}) {
+  if (isPrivilegedUser(user)) return { ...baseFilter };
+
+  const userId = user?._id || null;
+  const leadIds = await getAccessibleLeadIdsForUser(userId);
+  return {
+    ...baseFilter,
+    $or: [
+      { assignedTo: userId },
+      { lead_id: { $in: leadIds } },
+    ],
+  };
+}
+
+async function resolveLocationId(payload = {}) {
+  const normalized = {
+    country: String(payload.country || "").trim(),
+    State: String(payload.State || "").trim(),
+    city: String(payload.city || "").trim(),
+    zone: String(payload.zone || "").trim(),
+  };
+
+  const hasAnyLocation = Object.values(normalized).some(Boolean);
+  if (!hasAnyLocation) return null;
+
+  let location = await Location.findOne(normalized).lean();
+  if (location?._id) return location._id;
+
+  location = await Location.create(normalized);
+  return location._id;
+}
+
+function normalizeContactRows(contacts = []) {
+  if (!Array.isArray(contacts)) return [];
+  const validContacts = contacts.filter((contact) => contact && (contact.name || contact.phone || contact.email));
+  const hasPrimary = validContacts.some((contact) => contact.is_primary === true || contact.is_primary === "true");
+
+  return validContacts.map((contact, index) => ({
+    name: contact.name || "",
+    designation: contact.designation || "",
+    phone: contact.phone || "",
+    email: contact.email || "",
+    linkedin: contact.linkedin || "",
+    address: contact.address || "",
+    is_primary: hasPrimary
+      ? (contact.is_primary === true || contact.is_primary === "true")
+      : index === 0,
+  }));
+}
+
+function buildLeadUpdatePayload(body = {}) {
+  const update = {};
+  const objectIdLikeFields = new Set([
+    "source",
+    "referred_by_user",
+    "expo_event_id",
+    "assigned_to",
+    "location",
+  ]);
+  const leadFields = [
+    "company_name",
+    "industry",
+    "employee_count",
+    "turnover_range",
+    "Address",
+    "website",
+    "source",
+    "referred_by_user",
+    "expo_event_id",
+    "lead_temperature",
+    "next_action",
+    "last_contact_date",
+    "assigned_to",
+  ];
+
+  for (const field of leadFields) {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      const rawValue = body[field];
+      update[field] =
+        objectIdLikeFields.has(field) && (rawValue === "" || rawValue === undefined)
+          ? null
+          : rawValue;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "deal_value_estimate")) {
+    const amount = Number(body.deal_value_estimate);
+    update.deal_value_estimate = Number.isFinite(amount) ? amount : 0;
+  }
+
+  return update;
+}
+
+function getCompanyName(deal = {}, lead = null, client = null) {
+  return (
+    client?.name ||
+    lead?.company_name ||
+    deal?.clientName ||
+    ""
+  );
+}
+
 exports.getDeals = async (req, res) => {
   try {
     const deletedOnly =
@@ -93,7 +211,8 @@ exports.getDeals = async (req, res) => {
       filter.client_id = new mongoose.Types.ObjectId(clientIdFilter);
     }
 
-    let dealsQuery = Deal.find(filter).sort({ updatedAt: -1 });
+    const accessFilter = await buildDealAccessFilter(req.user, filter);
+    let dealsQuery = Deal.find(accessFilter).sort({ updatedAt: -1 });
 
     const limitParam = Number(req.query.limit);
     if (!Number.isNaN(limitParam) && limitParam > 0) {
@@ -173,9 +292,10 @@ exports.getDeals = async (req, res) => {
       return {
         _id: deal._id,
         deal_id: deal._id,
+        deal_name: deal.deal_name || "",
         client_id: deal.client_id || null,
         clientId: deal.client_id || null,
-        company_name: lead?.company_name || client?.name || deal.clientName || "Untitled Deal",
+        company_name: getCompanyName(deal, lead, client),
         industry: lead?.industry || "",
         deal_value_estimate:
           typeof deal.dealValue === "number"
@@ -264,7 +384,8 @@ exports.getDealById = async (req, res) => {
       filter.is_deleted = { $ne: true };
     }
 
-    const deal = await Deal.findOne(filter).lean();
+    const accessFilter = await buildDealAccessFilter(req.user, filter);
+    const deal = await Deal.findOne(accessFilter).lean();
     if (!deal) return res.status(404).json({ message: "Deal not found" });
 
     // Look up the associated lead and client to enrich the response
@@ -294,8 +415,9 @@ exports.getDealById = async (req, res) => {
     // Build enriched response matching LeadFormPage field names
     const enriched = {
       ...deal,
+      deal_name: deal.deal_name || "",
       company_name:
-        lead?.company_name || client?.name || deal.clientName || "",
+        getCompanyName(deal, lead, client),
       industry: lead?.industry || "",
       employee_count: lead?.employee_count || null,
       turnover_range: lead?.turnover_range || "",
@@ -352,8 +474,18 @@ exports.getDealById = async (req, res) => {
 exports.updateDeal = async (req, res) => {
   try {
     const userRole = (req.user?.role || "").toLowerCase();
-    const update = req.body || {};
+    const update = { ...(req.body || {}) };
     delete update._id;
+
+    const accessFilter = await buildDealAccessFilter(req.user, {
+      _id: req.params.id,
+      is_deleted: { $ne: true },
+    });
+
+    const existingDeal = await Deal.findOne(accessFilter).lean();
+    if (!existingDeal) {
+      return res.status(404).json({ message: "Deal not found" });
+    }
 
     if (userRole !== "admin" && userRole !== "manager") {
       delete update.assignedTo;
@@ -365,7 +497,80 @@ exports.updateDeal = async (req, res) => {
       return res.status(400).json({ message: "Deal cannot be assigned to an admin user" });
     }
 
-    const deal = await Deal.findByIdAndUpdate(req.params.id, update, { returnDocument: "after" }).lean();
+    const dealUpdate = {};
+
+    if (Object.prototype.hasOwnProperty.call(update, "assigned_to") || Object.prototype.hasOwnProperty.call(update, "assignedTo")) {
+      const assignedTo = update.assignedTo || update.assigned_to || null;
+      dealUpdate.assignedTo = assignedTo === "" ? null : assignedTo;
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "deal_name") || Object.prototype.hasOwnProperty.call(update, "dealName")) {
+      dealUpdate.deal_name = String(update.deal_name || update.dealName || "").trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "stage")) {
+      const stage = String(update.stage || "P1").trim().toUpperCase();
+      if (["P1", "P2", "P3", "P4", "P5", "P6", "P7"].includes(stage)) {
+        dealUpdate.stage = stage;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "deal_value_estimate") || Object.prototype.hasOwnProperty.call(update, "dealValue")) {
+      const amount = Number(update.dealValue ?? update.deal_value_estimate);
+      dealUpdate.dealValue = Number.isFinite(amount) ? amount : 0;
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "status")) {
+      const status = String(update.status || "open").trim().toLowerCase();
+      if (["open", "won", "lost"].includes(status)) {
+        dealUpdate.status = status;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "probability")) {
+      const probability = Number(update.probability);
+      if (Number.isFinite(probability)) {
+        dealUpdate.probability = probability;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "expectedCloseDate")) {
+      dealUpdate.expectedCloseDate = update.expectedCloseDate || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "actualCloseDate")) {
+      dealUpdate.actualCloseDate = update.actualCloseDate || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "isActive") || Object.prototype.hasOwnProperty.call(update, "is_active")) {
+      dealUpdate.isActive =
+        update.isActive === true ||
+        update.isActive === "true" ||
+        update.is_active === true ||
+        update.is_active === "true";
+    }
+
+    const leadUpdate = buildLeadUpdatePayload(update);
+    if (dealUpdate.assignedTo !== undefined) {
+      leadUpdate.assigned_to = dealUpdate.assignedTo;
+    }
+
+    const locationId = await resolveLocationId(update);
+    if (locationId && existingDeal.lead_id) {
+      leadUpdate.location = locationId;
+    }
+
+    let deal = existingDeal;
+    if (Object.keys(dealUpdate).length) {
+      deal = await Deal.findOneAndUpdate(accessFilter, { $set: dealUpdate }, { returnDocument: "after" }).lean();
+    }
+
+    if (existingDeal.lead_id && Object.keys(leadUpdate).length) {
+      await Leads.findByIdAndUpdate(existingDeal.lead_id, { $set: leadUpdate });
+    }
+
+    if (existingDeal.lead_id && Array.isArray(update.contacts)) {
+      await LeadContacts.deleteMany({ lead_id: existingDeal.lead_id });
+      const contacts = normalizeContactRows(update.contacts);
+      if (contacts.length) {
+        await LeadContacts.insertMany(
+          contacts.map((contact) => ({ ...contact, lead_id: existingDeal.lead_id }))
+        );
+      }
+    }
+
     if (!deal) return res.status(404).json({ message: "Deal not found" });
     res.json(deal);
   } catch (err) {

@@ -320,6 +320,10 @@ td {
   font-size: 16px;
   font-weight: 700;
   color: #1c3554;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .contact-name {
@@ -335,8 +339,9 @@ td {
 
 .col-contact,
 .deal-contact-cell {
-  width: 220px;
-  max-width: 220px;
+  width: 180px;
+  max-width: 180px;
+  min-width: 180px;
 }
 
 .deal-contact-cell .contact-name,
@@ -345,6 +350,10 @@ td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.deal-contact-cell .contact-subtext {
+  max-width: 180px;
 }
 
 .col-last-contact,
