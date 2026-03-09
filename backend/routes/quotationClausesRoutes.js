@@ -5,6 +5,7 @@ const {
   createQuotationClause,
   updateQuotationClause,
   deleteQuotationClause,
+  restoreQuotationClause,
   getPaymentTerms,
   upsertPaymentTerms
 } = require("../controllers/quotationClausesController");
@@ -23,5 +24,6 @@ router.get("/payment-terms", auth, requireAdmin, getPaymentTerms);
 router.put("/payment-terms", auth, requireAdmin, upsertPaymentTerms);
 router.put("/:id", auth, requireAdmin, updateQuotationClause);
 router.put("/delete/:id", auth, requireAdmin, deleteQuotationClause);
+router.put("/restore/:id", auth, requireAdmin, restoreQuotationClause);
 
 module.exports = router;

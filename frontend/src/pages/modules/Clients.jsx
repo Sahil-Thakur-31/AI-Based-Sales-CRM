@@ -242,7 +242,7 @@ export default function Clients() {
             onClick={() => navigate("/clients/new")}
             style={{ marginLeft: "10px" }}
           >
-            <span className="action-icon" style={{ marginRight: "4px" }}>+</span>
+            <span className="action-icon" style={{ marginRight: "4px" }}>➕</span>
             Add Client
           </button>
         </div>

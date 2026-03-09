@@ -45,17 +45,18 @@ export default function QuotationClauses() {
   const [paymentTermsSaving, setPaymentTermsSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [statusTab, setStatusTab] = useState("active");
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [statusTab]);
 
   async function loadData() {
     try {
       setLoading(true);
       setError("");
       const [clausesRes, industriesRes, productsRes, paymentTermsRes] = await Promise.all([
-        API.get("/quotation-clauses"),
+        API.get("/quotation-clauses", { params: { status: statusTab } }),
         API.get("/industries"),
         API.get("/products"),
         API.get("/quotation-clauses/payment-terms")
@@ -175,6 +176,22 @@ export default function QuotationClauses() {
     }
   }
 
+  async function restoreClause(id) {
+    const confirmed = window.confirm("Restore this quotation clause?");
+    if (!confirmed) return;
+
+    try {
+      setError("");
+      setNotice("");
+      await API.put(`/quotation-clauses/restore/${id}`);
+      setNotice("Clause restored successfully");
+      loadData();
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to restore quotation clause");
+    }
+  }
+
   const filteredRows = useMemo(() => {
     const text = normalizeText(filter).toLowerCase();
     if (!text) return clauses;
@@ -240,9 +257,30 @@ export default function QuotationClauses() {
           <div className="qc-panel-head">
             <div className="qc-panel-head-top">
               <h3>Clause Rules</h3>
-              <button className="admin-config-btn" onClick={openAddModal}>
-                Add Clause
-              </button>
+              <div className="qc-panel-actions">
+                <div className="admin-config-tabs qc-status-tabs" role="tablist" aria-label="Quotation clause status tabs">
+                  <button
+                    type="button"
+                    className={`admin-config-tab ${statusTab === "active" ? "active" : ""}`}
+                    onClick={() => setStatusTab("active")}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-config-tab ${statusTab === "deleted" ? "active" : ""}`}
+                    onClick={() => setStatusTab("deleted")}
+                  >
+                    Deleted
+                  </button>
+                </div>
+
+                {statusTab !== "deleted" ? (
+                  <button className="admin-config-btn" onClick={openAddModal}>
+                    Add Clause
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -293,7 +331,9 @@ export default function QuotationClauses() {
               {filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="admin-config-empty">
-                    No quotation clauses found
+                    {statusTab === "deleted"
+                      ? "No deleted quotation clauses found"
+                      : "No quotation clauses found"}
                   </td>
                 </tr>
               ) : (
@@ -310,15 +350,26 @@ export default function QuotationClauses() {
                     </td>
                     <td>
                       <div className="qc-action-row">
-                        <button className="admin-config-btn" onClick={() => openEditModal(row)}>
-                          Edit
-                        </button>
-                        <button
-                          className="admin-config-btn admin-config-btn-danger"
-                          onClick={() => deleteClause(row._id)}
-                        >
-                          Delete
-                        </button>
+                        {statusTab === "deleted" ? (
+                          <button
+                            className="admin-config-btn admin-config-btn-success"
+                            onClick={() => restoreClause(row._id)}
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <>
+                            <button className="admin-config-btn" onClick={() => openEditModal(row)}>
+                              Edit
+                            </button>
+                            <button
+                              className="admin-config-btn admin-config-btn-danger"
+                              onClick={() => deleteClause(row._id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

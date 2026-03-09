@@ -41,33 +41,45 @@
 }
 
 .admin-config-tabs {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px;
-  border: 1px solid #dbe2ea;
-  border-radius: 10px;
-  background: #f8fafc;
+  gap: 10px;
+  margin: 0;
+  border-bottom: 1px solid #e2e8f3;
+  padding: 0;
   flex-shrink: 0;
 }
 
 .admin-config-tab {
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
-  color: #334155;
-  border-radius: 8px;
-  padding: 7px 12px;
-  font-size: 13px;
-  font-weight: 700;
+  color: #64748b;
+  border-radius: 0;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.admin-config-tab:hover {
+  color: #3f5470;
 }
 
 .admin-config-tab.active {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #1e293b;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  color: #4f46e5;
+}
+
+.admin-config-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #4f46e5;
+  border-radius: 2px 2px 0 0;
 }
 
 .admin-config-actions .admin-search-input {
@@ -199,6 +211,18 @@
   .admin-config-header {
     flex-wrap: wrap;
     align-items: stretch;
+  }
+
+  .admin-config-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 4px;
+    padding-bottom: 6px;
+  }
+
+  .admin-config-tab {
+    flex: 0 0 auto;
+    padding: 10px 12px;
   }
 
   .admin-config-actions {
@@ -634,6 +658,22 @@
   gap: 8px;
 }
 
+.qc-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.qc-status-tabs {
+  margin: 0;
+}
+
+.qc-status-tabs .admin-config-tab {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
 .qc-panel-head h3 {
   margin: 0;
   font-size: 18px;
@@ -807,6 +847,17 @@
 }
 
 @media (max-width: 640px) {
+  .qc-panel-head-top {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .qc-panel-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
   .qc-controls-row {
     flex-direction: column;
     align-items: stretch;
