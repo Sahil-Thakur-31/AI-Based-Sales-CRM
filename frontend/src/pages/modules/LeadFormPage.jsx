@@ -870,11 +870,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     navigate(`/leads/new?view=deal&clientId=${id}`);
   };
 
-  const handleViewClientDeal = () => {
-    if (!id) return;
-    navigate(`/clients/${id}/deals`);
-  };
-
   const handleDeleteDeal = async () => {
     if (!dealId) {
       showAlert("Delete Failed", "Deal ID is missing.", "error");
@@ -1539,13 +1534,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                     <>
                       <button className="convert-btn" onClick={handleAddDealFromClient}>
                         Add Deal
-                      </button>
-                      <button
-                        className="convert-btn"
-                        onClick={handleViewClientDeal}
-                        title="View deals linked to this client"
-                      >
-                        View Deal
                       </button>
                       {isAdminOrManager && (
                         <button className="soft-delete-btn" onClick={handleDeleteClient}>
