@@ -79,6 +79,11 @@ const getLocationText = (eventItem) => {
 };
 
 const contains = (value, query) => String(value || "").toLowerCase().includes(query);
+const formatPriority = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "Medium";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+};
 
 const EventExpo = () => {
   const navigate = useNavigate();
@@ -376,6 +381,7 @@ const EventExpo = () => {
         {!loading && !error && filteredEvents.map((eventItem) => {
           const score = Number(eventItem.aiRelevanceScore || 0);
           const scoreLabel = score >= 90 ? "Must Attend" : score >= 70 ? "Strong Fit" : "Evaluate";
+          const priorityLabel = formatPriority(eventItem.priorityTag);
           const aiRecommendationText = String(eventItem.aiRecommendation || "").trim();
           const isAiSuggested =
             String(eventItem.source?.name || "").toLowerCase().includes("ai") ||
@@ -392,7 +398,9 @@ const EventExpo = () => {
               <div className="event-left">
                 <div className="event-title-row">
                   <h4>{eventItem.name}</h4>
-                  <span className="score-badge">{score ? `${score} - ${scoreLabel}` : "AI Score Pending"}</span>
+                  <span className="score-badge">
+                    {score ? `${score} - ${scoreLabel}` : `Priority - ${priorityLabel}`}
+                  </span>
                 </div>
 
                 <p className="event-meta">{getLocationText(eventItem)}</p>
