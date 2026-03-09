@@ -5,14 +5,55 @@ import FormErrorSlot from "../../components/FormErrorSlot";
 import { minLength, required } from "../../utils/formValidation";
 import "./styles/AddEvent.css";
 
+const INDIA_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry"
+];
+
 const AddEvent = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     eventName: "",
+    industry: "",
     industryText: "",
     startDate: "",
     endDate: "",
+    country: "India",
     location: "",
     stateName: "",
     venue: "",
@@ -24,19 +65,36 @@ const AddEvent = () => {
     banner: null,
     priorityTag: "medium"
   });
+  const [industries, setIndustries] = useState([]);
   const [locations, setLocations] = useState([]);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const bannerName = useMemo(() => formData.banner?.name || "No file selected", [formData.banner]);
+  const cityOptions = useMemo(() => {
+    const selectedState = String(formData.stateName || "").trim().toLowerCase();
+    const citySet = new Set();
+
+    locations.forEach((item) => {
+      const city = String(item?.city || "").trim();
+      const state = String(item?.State || item?.state || "").trim().toLowerCase();
+      if (!city) return;
+      if (selectedState && state !== selectedState) return;
+      citySet.add(city);
+    });
+
+    return Array.from(citySet).sort((a, b) => a.localeCompare(b));
+  }, [locations, formData.stateName]);
 
   useEffect(() => {
     const loadMeta = async () => {
       try {
         const { data } = await API.get("/events/meta");
+        const industryList = Array.isArray(data?.industries) ? data.industries : [];
         const locationList = Array.isArray(data?.locations) ? data.locations : [];
 
+        setIndustries(industryList);
         setLocations(locationList);
       } catch (err) {
         setError(err?.response?.data?.message || "Failed to load event form metadata");
@@ -49,7 +107,16 @@ const AddEvent = () => {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setError("");
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      if (name === "industry") {
+        return {
+          ...prev,
+          industry: value,
+          industryText: value === "other" ? prev.industryText : ""
+        };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleFileChange = (event) => {
@@ -60,12 +127,16 @@ const AddEvent = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    const selectedIndustry = String(formData.industry || "").trim();
+    const customIndustry = String(formData.industryText || "").trim();
     const checks = [
       required(formData.eventName, "Event name"),
-      required(formData.industryText, "Industry"),
+      required(selectedIndustry, "Industry"),
+      selectedIndustry === "other" ? required(customIndustry, "Other industry") : "",
       required(formData.startDate, "Start date"),
-      required(formData.location, "City / location"),
+      required(formData.country, "Country"),
       required(formData.stateName, "State"),
+      required(formData.location, "City / location"),
       minLength(formData.description, 3, "Description"),
     ];
     const firstError = checks.find(Boolean) || "";
@@ -77,15 +148,22 @@ const AddEvent = () => {
     setSaving(true);
 
     try {
-      await API.post("/events", {
+      const selectedIndustryName = industries.find((item) => String(item._id) === selectedIndustry)?.name || "";
+      const payload = {
         name: formData.eventName.trim(),
-        industryText: formData.industryText.trim(),
+        industryText: selectedIndustry === "other" ? customIndustry : selectedIndustryName,
         startDate: formData.startDate,
         endDate: formData.endDate || formData.startDate,
         venue: formData.venue || formData.location,
         locationText: formData.location,
         stateText: formData.stateName.trim(),
-        address: [formData.location.trim(), formData.stateName.trim()].filter(Boolean).join(", "),
+        address: [
+          formData.location.trim(),
+          formData.stateName.trim(),
+          formData.country.trim()
+        ]
+          .filter(Boolean)
+          .join(", "),
         registrationFee: formData.fee === "" ? 0 : Number(formData.fee),
         attendeesCount: Number(formData.expectedAttendees || 0),
         exhibitorsCount: Number(formData.expectedExhibitors || 0),
@@ -93,7 +171,13 @@ const AddEvent = () => {
         priorityTag: formData.priorityTag,
         websiteUrl: formData.eventWebsite.trim(),
         description: formData.description.trim()
-      });
+      };
+
+      if (selectedIndustry !== "other") {
+        payload.industry = selectedIndustry;
+      }
+
+      await API.post("/events", payload);
       setSubmitted(true);
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to create event");
@@ -138,14 +222,33 @@ const AddEvent = () => {
 
                 <label>
                   Industry *
-                  <input
-                    type="text"
-                    name="industryText"
-                    value={formData.industryText}
+                  <select
+                    name="industry"
+                    value={formData.industry}
                     onChange={handleChange}
-                    placeholder="Type industry name"
-                  />
+                  >
+                    <option value="">Select industry</option>
+                    {industries.map((item) => (
+                      <option key={item._id} value={item._id}>
+                        {item.name}
+                      </option>
+                    ))}
+                    <option value="other">Other</option>
+                  </select>
                 </label>
+
+                {formData.industry === "other" && (
+                  <label>
+                    Other Industry *
+                    <input
+                      type="text"
+                      name="industryText"
+                      value={formData.industryText}
+                      onChange={handleChange}
+                      placeholder="Type industry name"
+                    />
+                  </label>
+                )}
 
                 <label>
                   Start Date *
@@ -168,34 +271,47 @@ const AddEvent = () => {
                 </label>
 
                 <label>
-                  City / Location *
-                  <input
-                    type="text"
-                    name="location"
-                    list="event-location-list"
-                    placeholder="City"
-                    value={formData.location}
+                  Country *
+                  <select
+                    name="country"
+                    value={formData.country}
                     onChange={handleChange}
-                  />
-                  <datalist id="event-location-list">
-                    {locations.map((location) => (
-                      <option
-                        key={`${location.city || ""}-${location.State || location.state || ""}`}
-                        value={location.city}
-                      />
-                    ))}
-                  </datalist>
+                  >
+                    <option value="India">India</option>
+                  </select>
                 </label>
 
                 <label>
                   State *
-                  <input
-                    type="text"
+                  <select
                     name="stateName"
-                    placeholder="State"
                     value={formData.stateName}
                     onChange={handleChange}
+                  >
+                    <option value="">Select state</option>
+                    {INDIA_STATES.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  City *
+                  <input
+                    type="text"
+                    name="location"
+                    list="event-city-list"
+                    placeholder="City"
+                    value={formData.location}
+                    onChange={handleChange}
                   />
+                  <datalist id="event-city-list">
+                    {cityOptions.map((city) => (
+                      <option key={city} value={city} />
+                    ))}
+                  </datalist>
                 </label>
 
                 <label>
