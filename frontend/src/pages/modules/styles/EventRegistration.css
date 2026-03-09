@@ -1,7 +1,7 @@
 .event-registration-page {
   box-sizing: border-box;
   min-height: calc(100vh - 24px);
-  padding: 24px;
+  padding: 16px 24px 24px;
   background:
     radial-gradient(circle at top right, rgba(16, 91, 161, 0.08), transparent 40%),
     linear-gradient(180deg, #f4f8fc 0%, #eef3fa 100%);
@@ -12,8 +12,15 @@
   max-width: 980px;
 }
 
+.event-registration-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .event-registration-header h2 {
-  margin: 10px 0 8px;
+  margin: 0;
   color: #102a43;
   font-size: 30px;
 }
@@ -85,6 +92,13 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.registration-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
 }
 
 .form-section {
@@ -234,6 +248,11 @@
 }
 
 @media (max-width: 640px) {
+  .event-registration-header-row {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+  }
+
   .event-summary-strip,
   .registration-form .form-grid,
   .attendee-grid {

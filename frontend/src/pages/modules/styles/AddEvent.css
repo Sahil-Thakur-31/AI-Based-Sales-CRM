@@ -1,6 +1,6 @@
 .add-event-page {
   min-height: calc(100vh - 24px);
-  padding: 24px;
+  padding: 16px 24px 24px;
   background:
     radial-gradient(circle at top right, rgba(15, 88, 157, 0.08), transparent 42%),
     linear-gradient(180deg, #f5f8fc 0%, #edf2f8 100%);
@@ -9,29 +9,29 @@
 .add-event-header {
   max-width: 980px;
   margin: 0 auto 18px;
+}
+
+.add-event-header-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .add-event-header h2 {
-  width: 100%;
-  margin: 10px 0 8px;
+  margin: 0;
   font-size: 30px;
   letter-spacing: 0.2px;
   color: #0f2744;
 }
 
 .add-event-header p {
-  width: 100%;
-  margin: 0;
+  margin: 8px 0 0;
   color: #4c6280;
   font-size: 14px;
 }
 
 .back-btn {
-  margin-left: auto;
   border: 1px solid #d6dfed;
   background: #fdfefe;
   color: #12447f;
@@ -166,6 +166,11 @@
 }
 
 @media (max-width: 640px) {
+  .add-event-header-row {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+  }
+
   .add-event-form .form-grid {
     grid-template-columns: 1fr;
   }

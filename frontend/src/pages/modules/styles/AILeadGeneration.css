@@ -1,14 +1,7 @@
 .aiLead-container {
-  padding: 24px;
+  padding: 16px 24px 24px;
   background: linear-gradient(180deg, #f4f7fc 0%, #eef3fa 100%);
   min-height: 100vh;
-}
-
-.aiLead-title {
-  margin: 0 0 20px;
-  font-size: 28px;
-  font-weight: 700;
-  color: #102544;
 }
 
 .aiLead-cardGrid {

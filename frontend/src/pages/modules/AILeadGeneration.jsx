@@ -286,8 +286,6 @@ export default function AILeadGeneration() {
 
   return (
     <div className="aiLead-container">
-      <h2 className="aiLead-title">AI Lead Generation</h2>
-
       <div className="aiLead-cardGrid">
         <div className="aiLead-summaryCard">
           <h3>{totalLeads}</h3>

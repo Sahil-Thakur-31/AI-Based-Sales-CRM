@@ -27,6 +27,7 @@ const EventRegistration = () => {
 
   const isPaidEvent = eventDetails.registrationFee > 0;
   const canSubmitEvent = Boolean(eventDetails.eventId);
+  const isViewOnly = Boolean(state?.viewOnly);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -94,6 +95,11 @@ const EventRegistration = () => {
     event.preventDefault();
     setError("");
 
+    if (isViewOnly) {
+      setError("This page is in view-only mode.");
+      return;
+    }
+
     if (!canSubmitEvent) {
       setError("Open this page from a valid event to submit registration.");
       return;
@@ -151,6 +157,39 @@ const EventRegistration = () => {
     }
   };
 
+  const applyRegistrationToForm = (registrationInput) => {
+    const registration = registrationInput || {};
+    const count = Math.max(1, Math.min(20, toInt(registration.attendeesCount, 1)));
+    const selectedUsers = Array.isArray(registration.attendeeUsers)
+      ? registration.attendeeUsers.map((item) => String(item?._id || item || ""))
+      : [];
+
+    setFormData((prev) => ({
+      ...prev,
+      fullName: registration.fullName || "",
+      email: registration.email || "",
+      mobile: registration.mobile || "",
+      companyName: registration.companyName || "",
+      designation: registration.designation || "",
+      ticketType: registration.ticketType || "",
+      city: registration.city || "",
+      attendeesCount: count,
+      specialRequirements: registration.specialRequirements || "",
+      agreeTerms: true,
+      paymentMethod: registration.payment?.method || "UPI",
+      paymentReferenceNo: registration.payment?.referenceNo || "",
+      amountPaid: registration.payment?.amountPaid ? String(registration.payment.amountPaid) : "",
+      paymentDate: registration.payment?.paymentDate
+        ? new Date(registration.payment.paymentDate).toISOString().slice(0, 10)
+        : "",
+      paymentNotes: registration.payment?.notes || ""
+    }));
+
+    setAttendeeSelections(
+      Array.from({ length: count }, (_, idx) => selectedUsers[idx] || "")
+    );
+  };
+
   useEffect(() => {
     if (usersLoadedRef.current) return;
     usersLoadedRef.current = true;
@@ -171,6 +210,12 @@ const EventRegistration = () => {
   useEffect(() => {
     const loadSavedRegistration = async () => {
       if (!canSubmitEvent) return;
+
+      if (isViewOnly) {
+        applyRegistrationToForm(state?.registrationData || {});
+        return;
+      }
+
       if (!state?.isRegistered) return;
 
       const fetchKey = String(eventDetails.eventId);
@@ -180,34 +225,7 @@ const EventRegistration = () => {
       try {
         setLoadingRegistration(true);
         const { data } = await API.get(`/events/${eventDetails.eventId}/my-registration`);
-        const registration = data?.registration || {};
-        const count = Math.max(1, Math.min(20, toInt(registration.attendeesCount, 1)));
-        const selectedUsers = Array.isArray(registration.attendeeUsers)
-          ? registration.attendeeUsers.map((item) => String(item?._id || item || ""))
-          : [];
-        setFormData((prev) => ({
-          ...prev,
-          fullName: registration.fullName || "",
-          email: registration.email || "",
-          mobile: registration.mobile || "",
-          companyName: registration.companyName || "",
-          designation: registration.designation || "",
-          ticketType: registration.ticketType || "",
-          city: registration.city || "",
-          attendeesCount: count,
-          specialRequirements: registration.specialRequirements || "",
-          agreeTerms: true,
-          paymentMethod: registration.payment?.method || "UPI",
-          paymentReferenceNo: registration.payment?.referenceNo || "",
-          amountPaid: registration.payment?.amountPaid ? String(registration.payment.amountPaid) : "",
-          paymentDate: registration.payment?.paymentDate
-            ? new Date(registration.payment.paymentDate).toISOString().slice(0, 10)
-            : "",
-          paymentNotes: registration.payment?.notes || ""
-        }));
-        setAttendeeSelections(
-          Array.from({ length: count }, (_, idx) => selectedUsers[idx] || "")
-        );
+        applyRegistrationToForm(data?.registration || {});
       } catch (err) {
         if (err?.response?.status !== 404) {
           setError(err?.response?.data?.message || "Failed to load saved registration");
@@ -218,16 +236,17 @@ const EventRegistration = () => {
     };
 
     loadSavedRegistration();
-  }, [canSubmitEvent, eventDetails.eventId, state?.isRegistered]);
+  }, [canSubmitEvent, eventDetails.eventId, isViewOnly, state?.isRegistered, state?.registrationData]);
 
   return (
     <div className="event-registration-page">
       <div className="event-registration-header">
-        <button className="back-button" type="button" onClick={() => navigate("/events")}>
-          Back to Events
-        </button>
-        <h2>Event Registration</h2>
-        
+        <div className="event-registration-header-row">
+          <h2>Event Registration</h2>
+          <button className="back-button" type="button" onClick={() => navigate("/events")}>
+            Back to Events
+          </button>
+        </div>
       </div>
 
       <section className="event-summary-strip">
@@ -265,6 +284,10 @@ const EventRegistration = () => {
           </div>
         ) : (
           <form className="registration-form" onSubmit={onSubmit}>
+            {isViewOnly && (
+              <p className="loading-note">View-only mode. Admin can review this registration but cannot edit.</p>
+            )}
+            <fieldset className="registration-fieldset" disabled={isViewOnly || submitting}>
             <section className="form-section">
               <h4 className="section-title">Primary Contact</h4>
               <div className="form-grid">
@@ -438,11 +461,14 @@ const EventRegistration = () => {
               <FormErrorSlot message={error} className="form-error-slot-global" />
 
               <div className="submit-row">
-                <button className="submit-btn" type="submit" disabled={submitting || !canSubmitEvent}>
-                  {submitting ? "Submitting..." : "Submit Registration"}
-                </button>
+                {!isViewOnly && (
+                  <button className="submit-btn" type="submit" disabled={submitting || !canSubmitEvent}>
+                    {submitting ? "Submitting..." : "Submit Registration"}
+                  </button>
+                )}
               </div>
             </section>
+            </fieldset>
           </form>
         )}
       </section>
