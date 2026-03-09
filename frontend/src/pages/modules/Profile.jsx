@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import API from "../../api";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
+import FormErrorSlot from "../../components/FormErrorSlot";
 import "./styles/profile.css";
 
 function formatDateForInput(value) {
@@ -37,6 +38,39 @@ function getInitials(name) {
     .join("");
 }
 
+function splitNameParts(name) {
+  const words = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!words.length) {
+    return { firstName: "", lastName: "" };
+  }
+
+  return {
+    firstName: words[0] || "",
+    lastName: words.slice(1).join(" ")
+  };
+}
+
+function composeFullName(firstName, lastName) {
+  return [String(firstName || "").trim(), String(lastName || "").trim()]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
+function withSplitName(user) {
+  const source = user || {};
+  const { firstName, lastName } = splitNameParts(source.name);
+  return {
+    ...source,
+    firstName,
+    lastName
+  };
+}
+
 function getProfileCompletion(user) {
   if (!user) return 0;
 
@@ -68,35 +102,12 @@ function getMissingProfileFields(user) {
     .map(({ label }) => label);
 }
 
-function getWorkTenure(joiningDate) {
-  if (!joiningDate) return "Not available";
-
-  const start = new Date(joiningDate);
-  if (Number.isNaN(start.getTime())) return "Not available";
-
-  const now = new Date();
-  let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-
-  if (now.getDate() < start.getDate()) {
-    months -= 1;
-  }
-
-  if (months < 1) return "Less than 1 month";
-
-  const years = Math.floor(months / 12);
-  const remMonths = months % 12;
-
-  if (years === 0) return `${remMonths} month${remMonths === 1 ? "" : "s"}`;
-  if (remMonths === 0) return `${years} year${years === 1 ? "" : "s"}`;
-
-  return `${years}y ${remMonths}m`;
-}
-
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [saveError, setSaveError] = useState("");
 
   const fileInputRef = useRef(null);
 
@@ -107,7 +118,7 @@ export default function Profile() {
   const fetchProfile = async () => {
     try {
       const res = await API.get("/users/me");
-      setUser(res.data);
+      setUser(withSplitName(res.data));
     } finally {
       setLoading(false);
     }
@@ -138,9 +149,30 @@ export default function Profile() {
     if (!user) return;
 
     try {
-      const formData = new FormData();
+      setSaveError("");
+      const firstName = String(user.firstName || "").trim();
+      const lastName = String(user.lastName || "").trim();
+      const namePattern = /^[A-Za-z][A-Za-z\s'-]*$/;
 
-      formData.append("name", user.name || "");
+      if (!firstName) {
+        setSaveError("First name is required");
+        return;
+      }
+
+      if (!lastName) {
+        setSaveError("Last name is required");
+        return;
+      }
+
+      if (!namePattern.test(firstName) || !namePattern.test(lastName)) {
+        setSaveError("First and last name can contain only letters, spaces, apostrophe, and hyphen");
+        return;
+      }
+
+      const formData = new FormData();
+      const fullName = composeFullName(firstName, lastName);
+
+      formData.append("name", fullName);
       formData.append("email", user.email || "");
       formData.append("phone", user.phone || "");
       formData.append("address", user.address || "");
@@ -157,17 +189,20 @@ export default function Profile() {
         }
       });
 
-      setUser(res.data);
+      setUser(withSplitName(res.data));
       setEditing(false);
       setSelectedFile(null);
+      setSaveError("");
     } catch (err) {
       console.error(err);
+      setSaveError(err?.response?.data?.message || "Failed to update profile");
     }
   };
 
   const cancelEditing = () => {
     setEditing(false);
     setSelectedFile(null);
+    setSaveError("");
     fetchProfile();
   };
 
@@ -181,8 +216,6 @@ export default function Profile() {
 
   const profileCompletion = getProfileCompletion(user);
   const missingFields = getMissingProfileFields(user);
-  const workTenure = getWorkTenure(user.joiningDate);
-
   return (
     <div className="profile-page">
       <div className="profile-shell">
@@ -260,7 +293,10 @@ export default function Profile() {
             </div>
 
             {!editing ? (
-              <button className="profile-btn profile-btn-primary" onClick={() => setEditing(true)}>
+              <button className="profile-btn profile-btn-primary" onClick={() => {
+                setSaveError("");
+                setEditing(true);
+              }}>
                 Edit Profile
               </button>
             ) : (
@@ -276,16 +312,44 @@ export default function Profile() {
             )}
           </div>
 
+          <FormErrorSlot message={saveError} className="form-error-slot-global profile-form-error-slot" />
+
           <div className="profile-grid">
             <div className="profile-field">
-              <label htmlFor="user-name">Full Name</label>
+              <label htmlFor="user-first-name">First Name</label>
               <input
-                id="user-name"
-                name="name"
-                autoComplete="name"
-                value={user.name || ""}
+                id="user-first-name"
+                name="firstName"
+                autoComplete="given-name"
+                value={user.firstName || ""}
                 disabled={!editing}
-                onChange={(e) => setUser({ ...user, name: e.target.value })}
+                onChange={(e) => {
+                  const nextFirstName = e.target.value;
+                  setUser((prev) => ({
+                    ...prev,
+                    firstName: nextFirstName,
+                    name: composeFullName(nextFirstName, prev?.lastName)
+                  }));
+                }}
+              />
+            </div>
+
+            <div className="profile-field">
+              <label htmlFor="user-last-name">Last Name</label>
+              <input
+                id="user-last-name"
+                name="lastName"
+                autoComplete="family-name"
+                value={user.lastName || ""}
+                disabled={!editing}
+                onChange={(e) => {
+                  const nextLastName = e.target.value;
+                  setUser((prev) => ({
+                    ...prev,
+                    lastName: nextLastName,
+                    name: composeFullName(prev?.firstName, nextLastName)
+                  }));
+                }}
               />
             </div>
 
@@ -344,14 +408,6 @@ export default function Profile() {
                 disabled={!editing}
                 onChange={(e) => setUser({ ...user, dateOfBirth: e.target.value })}
               />
-            </div>
-
-            <div className="profile-field">
-              <label>Work Tenure</label>
-              <div className="profile-insight-card">
-                <strong>{workTenure}</strong>
-                <span>Based on joining date</span>
-              </div>
             </div>
 
             <div className="profile-field profile-field-full">
