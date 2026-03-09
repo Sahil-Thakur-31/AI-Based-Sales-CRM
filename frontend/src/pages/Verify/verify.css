@@ -124,6 +124,15 @@
     text-decoration: underline;
 }
 
+.login-feedback-slot {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.login-feedback-slot.login-feedback-slot-success {
+    color: #166534;
+}
+
 /* Form Messages */
 .form-message {
     padding: 10px 14px;

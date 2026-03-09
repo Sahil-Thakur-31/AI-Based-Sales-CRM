@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import API from "../api";
+import FormErrorSlot from "./FormErrorSlot";
 import "../pages/modules/adminsetting/admin-config.css";
 
 export default function AdminCrud({
@@ -18,6 +19,7 @@ export default function AdminCrud({
   const [filter, setFilter] = useState("");
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -40,6 +42,7 @@ export default function AdminCrud({
 
   function openAddForm() {
     setEditingId(null);
+    setFormError("");
     const empty = {};
     columns.forEach(col => empty[col.field] = "");
     setForm(empty);
@@ -51,19 +54,21 @@ export default function AdminCrud({
       alert(protectedRowMessage || "This item is protected and cannot be edited");
       return;
     }
+    setFormError("");
     setEditingId(item._id);
     setForm(item);
     setFormVisible(true);
   }
 
   async function save() {
+    setFormError("");
     try {
       const missingRequired = columns.find((col) => {
         if (!col.required) return false;
         return String(form?.[col.field] ?? "").trim() === "";
       });
       if (missingRequired) {
-        alert(`${missingRequired.label} is required`);
+        setFormError(`${missingRequired.label} is required`);
         return;
       }
 
@@ -75,10 +80,11 @@ export default function AdminCrud({
         res = await API.post(endpoint, form);
       console.log("Save response:", res.data);
       setFormVisible(false);
+      setFormError("");
       fetchData();
     }catch (err) {
       console.error("SAVE FAILED:", err.response?.data || err.message);
-      alert(err.response?.data?.message || "Save failed");
+      setFormError(err.response?.data?.message || "Save failed");
     }
   }
 
@@ -391,10 +397,13 @@ export default function AdminCrud({
                     key={col.field}
                     value={form[col.field] || ""}
                     onChange={e =>
-                      setForm({
-                        ...form,
-                        [col.field]: e.target.value
-                      })
+                      {
+                        setFormError("");
+                        setForm({
+                          ...form,
+                          [col.field]: e.target.value
+                        });
+                      }
                     }
                   >
 
@@ -425,15 +434,23 @@ export default function AdminCrud({
                   placeholder={col.label}
                   value={form[col.field] || ""}
                   onChange={e =>
-                    setForm({
-                      ...form,
-                      [col.field]: e.target.value
-                    })
+                    {
+                      setFormError("");
+                      setForm({
+                        ...form,
+                        [col.field]: e.target.value
+                      });
+                    }
                   }
                 />
               );
 
             })}
+
+            <FormErrorSlot
+              message={formError}
+              className="form-error-slot-global admin-config-form-error"
+            />
 
             <div className="admin-config-modal-actions">
 
@@ -445,7 +462,10 @@ export default function AdminCrud({
               </button>
 
               <button
-                onClick={() => setFormVisible(false)}
+                onClick={() => {
+                  setFormError("");
+                  setFormVisible(false);
+                }}
               >
                 Cancel
               </button>

@@ -269,8 +269,7 @@ export default function TeamSetup() {
       <div className="team-setup-shell">
         <div className="team-setup-header">
           <div>
-            <h2>Team Setup</h2>
-            <p>Choose one manager as lead and assign any non-admin users as members.</p>
+            <h6>Choose one manager as lead and assign any non-admin users as members.</h6>
             <p className="team-setup-mode-note">
               Mode: {isEditMode ? "Editing Existing Team" : "Creating New Team"}
             </p>
