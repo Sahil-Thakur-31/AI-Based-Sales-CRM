@@ -9,7 +9,16 @@ function parseRate(value) {
 
 exports.getTaxes = async (req, res) => {
   try {
-    const data = await Tax.find({ is_deleted: false }).sort({ rate: 1 });
+    const status = String(req.query?.status || "active").trim().toLowerCase();
+    const filter = {};
+
+    if (status === "deleted") {
+      filter.is_deleted = true;
+    } else if (status !== "all") {
+      filter.is_deleted = false;
+    }
+
+    const data = await Tax.find(filter).sort({ rate: 1 });
     res.json(data);
   } catch (err) {
     console.error(err);

@@ -43,6 +43,8 @@ export default function Products() {
     <AdminCrud
       title="Products"
       endpoint="/products"
+      enableStatusTabs
+      restoreActionPath="restore"
       columns={[
         { field: "name", label: "Name" },
         { field: "category", label: "Category" },

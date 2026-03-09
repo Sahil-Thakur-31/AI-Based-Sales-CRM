@@ -42,9 +42,17 @@ const getAllUsers = async (req, res) => {
 
   try {
 
-    const users = await User.find({
-      is_deleted: { $ne: true }
-    })
+    const status = String(req.query?.status || "active").trim().toLowerCase();
+    const filter = {};
+
+    if (status === "deleted") {
+      filter.is_deleted = true;
+    }
+    else if (status !== "all") {
+      filter.is_deleted = { $ne: true };
+    }
+
+    const users = await User.find(filter)
       .populate("role", "name")
       .sort({ createdAt: -1 });
 

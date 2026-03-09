@@ -2,7 +2,16 @@ const Role = require("../models/roles");
 
 exports.getRoles = async (req, res) => {
   try {
-    const roles = await Role.find({ is_deleted: false })
+    const status = String(req.query?.status || "active").trim().toLowerCase();
+    const filter = {};
+
+    if (status === "deleted") {
+      filter.is_deleted = true;
+    } else if (status !== "all") {
+      filter.is_deleted = false;
+    }
+
+    const roles = await Role.find(filter)
       .populate("createdBy", "name")
       .sort({ name: 1 });
 

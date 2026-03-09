@@ -7,6 +7,8 @@ export default function Industry(){
     <AdminCrud
       title="Industries"
       endpoint="/industries"
+      enableStatusTabs
+      restoreActionPath="activate"
       columns={[
         { field:"name", label:"Industry" },
         { field:"description", label:"Description" }

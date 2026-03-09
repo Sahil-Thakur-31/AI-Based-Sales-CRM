@@ -37,6 +37,8 @@ export default function ManageUsers() {
     <AdminCrud
       title="Users"
       endpoint="/users"
+      enableStatusTabs
+      restoreActionPath="activate"
       rowFilter={(item) => String(item?._id || "") !== currentUserId}
       columns={[
         { field: "name", label: "Name" },

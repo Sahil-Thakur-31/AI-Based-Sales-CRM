@@ -9,7 +9,10 @@ export default function AdminCrud({
   columns,
   rowFilter,
   isRowProtected,
-  protectedRowMessage
+  protectedRowMessage,
+  enableStatusTabs = false,
+  statusParamName = "status",
+  restoreActionPath = "activate"
 }) {
   const [data, setData] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -20,17 +23,17 @@ export default function AdminCrud({
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
   const [formError, setFormError] = useState("");
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [statusTab, setStatusTab] = useState("active");
 
   const isProtected = (item) =>
     typeof isRowProtected === "function" && Boolean(isRowProtected(item));
 
   async function fetchData() {
     try {
-      const res = await API.get(endpoint);
+      const params = enableStatusTabs
+        ? { [statusParamName]: statusTab }
+        : undefined;
+      const res = await API.get(endpoint, params ? { params } : undefined);
       console.log("Fetched:", res.data);
       setData(res.data || []);
     }
@@ -59,6 +62,11 @@ export default function AdminCrud({
     setForm(item);
     setFormVisible(true);
   }
+
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusTab, enableStatusTabs, statusParamName, endpoint]);
 
   async function save() {
     setFormError("");
@@ -160,6 +168,18 @@ export default function AdminCrud({
 
   }
 
+  async function restoreOne(id) {
+    if (!id) return;
+    try {
+      await API.put(`${endpoint}/${restoreActionPath}/${id}`);
+      setSelected((prev) => prev.filter((x) => String(x) !== String(id)));
+      fetchData();
+    } catch (err) {
+      console.error("RESTORE FAILED:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Restore failed");
+    }
+  }
+
 
   function setSort(field) {
 
@@ -237,7 +257,49 @@ export default function AdminCrud({
     <div className="admin-config-page">
 
       <div className="admin-config-header">
+        {enableStatusTabs ? (
+          <div className="admin-config-tabs" role="tablist" aria-label={`${title} status tabs`}>
+            <button
+              type="button"
+              className={`admin-config-tab ${statusTab === "active" ? "active" : ""}`}
+              onClick={() => {
+                setStatusTab("active");
+                setSelected([]);
+              }}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              className={`admin-config-tab ${statusTab === "deleted" ? "active" : ""}`}
+              onClick={() => {
+                setStatusTab("deleted");
+                setSelected([]);
+              }}
+            >
+              Deleted
+            </button>
+          </div>
+        ) : null}
+
         <div className="admin-config-actions">
+          {statusTab !== "deleted" && selected.length > 0 && (
+            <button
+              className="admin-config-btn admin-config-btn-danger admin-config-bulk-delete-btn"
+              onClick={deleteSelected}
+            >
+              Delete Selected ({selected.length})
+            </button>
+          )}
+
+          {statusTab !== "deleted" ? (
+            <button
+              className="admin-config-btn"
+              onClick={openAddForm}
+            >
+              Add
+            </button>
+          ) : null}
 
           <input
             className="app-search-input admin-search-input"
@@ -245,25 +307,6 @@ export default function AdminCrud({
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
-
-          {selected.length > 0 && (
-
-            <button
-              className="admin-config-btn admin-config-btn-danger"
-              onClick={deleteSelected}
-            >
-              Delete Selected ({selected.length})
-            </button>
-
-          )}
-
-          <button
-            className="admin-config-btn"
-            onClick={openAddForm}
-          >
-            Add
-          </button>
-
         </div>
 
       </div>
@@ -283,6 +326,7 @@ export default function AdminCrud({
                   selectedSelectableCount === selectableIds.length &&
                   selectableIds.length > 0
                 }
+                disabled={statusTab === "deleted"}
                 onChange={toggleSelectAll}
               />
 
@@ -330,7 +374,7 @@ export default function AdminCrud({
                 <input
                   type="checkbox"
                   checked={selected.includes(item._id)}
-                  disabled={isProtected(item)}
+                  disabled={isProtected(item) || statusTab === "deleted"}
                   onChange={() => toggleSelect(item._id)}
                 />
 
@@ -350,21 +394,32 @@ export default function AdminCrud({
 
               <td>
 
-                <button
-                  className="admin-config-btn"
-                  disabled={isProtected(item)}
-                  onClick={() => openEditForm(item)}
-                >
-                  Edit
-                </button>
+                {statusTab === "deleted" ? (
+                  <button
+                    className="admin-config-btn admin-config-btn-success"
+                    onClick={() => restoreOne(item._id)}
+                  >
+                    Restore
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="admin-config-btn"
+                      disabled={isProtected(item)}
+                      onClick={() => openEditForm(item)}
+                    >
+                      Edit
+                    </button>
 
-                <button
-                  className="admin-config-btn admin-config-btn-danger"
-                  disabled={isProtected(item)}
-                  onClick={() => deleteOne(item._id)}
-                >
-                  Delete
-                </button>
+                    <button
+                      className="admin-config-btn admin-config-btn-danger"
+                      disabled={isProtected(item)}
+                      onClick={() => deleteOne(item._id)}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
 
               </td>
 
