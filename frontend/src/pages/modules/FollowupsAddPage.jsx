@@ -377,8 +377,14 @@ export default function FollowupsAddPage() {
   }, [leadRows, selectedAssigneeId]);
 
   const assigneeScopedDealRows = useMemo(() => {
-    if (!selectedAssigneeId) return [];
-    return dealRows.filter((row) => extractAssignedUserId(row) === selectedAssigneeId);
+    if (!selectedAssigneeId) return dealRows;
+    const rowsWithAssignee = dealRows.filter((row) => Boolean(extractAssignedUserId(row)));
+    if (!rowsWithAssignee.length) return dealRows;
+    return dealRows.filter((row) => {
+      const assignedId = extractAssignedUserId(row);
+      if (!assignedId) return true;
+      return assignedId === selectedAssigneeId;
+    });
   }, [dealRows, selectedAssigneeId]);
 
   const selectedSourceInfo = useMemo(() => {
@@ -1023,47 +1029,19 @@ export default function FollowupsAddPage() {
                   onChange={() => {
                     setHasExistingClient("yes");
                     setSelectedSourceId("");
-                  setClientSuggestions([]);
-                  setFormData((p) => ({
-                    ...EMPTY_FORM,
-                    sourceType: nextSourceType,
-                    assignedTo: p.assignedTo || assigneeFallbackId || "",
-                    eventType: p.eventType,
-                    date: p.date,
-                    time: p.time,
-                    priority: p.priority,
-                  }));
-                }}
-              >
-                <option value="lead">Lead</option>
-                <option value="deal">Deal</option>
-              </select>
-            </label>
-
-            {(currentRole === "admin" || currentRole === "manager") && (
-              <label>
-                Assign To*
-                <select
-                  value={formData.assignedTo || ""}
-                  onChange={(e) => {
-                    const nextAssignee = e.target.value;
-                    setSelectedSourceId("");
                     setClientSuggestions([]);
                     setFormData((p) => ({
-                      ...p,
-                      assignedTo: nextAssignee,
-                      searchClient: "",
-                      stage: "",
+                      ...EMPTY_FORM,
+                      sourceType: p.sourceType === "deal" ? "deal" : "lead",
+                      assignedTo: p.assignedTo || assigneeFallbackId || "",
+                      eventType: p.eventType,
+                      date: p.date,
+                      time: p.time,
+                      priority: p.priority,
                     }));
                   }}
-                >
-                  <option value="">--Select User--</option>
-                  {assignableEmployeeOptions.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {userIdLabel(user, currentUserId)}
-                    </option>
-                  ))}
-                </select>
+                />
+                <span>Existing Client/Lead</span>
               </label>
               <label className="fuaBinaryOption">
                 <input
@@ -1119,126 +1097,6 @@ export default function FollowupsAddPage() {
 
         {hasExistingClient === "yes" ? (
           <>
-        <label>
-          {formData.sourceType === "lead" ? "Search Existing Lead*" : "Search Existing Client*"}
-          <div className="fuaSuggestField">
-            <input
-              type="text"
-              placeholder={formData.sourceType === "lead" ? "Type Lead Name" : "Type Client Name"}
-              value={formData.searchClient}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectedSourceId("");
-                setFormData((p) => ({ ...p, searchClient: next, stage: "" }));
-              }}
-            />
-            {!selectedSourceId && clientSuggestions.length > 0 && (
-              <div className="fuaSuggestList">
-                {clientSuggestions.map((c) => (
-                  <button key={String(c.id)} type="button" className="fuaSuggestItem" onClick={() => applyClientSelection(c)}>
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <label>
-              Event Type*
-              <select value={formData.eventType} onChange={(e) => setFormData((p) => ({ ...p, eventType: e.target.value }))}>
-                <option value="">--Please Select--</option>
-                <option value="Physical Meeting">Physical Meeting</option>
-                <option value="Online Meeting">Online Meeting</option>
-                <option value="Follow Up Phone Call">Follow Up Phone Call</option>
-              </select>
-            </label>
-
-            <label>
-              Time*
-              <input type="time" value={formData.time} onChange={(e) => setFormData((p) => ({ ...p, time: e.target.value }))} />
-            </label>
-
-            <label>
-              Date*
-              <input type="date" value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} />
-            </label>
-
-            <div className="full fuaInlineField">
-              <div className="fuaInlineFieldLabel">Reminder</div>
-              <div className="fuaInlineFieldContent">
-                <div className="fuaBinaryRow">
-                  <label className="fuaBinaryOption">
-                    <input
-                      type="radio"
-                      name="reminderEnabled"
-                      checked={formData.reminderEnabled !== "no"}
-                      onChange={() => setFormData((p) => ({ ...p, reminderEnabled: "yes" }))}
-                    />
-                    <span>Yes</span>
-                  </label>
-                  <label className="fuaBinaryOption">
-                    <input
-                      type="radio"
-                      name="reminderEnabled"
-                      checked={formData.reminderEnabled === "no"}
-                      onChange={() => setFormData((p) => ({ ...p, reminderEnabled: "no" }))}
-                    />
-                    <span>No</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="full fuaInlineField">
-              <div className="fuaInlineFieldLabel">Client Type*</div>
-              <div className="fuaInlineFieldContent">
-                <div className="fuaBinaryRow">
-                  <label className="fuaBinaryOption">
-                    <input
-                      type="radio"
-                      name="clientType"
-                      checked={hasExistingClient === "yes"}
-                      onChange={() => {
-                        setHasExistingClient("yes");
-                        setSelectedSourceId("");
-                        setClientSuggestions([]);
-                        setFormData((p) => ({
-                          ...EMPTY_FORM,
-                          sourceType: p.sourceType === "deal" ? "deal" : "lead",
-                          assignedTo: p.assignedTo || assigneeFallbackId || "",
-                          eventType: p.eventType,
-                          date: p.date,
-                          time: p.time,
-                          priority: p.priority,
-                        }));
-                      }}
-                    />
-                    <span>Existing Client/Lead</span>
-                  </label>
-                  <label className="fuaBinaryOption">
-                    <input
-                      type="radio"
-                      name="clientType"
-                      checked={hasExistingClient === "no"}
-                      onChange={() => setHasExistingClient("no")}
-                    />
-                    <span>Add New Client/Lead</span>
-                  </label>
-                  {hasExistingClient === "no" && (
-                    <div className="fuaInlineCreateActions">
-                      <button className="fuaBtn ghost" type="button" onClick={() => openQuickCreateModal("lead")}>
-                        Add New Lead
-                      </button>
-                      <button className="fuaBtn ghost" type="button" onClick={() => openQuickCreateModal("deal")}>
-                        Add New Deal
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {hasExistingClient === "yes" ? (
-              <>
                 <label>
                   {formData.sourceType === "lead" ? "Search Existing Lead*" : "Search Existing Client*"}
                   <div className="fuaSuggestField">
