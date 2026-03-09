@@ -682,19 +682,24 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   padding: 20px;
   z-index: 1000;
+  overflow-y: auto;
 }
 
 .fuModalCard {
   width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  margin: auto 0;
   background: #ffffff;
   border: 1px solid #e6ebf2;
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
   padding: 16px;
+  overflow-y: auto;
 }
 
 .fuModalHead {

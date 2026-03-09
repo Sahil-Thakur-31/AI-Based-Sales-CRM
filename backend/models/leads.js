@@ -70,6 +70,12 @@ const leadsSchema = new mongoose.Schema(
       enum: ["new", "contacted", "qualified", "converted", "rejected"],
     },
 
+    stage: {
+      type: String,
+      enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
+      default: "P1",
+    },
+
     converted_deal_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Deal",

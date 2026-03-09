@@ -91,7 +91,7 @@ async function apiGet(path, params = {}, signal) {
 }
 
 /* ---------------- MOCK (range-aware) ---------------- */
-function getMockDashboard(range = "month") {
+function getMockDashboard(range = "month", pipelineType = "deal") {
   const mult = range === "week" ? 0.35 : range === "quarter" ? 2.4 : 1;
 
   const summary = {
@@ -118,7 +118,7 @@ function getMockDashboard(range = "month") {
     { code: "P7", label: "Closed Won", count: 0, amount: 0 },
   ];
 
-  const pipeline =
+  const dealPipeline =
     range === "week"
       ? pipelineBase.map((p) => ({
           ...p,
@@ -132,6 +132,28 @@ function getMockDashboard(range = "month") {
           amount: p.amount ? p.amount + 900000 : 0,
         }))
       : pipelineBase;
+
+  const leadPipeline = pipelineBase.map((p) => ({
+    ...p,
+    count:
+      p.code === "P1" ? 6 :
+      p.code === "P2" ? 4 :
+      p.code === "P3" ? 3 :
+      p.code === "P4" ? 2 :
+      p.code === "P5" ? 1 :
+      p.code === "P6" ? 1 : 0,
+    amount:
+      p.code === "P1" ? 1200000 :
+      p.code === "P2" ? 2400000 :
+      p.code === "P3" ? 3600000 :
+      p.code === "P4" ? 2800000 :
+      p.code === "P5" ? 1700000 :
+      p.code === "P6" ? 900000 : 0,
+  }));
+
+  const pipeline = String(pipelineType || "deal").toLowerCase() === "lead"
+    ? leadPipeline
+    : dealPipeline.filter((p) => ["P1", "P2", "P3", "P7"].includes(p.code));
 
   const teamPerformance =
     range === "week"
@@ -195,10 +217,10 @@ function getMockDashboard(range = "month") {
 }
 
 /* ---------------- BACKEND ---------------- */
-async function fetchDashboard(range, signal) {
+async function fetchDashboard(range, pipelineType, signal) {
   const [sum, pipe, team, fu, deals] = await Promise.all([
     apiGet("/api/admin/dashboard/summary", { range }, signal),
-    apiGet("/api/admin/dashboard/pipeline", { range }, signal),
+    apiGet("/api/admin/dashboard/pipeline", { range, pipelineType }, signal),
     apiGet("/api/admin/dashboard/team-performance", { range }, signal),
     apiGet("/api/admin/dashboard/followups", { range }, signal),
     apiGet("/api/admin/dashboard/recent-deals", { range }, signal),
@@ -215,6 +237,7 @@ async function fetchDashboard(range, signal) {
 
 export default function AdminHome() {
   const [range, setRange] = useState("month");
+  const [pipelineType, setPipelineType] = useState("deal");
 
   // first load skeleton
   const [loading, setLoading] = useState(true);
@@ -244,7 +267,7 @@ export default function AdminHome() {
 
   const navigate = useNavigate();
 
-  const totalDeals = useMemo(
+  const totalPipelineCount = useMemo(
     () => pipeline.reduce((acc, p) => acc + (p.count || 0), 0),
     [pipeline]
   );
@@ -272,14 +295,14 @@ export default function AdminHome() {
 
       try {
         if (USE_MOCK) {
-          const mock = getMockDashboard(range);
+          const mock = getMockDashboard(range, pipelineType);
           setSummary(mock.summary);
           setPipeline(mock.pipeline);
           setTeamPerf(mock.teamPerformance);
           setFollowups(mock.followups);
           setRecentDeals(mock.recentDeals);
         } else {
-          const data = await fetchDashboard(range, controller.signal);
+          const data = await fetchDashboard(range, pipelineType, controller.signal);
           setSummary(data.summary);
           setPipeline(data.pipeline);
           setTeamPerf(data.teamPerformance);
@@ -298,7 +321,7 @@ export default function AdminHome() {
     load();
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range]);
+  }, [range, pipelineType]);
 
   const kpis = [
     {
@@ -408,11 +431,33 @@ export default function AdminHome() {
             {/* Deal Pipeline */}
             <CCard className="panel panel--pipeline">
               <CCardHeader className="panel__header">
-                <div className="panel__titleRow">
-                  <span className="panel__title">Deal Pipeline</span>
-                  <AiBadge>AI Scored</AiBadge>
+                <div className="panel__titleRow panel__titleRow--space">
+                  <div className="panel__titleRow">
+                    <span className="panel__title">
+                      {pipelineType === "lead" ? "Lead Pipeline" : "Deal Pipeline"}
+                    </span>
+                    <div className="pipelineToggle">
+                      <button
+                        type="button"
+                        className={cx("pipelineToggleBtn", pipelineType === "deal" && "active")}
+                        onClick={() => setPipelineType("deal")}
+                        disabled={refreshing}
+                      >
+                        Deal
+                      </button>
+                      <button
+                        type="button"
+                        className={cx("pipelineToggleBtn", pipelineType === "lead" && "active")}
+                        onClick={() => setPipelineType("lead")}
+                        disabled={refreshing}
+                      >
+                        Lead
+                      </button>
+                    </div>
+                    <AiBadge>AI Scored</AiBadge>
+                  </div>
+                  <span className="panel__meta">{range.toUpperCase()}</span>
                 </div>
-                <span className="panel__meta">{range.toUpperCase()}</span>
               </CCardHeader>
 
               <CCardBody>
@@ -433,9 +478,9 @@ export default function AdminHome() {
                 <div className="bars">
                   {pipeline.map((p) => {
                     const width =
-                      totalDeals === 0
+                      totalPipelineCount === 0
                         ? 0
-                        : Math.round(((p.count || 0) / totalDeals) * 100);
+                        : Math.round(((p.count || 0) / totalPipelineCount) * 100);
                     const fill = Math.max(width, (p.count || 0) > 0 ? 12 : 0);
 
                     return (
@@ -455,7 +500,7 @@ export default function AdminHome() {
 
                         <div className="barRow__right">
                           <div className="barRow__nums">
-                            <span className="muted">{p.count} deals</span>
+                            <span className="muted">{p.count} {pipelineType === "deal" ? "deals" : "leads"}</span>
                             <span className="muted">{formatINR(p.amount)}</span>
                           </div>
                         </div>

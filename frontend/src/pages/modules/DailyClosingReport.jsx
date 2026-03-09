@@ -87,11 +87,16 @@ function ReportTableSection({
   expandMinutesByDefault = false,
   showExpandControl = true,
   detailsHeader = "Minutes of Meeting",
+  getDetailsValue,
 }) {
   const getClientLabel = (item = {}) =>
     String(item?.clientName || item?.client || item?.companyName || "").trim();
 
   const filteredRows = rows.filter((item) => normalizeStatus(item?.status) === selectedStatus);
+  const resolveDetailsValue = (item = {}) => {
+    if (typeof getDetailsValue === "function") return getDetailsValue(item);
+    return item?.notes || item?.title || "-";
+  };
 
   const countByClient = filteredRows.reduce((acc, item) => {
     const key = getClientLabel(item).toLowerCase() || "__unknown__";
@@ -159,7 +164,7 @@ function ReportTableSection({
                   <td>{getClientLabel(item) || "-"}</td>
                   <td>
                     <MinutesCell
-                      value={item.notes || item.title || "-"}
+                      value={resolveDetailsValue(item)}
                       expandByDefault={expandMinutesByDefault}
                       showExpandControl={showExpandControl}
                     />
@@ -350,7 +355,7 @@ export default function DailyClosingReport() {
         })),
         followupsCompleted: completedFollowups.map((f) => ({
           clientName: f.clientName || "",
-          notes: f.notes || f.title || "",
+          notes: f.agenda || f.title || f.notes || "",
           status: f.status || "",
           type: "Follow-up",
         })),
@@ -362,7 +367,7 @@ export default function DailyClosingReport() {
         })),
         followupsCancelled: cancelledFollowups.map((f) => ({
           clientName: f.clientName || "",
-          notes: f.notes || f.title || "",
+          notes: f.agenda || f.title || f.notes || "",
           status: f.status || "",
           type: "Follow-up",
         })),
@@ -425,6 +430,7 @@ export default function DailyClosingReport() {
             getTotalEvents={() => 1}
             hideStatusToggle
             detailsHeader="Agenda of Meeting"
+            getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
           />
           <ReportTableSection
             title="Meeting Details (Cancelled)"
@@ -445,6 +451,7 @@ export default function DailyClosingReport() {
             getTotalEvents={() => 1}
             hideStatusToggle
             detailsHeader="Agenda of Meeting"
+            getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
           />
 
           <div className="dailyClosingReportHighlights">
@@ -479,12 +486,13 @@ export default function DailyClosingReport() {
               rows={completedFollowups}
               selectedStatus="completed"
               onStatusChange={() => {}}
-              getTotalEvents={() => 1}
-              hideStatusToggle
-              expandMinutesByDefault
-              showExpandControl={false}
-              detailsHeader="Agenda of Meeting"
-            />
+               getTotalEvents={() => 1}
+               hideStatusToggle
+               expandMinutesByDefault
+               showExpandControl={false}
+               detailsHeader="Agenda of Meeting"
+               getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
+             />
             <ReportTableSection
               title="Meeting Details (Cancelled)"
               loading={false}
@@ -503,12 +511,13 @@ export default function DailyClosingReport() {
               rows={cancelledFollowups}
               selectedStatus="cancelled"
               onStatusChange={() => {}}
-              getTotalEvents={() => 1}
-              hideStatusToggle
-              expandMinutesByDefault
-              showExpandControl={false}
-              detailsHeader="Agenda of Meeting"
-            />
+               getTotalEvents={() => 1}
+               hideStatusToggle
+               expandMinutesByDefault
+               showExpandControl={false}
+               detailsHeader="Agenda of Meeting"
+               getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
+             />
 
             <div className="dailyClosingReportHighlights">
               <strong>Key Highlights</strong>

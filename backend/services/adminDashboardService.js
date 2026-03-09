@@ -165,13 +165,34 @@ async function getSummary(range) {
  * Shape must match frontend:
  * [{ code, label, count, amount }, ...]
  */
-async function getPipeline(/* range */) {
-  const stages = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+async function getPipeline(/* range */ _, pipelineType = "deal") {
+  const normalizedType = String(pipelineType || "deal").toLowerCase() === "lead" ? "lead" : "deal";
+  const stages = normalizedType === "deal"
+    ? ["P1", "P2", "P3", "P7"]
+    : ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 
-  const agg = await Deal.aggregate([
-    { $match: { status: "open", is_deleted: { $ne: true } } },
-    { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
-  ]);
+  const agg =
+    normalizedType === "lead"
+      ? await Lead.aggregate([
+          {
+            $match: {
+              is_deleted: { $ne: true },
+              is_active: true,
+              status: { $nin: ["converted", "rejected"] },
+            },
+          },
+          {
+            $group: {
+              _id: "$stage",
+              count: { $sum: 1 },
+              amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
+            },
+          },
+        ])
+      : await Deal.aggregate([
+          { $match: { status: "open", is_deleted: { $ne: true } } },
+          { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
+        ]);
 
   const map = new Map(agg.map((x) => [x._id, x]));
   return stages.map((s) => ({
@@ -260,7 +281,7 @@ async function getFollowups(range, viewerUserId = null) {
   const match = {
     is_deleted: { $ne: true },
     kind: { $in: ["followup", "meeting"] },
-    status: { $in: ["pending", "overdue"] },
+    status: "pending",
     dueDateTime: { $gte: now, $lte: end },
   };
   if (viewerUserId) {

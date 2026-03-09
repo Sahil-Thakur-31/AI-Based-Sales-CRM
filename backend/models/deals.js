@@ -14,7 +14,8 @@ const dealsSchema = new mongoose.Schema(
 
     stage: {
       type: String,
-      enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
+      enum: ["P1", "P2", "P3", "P7"],
+      default: "P1",
     },
 
     dealValue: {

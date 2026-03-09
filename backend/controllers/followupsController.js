@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Followup = require("../models/followUp");
 const FollowupHistory = require("../models/followUpHistory");
 const Meeting = require("../models/meetings");
+const Lead = require("../models/leads");
+const Deal = require("../models/deals");
 const Notification = require("../models/notifications");
 const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
@@ -58,6 +60,15 @@ async function getAccessibleUserIds(reqUser) {
   return [myId];
 }
 
+async function resolveRequesterRoleName(reqUser) {
+  let roleName = reqUser?.role;
+  if (isAdmin(roleName) || isManager(roleName) || isSales(roleName)) {
+    return String(roleName || "");
+  }
+  const me = await User.findById(reqUser?._id).populate("role", "name").select("role").lean();
+  return String(me?.role?.name || roleName || "");
+}
+
 function validatePayload(body) {
   const errors = [];
   if (!body.title || !String(body.title).trim()) errors.push("title is required");
@@ -109,6 +120,91 @@ function normalizeReminderOptions(options = []) {
       };
     })
     .filter(Boolean);
+}
+
+const VALID_STAGE_KEYS = new Set(["P1", "P2", "P3", "P4", "P5", "P6", "P7"]);
+
+function normalizeStageValue(stage) {
+  const value = String(stage || "").trim().toUpperCase();
+  return VALID_STAGE_KEYS.has(value) ? value : "";
+}
+
+async function resolveStageFromLinkedEntity({ leadId, dealId, fallbackStage = "P1" }) {
+  const normalizedFallback = normalizeStageValue(fallbackStage) || "P1";
+
+  if (dealId && mongoose.Types.ObjectId.isValid(String(dealId))) {
+    const deal = await Deal.findById(dealId).select("stage").lean();
+    const dealStage = normalizeStageValue(deal?.stage);
+    if (dealStage) return dealStage;
+  }
+
+  if (leadId && mongoose.Types.ObjectId.isValid(String(leadId))) {
+    const lead = await Lead.findById(leadId).select("stage").lean();
+    const leadStage = normalizeStageValue(lead?.stage);
+    if (leadStage) return leadStage;
+  }
+
+  return normalizedFallback;
+}
+
+async function syncStageToLinkedEntity(stage, { leadId, dealId }) {
+  const normalizedStage = normalizeStageValue(stage);
+  if (!normalizedStage) return;
+
+  if (dealId && mongoose.Types.ObjectId.isValid(String(dealId))) {
+    await Deal.updateOne(
+      { _id: new mongoose.Types.ObjectId(String(dealId)) },
+      { $set: { stage: normalizedStage } }
+    );
+  }
+
+  if (leadId && mongoose.Types.ObjectId.isValid(String(leadId))) {
+    await Lead.updateOne(
+      { _id: new mongoose.Types.ObjectId(String(leadId)) },
+      { $set: { stage: normalizedStage } }
+    );
+  }
+}
+
+async function buildLinkedStageMaps(docs = []) {
+  const leadIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.leadId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+  const dealIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.dealId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+
+  const [leads, deals] = await Promise.all([
+    leadIds.length ? Lead.find({ _id: { $in: leadIds } }).select("_id stage").lean() : [],
+    dealIds.length ? Deal.find({ _id: { $in: dealIds } }).select("_id stage").lean() : [],
+  ]);
+
+  return {
+    leadStageMap: new Map(
+      leads
+        .map((row) => [String(row._id), normalizeStageValue(row?.stage)])
+        .filter(([, stage]) => Boolean(stage))
+    ),
+    dealStageMap: new Map(
+      deals
+        .map((row) => [String(row._id), normalizeStageValue(row?.stage)])
+        .filter(([, stage]) => Boolean(stage))
+    ),
+  };
+}
+
+function getStageFromLinkedMaps(doc, { leadStageMap, dealStageMap }) {
+  const dealId = String(doc?.dealId || "");
+  const leadId = String(doc?.leadId || "");
+  return dealStageMap.get(dealId) || leadStageMap.get(leadId) || "";
 }
 
 async function appendHistory({ followupId, actionType, notes, performedBy }) {
@@ -242,7 +338,8 @@ async function syncMeetingMirrorFromFollowup(doc, actorId) {
     sourceFollowupId: doc._id,
     Id: doc._id,
     title: doc.title || "",
-    description: doc.notes || "",
+    // Keep MOM only in minutes_of_meeting; description should carry agenda/summary.
+    description: doc.agenda || doc.title || "",
     cancelReason: doc.cancelReason || "",
     clientName: doc.clientName || "",
     leadId: doc.leadId || undefined,
@@ -428,7 +525,7 @@ exports.list = async (req, res) => {
 
     if (req.query.kind) q.kind = req.query.kind;
     if (req.query.status) q.status = req.query.status;
-    if (req.query.stage) q.stage = req.query.stage;
+    const requestedStage = normalizeStageValue(req.query.stage);
 
     if (req.query.today === "true") {
       const { startUtc, endUtc } = getUtcDayRangeFromQuery(req.query);
@@ -436,6 +533,14 @@ exports.list = async (req, res) => {
     }
 
     const docs = await Followup.find(q).sort({ dueDateTime: 1, createdAt: -1 }).populate("assignedTo", "name email");
+
+    const stageMaps = await buildLinkedStageMaps(docs);
+    docs.forEach((doc) => {
+      const linkedStage = getStageFromLinkedMaps(doc, stageMaps);
+      if (linkedStage) {
+        doc.stage = linkedStage;
+      }
+    });
 
     if (req.query.kind === "meeting") {
       await Promise.all(
@@ -451,7 +556,11 @@ exports.list = async (req, res) => {
       );
     }
 
-    res.json(docs);
+    const responseDocs = requestedStage
+      ? docs.filter((doc) => normalizeStageValue(doc?.stage) === requestedStage)
+      : docs;
+
+    res.json(responseDocs);
   } catch (err) {
     console.error("followups.list error:", err);
     res.status(500).json({ message: "Failed to fetch followups" });
@@ -577,10 +686,28 @@ exports.create = async (req, res) => {
     const allowedIds = await getAccessibleUserIds(req.user);
     const assignedToRaw = req.body.assignedTo || req.user._id;
     const assignedTo = String(assignedToRaw);
+    const requesterRole = await resolveRequesterRoleName(req.user);
+    const requesterId = String(req.user?._id || "");
 
     if (!allowedIds.includes(assignedTo)) {
       return res.status(403).json({ message: "You cannot assign followup to this user" });
     }
+    if (isAdmin(requesterRole) && assignedTo === requesterId) {
+      return res.status(403).json({ message: "Admin cannot assign followup/meeting to self" });
+    }
+
+    const stageFromRequest = normalizeStageValue(req.body.stage);
+    const hasLinkedLead = mongoose.Types.ObjectId.isValid(String(req.body.leadId || ""));
+    const hasLinkedDeal = mongoose.Types.ObjectId.isValid(String(req.body.dealId || ""));
+    const hasLinkedEntity = hasLinkedLead || hasLinkedDeal;
+    const resolvedStage = hasLinkedEntity
+      ? "P2"
+      : stageFromRequest ||
+        (await resolveStageFromLinkedEntity({
+          leadId: req.body.leadId,
+          dealId: req.body.dealId,
+          fallbackStage: "P1",
+        }));
 
     const payload = {
       kind: req.body.kind || "followup",
@@ -590,7 +717,7 @@ exports.create = async (req, res) => {
       dealId: req.body.dealId || undefined,
       clientId: req.body.clientId || undefined,
       clientName: req.body.clientName || "",
-      stage: req.body.stage || "P1",
+      stage: resolvedStage,
       notes: req.body.notes || "",
       cancelReason: req.body.cancelReason || "",
       priority: req.body.priority || "medium",
@@ -619,6 +746,12 @@ exports.create = async (req, res) => {
     }
 
     const doc = await Followup.create(payload);
+
+    try {
+      await syncStageToLinkedEntity(payload.stage, payload);
+    } catch (stageSyncErr) {
+      console.error("followups.create stage sync error:", stageSyncErr);
+    }
 
     await appendHistory({
       followupId: doc._id,
@@ -679,6 +812,8 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const allowedIds = await getAccessibleUserIds(req.user);
+    const requesterRole = await resolveRequesterRoleName(req.user);
+    const requesterId = String(req.user?._id || "");
     const current = await Followup.findOne({
       _id: req.params.id,
       is_deleted: { $ne: true },
@@ -691,6 +826,9 @@ exports.update = async (req, res) => {
     const nextAssigned = String(nextAssignedRaw);
     if (!allowedIds.includes(nextAssigned)) {
       return res.status(403).json({ message: "You cannot assign followup to this user" });
+    }
+    if (isAdmin(requesterRole) && nextAssigned === requesterId) {
+      return res.status(403).json({ message: "Admin cannot assign followup/meeting to self" });
     }
 
     const merged = {
@@ -727,6 +865,16 @@ exports.update = async (req, res) => {
       exactLocation: req.body.meetingExactLocation ?? req.body.exactLocation ?? current.meetingExactLocation ?? current.exactLocation,
     };
 
+    if (req.body.stage === undefined) {
+      merged.stage = await resolveStageFromLinkedEntity({
+        leadId: merged.leadId,
+        dealId: merged.dealId,
+        fallbackStage: merged.stage || current.stage || "P1",
+      });
+    } else {
+      merged.stage = normalizeStageValue(merged.stage) || (current.stage || "P1");
+    }
+
     const errors = validatePayload(merged);
     if (errors.length) return res.status(400).json({ message: "Validation failed", errors });
 
@@ -741,6 +889,12 @@ exports.update = async (req, res) => {
 
     await Followup.updateOne({ _id: current._id }, { $set: merged });
     const updatedDoc = await Followup.findById(current._id);
+
+    try {
+      await syncStageToLinkedEntity(merged.stage, merged);
+    } catch (stageSyncErr) {
+      console.error("followups.update stage sync error:", stageSyncErr);
+    }
 
     await appendHistory({
       followupId: current._id,
@@ -825,20 +979,15 @@ exports.updateStatus = async (req, res) => {
       updatePayload.durationMinutes = durationMinutes;
     }
 
-    if (req.body.notes !== undefined) {
-      updatePayload.notes = String(req.body.notes || "").trim();
-    }
-
     if (status === "cancelled") {
-      const cancelReasonRaw = req.body.cancelReason ?? req.body.notes ?? "";
+      const cancelReasonRaw = req.body.cancelReason ?? "";
       const cancelReason = String(cancelReasonRaw).trim();
       if (!cancelReason) {
         return res.status(400).json({ message: "Cancellation reason is required" });
       }
       updatePayload.cancelReason = cancelReason;
-      if (req.body.notes === undefined) {
-        updatePayload.notes = cancelReason;
-      }
+    } else if (req.body.notes !== undefined) {
+      updatePayload.notes = String(req.body.notes || "").trim();
     } else if (req.body.cancelReason !== undefined) {
       updatePayload.cancelReason = String(req.body.cancelReason || "").trim();
     }

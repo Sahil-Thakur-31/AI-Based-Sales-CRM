@@ -11,7 +11,8 @@ exports.summary = async (req, res) => {
 
 exports.pipeline = async (req, res) => {
   const range = req.query.range || "month";
-  const data = await svc.getPipeline(range);
+  const pipelineType = String(req.query.pipelineType || req.query.type || "deal").toLowerCase();
+  const data = await svc.getPipeline(range, pipelineType);
   res.json(data);
 };
 

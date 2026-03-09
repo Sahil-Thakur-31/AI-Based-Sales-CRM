@@ -246,6 +246,7 @@ exports.getDashboard = async (req, res) => {
       followupDocs,
       meetings,
       activeDeals,
+      activeLeads,
       newDealsThisWeek,
       dealStatusAgg,
       pipelineValueAgg,
@@ -281,6 +282,12 @@ exports.getDashboard = async (req, res) => {
         assignedTo: assignedUserMatch,
         status: "open",
         is_deleted: { $ne: true }
+      }),
+      Lead.countDocuments({
+        assigned_to: assignedUserMatch,
+        is_deleted: { $ne: true },
+        converted_to_deal: { $ne: true },
+        is_active: true
       }),
       Deal.countDocuments({
         assignedTo: assignedUserMatch,
@@ -524,6 +531,7 @@ exports.getDashboard = async (req, res) => {
       meetingsToday: mappedMeetings.length || meetingLikeFollowups.length,
       highPriorityFollowups: mappedFollowups.filter((item) => item.priority === "High").length,
       activeDeals,
+      activeLeads,
       dealsAddedThisWeek: newDealsThisWeek,
       monthlyTarget,
       monthlyAchieved,
@@ -549,6 +557,13 @@ exports.getDashboard = async (req, res) => {
         sub: `+${summary.dealsAddedThisWeek} this ${selectedRange.range}`,
         icon: "💼",
         color: "green"
+      },
+      {
+        title: "Active Leads",
+        value: summary.activeLeads,
+        sub: "Assigned active leads",
+        icon: "🧲",
+        color: "cyan"
       },
       {
         title: "Target",

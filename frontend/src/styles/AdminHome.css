@@ -630,3 +630,26 @@
   backdrop-filter: blur(2px);
 }
 
+.pipelineToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipelineToggleBtn {
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pipelineToggleBtn.active {
+  background: #0ea5e9;
+  color: #ffffff;
+  border-color: #0ea5e9;
+}
+

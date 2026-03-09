@@ -29,7 +29,7 @@ const DEAL_STAGES = STAGES.map((stage) => ({
 const EMPTY_FOLLOWUP_FORM = {
   client: "",
   title: "",
-  dueDate: "",
+  dueDateTime: "",
   stage: "P1",
   priority: "medium",
 };
@@ -38,6 +38,8 @@ const EMPTY_MEETING_FORM = {
   client: "",
   title: "",
   dueDateTime: "",
+  meetingLocation: "",
+  meetingExactLocation: "",
   priority: "medium",
   minutesOfMeeting: "",
   status: "pending",
@@ -80,13 +82,6 @@ function formatTime(rawDate) {
   const d = new Date(rawDate);
   if (Number.isNaN(d.getTime())) return "--:--";
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-}
-
-function toInputDate(rawDate) {
-  if (!rawDate) return "";
-  const d = new Date(rawDate);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
 }
 
 function toInputDateTime(rawDate) {
@@ -442,6 +437,7 @@ export default function Followups() {
 
   const filteredMeetings = useMemo(
     () => assigneeFilteredMeetings.filter((m) => {
+      const stageMatch = useStageFilter ? m.stage === activeStage : true;
       const todayMatch = isOnLocalDate(
         getRelevantDateForStatus(m, statusFilter),
         getLocalDateISO()
@@ -452,10 +448,9 @@ export default function Followups() {
           : statusFilter === "remaining"
             ? !isCompletedStatus(m.status)
             : true;
-      // "Today's Meeting List" should not hide items by stage.
-      return todayMatch && statusMatch;
+      return stageMatch && todayMatch && statusMatch;
     }),
-    [assigneeFilteredMeetings, statusFilter]
+    [assigneeFilteredMeetings, activeStage, useStageFilter, statusFilter]
   );
 
   const filteredFollowupsByStatus = useMemo(
@@ -544,6 +539,7 @@ export default function Followups() {
 
   const handleMeetingDone = async (id) => {
     const meeting = meetings.find((m) => String(m.id) === String(id)) || selectedMeeting;
+    if (!meeting || isCompletedStatus(meeting.status) || isCancelledStatus(meeting.status)) return;
     setDoneModal({
       open: true,
       id: String(id),
@@ -658,6 +654,7 @@ export default function Followups() {
 
   const markDone = async (id) => {
     const followup = followups.find((f) => String(f.id) === String(id)) || selectedFollowup;
+    if (!followup || isCompletedStatus(followup.status) || isCancelledStatus(followup.status)) return;
     setDoneModal({
       open: true,
       id: String(id),
@@ -705,7 +702,6 @@ export default function Followups() {
       const res = await API.patch(`/followups/${targetId}/status`, {
         status: "cancelled",
         cancelReason: trimmedReason,
-        notes: trimmedReason,
       });
 
       if (cancelModal.kind === "meeting") {
@@ -736,12 +732,13 @@ export default function Followups() {
   };
 
   const openFollowupEdit = (item) => {
+    if (isCancelledStatus(item?.status)) return;
     setEditingFollowupId(item.id);
     setFormError("");
     setFollowupForm({
       client: item.client || "",
       title: item.title || "",
-      dueDate: toInputDate(item.dueDateTime),
+      dueDateTime: toInputDateTime(item.dueDateTime),
       stage: item.stage || activeStage,
       priority: item.priority || "medium",
     });
@@ -754,12 +751,15 @@ export default function Followups() {
   };
 
   const openMeetingEdit = (item) => {
+    if (isCancelledStatus(item?.status)) return;
     setEditingMeetingId(item.id);
     setMeetingFormError("");
     setMeetingForm({
       client: item.clientName || "",
       title: item.title || item.eventType || "",
       dueDateTime: toInputDateTime(item.dueDateTime),
+      meetingLocation: item.address || "",
+      meetingExactLocation: item.exactLocation || "",
       priority: item.priority || "medium",
       minutesOfMeeting: item.notes || "",
       status: item.status || "pending",
@@ -770,28 +770,29 @@ export default function Followups() {
   const submitMeetingEdit = async (e) => {
     e.preventDefault();
     setMeetingFormError("");
+    const isEditableMeeting = selectedMeeting && !isCancelledStatus(selectedMeeting.status);
+    const allowLocationEdit =
+      isEditableMeeting &&
+      !isCompletedStatus(selectedMeeting.status) &&
+      isPhysicalMeetingEvent(selectedMeeting.eventType);
 
     const meetingChecks = [
-      required(meetingForm.client, "Client"),
-      required(meetingForm.title, "Task"),
       required(meetingForm.dueDateTime, "Date & time"),
-      isCompletedStatus(meetingForm.status)
-        ? minLength(meetingForm.minutesOfMeeting, 3, "Minutes of meeting")
-        : "",
     ];
     const meetingError = meetingChecks.find(Boolean) || "";
     if (meetingError) return setMeetingFormError(meetingError);
 
     try {
       const payload = {
-        title: meetingForm.title.trim(),
-        clientName: meetingForm.client.trim(),
         dueDateTime: new Date(meetingForm.dueDateTime).toISOString(),
         priority: meetingForm.priority,
-        notes: meetingForm.minutesOfMeeting.trim(),
-        status: meetingForm.status,
-        actionType: selectedMeeting?.eventType || "Meeting",
       };
+      if (allowLocationEdit) {
+        payload.meetingLocation = String(meetingForm.meetingLocation || "").trim();
+        payload.meetingExactLocation = String(meetingForm.meetingExactLocation || "").trim();
+        payload.address = payload.meetingLocation;
+        payload.exactLocation = payload.meetingExactLocation;
+      }
 
       const res = await API.put(`/followups/${editingMeetingId}`, payload);
       const updated = mapDocToMeeting(res.data);
@@ -811,24 +812,15 @@ export default function Followups() {
     setFormError("");
 
     const followupChecks = [
-      required(followupForm.client, "Client"),
-      required(followupForm.title, "Task"),
-      required(followupForm.dueDate, "Due date"),
+      required(followupForm.dueDateTime, "Date & time"),
     ];
     const followupError = followupChecks.find(Boolean) || "";
     if (followupError) return setFormError(followupError);
 
     try {
       const payload = {
-        kind: "followup",
-        actionType: selectedFollowup?.actionType || "Follow Up Phone Call",
-        title: followupForm.title.trim(),
-        clientName: followupForm.client.trim(),
-        stage: followupForm.stage,
+        dueDateTime: new Date(followupForm.dueDateTime).toISOString(),
         priority: followupForm.priority,
-        dueDateTime: new Date(`${followupForm.dueDate}T09:00:00`).toISOString(),
-        notes: selectedFollowup?.notes || "",
-        status: selectedFollowup?.status || "pending",
       };
 
       const res = await API.put(`/followups/${editingFollowupId}`, payload);
@@ -969,97 +961,7 @@ export default function Followups() {
           </header>
 
           <div className="fuPanelBody">
-            {meetingMode === "view" && selectedMeeting ? (
-              <div className="fuDetailsWrap">
-                <div className="fuDetailsHead">
-                  <div className="fuAllTitle">Today's Meeting Details</div>
-                  <div className="fuPanelActions">
-                    <button className="fuBtn fuBtnPrimary" type="button" onClick={() => openMeetingEdit(selectedMeeting)}>Edit</button>
-                    {!isCompletedStatus(selectedMeeting.status) && !isCancelledStatus(selectedMeeting.status) && (
-                      <button
-                        className="fuBtn fuBtnGhost"
-                        type="button"
-                        onClick={() => openCancelModal({ kind: "meeting", item: selectedMeeting })}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    <button className="fuBtn fuBtnGhost" type="button" onClick={() => setMeetingMode("list")}>Back</button>
-                  </div>
-                </div>
-                <div className="fuDetailsGrid">
-                  <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedMeeting.clientName}</div></div>
-                  <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedMeeting.title || selectedMeeting.eventType}</div></div>
-                  <div className="fuDetailCard"><div className="k">Meeting Location</div><div className="v">{selectedMeeting.address || "-"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedMeeting.stage || "-"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Event Type</div><div className="v">{selectedMeeting.eventType}</div></div>
-                  <div className="fuDetailCard"><div className="k">Time</div><div className="v">{selectedMeeting.time}</div></div>
-                  <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedMeeting.due}</div></div>
-                  <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedMeeting.priority}</div></div>
-                  <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedMeeting.status}</div></div>
-                  <div className="fuDetailCard"><div className="k">Duration (Minutes)</div><div className="v">{selectedMeeting.durationMinutes || "-"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Agenda</div><div className="v">{selectedMeeting.agenda || "-"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Minutes of Meeting</div><div className="v">{selectedMeeting.notes || "-"}</div></div>
-                  {isPhysicalMeetingEvent(selectedMeeting.eventType) && (
-                    <>
-                      <div className="fuDetailCard"><div className="k">Address</div><div className="v">{selectedMeeting.address || "-"}</div></div>
-                      <div className="fuDetailCard"><div className="k">Location</div><div className="v">{selectedMeeting.exactLocation || "-"}</div></div>
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : meetingMode === "edit" && selectedMeeting ? (
-              <form className="fuFormScreen" onSubmit={submitMeetingEdit}>
-                <div className="fuFormTitle">Edit Meeting</div>
-                <div className="fuFormGrid">
-                  <label className="fuFormLabel">
-                    Client*
-                    <input className="fuField" type="text" value={meetingForm.client} onChange={(e) => setMeetingForm((p) => ({ ...p, client: e.target.value }))} />
-                  </label>
-                  <label className="fuFormLabel">
-                    Priority
-                    <select className="fuField" value={meetingForm.priority} onChange={(e) => setMeetingForm((p) => ({ ...p, priority: e.target.value }))}>
-                      <option value="high">High</option>
-                      <option value="medium">Medium</option>
-                      <option value="low">Low</option>
-                    </select>
-                  </label>
-                  <label className="fuFormLabel fuFull">
-                    Task*
-                    <input className="fuField" type="text" value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} />
-                  </label>
-                  <label className="fuFormLabel">
-                    Date & Time*
-                    <input className="fuField" type="datetime-local" value={meetingForm.dueDateTime} onChange={(e) => setMeetingForm((p) => ({ ...p, dueDateTime: e.target.value }))} />
-                  </label>
-                  <label className="fuFormLabel">
-                    Status
-                    <select className="fuField" value={meetingForm.status} onChange={(e) => setMeetingForm((p) => ({ ...p, status: e.target.value }))}>
-                      <option value="pending">Pending</option>
-                      <option value="completed">Completed</option>
-                      <option value="overdue">Overdue</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </label>
-                  {isCompletedStatus(meetingForm.status) && (
-                    <label className="fuFormLabel fuFull">
-                      Minutes of Meeting*
-                      <textarea
-                        className="fuField fuTextarea"
-                        rows={4}
-                        value={meetingForm.minutesOfMeeting}
-                        onChange={(e) => setMeetingForm((p) => ({ ...p, minutesOfMeeting: e.target.value }))}
-                      />
-                    </label>
-                  )}
-                </div>
-                <FormErrorSlot message={meetingFormError} className="form-error-slot-global" />
-                <div className="fuFormActions">
-                  <button className="fuBtn fuBtnPrimary" type="submit">Save</button>
-                  <button className="fuBtn fuBtnGhost" type="button" onClick={() => setMeetingMode("view")}>Cancel</button>
-                </div>
-              </form>
-            ) : loading ? (
+            {loading ? (
               <div className="fuEmptyBox">Loading meetings...</div>
             ) : (
               <>
@@ -1092,7 +994,7 @@ export default function Followups() {
                             className={cx("fuMiniBtn", "done", isCompletedStatus(m.status) && "completed")}
                             type="button"
                             onClick={() => handleMeetingDone(m.id)}
-                            disabled={isCompletedStatus(m.status)}
+                            disabled={isCompletedStatus(m.status) || isCancelledStatus(m.status)}
                           >
                             {isCompletedStatus(m.status) ? "Completed" : "Done"}
                           </button>
@@ -1128,127 +1030,293 @@ export default function Followups() {
           </header>
 
           <div className="fuPanelBody">
-            {followupMode === "view" && selectedFollowup ? (
-              <div className="fuDetailsWrap">
-                <div className="fuDetailsHead">
-                  <div className="fuAllTitle">Follow-up Details</div>
-                  <div className="fuPanelActions">
-                    <button className="fuBtn fuBtnPrimary" type="button" onClick={() => openFollowupEdit(selectedFollowup)}>Edit</button>
-                    {!isCompletedStatus(selectedFollowup.status) && !isCancelledStatus(selectedFollowup.status) && (
-                      <button
-                        className="fuBtn fuBtnGhost"
-                        type="button"
-                        onClick={() => openCancelModal({ kind: "followup", item: selectedFollowup })}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    <button className="fuBtn fuBtnGhost" type="button" onClick={() => setFollowupMode("list")}>Back</button>
+            <>
+              <div className="fuList">
+                {loading ? (
+                  <div className="fuEmptyBox">Loading follow-ups...</div>
+                ) : visibleFollowupsByStatus.length === 0 ? (
+                  <div className="fuEmptyBox">
+                    {statusFilter === "completed"
+                      ? `No completed follow-ups in ${activeStage}.`
+                      : statusFilter === "remaining"
+                        ? `No remaining follow-ups in ${activeStage}.`
+                        : `No follow-ups in ${activeStage}.`}
                   </div>
-                </div>
-                <div className="fuDetailsGrid">
-                  <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedFollowup.client}</div></div>
-                  <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedFollowup.title}</div></div>
-                  <div className="fuDetailCard"><div className="k">Assigned To</div><div className="v">{selectedFollowup.assignedToName || "-"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedFollowup.stage}</div></div>
-                  <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedFollowup.due}</div></div>
-                  <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedFollowup.priority}</div></div>
-                  <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedFollowup.status}</div></div>
-                  <div className="fuDetailCard"><div className="k">Action Type</div><div className="v">{selectedFollowup.actionType || "-"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Reminder</div><div className="v">{selectedFollowup.reminderEnabled === "no" ? "No" : "Yes"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Agenda</div><div className="v">{selectedFollowup.agenda || "-"}</div></div>
-                  <div className="fuDetailCard"><div className="k">Notes</div><div className="v">{selectedFollowup.notes || "-"}</div></div>
-                </div>
-              </div>
-            ) : followupMode === "edit" ? (
-              <form className="fuFormScreen" onSubmit={submitFollowupEdit}>
-                <div className="fuFormTitle">Edit Follow-up</div>
-                <div className="fuFormGrid">
-                  <label className="fuFormLabel">
-                    Client*
-                    <input className="fuField" type="text" value={followupForm.client} onChange={(e) => setFollowupForm((p) => ({ ...p, client: e.target.value }))} />
-                  </label>
-                  <label className="fuFormLabel">
-                    Stage
-                    <select className="fuField" value={followupForm.stage} onChange={(e) => setFollowupForm((p) => ({ ...p, stage: e.target.value }))}>
-                      {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
-                    </select>
-                  </label>
-                  <label className="fuFormLabel fuFull">
-                    Task*
-                    <input className="fuField" type="text" value={followupForm.title} onChange={(e) => setFollowupForm((p) => ({ ...p, title: e.target.value }))} />
-                  </label>
-                  <label className="fuFormLabel">
-                    Due Date*
-                    <input className="fuField" type="date" value={followupForm.dueDate} onChange={(e) => setFollowupForm((p) => ({ ...p, dueDate: e.target.value }))} />
-                  </label>
-                  <label className="fuFormLabel">
-                    Priority
-                    <select className="fuField" value={followupForm.priority} onChange={(e) => setFollowupForm((p) => ({ ...p, priority: e.target.value }))}>
-                      <option value="high">High</option>
-                      <option value="medium">Medium</option>
-                      <option value="low">Low</option>
-                    </select>
-                  </label>
-                </div>
-                <FormErrorSlot message={formError} className="form-error-slot-global" />
-                <div className="fuFormActions">
-                  <button className="fuBtn fuBtnPrimary" type="submit">Save</button>
-                  <button className="fuBtn fuBtnGhost" type="button" onClick={() => setFollowupMode("list")}>Cancel</button>
-                </div>
-              </form>
-            ) : (
-              <>
-                <div className="fuList">
-                  {loading ? (
-                    <div className="fuEmptyBox">Loading follow-ups...</div>
-                  ) : visibleFollowupsByStatus.length === 0 ? (
-                    <div className="fuEmptyBox">
-                      {statusFilter === "completed"
-                        ? `No completed follow-ups in ${activeStage}.`
-                        : statusFilter === "remaining"
-                          ? `No remaining follow-ups in ${activeStage}.`
-                          : `No follow-ups in ${activeStage}.`}
-                    </div>
-                  ) : (
-                    visibleFollowupsByStatus.map((f) => (
-                      <div key={f.id} className="fuItem">
-                        <div className={cx("fuPriorityDot", f.priority)} title={`${f.priority} priority`} />
-                        <div className="fuItemMain">
-                          <div className="fuItemTitle">{f.client} - {f.title}</div>
-                          <div className="fuItemMeta">
-                            <span className="fuMetaChip">{String(f.actionType || "").replace(/^follow\s*up\s*/i, "").trim() || "Phone Call"}</span>
-                            <span className="fuMetaChip">Time: {f.time || "--:--"}</span>
-                            <span className="fuMetaChip">{f.status || "pending"}</span>
-                          </div>
-                        </div>
-                        <div className="fuItemActions">
-                          <button className="fuMiniBtn" type="button" onClick={() => openFollowupView(f)}>View</button>
-                          <button
-                            className={cx("fuMiniBtn", "done", isCompletedStatus(f.status) && "completed")}
-                            type="button"
-                            onClick={() => markDone(f.id)}
-                            disabled={isCompletedStatus(f.status)}
-                          >
-                            {isCompletedStatus(f.status) ? "Completed" : "Done"}
-                          </button>
+                ) : (
+                  visibleFollowupsByStatus.map((f) => (
+                    <div key={f.id} className="fuItem">
+                      <div className={cx("fuPriorityDot", f.priority)} title={`${f.priority} priority`} />
+                      <div className="fuItemMain">
+                        <div className="fuItemTitle">{f.client} - {f.title}</div>
+                        <div className="fuItemMeta">
+                          <span className="fuMetaChip">{String(f.actionType || "").replace(/^follow\s*up\s*/i, "").trim() || "Phone Call"}</span>
+                          <span className="fuMetaChip">Time: {f.time || "--:--"}</span>
+                          <span className="fuMetaChip">{f.status || "pending"}</span>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-                {filteredFollowupsByStatus.length > 0 && (
-                  <div className="fuPager">
-                    <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.max(1, p - 1))} disabled={followupPage <= 1}>Prev</button>
-                    <span className="fuPagerText">Page {followupPage} / {followupTotalPages}</span>
-                    <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.min(followupTotalPages, p + 1))} disabled={followupPage >= followupTotalPages}>Next</button>
-                  </div>
+                      <div className="fuItemActions">
+                        <button className="fuMiniBtn" type="button" onClick={() => openFollowupView(f)}>View</button>
+                        <button
+                          className={cx("fuMiniBtn", "done", isCompletedStatus(f.status) && "completed")}
+                          type="button"
+                          onClick={() => markDone(f.id)}
+                          disabled={isCompletedStatus(f.status) || isCancelledStatus(f.status)}
+                        >
+                          {isCompletedStatus(f.status) ? "Completed" : "Done"}
+                        </button>
+                      </div>
+                    </div>
+                  ))
                 )}
-              </>
-            )}
+              </div>
+              {filteredFollowupsByStatus.length > 0 && (
+                <div className="fuPager">
+                  <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.max(1, p - 1))} disabled={followupPage <= 1}>Prev</button>
+                  <span className="fuPagerText">Page {followupPage} / {followupTotalPages}</span>
+                  <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.min(followupTotalPages, p + 1))} disabled={followupPage >= followupTotalPages}>Next</button>
+                </div>
+              )}
+            </>
           </div>
         </section>
       </div>
+
+      {meetingMode === "view" && selectedMeeting && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label="View Meeting">
+          <div className="fuModalCard">
+            <div className="fuDetailsHead">
+              <div className="fuAllTitle">Today's Meeting Details</div>
+              <div className="fuPanelActions">
+                {!isCompletedStatus(selectedMeeting.status) && !isCancelledStatus(selectedMeeting.status) && (
+                  <button
+                    className="fuBtn fuBtnPrimary"
+                    type="button"
+                    onClick={() => openMeetingEdit(selectedMeeting)}
+                  >
+                    Edit
+                  </button>
+                )}
+                {!isCompletedStatus(selectedMeeting.status) && !isCancelledStatus(selectedMeeting.status) && (
+                  <button
+                    className="fuBtn fuBtnGhost"
+                    type="button"
+                    onClick={() => openCancelModal({ kind: "meeting", item: selectedMeeting })}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button className="fuBtn fuBtnGhost" type="button" onClick={() => setMeetingMode("list")}>Back</button>
+              </div>
+            </div>
+            <div className="fuDetailsGrid">
+              <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedMeeting.clientName}</div></div>
+              <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedMeeting.title || selectedMeeting.eventType}</div></div>
+              <div className="fuDetailCard"><div className="k">Meeting Location</div><div className="v">{selectedMeeting.address || "-"}</div></div>
+              <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedMeeting.stage || "-"}</div></div>
+              <div className="fuDetailCard"><div className="k">Event Type</div><div className="v">{selectedMeeting.eventType}</div></div>
+              <div className="fuDetailCard"><div className="k">Time</div><div className="v">{selectedMeeting.time}</div></div>
+              <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedMeeting.due}</div></div>
+              <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedMeeting.priority}</div></div>
+              <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedMeeting.status}</div></div>
+              <div className="fuDetailCard"><div className="k">Duration (Minutes)</div><div className="v">{selectedMeeting.durationMinutes || "-"}</div></div>
+              <div className="fuDetailCard"><div className="k">Agenda</div><div className="v">{selectedMeeting.agenda || "-"}</div></div>
+              <div className="fuDetailCard"><div className="k">Minutes of Meeting</div><div className="v">{selectedMeeting.notes || "-"}</div></div>
+              {isPhysicalMeetingEvent(selectedMeeting.eventType) && (
+                <>
+                  <div className="fuDetailCard"><div className="k">Address</div><div className="v">{selectedMeeting.address || "-"}</div></div>
+                  <div className="fuDetailCard"><div className="k">Location</div><div className="v">{selectedMeeting.exactLocation || "-"}</div></div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {meetingMode === "edit" && selectedMeeting && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label="Edit Meeting">
+          <form className="fuModalCard" onSubmit={submitMeetingEdit}>
+            <div className="fuFormTitle">Edit Meeting</div>
+            {!isCancelledStatus(selectedMeeting.status) ? (
+              <div className="fuFormGrid">
+                <label className="fuFormLabel fuFull">
+                  Date & Time*
+                  <input className="fuField" type="datetime-local" value={meetingForm.dueDateTime} onChange={(e) => setMeetingForm((p) => ({ ...p, dueDateTime: e.target.value }))} />
+                </label>
+                <label className="fuFormLabel">
+                  Priority
+                  <select className="fuField" value={meetingForm.priority} onChange={(e) => setMeetingForm((p) => ({ ...p, priority: e.target.value }))}>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </label>
+                {!isCompletedStatus(selectedMeeting.status) && isPhysicalMeetingEvent(selectedMeeting.eventType) && (
+                  <>
+                    <label className="fuFormLabel fuFull">
+                      Meeting Location
+                      <input className="fuField" type="text" value={meetingForm.meetingLocation} onChange={(e) => setMeetingForm((p) => ({ ...p, meetingLocation: e.target.value }))} />
+                    </label>
+                    <label className="fuFormLabel fuFull">
+                      Exact Location
+                      <input className="fuField" type="text" value={meetingForm.meetingExactLocation} onChange={(e) => setMeetingForm((p) => ({ ...p, meetingExactLocation: e.target.value }))} />
+                    </label>
+                  </>
+                )}
+              </div>
+            ) : (
+            <div className="fuFormGrid">
+              <label className="fuFormLabel">
+                Client*
+                <input className="fuField" type="text" value={meetingForm.client} onChange={(e) => setMeetingForm((p) => ({ ...p, client: e.target.value }))} />
+              </label>
+              <label className="fuFormLabel">
+                Priority
+                <select className="fuField" value={meetingForm.priority} onChange={(e) => setMeetingForm((p) => ({ ...p, priority: e.target.value }))}>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+              <label className="fuFormLabel fuFull">
+                Task*
+                <input className="fuField" type="text" value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} />
+              </label>
+              <label className="fuFormLabel">
+                Date & Time*
+                <input className="fuField" type="datetime-local" value={meetingForm.dueDateTime} onChange={(e) => setMeetingForm((p) => ({ ...p, dueDateTime: e.target.value }))} />
+              </label>
+              <label className="fuFormLabel">
+                Status
+                <select className="fuField" value={meetingForm.status} onChange={(e) => setMeetingForm((p) => ({ ...p, status: e.target.value }))}>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              {isCompletedStatus(meetingForm.status) && (
+                <label className="fuFormLabel fuFull">
+                  Minutes of Meeting*
+                  <textarea
+                    className="fuField fuTextarea"
+                    rows={4}
+                    value={meetingForm.minutesOfMeeting}
+                    onChange={(e) => setMeetingForm((p) => ({ ...p, minutesOfMeeting: e.target.value }))}
+                  />
+                </label>
+              )}
+            </div>
+            )}
+            <FormErrorSlot message={meetingFormError} className="form-error-slot-global" />
+            <div className="fuFormActions">
+              <button className="fuBtn fuBtnPrimary" type="submit">Save</button>
+              <button className="fuBtn fuBtnGhost" type="button" onClick={() => setMeetingMode("view")}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {followupMode === "view" && selectedFollowup && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label="View Follow-up">
+          <div className="fuModalCard">
+            <div className="fuDetailsHead">
+              <div className="fuAllTitle">Follow-up Details</div>
+              <div className="fuPanelActions">
+                {!isCompletedStatus(selectedFollowup.status) && !isCancelledStatus(selectedFollowup.status) && (
+                  <button
+                    className="fuBtn fuBtnPrimary"
+                    type="button"
+                    onClick={() => openFollowupEdit(selectedFollowup)}
+                  >
+                    Edit
+                  </button>
+                )}
+                {!isCompletedStatus(selectedFollowup.status) && !isCancelledStatus(selectedFollowup.status) && (
+                  <button
+                    className="fuBtn fuBtnGhost"
+                    type="button"
+                    onClick={() => openCancelModal({ kind: "followup", item: selectedFollowup })}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button className="fuBtn fuBtnGhost" type="button" onClick={() => setFollowupMode("list")}>Back</button>
+              </div>
+            </div>
+            <div className="fuDetailsGrid">
+              <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedFollowup.client}</div></div>
+              <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedFollowup.title}</div></div>
+              <div className="fuDetailCard"><div className="k">Assigned To</div><div className="v">{selectedFollowup.assignedToName || "-"}</div></div>
+              <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedFollowup.stage}</div></div>
+              <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedFollowup.due}</div></div>
+              <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedFollowup.priority}</div></div>
+              <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedFollowup.status}</div></div>
+              <div className="fuDetailCard"><div className="k">Action Type</div><div className="v">{selectedFollowup.actionType || "-"}</div></div>
+              <div className="fuDetailCard"><div className="k">Reminder</div><div className="v">{selectedFollowup.reminderEnabled === "no" ? "No" : "Yes"}</div></div>
+              <div className="fuDetailCard"><div className="k">Agenda</div><div className="v">{selectedFollowup.agenda || "-"}</div></div>
+              <div className="fuDetailCard"><div className="k">Notes</div><div className="v">{selectedFollowup.notes || "-"}</div></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {followupMode === "edit" && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label="Edit Follow-up">
+          <form className="fuModalCard" onSubmit={submitFollowupEdit}>
+            <div className="fuFormTitle">Edit Follow-up</div>
+            {selectedFollowup && !isCancelledStatus(selectedFollowup.status) ? (
+              <div className="fuFormGrid">
+                <label className="fuFormLabel fuFull">
+                  Date & Time*
+                  <input className="fuField" type="datetime-local" value={followupForm.dueDateTime} onChange={(e) => setFollowupForm((p) => ({ ...p, dueDateTime: e.target.value }))} />
+                </label>
+                <label className="fuFormLabel">
+                  Priority
+                  <select className="fuField" value={followupForm.priority} onChange={(e) => setFollowupForm((p) => ({ ...p, priority: e.target.value }))}>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </label>
+              </div>
+            ) : (
+            <div className="fuFormGrid">
+              <label className="fuFormLabel">
+                Client*
+                <input className="fuField" type="text" value={followupForm.client} onChange={(e) => setFollowupForm((p) => ({ ...p, client: e.target.value }))} />
+              </label>
+              <label className="fuFormLabel">
+                Stage
+                <select className="fuField" value={followupForm.stage} onChange={(e) => setFollowupForm((p) => ({ ...p, stage: e.target.value }))}>
+                  {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
+                </select>
+              </label>
+              <label className="fuFormLabel fuFull">
+                Task*
+                <input className="fuField" type="text" value={followupForm.title} onChange={(e) => setFollowupForm((p) => ({ ...p, title: e.target.value }))} />
+              </label>
+              <label className="fuFormLabel">
+                Date & Time*
+                <input className="fuField" type="datetime-local" value={followupForm.dueDateTime} onChange={(e) => setFollowupForm((p) => ({ ...p, dueDateTime: e.target.value }))} />
+              </label>
+              <label className="fuFormLabel">
+                Priority
+                <select className="fuField" value={followupForm.priority} onChange={(e) => setFollowupForm((p) => ({ ...p, priority: e.target.value }))}>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+            </div>
+            )}
+            <FormErrorSlot message={formError} className="form-error-slot-global" />
+            <div className="fuFormActions">
+              <button className="fuBtn fuBtnPrimary" type="submit">Save</button>
+              <button className="fuBtn fuBtnGhost" type="button" onClick={() => setFollowupMode("list")}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {doneModal.open && (
         <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label={`Complete ${doneModal.kind}`}>
