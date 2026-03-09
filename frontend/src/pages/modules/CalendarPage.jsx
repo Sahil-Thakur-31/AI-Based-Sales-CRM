@@ -18,9 +18,11 @@ import {
   FaPenToSquare,
   FaBan,
   FaXmark,
+  FaEye,
 } from "react-icons/fa6";
 
 import API from "../../api";
+import { handleError, handleSuccess } from "../../utils";
 import meetingImg from "../../assets/calendar/meeting.png";
 import dailyImg from "../../assets/calendar/daily-tasks.png";
 import expoImg from "../../assets/calendar/team-building.png";
@@ -31,6 +33,7 @@ const CATEGORY_COLORS = {
   daily_closing: "#34A853",
   event_expo: "#FBBC04",
 };
+const CANCELLED_COLOR = "#dc2626";
 
 const CATEGORY_LABELS = {
   meeting: "Meeting & Reminder",
@@ -59,6 +62,15 @@ const EXPO_REMINDER_STORE_KEY = "calendar_event_expo_reminder_v1";
 function prettyPriority(priority = "medium") {
   const p = String(priority || "medium");
   return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+function isCancelledStatus(status = "") {
+  return String(status || "").trim().toLowerCase() === "cancelled";
+}
+
+function getCalendarItemColor(type = "meeting", status = "") {
+  if (isCancelledStatus(status)) return CANCELLED_COLOR;
+  return CATEGORY_COLORS[type] || CATEGORY_COLORS.meeting;
 }
 
 function inferMeetingType(actionType = "") {
@@ -91,14 +103,15 @@ function toCalendarEvent(doc) {
   const start = new Date(doc.dueDateTime);
   const duration = Number(doc.durationMinutes) > 0 ? Number(doc.durationMinutes) : 45;
   const end = new Date(start.getTime() + duration * 60 * 1000);
+  const color = getCalendarItemColor("meeting", doc.status);
 
   return {
     id: String(doc._id),
     title: doc.title || "Meeting",
     start: start.toISOString(),
     end: end.toISOString(),
-    backgroundColor: CATEGORY_COLORS.meeting,
-    borderColor: CATEGORY_COLORS.meeting,
+    backgroundColor: color,
+    borderColor: color,
     extendedProps: {
       type: "meeting",
       sourceKind: doc.kind || "followup",
@@ -112,15 +125,17 @@ function toCalendarEvent(doc) {
       reminderOptions:
         Array.isArray(doc.reminderOptions) && doc.reminderOptions.length > 0
           ? doc.reminderOptions.map((opt) => ({
-              channel: "notification",
-              value: Number(opt?.value) > 0 ? Number(opt.value) : 10,
-              unit: ["minutes", "hours", "days"].includes(String(opt?.unit || "").toLowerCase())
-                ? String(opt.unit).toLowerCase()
-                : "minutes",
-            }))
+            channel: "notification",
+            value: Number(opt?.value) > 0 ? Number(opt.value) : 10,
+            unit: ["minutes", "hours", "days"].includes(String(opt?.unit || "").toLowerCase())
+              ? String(opt.unit).toLowerCase()
+              : "minutes",
+          }))
           : DEFAULT_REMINDER_OPTIONS,
       organizer: doc.assignedTo?.name || "",
       notes: doc.notes || "",
+      status: String(doc.status || "pending").toLowerCase(),
+      cancelReason: doc.cancelReason || "",
     },
   };
 }
@@ -155,6 +170,7 @@ function toEventExpoCalendarEvent(doc) {
   const reminderOptions = Array.isArray(reminderSaved.reminderOptions) && reminderSaved.reminderOptions.length
     ? reminderSaved.reminderOptions
     : DEFAULT_REMINDER_OPTIONS;
+  const color = getCalendarItemColor("event_expo", doc?.status);
 
   return {
     id: `event-${sourceId}`,
@@ -162,8 +178,8 @@ function toEventExpoCalendarEvent(doc) {
     start: start.toISOString(),
     end: end && !Number.isNaN(end.getTime()) ? end.toISOString() : undefined,
     allDay: true,
-    backgroundColor: CATEGORY_COLORS.event_expo,
-    borderColor: CATEGORY_COLORS.event_expo,
+    backgroundColor: color,
+    borderColor: color,
     extendedProps: {
       type: "event_expo",
       venue: doc.venue || "",
@@ -174,6 +190,7 @@ function toEventExpoCalendarEvent(doc) {
       reminderEnabled,
       reminderChoice,
       reminderOptions,
+      status: String(doc?.status || "upcoming").toLowerCase(),
     },
   };
 }
@@ -271,9 +288,20 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [savingReminder, setSavingReminder] = useState(false);
   const [editingReminder, setEditingReminder] = useState(false);
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
   const [editingDailyClosing, setEditingDailyClosing] = useState(false);
   const [dailyClosingNotesDraft, setDailyClosingNotesDraft] = useState("");
   const [savingDailyClosing, setSavingDailyClosing] = useState(false);
+  const [cancelModal, setCancelModal] = useState({
+    open: false,
+    eventId: "",
+    itemType: "meeting",
+    title: "",
+    reason: "",
+    error: "",
+    saving: false,
+  });
   const [reminderChoice, setReminderChoice] = useState("yes");
   const [reminderOptions, setReminderOptions] = useState(DEFAULT_REMINDER_OPTIONS);
   const [googleSync, setGoogleSync] = useState({ connected: false, connectedAt: null });
@@ -303,10 +331,7 @@ export default function CalendarPage() {
         API.get("/daily-closing/calendar-self"),
       ]);
 
-      const meetingRows = [...(meetingsRes.data || []), ...(followupsRes.data || [])].filter((doc) => {
-        if (doc.is_deleted || doc.status === "cancelled") return false;
-        return true;
-      });
+      const meetingRows = [...(meetingsRes.data || []), ...(followupsRes.data || [])].filter((doc) => !doc.is_deleted);
       const meetingEvents = meetingRows.map(toCalendarEvent).filter(Boolean);
       const expoEvents = (Array.isArray(eventsRes.data) ? eventsRes.data : [])
         .map(toEventExpoCalendarEvent)
@@ -395,9 +420,8 @@ export default function CalendarPage() {
   const filteredEvents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return events.filter((ev) => {
-      const text = `${ev.title} ${ev.extendedProps?.withWhom || ""} ${
-        ev.extendedProps?.topic || ""
-      }`.toLowerCase();
+      const text = `${ev.title} ${ev.extendedProps?.withWhom || ""} ${ev.extendedProps?.topic || ""
+        }`.toLowerCase();
       return activeFilters.includes(ev.extendedProps?.type) && (!q || text.includes(q));
     });
   }, [events, searchQuery, activeFilters]);
@@ -414,12 +438,22 @@ export default function CalendarPage() {
         .map((ev) => {
           const type = String(ev?.extendedProps?.type || "").toLowerCase();
           if (!type) return null;
+
+          let startStr = ev?.start instanceof Date ? ev.start.toISOString() : (ev?.startStr || ev?.start || null);
+          let endStr = ev?.end instanceof Date ? ev.end.toISOString() : (ev?.endStr || ev?.end || null);
+
+          if (ev?.allDay) {
+            if (ev.start) startStr = formatLocalDateInput(new Date(ev.start));
+            if (ev.end) endStr = formatLocalDateInput(new Date(ev.end));
+          }
+
           return {
             id: String(ev?.id || ""),
             type,
+            status: String(ev?.extendedProps?.status || ""),
             title: String(ev?.title || "Calendar Item"),
-            start: ev?.start instanceof Date ? ev.start.toISOString() : (ev?.startStr || ev?.start || null),
-            end: ev?.end instanceof Date ? ev.end.toISOString() : (ev?.endStr || ev?.end || null),
+            start: startStr,
+            end: endStr,
             allDay: !!ev?.allDay,
             notes: String(ev?.extendedProps?.notes || ev?.extendedProps?.topic || ""),
             location: String(
@@ -428,9 +462,10 @@ export default function CalendarPage() {
               ev?.extendedProps?.withWhom ||
               ""
             ),
+            isPrompt: !!ev?.extendedProps?.isPrompt,
           };
         })
-        .filter((item) => item && item.id && item.start);
+        .filter((item) => item && item.id && item.start && !item.isPrompt && !isCancelledStatus(item.status));
 
       const fingerprint = JSON.stringify(
         items.map((item) => `${item.type}|${item.id}|${item.start}|${item.end || ""}|${item.title}`)
@@ -467,21 +502,35 @@ export default function CalendarPage() {
     setPopover({ event: info.event, x, y });
     setEditingReminder(false);
     setEditingDailyClosing(false);
+
+    if (info.event.extendedProps?.type === "meeting") {
+      const d = new Date(info.event.startStr || info.event.start);
+      if (!Number.isNaN(d.getTime())) {
+        const yr = d.getFullYear();
+        const mo = String(d.getMonth() + 1).padStart(2, "0");
+        const da = String(d.getDate()).padStart(2, "0");
+        setEditDate(`${yr}-${mo}-${da}`);
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mm = String(d.getMinutes()).padStart(2, "0");
+        setEditTime(`${hh}:${mm}`);
+      }
+    }
+
     setDailyClosingNotesDraft(String(info.event.extendedProps?.notes || ""));
     setReminderChoice(
       info.event.extendedProps?.reminderChoice ||
-        (info.event.extendedProps?.reminderEnabled === false ? "no" : "yes")
+      (info.event.extendedProps?.reminderEnabled === false ? "no" : "yes")
     );
     setReminderOptions(
       Array.isArray(info.event.extendedProps?.reminderOptions) &&
         info.event.extendedProps.reminderOptions.length > 0
         ? info.event.extendedProps.reminderOptions.map((opt) => ({
-            channel: "notification",
-            value: Number(opt?.value) > 0 ? Number(opt.value) : 10,
-            unit: ["minutes", "hours", "days"].includes(String(opt?.unit || "").toLowerCase())
-              ? String(opt.unit).toLowerCase()
-              : "minutes",
-          }))
+          channel: "notification",
+          value: Number(opt?.value) > 0 ? Number(opt.value) : 10,
+          unit: ["minutes", "hours", "days"].includes(String(opt?.unit || "").toLowerCase())
+            ? String(opt.unit).toLowerCase()
+            : "minutes",
+        }))
         : DEFAULT_REMINDER_OPTIONS
     );
   };
@@ -508,9 +557,6 @@ export default function CalendarPage() {
       navigate(`/followups/add?date=${selectedDate}`, { state: { selectedDate } });
       return;
     }
-    if (kind === "event_expo") {
-      navigate(`/events/register?date=${selectedDate}`, { state: { selectedDate } });
-    }
   };
 
   const saveReminderOnly = async () => {
@@ -521,23 +567,34 @@ export default function CalendarPage() {
       const normalizedOptions =
         reminderChoice === "yes"
           ? reminderOptions
-              .map((opt) => ({
-                channel: "notification",
-                value: Math.max(1, Number(opt?.value) || 1),
-                unit: ["minutes", "hours", "days"].includes(String(opt?.unit || "").toLowerCase())
-                  ? String(opt.unit).toLowerCase()
-                  : "minutes",
-              }))
-              .filter((opt) => Number.isFinite(opt.value))
+            .map((opt) => ({
+              channel: "notification",
+              value: Math.max(1, Number(opt?.value) || 1),
+              unit: ["minutes", "hours", "days"].includes(String(opt?.unit || "").toLowerCase())
+                ? String(opt.unit).toLowerCase()
+                : "minutes",
+            }))
+            .filter((opt) => Number.isFinite(opt.value))
           : [];
 
       const eventType = String(popover?.event?.extendedProps?.type || "").toLowerCase();
+
+      let nextStartIso = popover.event.startStr;
+
       if (eventType === "meeting") {
-        await API.put(`/followups/${popover.event.id}`, {
+        const payload = {
           reminderEnabled,
           reminderChoice,
           reminderOptions: normalizedOptions,
-        });
+        };
+
+        const dueAt = new Date(`${editDate}T${editTime}:00`);
+        if (!Number.isNaN(dueAt.getTime())) {
+          payload.dueDateTime = dueAt.toISOString();
+          nextStartIso = dueAt.toISOString();
+        }
+
+        await API.put(`/followups/${popover.event.id}`, payload);
       } else if (eventType === "event_expo") {
         const sourceId = String(popover?.event?.extendedProps?.sourceId || "").trim();
         if (sourceId) {
@@ -555,51 +612,117 @@ export default function CalendarPage() {
           ev.id !== popover.event.id
             ? ev
             : {
-                ...ev,
-                extendedProps: {
-                  ...ev.extendedProps,
-                  reminderEnabled,
-                  reminderChoice,
-                  reminderOptions: normalizedOptions,
-                },
-              }
+              ...ev,
+              start: nextStartIso,
+              extendedProps: {
+                ...ev.extendedProps,
+                reminderEnabled,
+                reminderChoice,
+                reminderOptions: normalizedOptions,
+              },
+            }
         )
       );
 
       setPopover((prev) =>
         prev
           ? {
-              ...prev,
-              event: {
-                ...prev.event,
-                extendedProps: {
-                  ...prev.event.extendedProps,
-                  reminderEnabled,
-                  reminderChoice,
-                  reminderOptions: normalizedOptions,
-                },
+            ...prev,
+            event: {
+              ...prev.event,
+              startStr: nextStartIso,
+              extendedProps: {
+                ...prev.event.extendedProps,
+                reminderEnabled,
+                reminderChoice,
+                reminderOptions: normalizedOptions,
               },
-            }
+            },
+          }
           : prev
       );
 
+      handleSuccess("Updated successfully");
       setEditingReminder(false);
     } catch (err) {
-      console.error("Reminder update failed:", err);
+      console.error("Update failed:", err);
+      handleError(err?.response?.data?.errors?.[0] || err?.response?.data?.message || err?.message || "Failed to save");
     } finally {
       setSavingReminder(false);
     }
   };
 
-  const cancelMeeting = async () => {
+  const openCancelModal = () => {
     if (!popover?.event?.id) return;
+    setCancelModal({
+      open: true,
+      eventId: String(popover.event.id),
+      itemType: "meeting",
+      title: popover.event.title || "",
+      reason: "",
+      error: "",
+      saving: false,
+    });
+  };
+
+  const closeCancelModal = () => {
+    setCancelModal({
+      open: false,
+      eventId: "",
+      itemType: "meeting",
+      title: "",
+      reason: "",
+      error: "",
+      saving: false,
+    });
+  };
+
+  const cancelMeeting = async () => {
+    if (!cancelModal?.eventId) return;
+    const reason = String(cancelModal.reason || "").trim();
+    if (reason.length < 3) {
+      setCancelModal((prev) => ({
+        ...prev,
+        error: "Cancellation reason must be at least 3 characters.",
+      }));
+      return;
+    }
+    setCancelModal((prev) => ({ ...prev, saving: true, error: "" }));
     try {
-      await API.put(`/followups/${popover.event.id}/status`, { status: "cancelled" });
-      setEvents((prev) => prev.filter((ev) => ev.id !== popover.event.id));
+      await API.put(`/followups/${cancelModal.eventId}/status`, {
+        status: "cancelled",
+        cancelReason: reason,
+        notes: reason,
+      });
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.id !== cancelModal.eventId
+            ? ev
+            : {
+                ...ev,
+                backgroundColor: CANCELLED_COLOR,
+                borderColor: CANCELLED_COLOR,
+                extendedProps: {
+                  ...ev.extendedProps,
+                  status: "cancelled",
+                  cancelReason: reason,
+                  notes: reason,
+                },
+              }
+        )
+      );
       setPopover(null);
       setEditingReminder(false);
+      closeCancelModal();
+      handleSuccess("Meeting cancelled");
     } catch (err) {
       console.error("Cancel meeting failed:", err);
+      setCancelModal((prev) => ({
+        ...prev,
+        saving: false,
+        error: err?.response?.data?.message || "Failed to cancel meeting",
+      }));
+      handleError(err?.response?.data?.message || "Failed to cancel meeting");
     }
   };
 
@@ -613,9 +736,9 @@ export default function CalendarPage() {
         i !== index
           ? row
           : {
-              ...row,
-              [key]: key === "value" ? Math.max(1, Number(value) || 1) : value,
-            }
+            ...row,
+            [key]: key === "value" ? Math.max(1, Number(value) || 1) : value,
+          }
       )
     );
   };
@@ -663,16 +786,16 @@ export default function CalendarPage() {
       setPopover((prev) =>
         prev
           ? {
-              ...prev,
-              event: {
-                ...prev.event,
-                extendedProps: {
-                  ...prev.event.extendedProps,
-                  notes: text,
-                  isPrompt: false,
-                },
+            ...prev,
+            event: {
+              ...prev.event,
+              extendedProps: {
+                ...prev.event.extendedProps,
+                notes: text,
+                isPrompt: false,
               },
-            }
+            },
+          }
           : prev
       );
       setEditingDailyClosing(false);
@@ -785,12 +908,30 @@ export default function CalendarPage() {
             datesSet={(arg) => setCurrentTitle(arg.view.title)}
             eventClick={handleEventClick}
             dateClick={openDayActionMenu}
+            eventTimeFormat={{
+              hour: "2-digit",
+              minute: "2-digit",
+              meridiem: "lowercase",
+            }}
             eventContent={(arg) => {
               const chipColor = arg.event.backgroundColor || "#3c4043";
+              const isEventExpo = arg.event.extendedProps?.type === "event_expo";
+              const isDaily = arg.event.extendedProps?.type === "daily_closing";
+              const isCancelled = isCancelledStatus(arg.event.extendedProps?.status);
+
+              const titleText = (arg.event.extendedProps?.type === "meeting" && arg.event.extendedProps?.withWhom)
+                ? arg.event.extendedProps.withWhom
+                : arg.event.title;
+
               return (
-                <div className="cal-event-text" style={{ backgroundColor: chipColor, color: "#ffffff" }}>
-                  <span className="cal-ev-time">{arg.timeText}</span>
-                  <span className="cal-ev-title">{arg.event.title}</span>
+                <div
+                  className={`cal-event-text ${isCancelled ? "is-cancelled" : ""}`}
+                  style={{ backgroundColor: chipColor, color: "#ffffff" }}
+                >
+                  {arg.timeText && !isEventExpo && !isDaily && (
+                    <span className="cal-ev-time">{arg.timeText}</span>
+                  )}
+                  <span className="cal-ev-title">{titleText}</span>
                 </div>
               );
             }}
@@ -800,7 +941,7 @@ export default function CalendarPage() {
 
         <div className="calendar-right-panel">
           <div className="add-icon-list">
-            {CATEGORIES.filter((key) => key !== "event_expo" || isManager).map((key) => (
+            {CATEGORIES.filter((key) => key !== "event_expo").map((key) => (
               <a
                 key={key}
                 href={CATEGORY_ROUTES[key]}
@@ -828,11 +969,7 @@ export default function CalendarPage() {
           <button className="cal-day-menu-item" onClick={() => navigateWithDate("meeting")}>
             Schedule Meeting
           </button>
-          {isManager && (
-            <button className="cal-day-menu-item" onClick={() => navigateWithDate("event_expo")}>
-              Event & Expo
-            </button>
-          )}
+
         </div>
       )}
 
@@ -840,6 +977,7 @@ export default function CalendarPage() {
         const ev = popover.event;
         const props = ev.extendedProps || {};
         const dateStr = formatEventDate(ev.startStr, ev.endStr);
+        const isCancelled = isCancelledStatus(props.status);
 
         return (
           <div
@@ -853,12 +991,18 @@ export default function CalendarPage() {
                   <>
                     <button
                       className="ep-action-btn ep-edit"
-                      title="Edit reminder only"
+                      title="Edit meeting & reminder"
+                      disabled={isCancelled}
                       onClick={() => setEditingReminder((prev) => !prev)}
                     >
                       <FaPenToSquare />
                     </button>
-                    <button className="ep-action-btn ep-cancel" title="Cancel meeting" onClick={cancelMeeting}>
+                    <button
+                      className="ep-action-btn ep-cancel"
+                      title={isCancelled ? "Meeting already cancelled" : "Cancel meeting"}
+                      disabled={isCancelled}
+                      onClick={openCancelModal}
+                    >
                       <FaBan />
                     </button>
                   </>
@@ -873,16 +1017,29 @@ export default function CalendarPage() {
                   </button>
                 )}
                 {props.type === "daily_closing" && (
-                  <button
-                    className="ep-action-btn ep-edit"
-                    title="Edit daily closing"
-                    onClick={() => {
-                      setEditingDailyClosing((prev) => !prev);
-                      setDailyClosingNotesDraft(String(props.notes || ""));
-                    }}
-                  >
-                    <FaPenToSquare />
-                  </button>
+                  <>
+                    <button
+                      className="ep-action-btn ep-edit"
+                      title="View daily closing report"
+                      onClick={() => {
+                        setPopover(null);
+                        const reportDate = ev.startStr ? formatLocalDateInput(new Date(ev.startStr)) : "";
+                        navigate(`/daily-closing/report${reportDate ? `?date=${reportDate}` : ""}`);
+                      }}
+                    >
+                      <FaEye />
+                    </button>
+                    <button
+                      className="ep-action-btn ep-edit"
+                      title="Edit daily closing"
+                      onClick={() => {
+                        setEditingDailyClosing((prev) => !prev);
+                        setDailyClosingNotesDraft(String(props.notes || ""));
+                      }}
+                    >
+                      <FaPenToSquare />
+                    </button>
+                  </>
                 )}
                 <button className="ep-action-btn ep-close" title="Close" onClick={() => setPopover(null)}>
                   <FaXmark />
@@ -891,10 +1048,19 @@ export default function CalendarPage() {
             </div>
 
             <div className="ep-title-row">
-              <span className="ep-color-dot" style={{ background: CATEGORY_COLORS[props.type] || CATEGORY_COLORS.meeting }} />
+              <span className="ep-color-dot" style={{ background: ev.backgroundColor || CATEGORY_COLORS[props.type] || CATEGORY_COLORS.meeting }} />
               <div>
-                <div className="ep-title">{ev.title}</div>
-                <div className="ep-date">{dateStr}</div>
+                <div className="ep-title">
+                  {props.type === "meeting" && props.withWhom ? `${props.withWhom}` : ev.title}
+                </div>
+                {editingReminder && props.type === "meeting" && !isCancelled ? (
+                  <div className="ep-date-edit" style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                    <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} disabled={savingReminder} style={{ padding: "0 4px" }} />
+                    <input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} disabled={savingReminder} style={{ padding: "0 4px" }} />
+                  </div>
+                ) : (
+                  <div className="ep-date">{dateStr}</div>
+                )}
               </div>
             </div>
 
@@ -902,16 +1068,19 @@ export default function CalendarPage() {
               <FaCalendarCheck className="ep-detail-icon" />
               <span>{CATEGORY_LABELS[props.type] || CATEGORY_LABELS.meeting}</span>
             </div>
+            <div className="ep-detail-row">
+              <FaUser className="ep-detail-icon" />
+              <span className={`ep-status-pill ${isCancelled ? "is-cancelled" : ""}`}>
+                Status: {isCancelled ? "Cancelled" : (props.status || "scheduled")}
+              </span>
+            </div>
             {props.type === "meeting" && (
               <>
                 <div className="ep-detail-row">
                   <FaList className="ep-detail-icon" />
                   <span>Topic: {props.topic || "-"}</span>
                 </div>
-                <div className="ep-detail-row">
-                  <FaUser className="ep-detail-icon" />
-                  <span>With: {props.withWhom || "-"}</span>
-                </div>
+
                 <div className="ep-detail-row">
                   <FaList className="ep-detail-icon" />
                   <span>Type: {props.meetingType || "other"}</span>
@@ -920,9 +1089,15 @@ export default function CalendarPage() {
                   <FaBolt className="ep-detail-icon" />
                   <span>Priority: {props.priority || "Medium"}</span>
                 </div>
+                {isCancelled && (
+                  <div className="ep-detail-row">
+                    <FaList className="ep-detail-icon" />
+                    <span>Cancellation Reason: {props.cancelReason || props.notes || "-"}</span>
+                  </div>
+                )}
                 <div className="ep-detail-row ep-reminder-row">
                   <FaBell className="ep-detail-icon" />
-                  {!editingReminder ? (
+                  {!editingReminder || isCancelled ? (
                     <span>
                       Reminder:{" "}
                       {props.reminderChoice === "maybe" ? "Maybe" : props.reminderEnabled === false ? "No" : "Yes"}
@@ -1110,6 +1285,64 @@ export default function CalendarPage() {
           </div>
         );
       })()}
+
+      {cancelModal.open && (
+        <div className="cal-modal-overlay" role="dialog" aria-modal="true" aria-label="Cancel meeting">
+          <div className="cal-modal-card">
+            <div className="cal-modal-head">
+              <div>
+                <h3>Cancel Meeting?</h3>
+                <p>
+                  Are you sure you want to cancel this meeting
+                  {cancelModal.title ? ` "${cancelModal.title}"` : ""}?
+                </p>
+              </div>
+              <button
+                className="cal-modal-close"
+                type="button"
+                onClick={closeCancelModal}
+                disabled={cancelModal.saving}
+              >
+                <FaXmark />
+              </button>
+            </div>
+            <label className="cal-modal-field">
+              <span>Cancellation Reason</span>
+              <textarea
+                value={cancelModal.reason}
+                onChange={(e) =>
+                  setCancelModal((prev) => ({
+                    ...prev,
+                    reason: e.target.value,
+                    error: "",
+                  }))
+                }
+                placeholder="Add a short reason for cancellation"
+                disabled={cancelModal.saving}
+              />
+            </label>
+            {cancelModal.error ? <div className="cal-modal-error">{cancelModal.error}</div> : null}
+            <div className="cal-modal-actions">
+              <button
+                className="cal-modal-btn secondary"
+                type="button"
+                onClick={closeCancelModal}
+                disabled={cancelModal.saving}
+              >
+                Keep Meeting
+              </button>
+              <button
+                className="cal-modal-btn danger"
+                type="button"
+                onClick={cancelMeeting}
+                disabled={cancelModal.saving}
+              >
+                {cancelModal.saving ? "Cancelling..." : "Yes, Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

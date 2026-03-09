@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const dealsSchema = new mongoose.Schema(
   {
+    deal_name: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     client_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "client",
@@ -15,6 +21,7 @@ const dealsSchema = new mongoose.Schema(
     stage: {
       type: String,
       enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
+      default: "P1",
     },
 
     dealValue: {

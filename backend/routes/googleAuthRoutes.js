@@ -29,165 +29,7 @@ function verifyToken(req, res, next) {
     }
 }
 
-async function refreshGoogleAccessToken(userId, refreshToken) {
-    if (!refreshToken) return null;
-    try {
-        const response = await axios.post("https://oauth2.googleapis.com/token", {
-            client_id: GOOGLE_CLIENT_ID,
-            client_secret: GOOGLE_CLIENT_SECRET,
-            refresh_token: refreshToken,
-            grant_type: "refresh_token",
-        });
-        const newAccessToken = response.data?.access_token || null;
-        if (!newAccessToken) return null;
-        await User.updateOne(
-            { _id: userId },
-            { $set: { "googleCalendar.accessToken": newAccessToken } }
-        );
-        return newAccessToken;
-    } catch (err) {
-        console.error("[GoogleAuth] refresh token failed:", err?.response?.data || err?.message);
-        return null;
-    }
-}
-
-function toIsoDateOnly(value) {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toISOString().slice(0, 10);
-}
-
-function nextIsoDateOnly(value) {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return null;
-    const n = new Date(d.getTime() + 24 * 60 * 60 * 1000);
-    return n.toISOString().slice(0, 10);
-}
-
-function normalizeSyncItem(raw = {}) {
-    const itemId = String(raw.id || "").trim();
-    const type = String(raw.type || "").trim().toLowerCase();
-    const title = String(raw.title || "").trim();
-    const start = raw.start ? new Date(raw.start) : null;
-    const end = raw.end ? new Date(raw.end) : null;
-    const allDay = !!raw.allDay;
-
-    if (!itemId || !type || !title || !start || Number.isNaN(start.getTime())) return null;
-
-    const item = {
-        itemId,
-        type,
-        title,
-        allDay,
-        start,
-        end: end && !Number.isNaN(end.getTime()) ? end : null,
-        notes: String(raw.notes || "").trim(),
-        location: String(raw.location || "").trim(),
-    };
-    return item;
-}
-
-function buildGoogleEventBody(userId, item) {
-    const crmItemKey = `${item.type}:${item.itemId}`;
-    const descriptionParts = [
-        `CRM Type: ${item.type}`,
-        item.notes ? `Notes: ${item.notes}` : "",
-    ].filter(Boolean);
-
-    const body = {
-        summary: item.title,
-        description: descriptionParts.join("\n"),
-        location: item.location || undefined,
-        extendedProperties: {
-            private: {
-                crmItemKey,
-                crmType: item.type,
-                crmUserId: String(userId),
-            },
-        },
-    };
-
-    if (item.allDay) {
-        const startDate = toIsoDateOnly(item.start);
-        const endDateExclusive = nextIsoDateOnly(item.end || item.start);
-        if (!startDate || !endDateExclusive) return null;
-        body.start = { date: startDate };
-        body.end = { date: endDateExclusive };
-    } else {
-        body.start = { dateTime: item.start.toISOString() };
-        body.end = { dateTime: (item.end || new Date(item.start.getTime() + 45 * 60 * 1000)).toISOString() };
-    }
-
-    return body;
-}
-
-async function upsertGoogleCalendarItem({ accessToken, userId, item }) {
-    const crmItemKey = `${item.type}:${item.itemId}`;
-    const deterministicId = `crm${crypto
-        .createHash("md5")
-        .update(`${String(userId)}|${crmItemKey}`)
-        .digest("hex")}`;
-    const headers = {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-    };
-
-    const body = buildGoogleEventBody(userId, item);
-    if (!body) return { ok: false, reason: "invalid_event_body" };
-
-    // 1) Try deterministic update first (stable id avoids duplicates).
-    try {
-        await axios.put(
-            `https://www.googleapis.com/calendar/v3/calendars/primary/events/${deterministicId}`,
-            body,
-            { headers }
-        );
-    } catch (err) {
-        if (err?.response?.status !== 404) throw err;
-        // 2) Not found -> create using deterministic id.
-        const insertBody = { ...body, id: deterministicId };
-        try {
-            await axios.post(
-                "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-                insertBody,
-                { headers }
-            );
-        } catch (insertErr) {
-            if (insertErr?.response?.status === 409) {
-                // Rare race: event already created by another request; update it.
-                await axios.put(
-                    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${deterministicId}`,
-                    body,
-                    { headers }
-                );
-            } else {
-                throw insertErr;
-            }
-        }
-    }
-
-    // 3) Cleanup legacy duplicates (same CRM key) created before deterministic ids.
-    const dupScan = await axios.get("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-        headers,
-        params: {
-            maxResults: 50,
-            singleEvents: false,
-            showDeleted: false,
-            privateExtendedProperty: [`crmItemKey=${crmItemKey}`, `crmUserId=${String(userId)}`],
-        },
-    });
-    const dupItems = Array.isArray(dupScan.data?.items) ? dupScan.data.items : [];
-    const extras = dupItems.filter((e) => String(e?.id || "") !== deterministicId);
-    await Promise.all(
-        extras.map((ev) =>
-            axios
-                .delete(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.id}`, { headers })
-                .catch(() => null)
-        )
-    );
-
-    return { ok: true, mode: "upserted" };
-}
+const { refreshGoogleAccessToken, normalizeSyncItem, upsertGoogleCalendarItem } = require("../services/googleCalendarSync");
 
 router.get("/", verifyToken, (req, res) => {
     const params = new URLSearchParams({
@@ -210,8 +52,7 @@ router.get("/callback", async (req, res) => {
     const { code, state: userId, error } = req.query;
 
     if (error || !code || !userId) {
-        console.error("[GoogleAuth] OAuth error or missing params:", error);
-        return res.redirect(`${FRONTEND_URL}/settings?googleCalendar=error`);
+        return res.redirect(`${FRONTEND_URL}/calendar?googleCalendar=error`);
     }
 
     try {
@@ -243,11 +84,11 @@ router.get("/callback", async (req, res) => {
         // Do not bulk-sync existing meetings on connect.
         // Meetings are synced only when a followup/meeting is created or edited.
 
-        // Redirect back to frontend settings page with success flag
-        res.redirect(`${FRONTEND_URL}/settings?googleCalendar=connected`);
+        // Redirect back to frontend calendar page with success flag
+        res.redirect(`${FRONTEND_URL}/calendar?googleCalendar=connected`);
     } catch (err) {
         console.error("[GoogleAuth] Token exchange error:", err?.response?.data || err?.message);
-        res.redirect(`${FRONTEND_URL}/settings?googleCalendar=error`);
+        res.redirect(`${FRONTEND_URL}/calendar?googleCalendar=error`);
     }
 });
 
@@ -301,6 +142,11 @@ router.post("/sync-visible", verifyToken, async (req, res) => {
 
         const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
         const items = rawItems.map(normalizeSyncItem).filter(Boolean).slice(0, 500);
+
+        require('fs').writeFileSync('sync_debug.json', JSON.stringify({
+            receivedCount: rawItems.length,
+            passingNormalize: items.map(i => ({ title: i.title, start: i.start }))
+        }, null, 2));
 
         let tokenToUse = accessToken;
         const results = [];
