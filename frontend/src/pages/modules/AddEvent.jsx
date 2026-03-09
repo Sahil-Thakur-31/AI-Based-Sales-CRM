@@ -189,10 +189,12 @@ const AddEvent = () => {
   return (
     <div className="add-event-page">
       <header className="add-event-header">
-        <button type="button" className="back-btn" onClick={() => navigate("/events")}>
-          Back to Events
-        </button>
-        <h2>Create New Event</h2>
+        <div className="add-event-header-row">
+          <h2>Create New Event</h2>
+          <button type="button" className="back-btn" onClick={() => navigate("/events")}>
+            Back to Events
+          </button>
+        </div>
         <p>Add upcoming events with clear business details for your sales team.</p>
       </header>
 

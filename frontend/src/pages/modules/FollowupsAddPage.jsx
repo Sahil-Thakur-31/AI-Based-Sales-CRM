@@ -1040,8 +1040,14 @@ export default function FollowupsAddPage() {
                       priority: p.priority,
                     }));
                   }}
-                />
-                <span>Existing Client/Lead</span>
+                >
+                  <option value="">--Select User--</option>
+                  {assignableEmployeeOptions.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {userIdLabel(user, currentUserId)}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="fuaBinaryOption">
                 <input

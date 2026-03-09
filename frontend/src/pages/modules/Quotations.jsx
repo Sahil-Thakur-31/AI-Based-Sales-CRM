@@ -216,13 +216,12 @@ export default function Quotations() {
               <thead>
                 <tr>
                   <th>Quote #</th>
-                  <th>Source</th>
                   <th>Client</th>
+                  {isAdmin ? <th>Created By</th> : null}
                   <th>Items</th>
-                  <th>Subtotal</th>
-                  <th>Tax</th>
                   <th>Disc.</th>
                   <th>Grand Total</th>
+                  <th>Created At</th>
                   <th>Valid Until</th>
                   <th>Status</th>
                   <th>Ver.</th>
@@ -248,15 +247,16 @@ export default function Quotations() {
                           onClick={() => toggleDeal(group.sourceId)}
                         >
                           <td className="quote-number">{latest.quoteNumber}</td>
-                          <td>{latest.sourceLabel || latest.refCode}</td>
                           <td>{latest.clientName}</td>
+                          {isAdmin ? (
+                            <td>{latest.createdByName || "-"}</td>
+                          ) : null}
                           <td>
                             {latest.itemsCount} item{latest.itemsCount === 1 ? "" : "s"}
                           </td>
-                          <td>{formatCurrency(latest.subtotalAmount)}</td>
-                          <td>{formatCurrency(latest.taxAmount)}</td>
                           <td>{formatCurrency(latest.discountAmount)}</td>
                           <td className="quote-grand-total">{formatCurrency(latest.grandTotal)}</td>
+                          <td>{formatDate(latest.createdAt)}</td>
                           <td>{formatDate(latest.validUntil)}</td>
                           <td>
                             {isAdmin ? (
@@ -330,7 +330,7 @@ export default function Quotations() {
                       historyRows={
                         expanded ? (
                           <tr className="quote-accordion-panel-row">
-                            <td colSpan={12}>
+                            <td colSpan={isAdmin ? 11 : 10}>
                               <div className="quote-accordion-panel">
                                 {group.previous.length === 0 ? (
                                   <div className="quote-history-empty">No previous quotations</div>

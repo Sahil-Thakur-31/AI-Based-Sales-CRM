@@ -3,7 +3,7 @@
 ========================================= */
 
 .event-page {
-  padding: 20px;
+  padding: 14px 20px 20px;
   background: #f6f9fc;
 }
 
@@ -15,14 +15,8 @@
   margin-bottom: 20px;
 }
 
-.event-page-header h2 {
-  margin: 0;
-  font-size: 26px;
-  color: #1e293b;
-}
-
 .event-page-header p {
-  margin: 5px 0 0;
+  margin: 0;
   font-size: 13px;
   color: #64748b;
 }

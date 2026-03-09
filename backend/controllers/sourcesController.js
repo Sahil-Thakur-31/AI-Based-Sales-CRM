@@ -1,8 +1,8 @@
 const Source = require("../models/sources");
 
 const SYSTEM_SOURCES = [
-  { name: "Reference", url: "https://example.com/reference" },
-  { name: "Event & Expo", url: "https://example.com/events-expo" },
+  { name: "Reference" },
+  { name: "Event & Expo" },
 ];
 
 function normalizeName(value = "") {
@@ -27,7 +27,7 @@ async function ensureSystemSources() {
     if (!existing) {
       await Source.create({
         name: source.name,
-        url: source.url,
+        url: "",
         is_deleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -37,7 +37,7 @@ async function ensureSystemSources() {
 
     const updates = {};
     if (existing.name !== source.name) updates.name = source.name;
-    if (!String(existing.url || "").trim()) updates.url = source.url;
+    if (String(existing.url || "").trim()) updates.url = "";
     if (existing.is_deleted) updates.is_deleted = false;
     if (Object.keys(updates).length) {
       updates.updatedAt = new Date();
@@ -193,14 +193,9 @@ exports.activateSource = async (req, res) => {
     if (isSystemSourceName(existing.name)) {
       const updates = {
         is_deleted: false,
+        url: "",
         updatedAt: new Date(),
       };
-      if (!String(existing.url || "").trim()) {
-        const fallback = SYSTEM_SOURCES.find(
-          (source) => normalizeName(source.name) === normalizeName(existing.name)
-        );
-        if (fallback?.url) updates.url = fallback.url;
-      }
       await Source.updateOne({ _id: existing._id }, { $set: updates });
       return res.json({ message: "Source activated" });
     }

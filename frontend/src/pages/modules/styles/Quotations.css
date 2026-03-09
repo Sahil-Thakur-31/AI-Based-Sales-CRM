@@ -460,16 +460,28 @@
 .quote-lead-client-switch {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: #f8fafc;
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.quote-lead-client-switch > label {
+  margin: 0;
+  white-space: nowrap;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .quote-radio-row {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 14px;
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .quote-radio-row label {
@@ -482,10 +494,11 @@
 }
 
 .quote-inline-create-row {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  display: flex;
+  width: 100%;
   gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 
 .quote-inline-modal-overlay {
@@ -711,19 +724,23 @@
   background: #28a745;
   color: #fff;
   border-radius: 6px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   width: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   white-space: nowrap;
   font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .quote-inline-create-row .quote-add-product-btn {
-  justify-self: start;
+  margin-left: auto;
+  min-height: 30px;
+  border-radius: 8px;
 }
 
 .quote-add-product-btn:hover {
@@ -894,8 +911,26 @@
     display: none;
   }
 
-  .quote-inline-create-row {
+  .quote-lead-client-switch {
     grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .quote-lead-client-switch > label {
+    white-space: normal;
+  }
+
+  .quote-inline-create-row {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .quote-radio-row {
+    flex-wrap: wrap;
+  }
+
+  .quote-inline-create-row .quote-add-product-btn {
+    margin-left: 0;
   }
 
   .quote-inline-modal-overlay {

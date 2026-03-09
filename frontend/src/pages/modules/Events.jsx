@@ -79,10 +79,17 @@ const getLocationText = (eventItem) => {
 };
 
 const contains = (value, query) => String(value || "").toLowerCase().includes(query);
+const formatPriority = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "Medium";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+};
 
 const EventExpo = () => {
   const navigate = useNavigate();
   const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+  const isAdmin = roleName === "admin";
+  const isManager = roleName === "manager";
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
   const isRestrictedUser = !isAdminOrManager;
   const [events, setEvents] = useState([]);
@@ -127,8 +134,10 @@ const EventExpo = () => {
     navigate("/events/new");
   };
 
-  const openRegistrationForm = (eventItem) => {
+  const openRegistrationForm = (eventItem, options = {}) => {
+    const { viewOnly = false } = options;
     const isDemoEvent = eventItem._id === DEMO_EVENT._id;
+    const firstRegistration = Array.isArray(eventItem.registrations) ? eventItem.registrations[0] : null;
     navigate("/events/register", {
       state: {
         eventId: isDemoEvent ? "" : eventItem._id,
@@ -136,7 +145,9 @@ const EventExpo = () => {
         eventLocation: getLocationText(eventItem),
         eventDates: formatDateRange(eventItem.startDate, eventItem.endDate),
         registrationFee: String(eventItem.registrationFee || 0),
-        isRegistered: Boolean(eventItem.isRegistered)
+        isRegistered: Boolean(eventItem.isRegistered),
+        viewOnly: Boolean(viewOnly),
+        registrationData: viewOnly ? firstRegistration : null
       }
     });
   };
@@ -252,7 +263,6 @@ const EventExpo = () => {
     <div className="event-page">
       <div className="event-page-header">
         <div>
-          <h2>Events & Expos</h2>
           <p>Track opportunities, register teams, and manage upcoming expos.</p>
         </div>
       </div>
@@ -376,11 +386,13 @@ const EventExpo = () => {
         {!loading && !error && filteredEvents.map((eventItem) => {
           const score = Number(eventItem.aiRelevanceScore || 0);
           const scoreLabel = score >= 90 ? "Must Attend" : score >= 70 ? "Strong Fit" : "Evaluate";
+          const priorityLabel = formatPriority(eventItem.priorityTag);
           const aiRecommendationText = String(eventItem.aiRecommendation || "").trim();
           const isAiSuggested =
             String(eventItem.source?.name || "").toLowerCase().includes("ai") ||
             Boolean(aiRecommendationText);
           const isAttending = Boolean(eventItem.isAttending);
+          const hasRegistrationData = Array.isArray(eventItem.registrations) && eventItem.registrations.length > 0;
           const attendingUsers = Array.isArray(eventItem.attendedBy)
             ? eventItem.attendedBy
               .map((user) => user?.name || user?.email || "")
@@ -392,7 +404,9 @@ const EventExpo = () => {
               <div className="event-left">
                 <div className="event-title-row">
                   <h4>{eventItem.name}</h4>
-                  <span className="score-badge">{score ? `${score} - ${scoreLabel}` : "AI Score Pending"}</span>
+                  <span className="score-badge">
+                    {score ? `${score} - ${scoreLabel}` : `Priority - ${priorityLabel}`}
+                  </span>
                 </div>
 
                 <p className="event-meta">{getLocationText(eventItem)}</p>
@@ -421,20 +435,30 @@ const EventExpo = () => {
                 )}
 
                 <div className="event-actions">
-                  {!isRestrictedUser && (
+                  {isManager && (
                     <button
                       className={`primary ${eventItem.isRegistered ? "registered-btn" : ""}`}
-                      onClick={() => openRegistrationForm(eventItem)}
+                      onClick={() => openRegistrationForm(eventItem, { viewOnly: false })}
                     >
                       {eventItem.isRegistered ? "Already Registered" : "Register & Attend"}
                     </button>
                   )}
-                  <button
-                    className={`attend-btn ${isAttending ? "secondary-active" : ""}`}
-                    onClick={() => toggleAttending(eventItem._id, isAttending)}
-                  >
-                    {isAttending ? "Attending" : "Mark Attending"}
-                  </button>
+                  {isAdmin && hasRegistrationData && (
+                    <button
+                      className="primary registered-btn"
+                      onClick={() => openRegistrationForm(eventItem, { viewOnly: true })}
+                    >
+                      View
+                    </button>
+                  )}
+                  {!isAdmin && (
+                    <button
+                      className={`attend-btn ${isAttending ? "secondary-active" : ""}`}
+                      onClick={() => toggleAttending(eventItem._id, isAttending)}
+                    >
+                      {isAttending ? "Attending" : "Mark Attending"}
+                    </button>
+                  )}
                   <button
                     onClick={() => eventItem.websiteUrl && window.open(eventItem.websiteUrl, "_blank", "noopener,noreferrer")}
                     disabled={!eventItem.websiteUrl}

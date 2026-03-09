@@ -249,7 +249,7 @@
 }
 
 .sidebar.sidebar-collapsed .sidebar-header {
-  justify-content: flex-end;
+  justify-content: center;
   align-items: center;
   flex-direction: row;
   gap: 0;
@@ -262,13 +262,32 @@
 .sidebar.sidebar-collapsed .sidebar-collapse-btn {
   width: 34px;
   height: 34px;
-  margin-bottom: 10px;
+  margin: 0 auto 10px;
+}
+
+.sidebar.sidebar-collapsed .sidebar-menu {
+  align-items: center;
+}
+
+.sidebar.sidebar-collapsed .sidebar-item-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .sidebar.sidebar-collapsed .sidebar-item {
+  width: 100%;
+  max-width: 56px;
+  margin: 0 auto;
   justify-content: center;
   gap: 0;
   padding: 10px 0;
+}
+
+.sidebar.sidebar-collapsed .sidebar-item-left {
+  flex: 0 0 auto;
+  width: auto;
+  justify-content: center;
 }
 
 .sidebar.sidebar-collapsed .sidebar-item:hover {
