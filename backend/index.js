@@ -28,6 +28,8 @@ const eventsRoutes = require("./routes/eventsRoutes");
 const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
+const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
+const { runSeedEvents } = require("./seed/seedEvents");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
 
@@ -44,7 +46,8 @@ const myServer = http.createServer(app);
 
 const PORT = process.env.PORT || 8080;
 
-app.use(bodyparser.json());
+app.use(bodyparser.json({ limit: "50mb" }));
+app.use(bodyparser.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors());
 
 app.use('/auth', authRoute);
@@ -62,14 +65,11 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/deals", dealsRoutes);
 app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
-app.use("/clients", clientRoutes);
-app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/organizations", organizationRoutes);
 app.use("/quotation-clauses", quotationClausesRoutes);
 app.use("/followups", followupsRoutes);
 app.use("/teams", teamRoutes);
-app.use("/taxes", taxRoutes);
 app.use("/events", eventsRoutes);
 app.use("/ai-leads", aiLeadsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
@@ -77,12 +77,21 @@ app.use("/api/manager/dashboard", managerDashboardRoutes);
 app.use("/api/user/dashboard", userDashboardRoutes);
 app.use("/daily-closing", dailyClosingRoutes);
 app.use("/ocr", ocrRoutes);
-app.use("/events", eventsRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/auth/google", googleAuthRoutes);
 
 
-mongoose.connection.once("open", async () => {
+let backgroundWorkersStarted = false;
+const AUTO_SEED_EVENTS_ON_START = String(
+  process.env.AUTO_SEED_EVENTS_ON_START || "false"
+).trim().toLowerCase() === "true";
+
+const startBackgroundWorkers = async () => {
+  if (backgroundWorkersStarted) {
+    return;
+  }
+  backgroundWorkersStarted = true;
+
   try {
     await Meeting.createCollection();
     console.log("meetings collection ensured");
@@ -92,9 +101,27 @@ mongoose.connection.once("open", async () => {
     }
   }
 
+  if (AUTO_SEED_EVENTS_ON_START) {
+    try {
+      const seedResult = await runSeedEvents({ connect: false, closeConnection: false, logger: console });
+      console.log(`Event seed ensured on startup (${seedResult.totalInserted} demo records refreshed)`);
+    } catch (seedError) {
+      console.error("Failed to auto-seed demo events on startup:", seedError?.message || seedError);
+    }
+  }
+
   // Start background workers only after DB is available.
   startNotificationEmailWorker();
   startWhatsAppMeetingWorker();
-});
+  startEventScraperScheduler();
+};
+
+if (mongoose.connection.readyState === 1) {
+  void startBackgroundWorkers();
+} else {
+  mongoose.connection.once("open", () => {
+    void startBackgroundWorkers();
+  });
+}
 
 myServer.listen(PORT, () => console.log('Server started on', PORT));
