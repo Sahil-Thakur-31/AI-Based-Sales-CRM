@@ -25,23 +25,38 @@ function isPrivilegedUser(user = {}) {
   return roleName === "admin" || roleName === "manager";
 }
 
+function normalizeContactValues(value) {
+  const rawValues = Array.isArray(value)
+    ? value.flatMap((item) => String(item || "").split(/\s*(?:\||,|;|\n)\s*/))
+    : String(value || "").split(/\s*(?:\||,|;|\n)\s*/);
+
+  return rawValues
+    .map((item) => String(item || "").trim())
+    .filter((item) => {
+      const normalized = item.toLowerCase();
+      return normalized && normalized !== "unreadable" && normalized !== "undefined" && normalized !== "null";
+    });
+}
+
 function normalizeContacts(contacts = []) {
   if (!Array.isArray(contacts)) return [];
 
-  const validContacts = contacts.filter((contact) => contact && (contact.name || contact.phone || contact.email));
+  const validContacts = contacts.filter((contact) => contact && (contact.name || (contact.phone && contact.phone.length) || (contact.email && contact.email.length)));
   const hasPrimary = validContacts.some(contact => contact.is_primary === true || contact.is_primary === "true");
 
-  return validContacts.map((contact, index) => ({
-    name: contact.name || "",
-    designation: contact.designation || "",
-    phone: normalizePhone(contact.phone) || "",
-    email: contact.email || "",
-    linkedin: contact.linkedin || "",
-    address: contact.address || "",
-    is_primary: hasPrimary
-      ? (contact.is_primary === true || contact.is_primary === "true")
-      : (index === 0),
-  }));
+  return validContacts.map((contact, index) => {
+    const phoneArr = normalizeContactValues(contact.phone);
+    const emailArr = normalizeContactValues(contact.email);
+    return {
+      name: contact.name || "",
+      designation: contact.designation || "",
+      phone: phoneArr.map((p) => normalizePhone(p)).filter(Boolean).join(", "),
+      email: emailArr.join(", "),
+      linkedin: contact.linkedin || "",
+      address: contact.address || "",
+      is_primary: hasPrimary ? (contact.is_primary === true || contact.is_primary === "true") : (index === 0),
+    };
+  });
 }
 
 async function resolveLocationId(payload) {
@@ -99,6 +114,9 @@ function stripLeadPayloadFields(payload) {
       cleaned.converted_to_deal === true ||
       cleaned.converted_to_deal === "true" ||
       cleaned.converted_to_deal === "Yes";
+  }
+  if (!cleaned.assigned_to) {
+    delete cleaned.assigned_to;
   }
   delete cleaned.is_existing_company;
   return cleaned;
@@ -224,6 +242,15 @@ async function isAdminAssignee(userId) {
 
 async function applySourceDependentValidation(payload) {
   if (!payload?.source) return;
+
+  if (payload.source === "OCR") {
+    let ocrSource = await Source.findOne({ name: "OCR", is_deleted: false }).select("_id name").lean();
+    if (!ocrSource) {
+      const newSource = await Source.create({ name: "OCR", is_deleted: false });
+      ocrSource = { _id: newSource._id, name: "OCR" };
+    }
+    payload.source = ocrSource._id;
+  }
 
   const sourceDoc = await Source.findOne({
     _id: payload.source,
@@ -482,8 +509,8 @@ exports.searchCompany = async (req, res) => {
         contacts: leadContacts.map((c) => ({
           name: c.name || "",
           designation: c.designation || "",
-          phone: c.phone || "",
-          email: c.email || "",
+          phone: typeof c.phone === 'string' && c.phone ? c.phone.split(',').map(x=>x.trim()).filter(Boolean) : (Array.isArray(c.phone) ? c.phone : []),
+          email: typeof c.email === 'string' && c.email ? c.email.split(',').map(x=>x.trim()).filter(Boolean) : (Array.isArray(c.email) ? c.email : []),
           linkedin: c.linkedin || "",
           address: c.address || "",
           is_primary: Boolean(c.is_primary),
@@ -535,8 +562,8 @@ exports.searchCompany = async (req, res) => {
         contacts: clientContacts.map((c) => ({
           name: c.name || "",
           designation: c.designation || "",
-          phone: c.phone || "",
-          email: c.email || "",
+          phone: typeof c.phone === 'string' && c.phone ? c.phone.split(',').map(x=>x.trim()).filter(Boolean) : (Array.isArray(c.phone) ? c.phone : []),
+          email: typeof c.email === 'string' && c.email ? c.email.split(',').map(x=>x.trim()).filter(Boolean) : (Array.isArray(c.email) ? c.email : []),
           linkedin: c.linkedin || "",
           address: "",
           is_primary: true,
@@ -644,8 +671,8 @@ exports.getLeads = async (req, res) => {
       if (!leadId || contactMap.has(leadId)) continue;
       contactMap.set(leadId, {
         name: contact.name || "",
-        phone: contact.phone || "",
-        email: contact.email || "",
+        phone: typeof contact.phone === 'string' && contact.phone ? contact.phone.split(',')[0].trim() : (Array.isArray(contact.phone) ? contact.phone[0] : ""),
+        email: typeof contact.email === 'string' && contact.email ? contact.email.split(',')[0].trim() : (Array.isArray(contact.email) ? contact.email[0] : ""),
       });
     }
 

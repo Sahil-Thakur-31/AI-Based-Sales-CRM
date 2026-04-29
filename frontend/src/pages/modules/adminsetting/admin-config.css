@@ -23,21 +23,70 @@
 
 .admin-config-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
+  gap: 12px;
   margin-bottom: 18px;
+  width: 100%;
 }
 
 .admin-config-actions {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.admin-config-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  border-bottom: 1px solid #e2e8f3;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.admin-config-tab {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 0;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.admin-config-tab:hover {
+  color: #3f5470;
+}
+
+.admin-config-tab.active {
+  color: #4f46e5;
+}
+
+.admin-config-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #4f46e5;
+  border-radius: 2px 2px 0 0;
 }
 
 .admin-config-actions .admin-search-input {
-  min-width: 240px;
+  min-width: 260px;
   max-width: 360px;
-  width: 100%;
+  width: 360px;
+  flex: 0 1 360px;
 }
 
 .admin-config-actions select {
@@ -75,7 +124,7 @@
 }
 
 .admin-config-btn {
-  padding: 8px 16px;
+  padding: 9px 14px;
   border-radius: 6px;
   border: none;
   background: #007bff;
@@ -83,6 +132,12 @@
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .admin-config-btn:hover {
@@ -99,6 +154,21 @@
   background: #c82333;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.admin-config-btn-success {
+  background: #28a745;
+}
+
+.admin-config-btn-success:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.28);
+}
+
+.admin-config-bulk-delete-btn {
+  gap: 6px;
+  padding-inline: 12px;
 }
 
 .admin-config-modal {
@@ -135,6 +205,38 @@
 
 .admin-config-form-error {
   margin-top: -2px;
+}
+
+@media (max-width: 980px) {
+  .admin-config-header {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .admin-config-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 4px;
+    padding-bottom: 6px;
+  }
+
+  .admin-config-tab {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+  }
+
+  .admin-config-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .admin-config-actions .admin-search-input {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 220px;
+  }
 }
 
 .org-metric-row {
@@ -556,6 +658,22 @@
   gap: 8px;
 }
 
+.qc-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.qc-status-tabs {
+  margin: 0;
+}
+
+.qc-status-tabs .admin-config-tab {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
 .qc-panel-head h3 {
   margin: 0;
   font-size: 18px;
@@ -729,6 +847,17 @@
 }
 
 @media (max-width: 640px) {
+  .qc-panel-head-top {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .qc-panel-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
   .qc-controls-row {
     flex-direction: column;
     align-items: stretch;

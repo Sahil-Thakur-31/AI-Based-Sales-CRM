@@ -34,7 +34,15 @@ export default function ClientDetails() {
       setLoading(true);
       setError("");
       const res = await API.get(`/clients/${id}`);
-      setForm(res.data);
+      const formPayload = res.data;
+      if (Array.isArray(formPayload.contacts)) {
+        formPayload.contacts = formPayload.contacts.map(c => ({
+          ...c,
+          phone: typeof c.phone === 'string' && c.phone ? c.phone.split(',').map(x=>x.trim()) : (Array.isArray(c.phone) && c.phone.length ? c.phone : [""]),
+          email: typeof c.email === 'string' && c.email ? c.email.split(',').map(x=>x.trim()) : (Array.isArray(c.email) && c.email.length ? c.email : [""])
+        }));
+      }
+      setForm(formPayload);
     } catch (err) {
       console.error(err);
       setError("Failed to load client details");
@@ -75,8 +83,8 @@ export default function ClientDetails() {
         {
           name: "",
           designation: "",
-          phone: "",
-          email: "",
+          phone: [""],
+          email: [""],
           linkedin: "",
           is_active: true
         }
@@ -111,8 +119,8 @@ export default function ClientDetails() {
           _id: contact._id,
           name: contact.name || "",
           designation: contact.designation || "",
-          phone: contact.phone || "",
-          email: contact.email || "",
+          phone: Array.isArray(contact.phone) ? contact.phone.filter(p => String(p).trim()).join(", ") : contact.phone || "",
+          email: Array.isArray(contact.email) ? contact.email.filter(e => String(e).trim()).join(", ") : contact.email || "",
           linkedin: contact.linkedin || "",
           is_active: contact.is_active,
           is_primary: contact.is_primary
@@ -219,16 +227,97 @@ export default function ClientDetails() {
                       </div>
                       <div className="clients-field">
                         <label>Phone</label>
-                        <PhoneInput
-                          international
-                          defaultCountry="IN"
-                          value={contact.phone || ""}
-                          onChange={(val) => updateContactField(index, "phone", val)}
-                        />
+                        {(Array.isArray(contact.phone) && contact.phone.length ? contact.phone : [contact.phone || ""]).map((p, pIdx) => (
+                          <div key={pIdx} style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: "8px", width: "100%" }}>
+                            <div style={{ flexGrow: 1 }}>
+                              <PhoneInput
+                                international
+                                defaultCountry="IN"
+                                value={p || ""}
+                                onChange={(val) => {
+                                  setForm(prev => {
+                                    const newContacts = [...(prev.contacts || [])];
+                                    const newPhones = Array.isArray(newContacts[index].phone) ? [...newContacts[index].phone] : typeof newContacts[index].phone === 'string' && newContacts[index].phone ? newContacts[index].phone.split(',') : [""];
+                                    newPhones[pIdx] = val;
+                                    newContacts[index] = { ...newContacts[index], phone: newPhones };
+                                    return { ...prev, contacts: newContacts };
+                                  });
+                                }}
+                              />
+                            </div>
+                            {Array.isArray(contact.phone) && contact.phone.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setForm(prev => {
+                                    const newContacts = [...(prev.contacts || [])];
+                                    const newPhones = Array.isArray(newContacts[index].phone) ? [...newContacts[index].phone] : typeof newContacts[index].phone === 'string' && newContacts[index].phone ? newContacts[index].phone.split(',') : [""];
+                                    newPhones.splice(pIdx, 1);
+                                    newContacts[index] = { ...newContacts[index], phone: newPhones };
+                                    return { ...prev, contacts: newContacts };
+                                  });
+                                }}
+                                style={{ position: "absolute", right: "10px", background: "#f3f4f6", color: "#9ca3af", border: "none", borderRadius: "50%", width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "12px", fontWeight: "bold", transition: "all 0.2s", zIndex: 2 }}
+                                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = '#f3f4f6'; }}
+                              >✕</button>
+                            )}
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => {
+                          setForm(prev => {
+                            const newContacts = [...(prev.contacts || [])];
+                            const newPhones = Array.isArray(newContacts[index].phone) ? [...newContacts[index].phone] : typeof newContacts[index].phone === 'string' && newContacts[index].phone ? newContacts[index].phone.split(',') : [""];
+                            newPhones.push("");
+                            newContacts[index] = { ...newContacts[index], phone: newPhones };
+                            return { ...prev, contacts: newContacts };
+                          });
+                        }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Phone</button>
                       </div>
                       <div className="clients-field">
                         <label>Email</label>
-                        <input value={contact.email || ""} onChange={(e) => updateContactField(index, "email", e.target.value)} />
+                        {(Array.isArray(contact.email) && contact.email.length ? contact.email : [contact.email || ""]).map((em, eIdx) => (
+                          <div key={eIdx} style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: "8px", width: "100%" }}>
+                            <div style={{ flexGrow: 1 }}>
+                              <input type="email" style={{ width: "100%", paddingRight: Array.isArray(contact.email) && contact.email.length > 1 ? "36px" : "12px" }} value={em || ""} onChange={(e) => {
+                                  setForm(prev => {
+                                    const newContacts = [...(prev.contacts || [])];
+                                    const newEmails = Array.isArray(newContacts[index].email) ? [...newContacts[index].email] : typeof newContacts[index].email === 'string' && newContacts[index].email ? newContacts[index].email.split(',') : [""];
+                                    newEmails[eIdx] = e.target.value;
+                                    newContacts[index] = { ...newContacts[index], email: newEmails };
+                                    return { ...prev, contacts: newContacts };
+                                  });
+                                }} 
+                              />
+                            </div>
+                            {Array.isArray(contact.email) && contact.email.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                setForm(prev => {
+                                  const newContacts = [...(prev.contacts || [])];
+                                  const newEmails = Array.isArray(newContacts[index].email) ? [...newContacts[index].email] : typeof newContacts[index].email === 'string' && newContacts[index].email ? newContacts[index].email.split(',') : [""];
+                                  newEmails.splice(eIdx, 1);
+                                  newContacts[index] = { ...newContacts[index], email: newEmails };
+                                  return { ...prev, contacts: newContacts };
+                                });
+                              }}
+                                style={{ position: "absolute", right: "10px", background: "#f3f4f6", color: "#9ca3af", border: "none", borderRadius: "50%", width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "12px", fontWeight: "bold", transition: "all 0.2s", zIndex: 2 }}
+                                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = '#f3f4f6'; }}
+                              >✕</button>
+                            )}
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => {
+                          setForm(prev => {
+                            const newContacts = [...(prev.contacts || [])];
+                            const newEmails = Array.isArray(newContacts[index].email) ? [...newContacts[index].email] : typeof newContacts[index].email === 'string' && newContacts[index].email ? newContacts[index].email.split(',') : [""];
+                            newEmails.push("");
+                            newContacts[index] = { ...newContacts[index], email: newEmails };
+                            return { ...prev, contacts: newContacts };
+                          });
+                        }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Email</button>
                       </div>
                       <div className="clients-field clients-field-full">
                         <label>LinkedIn</label>

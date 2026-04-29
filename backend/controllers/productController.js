@@ -36,8 +36,18 @@ exports.getProducts = async (req, res) => {
 
   try {
 
+    const status = String(req.query?.status || "active").trim().toLowerCase();
+    const filter = {};
+
+    if (status === "deleted") {
+      filter.is_deleted = true;
+    }
+    else if (status !== "all") {
+      filter.is_deleted = false;
+    }
+
     const products = await Product.find({
-      is_deleted: false
+      ...filter
     })
     .sort({ createdAt: -1 });
 

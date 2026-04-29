@@ -17,7 +17,7 @@ const leadContactsSchema = new mongoose.Schema(
 
     phone: {
       type: String,
-      match: [/^$|^\d{10,15}$/, "Please enter a valid phone number (10-15 digits)"],
+      match: [/^$|^[+\d\s().,-]{8,}$/, "Please enter a valid phone number or comma-separated phone numbers"],
     },
 
     email: {

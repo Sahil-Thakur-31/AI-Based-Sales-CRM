@@ -1,0 +1,16 @@
+{
+  "model_path": "c:\\practice\\Adcs_assignments\\CRM\\AI-Based-Sales-CRM\\backend\\ocr\\runtime\\models\\label_model.joblib",
+  "layout_profile": "c:\\practice\\Adcs_assignments\\CRM\\AI-Based-Sales-CRM\\backend\\ocr\\runtime\\models\\layout_profile.json",
+  "sample_count": 8514,
+  "labels": [
+    "ADDRESS",
+    "COMPANY",
+    "DESIGNATION",
+    "EMAIL",
+    "NAME",
+    "OTHER",
+    "PHONE",
+    "WEBSITE"
+  ],
+  "task_count": 741
+}

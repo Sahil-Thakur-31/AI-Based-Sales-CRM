@@ -1,5 +1,4 @@
 .profile-page {
-  padding: 26px 22px;
   display: flex;
   justify-content: center;
   height: 100%;
@@ -202,6 +201,11 @@
   padding-bottom: 16px;
   border-bottom: 1px solid #e7ecf3;
   margin-bottom: 18px;
+}
+
+.profile-form-error-slot {
+  margin-top: -8px;
+  margin-bottom: 14px;
 }
 
 .profile-kicker {

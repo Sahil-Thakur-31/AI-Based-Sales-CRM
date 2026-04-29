@@ -4,6 +4,7 @@
   min-height: 100vh;
   color: #0f172a;
   font-family: "Inter", "Segoe UI", sans-serif;
+  color-scheme: light;
 }
 
 .fuaTop {
@@ -134,6 +135,19 @@
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a;
+}
+
+.fuaGrid input::placeholder,
+.fuaGrid textarea::placeholder {
+  color: #64748b;
+}
+
+.fuaGrid select option {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .fuaGrid textarea {

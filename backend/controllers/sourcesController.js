@@ -50,7 +50,18 @@ exports.getSources = async (req, res) => {
   try {
     await ensureSystemSources();
 
-    const data = await Source.find({ is_deleted: false })
+    const status = String(req.query?.status || "active").trim().toLowerCase();
+    const filter = {};
+
+    if (status === "deleted") {
+      filter.is_deleted = true;
+    } else if (status === "all") {
+      // no is_deleted filter
+    } else {
+      filter.is_deleted = false;
+    }
+
+    const data = await Source.find(filter)
       .populate("createdBy", "name")
       .sort({ name: 1 });
 

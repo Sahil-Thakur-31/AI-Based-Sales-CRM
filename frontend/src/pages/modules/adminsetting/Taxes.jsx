@@ -5,6 +5,8 @@ export default function Taxes() {
     <AdminCrud
       title="Taxes"
       endpoint="/taxes"
+      enableStatusTabs
+      restoreActionPath="activate"
       columns={[
         { field: "rate", label: "Tax %" }
       ]}

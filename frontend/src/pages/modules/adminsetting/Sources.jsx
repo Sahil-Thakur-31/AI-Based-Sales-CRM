@@ -26,6 +26,8 @@ export default function Sources(){
         { field:"name", label:"Source Name", required: true },
         { field:"url", label:"URL", required: true, inputType: "url" }
       ]}
+      enableStatusTabs
+      restoreActionPath="activate"
       rowFilter={(item) => !isSystemSource(item)}
       isRowProtected={isSystemSource}
       protectedRowMessage="Reference and Event & Expo are hardcoded system sources."

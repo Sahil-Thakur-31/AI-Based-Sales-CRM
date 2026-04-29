@@ -6,8 +6,18 @@ exports.getIndustries = async (req, res) => {
 
   try {
 
+    const status = String(req.query?.status || "active").trim().toLowerCase();
+    const filter = {};
+
+    if (status === "deleted") {
+      filter.is_deleted = true;
+    }
+    else if (status !== "all") {
+      filter.is_deleted = false;
+    }
+
     const data = await Industry.find({
-      is_deleted: false
+      ...filter
     })
     .sort({ name: 1 });
 

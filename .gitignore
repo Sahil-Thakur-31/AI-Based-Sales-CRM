@@ -11,6 +11,7 @@ frontend/.env
 # Logs
 *.log
 logs/
+backend/sync_debug.json
 
 # Build output
 build/
@@ -45,6 +46,12 @@ Practice/expense_ocr_ml/fast_results.json
 Practice/expense_ocr_ml/img1_result.json
 backend/expense_ocr_ml/__pycache__/
 backend/expense_ocr_ml/_tmp/
+# OCR / local test artifacts
+testimages/
+backend/__pycache__/
+backend/ocr/runtime/__pycache__/
+backend/ocr/runtime/.venv/
+backend/uploads/ocr/
 
 frontend\src\App.jsx
 backend/package-lock.json
