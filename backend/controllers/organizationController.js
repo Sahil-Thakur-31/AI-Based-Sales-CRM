@@ -1,3 +1,4 @@
+const axios = require("axios");
 const Organization = require("../models/organization");
 const User = require("../models/users");
 const Client = require("../models/client");
@@ -8,6 +9,9 @@ const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const CIN_REGEX = /^[A-Z0-9]{21}$/;
 const GST_REGEX = /^[0-9A-Z]{15}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GEOCODE_ENDPOINT =
+  String(process.env.ORG_GEOCODE_ENDPOINT || process.env.SCRAPER_GEOCODE_ENDPOINT || "").trim() ||
+  "https://nominatim.openstreetmap.org/search";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -19,6 +23,102 @@ function normalizeUpper(value) {
 
 function normalizeEmail(value) {
   return normalizeText(value).toLowerCase();
+}
+
+function parseCoordinate(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function buildLocationFields(source) {
+  return {
+    address: normalizeText(source.address),
+    area: normalizeText(source.area),
+    city: normalizeText(source.city),
+    pincode: normalizeText(source.pincode),
+    district: normalizeText(source.district),
+    state: normalizeText(source.state),
+    country: normalizeText(source.country)
+  };
+}
+
+function sameLocationFields(left, right) {
+  return ["address", "area", "city", "pincode", "district", "state", "country"].every(
+    (field) => normalizeText(left?.[field]) === normalizeText(right?.[field])
+  );
+}
+
+async function geocodeLocation(fields) {
+  const queries = [
+    [fields.address, fields.area, fields.city, fields.district, fields.state, fields.pincode, fields.country],
+    [fields.area, fields.city, fields.state, fields.pincode, fields.country],
+    [fields.city, fields.state, fields.country],
+    [fields.pincode, fields.country]
+  ]
+    .map((parts) => parts.filter(Boolean).join(", "))
+    .filter(Boolean);
+
+  for (const query of queries) {
+    try {
+      const response = await axios.get(GEOCODE_ENDPOINT, {
+        params: {
+          q: query,
+          format: "jsonv2",
+          limit: 1
+        },
+        headers: {
+          "User-Agent": "AIBasedSalesCRM/1.0"
+        },
+        timeout: 20000
+      });
+      const row = Array.isArray(response.data) ? response.data[0] : null;
+      const latitude = parseCoordinate(row?.lat);
+      const longitude = parseCoordinate(row?.lon);
+      if (latitude !== null && longitude !== null) {
+        return {
+          latitude,
+          longitude,
+          locationResolvedAt: new Date()
+        };
+      }
+    } catch (err) {
+      continue;
+    }
+  }
+
+  return {
+    latitude: null,
+    longitude: null,
+    locationResolvedAt: null
+  };
+}
+
+async function resolveOrganizationLocationFields(source, existing = null) {
+  const locationFields = buildLocationFields(source);
+  if (!Object.values(locationFields).some(Boolean)) {
+    return {
+      ...locationFields,
+      latitude: null,
+      longitude: null,
+      locationResolvedAt: null
+    };
+  }
+
+  if (existing && sameLocationFields(locationFields, existing)) {
+    return {
+      ...locationFields,
+      latitude: parseCoordinate(existing.latitude),
+      longitude: parseCoordinate(existing.longitude),
+      locationResolvedAt: existing.locationResolvedAt || null
+    };
+  }
+
+  const geocoded = await geocodeLocation(locationFields);
+  return {
+    ...locationFields,
+    ...geocoded
+  };
 }
 
 function resolveUploadedAssetUrl(req, fieldName) {
@@ -62,6 +162,9 @@ function mapOrganization(row, stats) {
     district: row.district || "",
     state: row.state || "",
     country: row.country || "",
+    latitude: parseCoordinate(row.latitude),
+    longitude: parseCoordinate(row.longitude),
+    locationResolvedAt: row.locationResolvedAt || null,
     panNumber: row.panNumber || "",
     cinNumber: row.cinNumber || "",
     gstNumber: row.gstNumber || "",
@@ -175,6 +278,7 @@ exports.createOrganization = async (req, res) => {
     const signatureUrl =
       resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
     const stampUrl = resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
+    const resolvedLocation = await resolveOrganizationLocationFields(req.body);
 
     const duplicateMessage = await ensureUniqueIdentifiers({ panNumber, cinNumber, gstNumber });
     if (duplicateMessage) {
@@ -186,14 +290,8 @@ exports.createOrganization = async (req, res) => {
       logoUrl,
       signatureUrl,
       stampUrl,
-      address: normalizeText(req.body.address),
+      ...resolvedLocation,
       website: normalizeText(req.body.website),
-      area: normalizeText(req.body.area),
-      city: normalizeText(req.body.city),
-      pincode: normalizeText(req.body.pincode),
-      district: normalizeText(req.body.district),
-      state: normalizeText(req.body.state),
-      country: normalizeText(req.body.country),
       panNumber,
       cinNumber,
       gstNumber,
@@ -298,14 +396,7 @@ exports.upsertOrganizationProfile = async (req, res) => {
       logoUrl: incomingLogoUrl || "",
       signatureUrl: incomingSignatureUrl || "",
       stampUrl: incomingStampUrl || "",
-      address: normalizeText(req.body.address),
       website: normalizeText(req.body.website),
-      area: normalizeText(req.body.area),
-      city: normalizeText(req.body.city),
-      pincode: normalizeText(req.body.pincode),
-      district: normalizeText(req.body.district),
-      state: normalizeText(req.body.state),
-      country: normalizeText(req.body.country),
       panNumber,
       cinNumber,
       gstNumber,
@@ -331,14 +422,16 @@ exports.upsertOrganizationProfile = async (req, res) => {
         _id: existing._id,
         is_deleted: false
       })
-        .select("logoUrl signatureUrl stampUrl")
+        .select("logoUrl signatureUrl stampUrl address area city pincode district state country latitude longitude locationResolvedAt")
         .lean();
+      const resolvedLocation = await resolveOrganizationLocationFields(req.body, existingOrganization);
 
       organization = await Organization.findOneAndUpdate(
         { _id: existing._id, is_deleted: false },
         {
           $set: {
             ...payload,
+            ...resolvedLocation,
             logoUrl: removeLogo
               ? ""
               : incomingLogoUrl || existingOrganization?.logoUrl || "",
@@ -353,8 +446,10 @@ exports.upsertOrganizationProfile = async (req, res) => {
         { returnDocument: "after" }
       );
     } else {
+      const resolvedLocation = await resolveOrganizationLocationFields(req.body);
       organization = await Organization.create({
         ...payload,
+        ...resolvedLocation,
         createdBy: req.user?._id || null,
         is_deleted: false
       });
@@ -434,12 +529,14 @@ exports.updateOrganization = async (req, res) => {
       _id: req.params.id,
       is_deleted: false
     })
-      .select("logoUrl signatureUrl stampUrl")
+      .select("logoUrl signatureUrl stampUrl address area city pincode district state country latitude longitude locationResolvedAt")
       .lean();
 
     if (!existingOrganization) {
       return res.status(404).json({ message: "Organization not found" });
     }
+
+    const resolvedLocation = await resolveOrganizationLocationFields(req.body, existingOrganization);
 
     const updated = await Organization.findOneAndUpdate(
       { _id: req.params.id, is_deleted: false },
@@ -451,14 +548,8 @@ exports.updateOrganization = async (req, res) => {
             ? ""
             : signatureUrl || existingOrganization.signatureUrl || "",
           stampUrl: removeStamp ? "" : stampUrl || existingOrganization.stampUrl || "",
-          address: normalizeText(req.body.address),
+          ...resolvedLocation,
           website: normalizeText(req.body.website),
-          area: normalizeText(req.body.area),
-          city: normalizeText(req.body.city),
-          pincode: normalizeText(req.body.pincode),
-          district: normalizeText(req.body.district),
-          state: normalizeText(req.body.state),
-          country: normalizeText(req.body.country),
           panNumber,
           cinNumber,
           gstNumber,

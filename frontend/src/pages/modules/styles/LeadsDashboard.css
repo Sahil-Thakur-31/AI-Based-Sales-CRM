@@ -737,6 +737,7 @@ td {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  color-scheme: light;
 }
 
 .ocr-form-preview {
@@ -884,6 +885,13 @@ td {
   border-radius: 8px;
   border: 1px solid #d1d5db;
   margin-top: 5px;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a;
+}
+
+.field input::placeholder {
+  color: #64748b;
 }
 
 .field p {
@@ -1036,8 +1044,14 @@ td {
   padding: 12px;
   border-radius: 10px;
   border: 1px solid #d1d5db;
-  background: white;
+  background: #ffffff !important;
+  color: #0f172a !important;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.field select option {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .field select:hover {
@@ -1058,6 +1072,20 @@ td {
   border-radius: 8px;
   padding: 10px;
   font-size: 14px;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a;
+}
+
+.field input:-webkit-autofill,
+.field input:-webkit-autofill:hover,
+.field input:-webkit-autofill:focus,
+.crm-popup-input:-webkit-autofill,
+.crm-popup-input:-webkit-autofill:hover,
+.crm-popup-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 .crm-popup-overlay {

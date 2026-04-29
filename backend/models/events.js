@@ -7,40 +7,19 @@ const eventRegistrationSchema = new mongoose.Schema(
       ref: "users",
       required: true
     },
-    fullName: {
-      type: String,
-      trim: true,
-      maxlength: 200
+    eventManagerUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users"
     },
-    email: {
-      type: String,
-      trim: true,
-      maxlength: 200
-    },
-    mobile: {
-      type: String,
-      trim: true,
-      maxlength: 20
-    },
-    companyName: {
-      type: String,
-      trim: true,
-      maxlength: 200
-    },
-    designation: {
-      type: String,
-      trim: true,
-      maxlength: 200
-    },
-    ticketType: {
-      type: String,
-      trim: true,
-      maxlength: 100
-    },
-    city: {
+    participationRole: {
       type: String,
       trim: true,
       maxlength: 120
+    },
+    websiteUrl: {
+      type: String,
+      trim: true,
+      maxlength: 2000
     },
     attendeesCount: {
       type: Number,
@@ -51,6 +30,10 @@ const eventRegistrationSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 1000
+    },
+    isPaymentRequired: {
+      type: Boolean,
+      default: true
     },
     attendeeUsers: [
       {
@@ -76,6 +59,11 @@ const eventRegistrationSchema = new mongoose.Schema(
       },
       paymentDate: {
         type: Date
+      },
+      screenshotPath: {
+        type: String,
+        trim: true,
+        maxlength: 500
       },
       notes: {
         type: String,
@@ -145,19 +133,37 @@ const eventSchema = new mongoose.Schema(
     registrationFee: {
       type: Number,
       min: 0,
-      default: 0
+      default: null
+    },
+
+    registrationCurrency: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 8,
+      default: ""
     },
 
     attendeesCount: {
       type: Number,
       min: 0,
-      default: 0
+      default: null
     },
 
     exhibitorsCount: {
       type: Number,
       min: 0,
-      default: 0
+      default: null
+    },
+
+    latitude: {
+      type: Number,
+      default: null
+    },
+
+    longitude: {
+      type: Number,
+      default: null
     },
 
     aiRelevanceScore: {
@@ -173,6 +179,42 @@ const eventSchema = new mongoose.Schema(
       maxlength: 1000
     },
 
+    featureTokens: [
+      {
+        type: String,
+        trim: true,
+        lowercase: true,
+      }
+    ],
+
+    ruleEngineScore: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null
+    },
+
+    tokenSimilarityScore: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null
+    },
+
+    blendedAiScore: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null
+    },
+
+    engagementLabel: {
+      type: String,
+      enum: ["positive", "negative", "neutral"],
+      default: "neutral",
+      index: true
+    },
+
     source: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "sources",
@@ -184,6 +226,115 @@ const eventSchema = new mongoose.Schema(
       trim: true,
       maxlength: 100
       // Example: "10-20%", "High", "Low"
+    },
+
+    predictedROI: {
+      type: Number,
+      default: null
+    },
+
+    roiPredictionConfidence: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0
+    },
+
+    recommendedParticipationRole: {
+      type: String,
+      trim: true,
+      maxlength: 20,
+      default: ""
+    },
+
+    roiDecisionSummary: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: ""
+    },
+
+    roiRoleComparison: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+
+    roiModelSource: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: ""
+    },
+
+    roiHistorySampleSize: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+
+    roiHistoryMean: {
+      type: Number,
+      default: null
+    },
+
+    realizedRevenue: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+
+    realizedCost: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+
+    realizedROI: {
+      type: Number,
+      default: null
+    },
+
+    realizedCollectedLeads: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+
+    realizedQualifiedLeads: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+
+    realizedDealsClosed: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+
+    realizedNotes: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+      default: ""
+    },
+
+    missedReason: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+      default: ""
+    },
+
+    missedAt: {
+      type: Date,
+      default: null
+    },
+
+    missedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      default: null
     },
 
     priorityTag: {
@@ -203,6 +354,27 @@ const eventSchema = new mongoose.Schema(
     websiteUrl: {
       type: String,
       trim: true
+    },
+
+    normalizedWebsiteUrl: {
+      type: String,
+      trim: true,
+      index: true,
+      default: ""
+    },
+
+    externalIdentityKey: {
+      type: String,
+      trim: true,
+      index: true,
+      default: ""
+    },
+
+    dedupeSignature: {
+      type: String,
+      trim: true,
+      index: true,
+      default: ""
     },
 
     description: {

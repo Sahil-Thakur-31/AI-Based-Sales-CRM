@@ -62,6 +62,18 @@ const organizationSchema = new mongoose.Schema(
       trim: true,
       default: ""
     },
+    latitude: {
+      type: Number,
+      default: null
+    },
+    longitude: {
+      type: Number,
+      default: null
+    },
+    locationResolvedAt: {
+      type: Date,
+      default: null
+    },
     panNumber: {
       type: String,
       trim: true,
