@@ -28,6 +28,19 @@ function isEventExpoLikeSource(sourceName) {
   );
 }
 
+function normalizeContactValues(value) {
+  const rawValues = Array.isArray(value)
+    ? value.flatMap((item) => String(item || "").split(/\s*(?:\||,|;|\n)\s*/))
+    : String(value || "").split(/\s*(?:\||,|;|\n)\s*/);
+
+  return rawValues
+    .map((item) => String(item || "").trim())
+    .filter((item) => {
+      const normalized = item.toLowerCase();
+      return normalized && normalized !== "unreadable" && normalized !== "undefined" && normalized !== "null";
+    });
+}
+
 async function applySourceDependentValidation(payload, sourceDoc) {
   if (!sourceDoc?._id) {
     payload.referred_by_user = null;
@@ -311,8 +324,8 @@ exports.createClient = async (req, res) => {
       .map((contact) => ({
         name: String(contact?.name || "").trim(),
         designation: String(contact?.designation || "").trim(),
-        phone: normalizePhone(contact?.phone) || "",
-        email: String(contact?.email || "").trim(),
+        phone: normalizeContactValues(contact?.phone).map((item) => normalizePhone(item)).filter(Boolean).join(", "),
+        email: normalizeContactValues(contact?.email).join(", "),
         linkedin: String(contact?.linkedin || "").trim(),
         is_active: contact?.is_active !== false,
         is_primary: contact?.is_primary === true || contact?.is_primary === "true"
@@ -453,8 +466,8 @@ exports.updateClient = async (req, res) => {
         .map((contact) => ({
           name: String(contact?.name || "").trim(),
           designation: String(contact?.designation || "").trim(),
-          phone: normalizePhone(contact?.phone) || "",
-          email: String(contact?.email || "").trim(),
+          phone: normalizeContactValues(contact?.phone).map((item) => normalizePhone(item)).filter(Boolean).join(", "),
+          email: normalizeContactValues(contact?.email).join(", "),
           linkedin: String(contact?.linkedin || "").trim(),
           is_active: contact?.is_active !== false,
           is_primary: contact?.is_primary === true || contact?.is_primary === "true"

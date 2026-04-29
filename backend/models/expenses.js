@@ -32,6 +32,13 @@ const receiptSchema = new mongoose.Schema(
       gst: {
         type: Number,
         min: 0
+      },
+
+      currency: {
+        type: String,
+        trim: true,
+        uppercase: true,
+        maxlength: 8
       }
     }
   },
@@ -104,12 +111,22 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       enum: [
         "travel",
+        "food",
+        "hotel",
+        "stationery",
         "client_meeting",
         "other",
         "marketing",
         "event"
       ],
       required: true,
+      index: true
+    },
+
+    vendorName: {
+      type: String,
+      trim: true,
+      maxlength: 200,
       index: true
     },
 
