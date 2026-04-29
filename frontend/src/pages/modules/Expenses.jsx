@@ -22,28 +22,20 @@ const normalizeExpenseCategory = (value) => {
   return "other";
 };
 
-const isStandardExpenseCategory = (value) =>
-  ["travel", "food", "hotel", "stationery"].includes(String(value || "").trim().toLowerCase());
-
 const getOcrCustomCategory = (fields = {}, meta = {}) => {
   const suggestedCategory = normalizeExpenseCategory(
-    fields.suggestedExpenseCategory || meta?.suggestedExpenseCategory || fields.predictedCategory || meta?.predictedCategory
+    fields.suggestedExpenseCategory || fields.predictedCategory || meta?.predictedCategory
   );
   if (suggestedCategory !== "other") {
     return "";
   }
 
-  const customCategory = String(
-    fields.customCategoryLabel || meta?.customCategoryLabel || fields.predictedCategory || meta?.predictedCategory || ""
-  ).trim();
-  const customCategoryConfidence = Number(
-    fields.customCategoryConfidence || meta?.customCategoryConfidence || 0
-  );
-  if (!customCategory || customCategory.toLowerCase() === "other" || customCategoryConfidence < 100) {
+  const predictedCategory = String(fields.predictedCategory || meta?.predictedCategory || "").trim();
+  if (!predictedCategory || predictedCategory.toLowerCase() === "other") {
     return "";
   }
 
-  return customCategory
+  return predictedCategory
     .replace(/[_-]+/g, " ")
     .replace(/\b([a-z])/g, (match) => match.toUpperCase())
     .trim();
@@ -52,12 +44,11 @@ const getOcrCustomCategory = (fields = {}, meta = {}) => {
 const inferCategoryFromOcrText = (fields = {}, meta = {}) => {
   const explicitCategory =
     fields.suggestedExpenseCategory ||
-    meta?.suggestedExpenseCategory ||
     fields.predictedCategory ||
+    meta?.suggestedExpenseCategory ||
     meta?.predictedCategory;
   if (explicitCategory) {
-    const normalizedExplicit = normalizeExpenseCategory(explicitCategory);
-    return isStandardExpenseCategory(normalizedExplicit) ? normalizedExplicit : "other";
+    return normalizeExpenseCategory(explicitCategory);
   }
 
   const text = [
@@ -92,20 +83,6 @@ const inferCategoryFromOcrText = (fields = {}, meta = {}) => {
   }
 
   return "other";
-};
-
-const getConfidenceTone = (score) => {
-  const normalizedScore = Number(score) || 0;
-  if (normalizedScore >= 85) return "high";
-  if (normalizedScore >= 65) return "medium";
-  return "low";
-};
-
-const getConfidenceLabel = (score) => {
-  const tone = getConfidenceTone(score);
-  if (tone === "high") return "High Confidence";
-  if (tone === "medium") return "Needs Review";
-  return "Low Confidence";
 };
 
 const ExpenseDashboard = () => {
@@ -156,7 +133,7 @@ const ExpenseDashboard = () => {
     category: "travel",
     otherCategory: "",
     vendorName: "",
-    referenceType: "",
+    referenceType: "Lead",
     date: "",
     total: "",
     description: "",
@@ -165,20 +142,38 @@ const ExpenseDashboard = () => {
   const roleName = String(currentUser?.role?.name || localStorage.getItem("RoleName") || "").toLowerCase();
   const isAdmin = roleName === "admin";
 
-  const dynamicCategories = React.useMemo(() => ([
-    { label: "Travel", value: "travel" },
-    { label: "Food", value: "food" },
-    { label: "Hotel", value: "hotel" },
-    { label: "Stationery", value: "stationery" },
-    { label: "Other Expense", value: "other" },
-  ]), []);
+  const dynamicCategories = React.useMemo(() => {
+    const baseCategories = [
+      { label: "Travel", value: "travel" },
+      { label: "Food", value: "food" },
+      { label: "Hotel", value: "hotel" },
+      { label: "Stationery", value: "stationery" },
+      { label: "Other Expense", value: "other" },
+    ];
+
+    const predictedCategory = String(
+      appliedReceiptOcrData?.fields?.predictedCategory || ocrResultMeta?.predictedCategory || ""
+    ).trim();
+    const normalizedValue = predictedCategory.toLowerCase();
+    const knownCategoryValues = baseCategories.map((item) => item.value);
+
+    if (normalizedValue && !knownCategoryValues.includes(normalizedValue)) {
+      const predictedLabel = predictedCategory
+        .replace(/[_-]+/g, " ")
+        .replace(/\b([a-z])/g, (match) => match.toUpperCase())
+        .trim();
+      baseCategories.push({ label: `${predictedLabel} (Suggested)`, value: "other" });
+    }
+
+    return baseCategories;
+  }, [appliedReceiptOcrData, ocrResultMeta]);
 
   const resetForm = () => {
     setFormData({
       category: "travel",
       otherCategory: "",
       vendorName: "",
-      referenceType: "",
+      referenceType: "Lead",
       date: "",
       total: "",
       description: "",
@@ -441,7 +436,7 @@ const ExpenseDashboard = () => {
       return;
     }
 
-    if (!formData.total || !formData.date || !formData.referenceType) {
+    if (!formData.total || !formData.date) {
       setLogFormError("Fill required fields");
       return;
     }
@@ -618,18 +613,6 @@ const ExpenseDashboard = () => {
       contrast: 100,
       cropRect: null,
     };
-  const ocrReviewItems = [...(ocrResultMeta?.warnings || []), ...(ocrResultMeta?.validation || [])];
-  const selectedOcrModeLabel = selectedOcrReceipt
-    ? (selectedOcrReceipt.isPdf ? "PDF document" : "Image receipt")
-    : "No file selected";
-  const selectedCropStatus = selectedOcrReceipt?.isPdf
-    ? "Not available for PDF"
-    : selectedOcrAdjustment.cropRect
-      ? "Crop applied"
-      : "Full page scan";
-  const appliedOcrConfidence = appliedReceiptOcrData?.overallConfidence || 0;
-  const appliedOcrConfidenceTone = getConfidenceTone(appliedOcrConfidence);
-  const appliedOcrConfidenceLabel = getConfidenceLabel(appliedOcrConfidence);
 
   const updateOcrAdjustment = (id, key, value) => {
     setOcrImageAdjustments((prev) => ({
@@ -695,10 +678,8 @@ const ExpenseDashboard = () => {
 
   const startCropSelection = (event) => {
     if (!selectedOcrReceipt || selectedOcrReceipt.isPdf) return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
     const pointer = getCropPointer(event);
     if (!pointer) return;
-    event.preventDefault();
 
     const currentCrop = normalizeCropRect(selectedOcrAdjustment.cropRect);
     const mode = isPointInsideCrop(pointer, currentCrop) ? "move" : "draw";
@@ -714,7 +695,6 @@ const ExpenseDashboard = () => {
 
     setOcrCropInteraction({
       mode,
-      pointerId: event.pointerId,
       startPoint: pointer,
       startRect: currentCrop,
       offset: currentCrop
@@ -724,28 +704,12 @@ const ExpenseDashboard = () => {
           }
         : null,
     });
-
-    if (ocrPreviewStageRef.current?.setPointerCapture && event.pointerId !== undefined) {
-      try {
-        ocrPreviewStageRef.current.setPointerCapture(event.pointerId);
-      } catch (error) {
-        // Ignore capture errors and keep the crop interaction usable.
-      }
-    }
   };
 
   const updateCropSelection = (event) => {
     if (!ocrCropInteraction || !selectedOcrReceipt || selectedOcrReceipt.isPdf) return;
-    if (
-      ocrCropInteraction.pointerId !== undefined &&
-      event.pointerId !== undefined &&
-      ocrCropInteraction.pointerId !== event.pointerId
-    ) {
-      return;
-    }
     const pointer = getCropPointer(event);
     if (!pointer) return;
-    event.preventDefault();
 
     if (ocrCropInteraction.mode === "draw") {
       updateOcrAdjustment(
@@ -778,28 +742,11 @@ const ExpenseDashboard = () => {
     }
   };
 
-  const endCropSelection = (event) => {
-    if (
-      ocrCropInteraction?.pointerId !== undefined &&
-      event?.pointerId !== undefined &&
-      ocrCropInteraction.pointerId !== event.pointerId
-    ) {
-      return;
-    }
-
+  const endCropSelection = () => {
     if (!selectedOcrReceipt) {
       setOcrCropInteraction(null);
       return;
     }
-
-    if (ocrPreviewStageRef.current?.releasePointerCapture && event?.pointerId !== undefined) {
-      try {
-        ocrPreviewStageRef.current.releasePointerCapture(event.pointerId);
-      } catch (error) {
-        // Ignore release errors and finish the interaction cleanly.
-      }
-    }
-
     const finalCrop = normalizeCropRect(getOcrAdjustment(selectedOcrReceipt.id).cropRect);
     if (finalCrop && (finalCrop.width < 3 || finalCrop.height < 3)) {
       updateOcrAdjustment(selectedOcrReceipt.id, "cropRect", null);
@@ -859,7 +806,7 @@ const ExpenseDashboard = () => {
     });
   };
 
-  const applyOcrToExpenseForm = (fields, meta, processedReceipt = null) => {
+  const applyOcrToExpenseForm = (fields, meta) => {
     const suggestedCategory = inferCategoryFromOcrText(fields, meta);
     const customCategory = getOcrCustomCategory(fields, meta);
     const vendorName = String(fields.vendorName || "").trim();
@@ -872,7 +819,7 @@ const ExpenseDashboard = () => {
       descriptionParts.push(String(fields.description || "").trim());
     }
 
-    setReceiptFiles(processedReceipt?.file ? [processedReceipt.file] : []);
+    setReceiptFiles(ocrReceipts.map((item) => item.file));
     setAppliedReceiptOcrData({
       fields: {
         vendorName,
@@ -885,8 +832,6 @@ const ExpenseDashboard = () => {
         currencyCode: fields.currencyCode || meta?.currencyCode || "INR",
         predictedCategory: fields.predictedCategory || meta?.predictedCategory || "",
         suggestedExpenseCategory: fields.suggestedExpenseCategory || meta?.suggestedExpenseCategory || "",
-        customCategoryLabel: fields.customCategoryLabel || meta?.customCategoryLabel || "",
-        customCategoryConfidence: Number(fields.customCategoryConfidence || meta?.customCategoryConfidence || 0),
         rawText: fields.rawText || meta?.rawText || "",
       },
       overallConfidence: meta?.overallConfidence || 0,
@@ -943,15 +888,11 @@ const ExpenseDashboard = () => {
           data?.fields?.predictedCategory || data?.predictedCategory || data?.metadata?.predictedCategory || "",
         suggestedExpenseCategory:
           data?.fields?.suggestedExpenseCategory || data?.suggestedExpenseCategory || data?.metadata?.suggestedExpenseCategory || "",
-        customCategoryLabel:
-          data?.fields?.customCategoryLabel || data?.metadata?.customCategoryLabel || "",
-        customCategoryConfidence:
-          Number(data?.fields?.customCategoryConfidence || data?.metadata?.customCategoryConfidence || 0),
         currencyCode: data?.fields?.currencyCode || data?.metadata?.currencyCode || "INR",
         rawText: data?.rawText || "",
       };
       setOcrResultMeta(nextMeta);
-      applyOcrToExpenseForm(fields, nextMeta, selectedOcrReceipt);
+      applyOcrToExpenseForm(fields, nextMeta);
     } catch (error) {
       setOcrResultMeta(null);
       setOcrFormError(error.response?.data?.message || "Failed to process receipt OCR.");
@@ -1000,6 +941,7 @@ const ExpenseDashboard = () => {
   const formReceiptPreviewIsPdf =
     receiptFiles[0]?.type === "application/pdf" ||
     /\.pdf(?:$|\?)/i.test(formReceiptPreviewSource);
+
   return (
     <div className="expense-dashboard">
       <div className="expense-cards">
@@ -1262,100 +1204,58 @@ const ExpenseDashboard = () => {
             <div className="expense-modal expense-large-modal">
               <div className="expense-modal-header">
                 <h3>OCR Expense Import</h3>
-                <button type="button" className="expense-close-btn" onClick={closeOcrModal} aria-label="Close OCR import">
+                <span className="expense-close-btn" onClick={closeOcrModal}>
                   x
-                </button>
+                </span>
               </div>
 
               <div className="expense-ocr-workspace">
                 <div className="expense-ocr-sidebar">
-                  <section className="expense-ocr-sidebar-section">
-                    <div className="expense-ocr-section-heading">
-                      <span className="expense-ocr-section-kicker">Receipt Intake</span>
-                      <h4>Upload source files</h4>
-                      <p>Add one or more receipts, then choose the document you want to review.</p>
-                    </div>
+                  <label className="expense-upload-box expense-ocr-dropzone">
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      multiple
+                      onChange={handleOcrReceiptSelect}
+                    />
+                    <p>Drop file or click to upload</p>
+                    <span>Supports: JPG, PNG, PDF</span>
+                  </label>
 
-                    <label className="expense-upload-box expense-ocr-dropzone">
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        multiple
-                        onChange={handleOcrReceiptSelect}
-                      />
-                      <p>Drop file or click to upload</p>
-                      <span>Supports: JPG, PNG, PDF</span>
-                    </label>
-                  </section>
-
-                  <section className="expense-ocr-sidebar-section">
-                    <div className="expense-ocr-panel-heading">
-                      <div>
-                        <h4>Queued receipts</h4>
-                        <p>{ocrReceipts.length === 0 ? "Nothing uploaded yet" : `${ocrReceipts.length} file(s) ready for review`}</p>
-                      </div>
-                    </div>
-
-                    <div className="expense-ocr-filelist">
-                      {ocrReceipts.length === 0 ? (
-                        <div className="expense-ocr-empty">No receipt selected yet.</div>
-                      ) : (
-                        ocrReceipts.map((item, index) => (
-                          <div
-                            key={item.id}
-                            className={
-                              item.id === ocrSelectedId
-                                ? "expense-selected-receipt-item expense-selected-receipt-item-active"
-                                : "expense-selected-receipt-item"
-                            }
-                            onClick={() => setOcrSelectedId(item.id)}
+                  <div className="expense-ocr-filelist">
+                    {ocrReceipts.length === 0 ? (
+                      <div className="expense-ocr-empty">No receipt selected yet.</div>
+                    ) : (
+                      ocrReceipts.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className={
+                            item.id === ocrSelectedId
+                              ? "expense-selected-receipt-item expense-selected-receipt-item-active"
+                              : "expense-selected-receipt-item"
+                          }
+                          onClick={() => setOcrSelectedId(item.id)}
+                        >
+                          <span title={item.name}>
+                            {index + 1}. {item.name}
+                          </span>
+                          <button
+                            type="button"
+                            className="expense-remove-receipt-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleRemoveOcrReceipt(item.id);
+                            }}
                           >
-                            <div className="expense-selected-receipt-copy">
-                              <small>{item.isPdf ? "PDF" : "Image"}</small>
-                              <span title={item.name}>
-                                {index + 1}. {item.name}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              className="expense-remove-receipt-btn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleRemoveOcrReceipt(item.id);
-                              }}
-                            >
-                              x
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="expense-ocr-sidebar-section expense-ocr-summary-strip">
-                    <div className="expense-ocr-mini-stat">
-                      <span>Active file</span>
-                      <strong>{selectedOcrReceipt ? "Ready" : "Waiting"}</strong>
-                    </div>
-                    <div className="expense-ocr-mini-stat">
-                      <span>Scan mode</span>
-                      <strong>{selectedOcrReceipt ? (selectedOcrReceipt.isPdf ? "PDF" : "Image") : "--"}</strong>
-                    </div>
-                    <div className="expense-ocr-mini-stat">
-                      <span>Crop</span>
-                      <strong>{selectedOcrReceipt?.isPdf ? "Locked" : selectedOcrAdjustment.cropRect ? "Applied" : "None"}</strong>
-                    </div>
-                  </section>
+                            x
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
 
                   {!selectedOcrReceipt?.isPdf && selectedOcrReceipt && (
-                    <section className="expense-ocr-sidebar-section expense-ocr-toolbar">
-                      <div className="expense-ocr-panel-heading">
-                        <div>
-                          <h4>Image adjustments</h4>
-                          <p>Prepare the image before extraction.</p>
-                        </div>
-                      </div>
-
+                    <div className="expense-ocr-toolbar">
                       <div className="expense-ocr-actions-row">
                         <button
                           type="button"
@@ -1394,8 +1294,7 @@ const ExpenseDashboard = () => {
 
                       <div className="expense-ocr-slider-grid">
                         <label>
-                          <span>Brightness</span>
-                          <strong>{selectedOcrAdjustment.brightness}%</strong>
+                          Brightness
                           <input
                             type="range"
                             min="80"
@@ -1412,8 +1311,7 @@ const ExpenseDashboard = () => {
                           />
                         </label>
                         <label>
-                          <span>Contrast</span>
-                          <strong>{selectedOcrAdjustment.contrast}%</strong>
+                          Contrast
                           <input
                             type="range"
                             min="80"
@@ -1434,30 +1332,17 @@ const ExpenseDashboard = () => {
                       <div className="expense-ocr-note">
                         <div className="expense-ocr-note-title">📐 Image Cropping Instructions:</div>
                         <ul className="expense-ocr-note-steps">
-                          <li><strong>Draw:</strong> Click and drag across the receipt text area.</li>
-                          <li><strong>Move:</strong> Drag inside the blue crop box to reposition it.</li>
-                          <li><strong>Clear:</strong> Use the footer action to remove the crop.</li>
-                          <li><strong>Purpose:</strong> Tight crops usually improve OCR accuracy.</li>
+                          <li><strong>Draw Crop:</strong> Click and drag on the image to select the area containing the receipt text</li>
+                          <li><strong>Move Crop:</strong> Drag inside the blue crop box to reposition it</li>
+                          <li><strong>Clear Crop:</strong> Use the "Clear Crop" button to reset selection</li>
+                          <li><strong>Why Crop?</strong> Focus OCR on relevant text areas for better accuracy</li>
                         </ul>
                       </div>
-                    </section>
+                    </div>
                   )}
                 </div>
 
                 <div className="expense-ocr-preview-panel">
-                  <div className="expense-ocr-preview-header">
-                    <div className="expense-ocr-preview-title">
-                      <span className="expense-ocr-section-kicker">Document Review</span>
-                      <h4>{selectedOcrReceipt ? selectedOcrReceipt.name : "Receipt preview"}</h4>
-                      <p>{selectedOcrModeLabel}. {selectedCropStatus}.</p>
-                    </div>
-                    <div className="expense-ocr-preview-badges">
-                      <span>{ocrReceipts.length} queued</span>
-                      <span>{selectedOcrReceipt ? (selectedOcrReceipt.isPdf ? "PDF" : "Image") : "No file"}</span>
-                      <span>{selectedCropStatus}</span>
-                    </div>
-                  </div>
-
                   <div className="expense-ocr-preview-box">
                     {!selectedOcrReceipt ? (
                       <div className="expense-ocr-preview-empty">
@@ -1473,10 +1358,10 @@ const ExpenseDashboard = () => {
                       <div
                         ref={ocrPreviewStageRef}
                         className="expense-ocr-preview-stage"
-                        onPointerDown={startCropSelection}
-                        onPointerMove={updateCropSelection}
-                        onPointerUp={endCropSelection}
-                        onPointerCancel={endCropSelection}
+                        onMouseDown={startCropSelection}
+                        onMouseMove={updateCropSelection}
+                        onMouseUp={endCropSelection}
+                        onMouseLeave={endCropSelection}
                       >
                         <img
                           src={ocrPreviewUrl}
@@ -1507,23 +1392,31 @@ const ExpenseDashboard = () => {
                     <div className="expense-ocr-result-summary">
                       <div className="expense-ocr-confidence-header">
                         <div className="expense-ocr-confidence-score">
-                          <span>OCR confidence</span>
-                          <strong>{ocrResultMeta.overallConfidence || 0}%</strong>
+                          <strong>OCR Confidence: {ocrResultMeta.overallConfidence}%</strong>
+                          <div className={`expense-ocr-confidence-indicator ${
+                            ocrResultMeta.overallConfidence >= 80 ? 'high' :
+                            ocrResultMeta.overallConfidence >= 60 ? 'medium' : 'low'
+                          }`}>
+                            {ocrResultMeta.overallConfidence >= 80 ? 'High' :
+                             ocrResultMeta.overallConfidence >= 60 ? 'Medium' : 'Low'}
+                          </div>
                         </div>
-                        <span className={`expense-ocr-confidence-indicator ${getConfidenceTone(ocrResultMeta.overallConfidence)}`}>
-                          {getConfidenceLabel(ocrResultMeta.overallConfidence)}
-                        </span>
+                        {ocrResultMeta.overallConfidence < 70 && (
+                          <div className="expense-ocr-confidence-warning">
+                            ⚠️ Low confidence detected. Please review and verify the extracted data carefully.
+                          </div>
+                        )}
                       </div>
                       {ocrResultMeta.predictedCategory && (
                         <div className="expense-ocr-category-info">
                           <span>AI Suggested Category: <strong>{ocrResultMeta.predictedCategory}</strong></span>
                         </div>
                       )}
-                      {ocrReviewItems.length > 0 && (
+                      {(ocrResultMeta.warnings?.length > 0 || ocrResultMeta.validation?.length > 0) && (
                         <div className="expense-ocr-warnings">
                           <div className="expense-ocr-warnings-title">⚠️ Issues to Review:</div>
                           <ul className="expense-ocr-warnings-list">
-                            {ocrReviewItems.map((warning, index) => (
+                            {[...(ocrResultMeta.warnings || []), ...(ocrResultMeta.validation || [])].map((warning, index) => (
                               <li key={index}>{warning}</li>
                             ))}
                           </ul>
@@ -1567,18 +1460,16 @@ const ExpenseDashboard = () => {
             <div className="expense-modal expense-log-modal">
               <div className="expense-modal-header">
                 <h3>{editingExpense ? "Edit Expense" : "Log Expense"}</h3>
-                <button
-                  type="button"
+                <span
                   className="expense-close-btn"
                   onClick={() => {
                     setShowLogModal(false);
                     resetForm();
                     setLogFormError("");
                   }}
-                  aria-label="Close expense form"
                 >
                   x
-                </button>
+                </span>
               </div>
 
               <div className="expense-log-content">
@@ -1630,13 +1521,9 @@ const ExpenseDashboard = () => {
                         name="referenceType"
                         value={formData.referenceType}
                         onChange={handleChange}
-                        className={!formData.referenceType ? "expense-select-placeholder" : ""}
                       >
-                        <option value="" disabled>
-                          Select expense type
-                        </option>
-                        <option value="Lead">Lead Expense</option>
-                        <option value="Deal">Deal Expense</option>
+                        <option value="Lead">Lead Time</option>
+                        <option value="Deal">Deal Time</option>
                       </select>
                     </div>
 
@@ -1701,23 +1588,6 @@ const ExpenseDashboard = () => {
                     <span>Receipt Preview</span>
                     {formReceiptPreviewName && <strong title={formReceiptPreviewName}>{formReceiptPreviewName}</strong>}
                   </div>
-
-                  {appliedReceiptOcrData && (
-                    <div className="expense-receipt-confidence-card">
-                      <div className="expense-receipt-confidence-row">
-                        <span>OCR confidence</span>
-                        <strong>{appliedOcrConfidence}%</strong>
-                      </div>
-                      <div className={`expense-receipt-confidence-pill ${appliedOcrConfidenceTone}`}>
-                        {appliedOcrConfidenceLabel}
-                      </div>
-                      {appliedReceiptOcrData.fields?.predictedCategory && (
-                        <div className="expense-receipt-ai-meta">
-                          Suggested category: <strong>{appliedReceiptOcrData.fields.predictedCategory}</strong>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   <div className="expense-receipt-preview-box">
                     {!formReceiptPreviewSource ? (
