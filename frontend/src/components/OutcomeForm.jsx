@@ -1,7 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./OutcomeForm.css";
 
-const OutcomeForm = ({ isOpen, onSubmit, onCancel }) => {
+const toOptionalNonNegativeNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+};
+
+const OutcomeForm = ({ isOpen, onSubmit, onCancel, allowEmptySubmit = false }) => {
   const [formData, setFormData] = useState({
     collectedLeads: "",
     qualifiedLeads: "",
@@ -10,9 +17,17 @@ const OutcomeForm = ({ isOpen, onSubmit, onCancel }) => {
     investmentCost: "",
     notes: "",
   });
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSubmitError("");
+    }
+  }, [isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setSubmitError("");
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -20,26 +35,29 @@ const OutcomeForm = ({ isOpen, onSubmit, onCancel }) => {
   };
 
   const handleSubmit = () => {
-    // Convert to numbers or null
     const payload = {};
-    
-    const collectedLeads = Number(formData.collectedLeads || 0);
-    const qualifiedLeads = Number(formData.qualifiedLeads || 0);
-    const dealsClosed = Number(formData.dealsClosed || 0);
-    const generatedRevenue = Number(formData.generatedRevenue || 0);
-    const investmentCost = Number(formData.investmentCost || 0);
+
+    const collectedLeads = toOptionalNonNegativeNumber(formData.collectedLeads);
+    const qualifiedLeads = toOptionalNonNegativeNumber(formData.qualifiedLeads);
+    const dealsClosed = toOptionalNonNegativeNumber(formData.dealsClosed);
+    const generatedRevenue = toOptionalNonNegativeNumber(formData.generatedRevenue);
+    const investmentCost = toOptionalNonNegativeNumber(formData.investmentCost);
     const notes = String(formData.notes || "").trim();
 
-    if (collectedLeads > 0) payload.collectedLeads = collectedLeads;
-    if (qualifiedLeads > 0) payload.qualifiedLeads = qualifiedLeads;
-    if (dealsClosed > 0) payload.dealsClosed = dealsClosed;
-    if (generatedRevenue > 0) payload.generatedRevenue = generatedRevenue;
-    if (investmentCost > 0) payload.investmentCost = investmentCost;
+    if (collectedLeads !== null) payload.collectedLeads = collectedLeads;
+    if (qualifiedLeads !== null) payload.qualifiedLeads = qualifiedLeads;
+    if (dealsClosed !== null) payload.dealsClosed = dealsClosed;
+    if (generatedRevenue !== null) payload.generatedRevenue = generatedRevenue;
+    if (investmentCost !== null) payload.investmentCost = investmentCost;
     if (notes) payload.notes = notes;
+
+    if (!allowEmptySubmit && !Object.keys(payload).length) {
+      setSubmitError("Add at least one outcome field before saving.");
+      return;
+    }
 
     onSubmit(payload);
 
-    // Reset form
     setFormData({
       collectedLeads: "",
       qualifiedLeads: "",
@@ -48,6 +66,7 @@ const OutcomeForm = ({ isOpen, onSubmit, onCancel }) => {
       investmentCost: "",
       notes: "",
     });
+    setSubmitError("");
   };
 
   const handleCancel = () => {
@@ -59,6 +78,7 @@ const OutcomeForm = ({ isOpen, onSubmit, onCancel }) => {
       investmentCost: "",
       notes: "",
     });
+    setSubmitError("");
     onCancel();
   };
 
@@ -73,6 +93,9 @@ const OutcomeForm = ({ isOpen, onSubmit, onCancel }) => {
         </div>
 
         <div className="outcome-form-body">
+          {submitError && (
+            <div className="outcome-form-error">{submitError}</div>
+          )}
           <div className="form-group">
             <label htmlFor="collectedLeads">Collected Leads</label>
             <input
