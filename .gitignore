@@ -11,6 +11,7 @@ frontend/.env
 # Logs
 *.log
 logs/
+backend/sync_debug.json
 
 # Build output
 build/
@@ -23,6 +24,13 @@ dist/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# OCR / local test artifacts
+testimages/
+backend/__pycache__/
+backend/ocr/runtime/__pycache__/
+backend/ocr/runtime/.venv/
+backend/uploads/ocr/
 
 frontend\src\App.jsx
 backend/package-lock.json

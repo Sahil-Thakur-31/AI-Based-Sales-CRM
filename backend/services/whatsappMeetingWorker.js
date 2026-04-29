@@ -13,7 +13,11 @@ async function getRecipientPhone(meeting) {
             const contacts = await LeadContacts.find({ lead_id: meeting.leadId }).lean();
             if (contacts?.length) {
                 const primary = contacts.find(c => c.is_primary) || contacts[0];
-                return { phone: primary.phone, name: primary.name };
+                let phoneStr = Array.isArray(primary.phone) ? primary.phone[0] : primary.phone;
+                if (typeof phoneStr === 'string' && phoneStr.includes(',')) {
+                    phoneStr = phoneStr.split(',')[0].trim();
+                }
+                return { phone: phoneStr, name: primary.name };
             }
         } else if (meeting.clientId) {
             const contacts = await ClientContact.find({ client_id: meeting.clientId }).lean();
@@ -25,7 +29,11 @@ async function getRecipientPhone(meeting) {
                 if (!primary) {
                     primary = contacts.find(c => c.is_primary) || contacts[0];
                 }
-                return { phone: primary.phone, name: primary.name };
+                let phoneStr = Array.isArray(primary.phone) ? primary.phone[0] : primary.phone;
+                if (typeof phoneStr === 'string' && phoneStr.includes(',')) {
+                    phoneStr = phoneStr.split(',')[0].trim();
+                }
+                return { phone: phoneStr, name: primary.name };
             }
         }
     } catch (err) {

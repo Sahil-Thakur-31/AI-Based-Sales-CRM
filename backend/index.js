@@ -23,7 +23,7 @@ const followupsRoutes = require("./routes/followupsRoutes");
 const mongoose = require("mongoose");
 const Meeting = require("./models/meetings");
 const teamRoutes = require("./routes/teamRoutes");
-const ocrRoutes = require("./routes/ocr");
+const ocrRoutes = require("./ocr/routes");
 const eventsRoutes = require("./routes/eventsRoutes");
 const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
@@ -98,3 +98,5 @@ mongoose.connection.once("open", async () => {
 });
 
 myServer.listen(PORT, () => console.log('Server started on', PORT));
+// trigger reload for python backend (v11 - Clean Start)!!!!!!!!!!!
+
