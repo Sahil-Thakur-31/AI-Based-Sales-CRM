@@ -29,7 +29,6 @@ const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
 const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
-const { runSeedEvents } = require("./seed/seedEvents");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
 
@@ -82,9 +81,6 @@ app.use("/auth/google", googleAuthRoutes);
 
 
 let backgroundWorkersStarted = false;
-const AUTO_SEED_EVENTS_ON_START = String(
-  process.env.AUTO_SEED_EVENTS_ON_START || "false"
-).trim().toLowerCase() === "true";
 
 const startBackgroundWorkers = async () => {
   if (backgroundWorkersStarted) {
@@ -98,15 +94,6 @@ const startBackgroundWorkers = async () => {
   } catch (err) {
     if (!String(err?.message || "").toLowerCase().includes("already exists")) {
       console.error("Failed to ensure meetings collection:", err.message || err);
-    }
-  }
-
-  if (AUTO_SEED_EVENTS_ON_START) {
-    try {
-      const seedResult = await runSeedEvents({ connect: false, closeConnection: false, logger: console });
-      console.log(`Event seed ensured on startup (${seedResult.totalInserted} demo records refreshed)`);
-    } catch (seedError) {
-      console.error("Failed to auto-seed demo events on startup:", seedError?.message || seedError);
     }
   }
 

@@ -713,10 +713,22 @@ const EventExpo = () => {
       const missedForTab = explicitlyMissed || (registrationFlag && !markedAttending && isBeyondRegistrationGrace);
 
       let matchesTab = true;
-      if (viewTab === "upcoming") matchesTab = isPrepReadyUpcoming && !registrationFlag && !attendedForTab;
-      if (viewTab === "registered") matchesTab = registeredForTab;
-      if (viewTab === "attended") matchesTab = attendedForTab;
-      if (viewTab === "missed") matchesTab = missedForTab;
+      switch (viewTab) {
+        case "upcoming":
+          matchesTab = isPrepReadyUpcoming && !registrationFlag && !attendedForTab;
+          break;
+        case "registered":
+          matchesTab = registeredForTab;
+          break;
+        case "attended":
+          matchesTab = attendedForTab;
+          break;
+        case "missed":
+          matchesTab = missedForTab;
+          break;
+        default:
+          matchesTab = true;
+      }
 
       let matchesQuick = true;
       if (quickFilter === "this-month") {

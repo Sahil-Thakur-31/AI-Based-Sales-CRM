@@ -443,6 +443,15 @@ exports.getEvents = async (req, res) => {
     await softDeleteExpiredEvents();
 
     const filter = buildListFilter(req.query, req.user?._id);
+    const currentUserId = req.user?._id;
+    const ownEventFilter = {
+      $or: [
+        { "registrations.attendeeUsers": currentUserId },
+        { "registrations.user": currentUserId },
+        { registeredBy: currentUserId },
+        { attendedBy: currentUserId },
+      ],
+    };
     const mineOnly =
       req.query.mine_only === "true" ||
       req.query.mine_only === true ||
@@ -450,21 +459,33 @@ exports.getEvents = async (req, res) => {
       req.query.own_only === true;
 
     if (mineOnly) {
-      const ownFilter = {
-        $or: [
-          { "registrations.attendeeUsers": req.user?._id },
-          { registeredBy: req.user?._id },
-          { attendedBy: req.user?._id },
-        ],
-      };
       if (filter.$or) {
-        filter.$and = [{ $or: filter.$or }, ownFilter];
+        filter.$and = [
+          ...(Array.isArray(filter.$and) ? filter.$and : []),
+          { $or: filter.$or },
+          ownEventFilter,
+        ];
         delete filter.$or;
       } else {
-        Object.assign(filter, ownFilter);
+        filter.$and = [
+          ...(Array.isArray(filter.$and) ? filter.$and : []),
+          ownEventFilter,
+        ];
       }
     } else if (isRestrictedUser(req.user?.role)) {
-      filter["registrations.attendeeUsers"] = req.user?._id;
+      if (filter.$or) {
+        filter.$and = [
+          ...(Array.isArray(filter.$and) ? filter.$and : []),
+          { $or: filter.$or },
+          ownEventFilter,
+        ];
+        delete filter.$or;
+      } else {
+        filter.$and = [
+          ...(Array.isArray(filter.$and) ? filter.$and : []),
+          ownEventFilter,
+        ];
+      }
       const aiSources = await Source.find({
         is_deleted: false,
         name: { $regex: "ai", $options: "i" }
