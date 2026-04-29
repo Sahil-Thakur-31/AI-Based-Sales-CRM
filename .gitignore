@@ -24,6 +24,28 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Runtime uploads and local OCR artifacts
+backend/uploads/
+backend/ml/
+backend/.venv-expense-ocr312/
+backend/.paddlex-cache/
+backend/.tmp-py312/
+backend/scripts/__pycache__/
+backend/requirements-expense-ocr.txt
+backend/test_extract.js
+backend/test_ocr.js
+backend/sync_debug.json
+eng.traineddata
+Practice/__pycache__/
+Practice/expense_ocr_ml/__pycache__/
+Practice/expense_ocr_ml/_tmp/
+Practice/expense_ocr_ml/extraction_results.json
+Practice/expense_ocr_ml/extraction_results.csv
+Practice/expense_ocr_ml/fast_results.json
+Practice/expense_ocr_ml/img1_result.json
+backend/expense_ocr_ml/__pycache__/
+backend/expense_ocr_ml/_tmp/
+
 frontend\src\App.jsx
 backend/package-lock.json
 frontend/package-lock.json

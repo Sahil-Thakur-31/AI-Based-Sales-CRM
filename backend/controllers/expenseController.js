@@ -1,9 +1,162 @@
 const Expense = require("../models/expenses");
 const Notification = require("../models/notifications");
 const getNextCounter = require("../utils/getNextCounter");
+const { extractReceiptData } = require("../services/expenseReceiptOcr");
 require("../models/users");
 
 const isAdmin = (role) => String(role || "").toLowerCase() === "admin";
+const normalizeVendorKey = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const levenshteinDistance = (source, target) => {
+  const a = String(source || "");
+  const b = String(target || "");
+  if (!a) return b.length;
+  if (!b) return a.length;
+
+  const rows = Array.from({ length: a.length + 1 }, (_, index) => [index]);
+  for (let col = 0; col <= b.length; col += 1) {
+    rows[0][col] = col;
+  }
+
+  for (let row = 1; row <= a.length; row += 1) {
+    for (let col = 1; col <= b.length; col += 1) {
+      const cost = a[row - 1] === b[col - 1] ? 0 : 1;
+      rows[row][col] = Math.min(
+        rows[row - 1][col] + 1,
+        rows[row][col - 1] + 1,
+        rows[row - 1][col - 1] + cost
+      );
+    }
+  }
+
+  return rows[a.length][b.length];
+};
+
+const calculateVendorSimilarity = (left, right) => {
+  const a = normalizeVendorKey(left);
+  const b = normalizeVendorKey(right);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+
+  const distance = levenshteinDistance(a, b);
+  const baseSimilarity = 1 - distance / Math.max(a.length, b.length, 1);
+  const aTokens = a.split(" ").filter(Boolean);
+  const bTokens = b.split(" ").filter(Boolean);
+  const aSet = new Set(aTokens);
+  const bSet = new Set(bTokens);
+  const overlappingTokens = aTokens.filter((token) => bSet.has(token)).length;
+  const tokenScore = overlappingTokens / Math.max(Math.min(aSet.size, bSet.size), 1);
+
+  if (a.includes(b) || b.includes(a)) {
+    return Math.max(baseSimilarity, 0.9);
+  }
+
+  return Math.max(baseSimilarity, tokenScore * 0.92);
+};
+
+const findNearbyVendorMatch = async (vendorName) => {
+  const normalizedVendor = normalizeVendorKey(vendorName);
+  if (!normalizedVendor) {
+    return null;
+  }
+
+  const knownVendors = await Expense.distinct("vendorName", {
+    is_deleted: false,
+    vendorName: { $exists: true, $ne: null, $nin: ["", String(vendorName || "").trim()] },
+  });
+
+  let bestMatch = null;
+  for (const candidate of knownVendors) {
+    const normalizedCandidate = normalizeVendorKey(candidate);
+    if (!normalizedCandidate) continue;
+
+    const similarity = calculateVendorSimilarity(normalizedVendor, normalizedCandidate);
+    if (!bestMatch || similarity > bestMatch.similarity) {
+      bestMatch = {
+        value: String(candidate || "").trim(),
+        normalizedValue: normalizedCandidate,
+        similarity,
+      };
+    }
+  }
+
+  if (!bestMatch || bestMatch.similarity < 0.62) {
+    return null;
+  }
+
+  return {
+    suggestedVendor: bestMatch.value,
+    similarity: Math.round(bestMatch.similarity * 100),
+    autoCorrected: bestMatch.similarity >= 0.96,
+  };
+};
+
+const applyVendorValidation = async (extraction) => {
+  if (!extraction?.fields) {
+    return {
+      extraction,
+      vendorValidation: null,
+      validationNotes: [],
+    };
+  }
+
+  const currentVendor = String(extraction.fields.vendorName || "").trim();
+  if (!currentVendor) {
+    return {
+      extraction,
+      vendorValidation: null,
+      validationNotes: [],
+    };
+  }
+
+  const match = await findNearbyVendorMatch(currentVendor);
+  if (!match) {
+    return {
+      extraction,
+      vendorValidation: null,
+      validationNotes: [],
+    };
+  }
+
+  const normalizedCurrent = normalizeVendorKey(currentVendor);
+  const normalizedSuggested = normalizeVendorKey(match.suggestedVendor);
+  if (!normalizedCurrent || !normalizedSuggested || normalizedCurrent === normalizedSuggested) {
+    extraction.fields.vendorName = match.suggestedVendor;
+    return {
+      extraction,
+      vendorValidation: {
+        ...match,
+        matchType: "canonical",
+      },
+      validationNotes: [],
+    };
+  }
+
+  const validationNote =
+    match.autoCorrected
+      ? `Vendor matched with saved vendor "${match.suggestedVendor}" (${match.similarity}% similarity).`
+      : `Vendor OCR looks close to saved vendor "${match.suggestedVendor}" (${match.similarity}% similarity).`;
+
+  if (match.autoCorrected) {
+    extraction.fields.vendorName = match.suggestedVendor;
+  }
+
+  return {
+    extraction,
+    vendorValidation: {
+      ...match,
+      matchType: match.autoCorrected ? "auto_corrected" : "nearby_match",
+      originalVendor: currentVendor,
+    },
+    validationNotes: [validationNote],
+  };
+};
+
 const normalizeReceiptUrl = (value) => {
   if (!value) return "";
   if (/^https?:\/\//i.test(value)) return value;
@@ -57,6 +210,97 @@ const buildReceipts = (urls) =>
     fileUrl: url,
   }));
 
+const applyReceiptOcrMetadata = (receipt, ocrData) => {
+  if (!receipt || !ocrData) return receipt;
+
+  const fields = ocrData.fields || {};
+  return {
+    ...receipt,
+    ocrConfidence: Number.isFinite(Number(ocrData.overallConfidence))
+      ? Number(ocrData.overallConfidence)
+      : undefined,
+    extractedData: {
+      vendor: fields.vendorName || "",
+      date: fields.expenseDate || undefined,
+      amount: Number.isFinite(Number(fields.amount)) ? Number(fields.amount) : undefined,
+      gst: 0,
+      currency: fields.currencyCode || "INR",
+    },
+  };
+};
+
+const getFirstUploadedReceiptFile = (req) => {
+  if (!req?.files) return null;
+  if (Array.isArray(req.files)) return req.files[0] || null;
+  return (req.files.receipt || [])[0] || (req.files.receipts || [])[0] || null;
+};
+
+const parseJsonField = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+};
+
+const parseBooleanField = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return false;
+  return ["true", "1", "yes", "y", "on"].includes(normalized);
+};
+
+exports.extractExpenseReceipt = async (req, res) => {
+  try {
+    const receiptFile = getFirstUploadedReceiptFile(req);
+    if (!receiptFile) {
+      return res.status(400).json({ message: "Receipt file is required" });
+    }
+
+    const extraction = await extractReceiptData({
+      imagePath: receiptFile.path,
+      cropRect: parseJsonField(req.body.cropRect),
+      rotation: Number(req.body.rotation || 0),
+      brightness: Number(req.body.brightness || 100),
+      contrast: Number(req.body.contrast || 100),
+      disablePython: parseBooleanField(req.body.disablePython),
+      disableMl: parseBooleanField(req.body.disableMl),
+    });
+    const vendorCheck = await applyVendorValidation(extraction);
+
+    const validation = [];
+    if (!vendorCheck.extraction.fields.totalAmount) {
+      validation.push("Total amount was not extracted confidently.");
+    }
+    if (!vendorCheck.extraction.fields.expenseDate) {
+      validation.push("Receipt date is unclear.");
+    }
+    if (vendorCheck.extraction.fields.currencyCode && vendorCheck.extraction.fields.currencyCode !== "INR") {
+      validation.push(`Detected ${vendorCheck.extraction.fields.currencyCode} currency. Verify the amount before saving.`);
+    }
+    validation.push(...vendorCheck.validationNotes);
+
+    const extractionResponse = {
+      ...vendorCheck.extraction,
+    };
+    delete extractionResponse.fieldConfidence;
+
+    res.json({
+      message: "Receipt OCR completed",
+      ...extractionResponse,
+      validation,
+      vendorValidation: vendorCheck.vendorValidation,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message || "Receipt OCR failed",
+    });
+  }
+};
+
 exports.createExpense = async (req, res) => {
   try {
     const expenseNo = await getNextCounter("EXPENSE");
@@ -65,12 +309,18 @@ exports.createExpense = async (req, res) => {
     const existingReceiptPaths = parseExistingReceiptUrls(
       req.body.existingReceiptUrls || req.body.existingReceiptUrl
     );
+    const receiptOcrData = parseJsonField(req.body.receiptOcrData);
     const receiptPaths = [...new Set([...uploadedReceiptPaths, ...existingReceiptPaths])];
     const primaryReceipt = receiptPaths[0] || "dummy-url";
+    const receipts = buildReceipts(receiptPaths);
+    if (receipts[0]) {
+      receipts[0] = applyReceiptOcrMetadata(receipts[0], receiptOcrData);
+    }
 
     const payload = {
       expenseNo,
       category: req.body.category,
+      vendorName: req.body.vendorName || "",
       otherCategory: req.body.otherCategory || "",
       amount: Number(req.body.amount),
       gstAmount: Number(req.body.gstAmount || 0),
@@ -80,10 +330,10 @@ exports.createExpense = async (req, res) => {
       userId: admin && req.body.userId ? req.body.userId : req.user._id,
       referenceId: req.body.referenceId || req.user._id,
       referenceType: req.body.referenceType || "Lead",
-      receipt: {
+      receipt: applyReceiptOcrMetadata({
         fileUrl: primaryReceipt,
-      },
-      receipts: buildReceipts(receiptPaths),
+      }, receiptOcrData),
+      receipts,
       approval: { status: "pending" },
     };
 
@@ -263,8 +513,10 @@ exports.updateExpense = async (req, res) => {
     }
 
     const uploadedReceiptPaths = getUploadedReceiptPaths(req);
+    const receiptOcrData = parseJsonField(req.body.receiptOcrData);
 
     if ("category" in req.body) expense.category = req.body.category;
+    if ("vendorName" in req.body) expense.vendorName = req.body.vendorName;
     if ("otherCategory" in req.body) expense.otherCategory = req.body.otherCategory;
     if ("amount" in req.body) expense.amount = Number(req.body.amount);
     if ("gstAmount" in req.body) expense.gstAmount = Number(req.body.gstAmount);
@@ -295,10 +547,13 @@ exports.updateExpense = async (req, res) => {
       : currentReceiptPaths;
 
     expense.receipts = buildReceipts(nextReceiptPaths);
-    expense.receipt = {
+    if (expense.receipts[0]) {
+      expense.receipts[0] = applyReceiptOcrMetadata(expense.receipts[0], receiptOcrData);
+    }
+    expense.receipt = applyReceiptOcrMetadata({
       ...(expense.receipt || {}),
       fileUrl: nextReceiptPaths[0] || "dummy-url",
-    };
+    }, receiptOcrData);
 
     if (expense.category !== "other") {
       expense.otherCategory = "";
