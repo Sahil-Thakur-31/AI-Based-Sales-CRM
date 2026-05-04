@@ -9,6 +9,43 @@
   font-weight: 600;
 }
 
+.topBar {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.select,
+.forecast-range-select {
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid #d8deea;
+  color: #0f172a;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+  outline: none;
+}
+
+.select:focus,
+.forecast-range-select:focus {
+  border-color: rgba(109, 94, 252, 0.35);
+  box-shadow: 0 0 0 4px rgba(109, 94, 252, 0.12);
+}
+
 /* ================= KPI SECTION ================= */
 
 .kpi-grid {
@@ -19,6 +56,7 @@
 }
 
 .kpi-card {
+  position: relative;
   background: #ffffff;
   padding: 22px;
   border-radius: 12px;
@@ -35,6 +73,25 @@
 .kpi-card p {
   margin: 8px 0;
   color: #666;
+}
+
+.forecast-ai-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #111827, #1d4ed8);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .positive {
@@ -57,7 +114,7 @@
 
 .pipeline-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr); /* Always 5 columns on desktop */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 15px;
 }
 
@@ -93,6 +150,35 @@
   align-items: center;
   border-left: 3px solid #4f46e5;
   font-size: 14px;
+  gap: 10px;
+}
+
+.deal-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deal-card-main span {
+  font-weight: 600;
+}
+
+.deal-card-main small {
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.forecast-message {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.forecast-error {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 /* ================= RESPONSIVE ================= */
@@ -110,6 +196,21 @@
 
 /* Mobile */
 @media (max-width: 600px) {
+  .topBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topActions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .select,
+  .forecast-range-select {
+    width: 100%;
+  }
+
   .kpi-grid {
     grid-template-columns: 1fr;
   }

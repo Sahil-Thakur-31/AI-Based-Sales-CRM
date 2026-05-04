@@ -273,7 +273,7 @@ export default function AdminHome() {
   );
 
   const visibleRecentDeals = useMemo(
-    () => recentDeals.slice(0, 5),
+    () => recentDeals.slice(0, 4),
     [recentDeals]
   );
 
@@ -454,7 +454,6 @@ export default function AdminHome() {
                         Lead
                       </button>
                     </div>
-                    <AiBadge>AI Scored</AiBadge>
                   </div>
                   <span className="panel__meta">{range.toUpperCase()}</span>
                 </div>

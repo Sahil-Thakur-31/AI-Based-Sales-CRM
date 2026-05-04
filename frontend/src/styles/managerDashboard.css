@@ -138,6 +138,30 @@
   color: #1d4ed8;
 }
 
+.ManagerDashboard .follow-ai-priority {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ManagerDashboard .follow-ai-priority--high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ManagerDashboard .follow-ai-priority--medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ManagerDashboard .follow-ai-priority--low {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .ManagerDashboard .follow-status {
   display: inline-flex;
   align-items: center;

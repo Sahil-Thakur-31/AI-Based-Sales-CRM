@@ -161,6 +161,7 @@ function mapDocToMeeting(doc) {
     notes: doc.notes || "",
     durationMinutes: doc.durationMinutes || "",
     agenda: doc.agenda || doc.agenda_of_meating || "",
+    aiPriority: doc.aiPriority || "",
     stage: doc.stage || "",
     completedAt: doc.completedAt || null,
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
@@ -187,11 +188,16 @@ function mapDocToFollowup(doc) {
     actionType: doc.actionType || "Follow Up Phone Call",
     notes: doc.notes || "",
     agenda: doc.agenda || "",
+    aiPriority: doc.aiPriority || "",
     reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
     completedAt: doc.completedAt || null,
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
     assignedToName: doc.assignedTo?.name || "",
   };
+}
+
+function getAiPriorityClass(value = "") {
+  return String(value || "").trim().toLowerCase();
 }
 
 function isMeetingLikeAction(actionType = "") {
@@ -983,6 +989,9 @@ export default function Followups() {
                           <div className="fuItemMeta">
                             <span className="fuMetaChip">{m.eventType}</span>
                             <span className="fuMetaChip">Time: {m.time}</span>
+                            {m.aiPriority ? (
+                              <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(m.aiPriority))}>AI: {m.aiPriority}</span>
+                            ) : null}
                             {!isCompletedStatus(m.status) && (
                               <span className="fuMetaChip">{m.status}</span>
                             )}
@@ -1051,6 +1060,9 @@ export default function Followups() {
                         <div className="fuItemMeta">
                           <span className="fuMetaChip">{String(f.actionType || "").replace(/^follow\s*up\s*/i, "").trim() || "Phone Call"}</span>
                           <span className="fuMetaChip">Time: {f.time || "--:--"}</span>
+                          {f.aiPriority ? (
+                            <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(f.aiPriority))}>AI: {f.aiPriority}</span>
+                          ) : null}
                           <span className="fuMetaChip">{f.status || "pending"}</span>
                         </div>
                       </div>
@@ -1117,6 +1129,7 @@ export default function Followups() {
               <div className="fuDetailCard"><div className="k">Time</div><div className="v">{selectedMeeting.time}</div></div>
               <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedMeeting.due}</div></div>
               <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedMeeting.priority}</div></div>
+              <div className="fuDetailCard"><div className="k">AI Priority</div><div className="v">{selectedMeeting.aiPriority || "-"}</div></div>
               <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedMeeting.status}</div></div>
               <div className="fuDetailCard"><div className="k">Duration (Minutes)</div><div className="v">{selectedMeeting.durationMinutes || "-"}</div></div>
               <div className="fuDetailCard"><div className="k">Agenda</div><div className="v">{selectedMeeting.agenda || "-"}</div></div>
@@ -1250,6 +1263,7 @@ export default function Followups() {
               <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedFollowup.stage}</div></div>
               <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedFollowup.due}</div></div>
               <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedFollowup.priority}</div></div>
+              <div className="fuDetailCard"><div className="k">AI Priority</div><div className="v">{selectedFollowup.aiPriority || "-"}</div></div>
               <div className="fuDetailCard"><div className="k">Status</div><div className="v">{selectedFollowup.status}</div></div>
               <div className="fuDetailCard"><div className="k">Action Type</div><div className="v">{selectedFollowup.actionType || "-"}</div></div>
               <div className="fuDetailCard"><div className="k">Reminder</div><div className="v">{selectedFollowup.reminderEnabled === "no" ? "No" : "Yes"}</div></div>

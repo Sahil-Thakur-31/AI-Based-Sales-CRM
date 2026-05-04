@@ -1,0 +1,1375 @@
+company_name,record_type,entity_type,stage,priority,status,days_since_last_contact,days_until_event,overdue_count,related_count,score,label
+Jukuna Associates,meeting,deal,P2,Low,scheduled,2,0,2,2,23.33,Low
+NATIONAL DESIGNER DISPLAY SYATEM,followup,deal,P2,Medium,pending,17,0,3,2,32.83,High
+Pratyush Enterprises,meeting,deal,P2,Low,scheduled,10,0,1,3,24.67,Low
+Crista associates,followup,deal,P2,Low,pending,12,0,0,3,25,Medium
+S K ARTS,followup,deal,P2,Low,pending,9,0,2,1,24.5,Low
+LORENZ IMAGING,followup,lead,P2,Medium,pending,19,0,1,5,30.17,Medium
+Turner & Townsend,followup,deal,P2,Low,pending,6,0,2,1,24,Low
+Outlook Advertising,followup,deal,P2,Medium,pending,36,0,3,3,38,High
+GLOW SIGN,meeting,lead,P2,Medium,scheduled,3,0,2,3,23.5,Low
+CUSTOM WRAPS INDIA PRIVATE LIMITED,followup,deal,P2,Low,pending,6,0,1,3,26,Medium
+CMYK Grapahics,followup,deal,P2,High,pending,60,0,3,3,45,High
+Healthy Fabrication,meeting,deal,P2,Medium,scheduled,35,0,3,2,33.83,High
+Creative Concepts Mumbai,followup,lead,P2,High,pending,8,0,1,4,29.33,Medium
+Options Sign Media,meeting,deal,P2,Medium,scheduled,33,0,3,5,39.5,High
+SRI SAI ENTERPRISES,meeting,lead,P2,Low,scheduled,13,0,1,4,22.17,Low
+Kalpvrux,meeting,deal,P2,Medium,scheduled,39,0,2,4,36.5,High
+Sign Solution,meeting,lead,P2,Medium,scheduled,33,0,2,1,24.5,Low
+Harsh enterprise,followup,lead,P2,High,pending,49,0,4,0,34.17,High
+Things work,meeting,lead,P2,Medium,scheduled,13,0,0,2,19.17,Low
+Golden Arts Wall Printing,meeting,deal,P2,High,scheduled,20,0,2,3,34.33,High
+SK Digital Signs,followup,lead,P2,Low,pending,0,0,1,1,16,Low
+ALPHATEC  IT SOLUTIONS,meeting,deal,P2,Low,scheduled,4,0,0,1,17.67,Low
+SURDEEP ENT.,followup,deal,P2,High,pending,52,0,5,2,45.67,High
+Ranjeet Signage Solution,followup,deal,P2,Medium,pending,27,0,2,5,38.5,High
+N S Signs,followup,deal,P2,High,pending,39,0,3,4,43.5,High
+Umang Communications Pvt Ltd,followup,deal,P2,Medium,pending,17,0,1,2,28.83,Medium
+SK Digital Signs,meeting,lead,P2,Low,scheduled,12,0,1,0,14,Low
+Skill Fest Creators,meeting,deal,P2,Medium,scheduled,26,0,1,2,28.33,Medium
+Jai Krishna Enterprises,followup,lead,P2,Medium,pending,23,0,4,3,32.83,High
+Inizio Sign Systems Pvt Ltd,meeting,deal,P2,Low,scheduled,0,0,0,2,19,Low
+AUTOLITE EMERGENCY LIGHTING SYSTEM LLP.,followup,deal,P2,Low,pending,50,0,3,4,39.33,High
+Signaletics,meeting,deal,P2,Low,scheduled,2,0,1,2,21.33,Low
+PURE PAPER SOLUTIONS,followup,lead,P2,Low,pending,4,0,1,3,20.67,Low
+Shri Mahalaxmi Associats.,followup,deal,P2,High,pending,48,0,4,3,45,High
+Shanti Acrylic,meeting,lead,P2,High,scheduled,47,0,5,4,41.83,High
+Smartants Group,followup,deal,P2,Medium,pending,0,0,0,1,22,Low
+Pearlton,meeting,deal,P2,Medium,scheduled,25,0,2,3,32.17,High
+Raghavendra T,meeting,lead,P2,Medium,scheduled,17,0,2,1,21.83,Low
+print place,meeting,lead,P2,Medium,scheduled,27,0,5,3,33.5,High
+Blue Vision,followup,deal,P2,Low,pending,13,0,0,2,23.17,Low
+Aryan print & sign,meeting,deal,P2,Low,scheduled,12,0,1,4,27,Medium
+APPAJI ENTERPRISES,meeting,lead,P2,High,scheduled,58,0,3,3,37.67,High
+Ecumen Edge,meeting,lead,P2,Low,scheduled,29,0,5,0,24.83,Low
+Spectrum Color Labs,meeting,lead,P2,Low,scheduled,4,0,0,4,18.67,Low
+RIDDHI SIDDHI INDUSTRIES,meeting,deal,P2,High,scheduled,39,0,4,4,43.5,High
+JK Signs & Firms,meeting,lead,P2,Medium,scheduled,42,0,2,0,24,Low
+AL-SAMA,meeting,deal,P2,Medium,scheduled,28,0,3,3,34.67,High
+Bhavani Visual Solutions,followup,deal,P2,Low,pending,9,0,2,4,30.5,Medium
+Marvel Signs,followup,lead,P2,Medium,pending,31,0,1,5,32.17,High
+TSA Globe,meeting,deal,P2,Low,scheduled,21,0,5,4,36.5,High
+Sign Care,followup,deal,P2,Medium,pending,19,0,1,2,29.17,Medium
+VK:a Architecture,followup,deal,P2,Medium,pending,10,0,2,5,35.67,High
+P V Signs Pvt Ltd,meeting,deal,P2,Low,scheduled,11,0,2,5,30.83,Medium
+Ansari Arts,meeting,deal,P2,Low,scheduled,4,0,2,2,23.67,Low
+Shadan,followup,lead,P2,Low,pending,10,0,2,1,19.67,Low
+GANDHARVA ARTS,meeting,deal,P2,Medium,scheduled,30,0,3,0,29,Medium
+Fine Pro Multi Developers,meeting,lead,P2,High,scheduled,4,0,1,0,18.67,Low
+SIGNEX VISUAL,followup,deal,P2,Low,pending,5,0,0,2,21.83,Low
+Green tech (pune office),followup,deal,P2,Medium,pending,15,0,0,5,32.5,High
+M/S STAR LITE,followup,lead,P2,Medium,pending,29,0,4,1,29.83,Medium
+Signx India,meeting,deal,P2,High,scheduled,47,0,2,3,38.83,High
+Inchworm Creational LLP,followup,lead,P2,Low,pending,14,0,2,1,20.33,Low
+wybe spaces pvt.ltd,followup,lead,P2,Low,pending,48,0,4,3,34,High
+DESIGN COG & SIGNAGES INDIA PVT LTD,meeting,deal,P2,Low,scheduled,2,0,1,3,23.33,Low
+AGX RETAIL SOLUTIONS PRIVATE LIMITED,followup,deal,P2,Low,pending,10,0,1,2,24.67,Low
+Lemon studio,followup,deal,P2,Medium,pending,23,0,4,5,41.83,High
+Unilux LED Lighting Technology,meeting,lead,P2,Low,scheduled,11,0,0,3,17.83,Low
+Mindmade,meeting,deal,P2,Low,scheduled,8,0,3,2,26.33,Medium
+RHT Signs Pvt. Ltd.,meeting,lead,P2,Low,scheduled,11,0,0,2,15.83,Low
+Supreme Creation,meeting,lead,P2,Low,scheduled,35,0,3,1,23.83,Low
+Siddhakash digital world,followup,lead,P2,Medium,pending,49,0,5,2,37.17,High
+Pioneer safety,followup,deal,P2,High,pending,1,0,1,3,31.17,Medium
+Falcon,meeting,lead,P2,High,scheduled,39,0,3,5,38.5,High
+JD Sign Service,meeting,deal,P2,Low,scheduled,5,0,1,4,25.83,Medium
+SV Corporation,followup,deal,P2,Medium,pending,42,0,2,3,37,High
+SK Digital Signs,meeting,deal,P2,Low,scheduled,0,0,2,1,21,Low
+The Exclusive,followup,lead,P2,Low,pending,26,0,2,3,26.33,Medium
+Elements signage,meeting,lead,P2,Medium,scheduled,15,0,1,4,25.5,Medium
+AADHYA ENTERPRISES,followup,lead,P2,Medium,pending,46,0,1,2,28.67,Medium
+Drishya Enterprises,meeting,deal,P2,Medium,scheduled,34,0,4,1,33.67,High
+"Creative Sign Centre, Belgaum",followup,deal,P2,High,pending,35,0,3,2,38.83,High
+Wonder Creation,followup,deal,P2,Low,pending,13,0,2,2,27.17,Medium
+Sri venkatachalapathy construction P LTD,meeting,lead,P2,Medium,scheduled,36,0,1,2,25,Medium
+Unique Traders,meeting,lead,P2,Low,scheduled,0,0,0,2,14,Low
+SUMMIT ARTS,followup,lead,P2,Medium,pending,19,0,1,4,28.17,Medium
+Deepak Advertising,followup,deal,P2,High,pending,35,0,2,2,36.83,High
+SB Arts,followup,deal,P2,High,pending,1,0,2,2,31.17,Medium
+AMRIT SALES CORPORATION,meeting,lead,P2,Low,scheduled,24,0,5,5,34,High
+Balaji plastic,meeting,lead,P2,Medium,scheduled,11,0,3,3,26.83,Medium
+MERAKI ENTERPRISE,followup,deal,P2,Medium,pending,16,0,2,4,34.67,High
+Shree Graphics,followup,lead,P2,Medium,pending,29,0,0,2,23.83,Low
+Test Mplanner,followup,deal,P2,High,pending,8,0,0,1,26.33,Medium
+Sri Venkateswara arts,meeting,deal,P2,Medium,scheduled,22,0,4,2,33.67,High
+ROHIT RADIUM,meeting,deal,P2,High,scheduled,35,0,3,3,38.83,High
+Maa Laser art,meeting,lead,P2,Medium,scheduled,0,0,0,5,23,Low
+GINNI ENTERPRISES,meeting,deal,P2,Medium,scheduled,60,0,3,2,38,High
+Inovatiq,followup,lead,P2,High,pending,45,0,5,1,37.5,High
+AMRIT SALES CORPORATION,meeting,deal,P2,Low,scheduled,15,0,2,3,27.5,Medium
+Graphica,followup,deal,P2,Low,pending,8,0,3,2,28.33,Medium
+LPFLEX Sign India Pvt. Ltd.,followup,lead,P2,Medium,pending,8,0,2,3,26.33,Medium
+Magic Platinum Services,meeting,deal,P2,Medium,scheduled,41,0,3,1,32.83,High
+Mission Xcellence Creative Solutions Pvt Ltd,followup,lead,P2,Low,pending,4,0,1,3,20.67,Low
+Aura Signage & Ads,meeting,deal,P2,Low,scheduled,4,0,3,5,31.67,Medium
+MERAKI ENTERPRISE,meeting,deal,P2,High,scheduled,2,0,1,2,27.33,Medium
+Swaran Projectech Pvt. Ltd.,followup,deal,P2,High,pending,41,0,1,2,35.83,High
+MUDRA DIGITAL,followup,lead,P2,Medium,pending,13,0,3,1,25.17,Medium
+POSHDECOR,meeting,lead,P2,Medium,scheduled,0,0,2,3,23,Low
+RANGTARA ARTS,followup,deal,P2,High,pending,53,0,4,2,43.83,High
+Sakura Signs Pvt Ltd,meeting,lead,P2,High,scheduled,18,0,1,3,27,Medium
+RIGHT MEDIA,followup,deal,P2,High,pending,42,0,4,3,44,High
+G P Enterprises,meeting,deal,P2,Medium,scheduled,25,0,2,3,32.17,High
+Ishaan graphics,followup,lead,P2,High,pending,47,0,3,3,37.83,High
+GLOB SAFETECH SOLUTIONS LLP,meeting,deal,P2,Low,scheduled,5,0,2,2,23.83,Low
+CHINTAMANI,meeting,deal,P2,Medium,scheduled,34,0,3,2,33.67,High
+All Color Sign,meeting,lead,P2,Medium,scheduled,25,0,4,2,29.17,Medium
+Direction Display,meeting,deal,P2,Medium,scheduled,60,0,4,2,40,High
+A B C DISPLAY SYSTEMS,followup,lead,P2,Medium,pending,22,0,5,0,28.67,Medium
+PaperPixel,meeting,deal,P2,Medium,scheduled,57,0,4,3,41.5,High
+Joyti print & pack pvt ltd,meeting,lead,P2,High,scheduled,45,0,3,5,39.5,High
+SIGNEX VISUAL,followup,lead,P2,Low,pending,10,0,4,3,27.67,Medium
+PAWAR ARTS,meeting,deal,P2,Low,scheduled,50,0,3,3,35.33,High
+NIBRAS CORPORATION,meeting,lead,P2,Medium,scheduled,3,0,0,0,13.5,Low
+BRAND STORY,meeting,lead,P2,Medium,scheduled,60,0,2,2,31,Medium
+Sanjay Art Gallery,followup,lead,P2,Medium,pending,27,0,2,5,33.5,High
+Signads,meeting,lead,P2,High,scheduled,35,0,3,1,29.83,Medium
+Parth Enterprise,followup,lead,P2,Medium,pending,45,0,2,3,32.5,High
+CMYK Graphics Pvt Ltd,followup,deal,P2,High,pending,35,0,5,3,44.83,High
+Moraya Graphics,meeting,deal,P2,High,scheduled,35,0,0,5,36.83,High
+Sign star,followup,lead,P2,Low,pending,8,0,1,3,21.33,Low
+Mmoser Associtaes,followup,lead,P2,Low,pending,43,0,3,1,27.17,Medium
+Smart ads,meeting,lead,P2,Medium,scheduled,19,0,3,2,26.17,Medium
+Environ Graphics,followup,lead,P2,Medium,pending,33,0,2,1,26.5,Medium
+Amreesh Neon Pvt Ltd,followup,deal,P2,High,pending,1,0,0,2,27.17,Medium
+Info sign,followup,lead,P2,Low,pending,8,0,1,3,21.33,Low
+the  printwork co.,followup,deal,P2,Medium,pending,0,0,1,3,28,Medium
+BRAND IT HYDERABAD,followup,deal,P2,Low,pending,0,0,1,3,25,Medium
+SHREE SAI SERVICES,followup,lead,P2,High,pending,56,0,3,3,39.33,High
+Shreenath Arts,followup,deal,P2,Low,pending,12,0,0,4,27,Medium
+ELITE GRAPHICS,followup,deal,P2,High,pending,10,0,2,5,38.67,High
+Sign-In,followup,lead,P2,Low,pending,12,0,1,1,18,Low
+S N J ENTERPRISES,followup,lead,P2,Medium,pending,38,0,1,4,31.33,Medium
+Advance Graphics,followup,lead,P2,Low,pending,39,0,2,3,28.5,Medium
+Parallel Learning,followup,deal,P2,High,pending,55,0,3,2,42.17,High
+The fix,meeting,deal,P2,Low,scheduled,6,0,0,1,18,Low
+Unique Traders,meeting,deal,P2,Medium,scheduled,44,0,4,3,39.33,High
+CADMAP,followup,deal,P2,High,pending,49,0,4,2,43.17,High
+Vedanshee Safety and sign pvt ltd,meeting,deal,P2,High,scheduled,24,0,3,3,37,High
+V sign graphics & Printings,followup,lead,P2,High,pending,48,0,4,1,36,High
+PLUSHSIGN PRIVATE LIMITED,meeting,deal,P2,High,scheduled,60,0,4,1,41,High
+Purva groupz,meeting,lead,P2,High,scheduled,8,0,3,1,25.33,Medium
+Brigs espro,followup,lead,P2,Medium,pending,37,0,3,2,31.17,Medium
+Studio9,followup,deal,P2,Medium,pending,35,0,4,3,39.83,High
+PRINTOUCH,meeting,lead,P2,Medium,scheduled,45,0,4,3,34.5,High
+SILVERLINE WORLD,meeting,deal,P2,Medium,scheduled,7,0,3,2,29.17,Medium
+LORENZ IMAGING,followup,lead,P2,High,pending,51,0,3,2,36.5,High
+N tech Sign& Displays,followup,deal,P2,Medium,pending,5,0,1,4,30.83,Medium
+Maha Sai Enterprises,meeting,deal,P2,High,scheduled,10,0,1,5,34.67,High
+INFINITY TRADING CO.,followup,deal,P2,Low,pending,35,0,2,2,30.83,Medium
+Space and design,followup,deal,P2,Medium,pending,31,0,5,5,45.17,High
+om sai graphics,meeting,deal,P2,Low,scheduled,6,0,2,0,20,Low
+VEDANSH MARKETING,meeting,lead,P2,Low,scheduled,34,0,3,2,25.67,Medium
+PRINT AND SIGNS LLP,meeting,deal,P2,High,scheduled,38,0,2,3,37.33,High
+Aesthesy,meeting,deal,P2,High,scheduled,35,0,5,0,36.83,High
+Fenix Advertising,meeting,deal,P2,Medium,scheduled,45,0,3,5,41.5,High
+SIGN LANGUAGE STUDIO LLP,meeting,deal,P2,High,scheduled,35,0,4,2,38.83,High
+Emagine India,followup,deal,P2,Medium,pending,7,0,0,4,29.17,Medium
+P V Signs Pvt Ltd,meeting,deal,P2,Medium,scheduled,37,0,2,5,38.17,High
+Bright Sign World,meeting,lead,P2,Low,scheduled,15,0,1,3,20.5,Low
+Brand On Anything,followup,lead,P2,Medium,pending,11,0,2,3,26.83,Medium
+Varaprasad Choudary,followup,deal,P2,Medium,pending,15,0,1,0,24.5,Low
+Media Express,meeting,lead,P2,Low,scheduled,1,0,2,2,18.17,Low
+New express media,meeting,lead,P2,Low,scheduled,12,0,2,4,24,Low
+Kothari Imprint,followup,deal,P2,High,pending,25,0,4,4,43.17,High
+Liftbyte Automation Private Limited,followup,deal,P2,High,pending,56,0,4,2,44.33,High
+Maythird Design,followup,lead,P2,Low,pending,23,0,3,0,21.83,Low
+Abhi creations,followup,deal,P2,Low,pending,11,0,1,0,20.83,Low
+C R SOLUTIONS,meeting,deal,P2,High,scheduled,37,0,4,3,41.17,High
+SPL Advertising Pvt Ltd,meeting,lead,P2,Medium,scheduled,29,0,3,5,33.83,High
+Perfect Solutions and Stationery,followup,lead,P2,Low,pending,22,0,3,4,29.67,Medium
+Jyoti display pvt ltd,meeting,lead,P2,Low,scheduled,6,0,2,5,25,Medium
+WHITEBOARD ADVERTISER,followup,deal,P2,Medium,pending,14,0,3,3,34.33,High
+Nor Traders private limited,meeting,deal,P2,High,scheduled,14,0,0,5,33.33,High
+MUDRA DIGITAL,meeting,lead,P2,High,scheduled,35,0,3,5,37.83,High
+RIDDHI ENTERPRISES - PUNE,meeting,lead,P2,High,scheduled,0,0,0,2,20,Low
+CYAN ENTERPRISES,meeting,deal,P2,Low,scheduled,45,0,4,4,38.5,High
+India Photos,followup,deal,P2,Medium,pending,37,0,3,2,36.17,High
+CRAFTY CULTURE,meeting,lead,P2,Medium,scheduled,40,0,3,0,25.67,Medium
+FIMA Signage,meeting,lead,P2,High,scheduled,40,0,3,3,34.67,High
+SUMMIT ARTS,meeting,deal,P2,High,scheduled,3,0,0,4,29.5,Medium
+Ammar arts,followup,lead,P2,High,pending,7,0,2,3,29.17,Medium
+Samarthaadheesh enterprise,meeting,lead,P2,High,scheduled,50,0,2,4,36.33,High
+RUHII ENTERPRISES,followup,deal,P2,Low,pending,10,0,1,1,22.67,Low
+CHAYA ENTERPRISES,followup,deal,P2,Medium,pending,28,0,2,3,34.67,High
+Anurodh Graphics,meeting,deal,P2,High,scheduled,44,0,3,4,42.33,High
+Kashyap Flex,meeting,deal,P2,Low,scheduled,50,0,3,1,31.33,Medium
+AMRIT SALES CORPORATION,followup,lead,P2,Low,pending,40,0,5,3,34.67,High
+BHAVANI VISUAL SOLUTION,meeting,deal,P2,High,scheduled,52,0,3,0,35.67,High
+Prabhat Sign Pvt Ltd (Mumbai),followup,lead,P2,Low,pending,13,0,2,3,24.17,Low
+SuAn Signs,followup,deal,P2,Low,pending,11,0,2,4,30.83,Medium
+Primage Signs India Pvt Ltd,meeting,deal,P2,High,scheduled,49,0,4,3,43.17,High
+Gk global,followup,deal,P2,High,pending,35,0,3,3,40.83,High
+ROYAL ARTS,meeting,lead,P2,High,scheduled,55,0,4,1,35.17,High
+3 STAR BRANDING PVT. LTD.,meeting,lead,P2,Low,scheduled,5,0,1,5,22.83,Low
+SHYAM FLEX PRINTERS,followup,deal,P2,Low,pending,10,0,1,1,22.67,Low
+RUTUJA Arts,meeting,lead,P2,High,scheduled,60,0,4,4,42,High
+Mettle Infrastructure,followup,lead,P2,Medium,pending,50,0,3,3,35.33,High
+Mariam Sign Arts Pvt Ltd,meeting,deal,P2,High,scheduled,60,0,3,4,45,High
+2A Concept LLP,meeting,deal,P2,Medium,scheduled,50,0,1,2,32.33,High
+Varad Associates,followup,deal,P2,Medium,pending,23,0,4,4,39.83,High
+Aditya Enterprise,followup,deal,P2,Low,pending,6,0,0,5,28,Medium
+Adworld,followup,deal,P2,Low,pending,10,0,1,2,24.67,Low
+ROHIT RADIUM,meeting,deal,P2,Low,scheduled,4,0,2,3,25.67,Medium
+Apex Digital Innovative,meeting,lead,P2,Medium,scheduled,8,0,1,4,24.33,Low
+Chanakya,followup,lead,P2,Medium,pending,40,0,2,5,35.67,High
+Design Tech Signs & Display,followup,deal,P2,Medium,pending,12,0,2,0,26,Medium
+Ad Well Media,meeting,deal,P2,Low,scheduled,8,0,1,2,22.33,Low
+Aqua Services,followup,lead,P2,High,pending,10,0,3,2,29.67,Medium
+Mahalakshmi Marketing,followup,deal,P2,Low,pending,8,0,2,4,30.33,Medium
+Function Neon,meeting,deal,P2,Low,scheduled,46,0,3,0,28.67,Medium
+India Photos,meeting,deal,P2,High,scheduled,10,0,3,3,34.67,High
+Suman flex world,meeting,lead,P2,Low,scheduled,42,0,3,3,29,Medium
+PURAN GRAPHICS,followup,lead,P2,High,pending,36,0,4,1,34,High
+Himanshu Enterprises,meeting,deal,P2,Medium,scheduled,11,0,2,4,31.83,Medium
+Lovely Image,meeting,deal,P2,Medium,scheduled,6,0,1,2,25,Medium
+PEACOCK ADVERTISING,meeting,lead,P2,Medium,scheduled,30,0,3,0,24,Low
+Signage and Design,followup,deal,P2,High,pending,3,0,2,4,35.5,High
+Ved Signs,followup,deal,P2,Low,pending,7,0,2,2,26.17,Medium
+Brain Point,meeting,deal,P2,Medium,scheduled,24,0,2,3,32,High
+Wonder Creation,meeting,lead,P2,Medium,scheduled,43,0,5,4,38.17,High
+SONIA CREATIONS,meeting,lead,P2,High,scheduled,47,0,3,2,33.83,High
+A.K.Enterprise,followup,lead,P2,Medium,pending,35,0,3,0,26.83,Medium
+Vedanshee Safety and sign pvt ltd,followup,deal,P2,Low,pending,11,0,2,2,26.83,Medium
+AANSWR FASHION PRIVATE LIMITED,followup,deal,P2,Medium,pending,36,0,4,1,36,High
+Instawings India pvt. Ltd,followup,deal,P2,Low,pending,6,0,0,1,20,Low
+Adverto creation,meeting,lead,P2,Medium,scheduled,23,0,4,2,28.83,Medium
+ISHWARI GRAPHICS,meeting,lead,P2,Low,scheduled,47,0,4,2,29.83,Medium
+Infosigns,followup,lead,P2,High,pending,46,0,4,3,39.67,High
+Sign-In,meeting,deal,P2,Low,scheduled,29,0,3,1,27.83,Medium
+SINE O CRAFT,followup,lead,P2,Low,pending,6,0,2,3,23,Low
+PRACHI CRAETION PUNE,meeting,deal,P2,Low,scheduled,0,0,1,4,25,Medium
+Designworks,followup,deal,P2,Low,pending,36,0,2,1,29,Medium
+Vishwabharathi Signs,meeting,lead,P2,Medium,scheduled,23,0,3,3,28.83,Medium
+Sign Time Display Systems,followup,deal,P2,Low,pending,3,0,0,4,25.5,Medium
+Taj Enterprises,meeting,deal,P2,Medium,scheduled,35,0,4,3,37.83,High
+MEGHA PRINT XPRESS,meeting,deal,P2,High,scheduled,24,0,4,4,41,High
+S4 Signs Solution,followup,deal,P2,Low,pending,44,0,3,4,38.33,High
+Asia Enterprise,meeting,deal,P2,Low,scheduled,1,0,2,3,25.17,Medium
+PaperPixel,meeting,deal,P2,Low,scheduled,7,0,1,1,20.17,Low
+Pioneer safety,meeting,lead,P2,Low,scheduled,9,0,0,4,19.5,Low
+FIXON SALES,followup,deal,P2,Medium,pending,31,0,3,2,35.17,High
+Attitude,meeting,lead,P2,Low,scheduled,4,0,2,2,18.67,Low
+Crayon,followup,deal,P2,Low,pending,10,0,0,2,22.67,Low
+Maharaja display products business,meeting,deal,P2,High,scheduled,50,0,3,4,43.33,High
+Shri Balaji Creation,meeting,lead,P2,Low,scheduled,6,0,0,1,13,Low
+Nishitha ads,meeting,deal,P2,Medium,scheduled,13,0,2,1,26.17,Medium
+ONE SOURCE ENTERPRISES,followup,deal,P2,Low,pending,0,0,0,1,19,Low
+KASABELLA DESIGNS LLP,followup,lead,P2,Low,pending,3,0,1,3,20.5,Low
+Inkwell Printing Services,followup,lead,P2,Medium,pending,5,0,1,0,17.83,Low
+Lovely Crayon,meeting,lead,P2,Medium,scheduled,31,0,3,2,28.17,Medium
+NCC Ltd - WTC,followup,deal,P2,High,pending,45,0,2,2,38.5,High
+Rainbow Enterprises,meeting,lead,P2,Low,scheduled,6,0,0,3,17,Low
+Rainbow Enterprises,followup,deal,P2,Medium,pending,25,0,2,1,30.17,Medium
+sd arts,meeting,lead,P2,Low,scheduled,1,0,3,3,22.17,Low
+Radiance Signs Pvt Ltd,meeting,lead,P2,Medium,scheduled,32,0,2,5,32.33,High
+Instawings India pvt. Ltd,meeting,lead,P2,Low,scheduled,37,0,0,3,22.17,Low
+Signage Solutions,meeting,deal,P2,Low,scheduled,10,0,1,2,22.67,Low
+Trimuph Marine Services,meeting,lead,P2,Medium,scheduled,29,0,4,3,31.83,Medium
+M/s Arham LED,meeting,lead,P2,Low,scheduled,9,0,2,2,19.5,Low
+Metro Mark,meeting,lead,P2,High,scheduled,54,0,5,3,41,High
+VISUAL STACK,followup,lead,P2,High,pending,60,0,4,2,40,High
+Seema Enterprise,meeting,lead,P2,High,scheduled,50,0,4,2,36.33,High
+PSJ Global Infotech & Enterprises,followup,lead,P2,High,pending,46,0,3,3,37.67,High
+Lachhman Dass & Co.,followup,deal,P2,Low,pending,29,0,2,5,35.83,High
+ACP Wala,followup,deal,P2,Medium,pending,45,0,2,5,41.5,High
+ROOP ENTERPRISE,followup,deal,P2,Medium,pending,10,0,4,1,31.67,Medium
+Super Arts & Sons,meeting,deal,P2,Low,scheduled,6,0,2,3,26,Medium
+Avasiti Design,followup,deal,P2,Medium,pending,10,0,3,2,31.67,Medium
+Real Plot Sign,meeting,lead,P2,Low,scheduled,58,0,4,5,37.67,High
+MK RADIUM,followup,deal,P2,Low,pending,13,0,3,4,33.17,High
+Pantone Media Solutions LLP,followup,lead,P2,Medium,pending,37,0,3,3,33.17,High
+L M Technologies,meeting,lead,P2,Medium,scheduled,58,0,2,1,28.67,Medium
+"SignTech Indian,",followup,deal,P2,Low,pending,42,0,2,4,36,High
+Emagine India,meeting,deal,P2,Low,scheduled,33,0,4,3,34.5,High
+J M Craft,followup,lead,P2,Low,pending,10,0,0,5,23.67,Low
+Kumar Creation,meeting,deal,P2,Low,scheduled,6,0,2,4,28,Medium
+RHT Signs Pvt. Ltd.,meeting,deal,P2,Medium,scheduled,40,0,2,1,30.67,Medium
+NOVEL DESIGNER DISPLAY SYSTEM PVT LTD,followup,deal,P2,High,pending,4,0,1,3,31.67,Medium
+TRIOMEC VENTURES PVT. LTD.,followup,lead,P2,Medium,pending,23,0,2,1,24.83,Low
+VEDANSH MARKETING,followup,lead,P2,Medium,pending,10,0,4,1,26.67,Medium
+Bright Sign World,meeting,deal,P2,Low,scheduled,6,0,1,1,20,Low
+GO GREEN NURSERY PVT LTD,followup,deal,P2,High,pending,22,0,0,2,30.67,Medium
+Jukuna Associates,meeting,lead,P2,Medium,scheduled,52,0,3,1,29.67,Medium
+Aarti Arts,meeting,deal,P2,Medium,scheduled,20,0,5,5,41.33,High
+Sign-In,meeting,deal,P2,Low,scheduled,4,0,0,1,17.67,Low
+CHINTAMANI THERMAL TECHNOLOGIES PVT LTD,meeting,deal,P2,Medium,scheduled,43,0,5,3,41.17,High
+RNR Project,followup,lead,P2,Medium,pending,40,0,1,4,31.67,Medium
+Sameer Advertising,followup,lead,P2,Low,pending,44,0,4,3,33.33,High
+PAWAR ARTS,meeting,lead,P2,Low,scheduled,16,0,3,4,26.67,Medium
+Protector Fire and Safety,meeting,deal,P2,Low,scheduled,3,0,0,1,17.5,Low
+Metamorph,followup,deal,P2,Low,pending,10,0,1,4,28.67,Medium
+FUTURE SIGNAGES PRIVATE LIMITED,meeting,deal,P2,Medium,scheduled,10,0,2,1,25.67,Medium
+V ART'S,meeting,deal,P2,Low,scheduled,6,0,1,0,18,Low
+Classic Advertising,followup,deal,P2,High,pending,0,0,3,4,37,High
+PRACHI CRAETION PUNE,followup,lead,P2,Medium,pending,33,0,2,3,30.5,Medium
+AMSLER INDIA Pvt Ltd.,followup,deal,P2,Medium,pending,12,0,4,5,40,High
+M/S Arpita Frame Gallery,followup,lead,P2,High,pending,58,0,2,2,35.67,High
+Barazz Solution,meeting,deal,P2,High,scheduled,10,0,3,3,34.67,High
+Sign-In,meeting,deal,P2,Medium,scheduled,41,0,2,2,32.83,High
+Studio INTERIX,meeting,lead,P2,Medium,scheduled,1,0,2,4,25.17,Medium
+CADMAP,followup,deal,P2,Low,pending,0,0,0,4,25,Medium
+SK Radium designers,followup,deal,P2,High,pending,44,0,4,4,46.33,High
+Spider Steel Spring Mfg. Co,followup,deal,P2,High,pending,56,0,5,1,44.33,High
+WIZARD CREATIONS,meeting,deal,P2,Medium,scheduled,2,0,3,1,26.33,Medium
+Shrinivas Shembkar,followup,deal,P2,Low,pending,7,0,2,3,28.17,Medium
+Evergreen Media,followup,lead,P2,Low,pending,6,0,1,1,17,Low
+Rukhshar art,followup,deal,P2,Medium,pending,37,0,3,5,42.17,High
+RANGTARA ARTS,meeting,deal,P2,Low,scheduled,1,0,0,3,21.17,Low
+GINNI ENTERPRISES,meeting,lead,P2,Low,scheduled,12,0,1,5,24,Low
+Inkpot Graphics,meeting,lead,P2,Low,scheduled,39,0,3,3,28.5,Medium
+Mahavir color lab,meeting,deal,P2,Low,scheduled,18,0,1,4,28,Medium
+DD Enterprise,meeting,deal,P2,High,scheduled,57,0,3,2,40.5,High
+Time Digital Prints,meeting,lead,P2,High,scheduled,23,0,2,2,27.83,Medium
+The Rainbow Prints,meeting,deal,P2,Medium,scheduled,28,0,3,3,34.67,High
+Smartants Group,meeting,lead,P2,Low,scheduled,10,0,2,2,19.67,Low
+SOUNDARYA SIGNS,meeting,deal,P2,Low,scheduled,15,0,1,2,23.5,Low
+Blue Pebble pvt ltd,meeting,deal,P2,Low,scheduled,0,0,0,1,17,Low
+Shree Graphics,meeting,deal,P2,Medium,scheduled,9,0,2,2,27.5,Medium
+YASHASHREE ENTERPRISES,meeting,deal,P2,Low,scheduled,18,0,3,3,30,Medium
+Megha sign and glow,meeting,deal,P2,Low,scheduled,11,0,2,4,28.83,Medium
+Madhu Copy Centre,followup,deal,P2,High,pending,10,0,1,1,28.67,Medium
+GO GREEN NURSERY PVT LTD,meeting,deal,P2,Low,scheduled,0,0,1,3,23,Low
+Perfect Graphics,meeting,deal,P2,Medium,scheduled,11,0,1,3,27.83,Medium
+Rainbow Print,followup,deal,P2,Medium,pending,15,0,2,3,32.5,High
+Global Services,followup,deal,P2,Medium,pending,32,0,2,2,33.33,High
+Sangam Enterprises,meeting,deal,P2,Medium,scheduled,2,0,1,3,26.33,Medium
+SREE ADS,meeting,lead,P2,Low,scheduled,51,0,4,2,30.5,Medium
+SIGN WAVE,followup,deal,P2,Low,pending,10,0,0,3,24.67,Low
+Curativiti Ideas,meeting,lead,P2,Low,scheduled,45,0,5,2,31.5,Medium
+Yash  graphics,followup,lead,P2,High,pending,35,0,5,2,37.83,High
+Jadhav n sons,meeting,lead,P2,High,scheduled,28,0,2,3,30.67,Medium
+SIGN EXPO,meeting,lead,P2,High,scheduled,48,0,5,2,38,High
+sky arts,meeting,deal,P2,High,scheduled,10,0,0,4,30.67,Medium
+Pioneer Enterprises,followup,deal,P2,High,pending,44,0,4,1,40.33,High
+Aaptec,meeting,lead,P2,High,scheduled,37,0,3,1,30.17,Medium
+Visicom System,meeting,lead,P2,Low,scheduled,16,0,2,5,26.67,Medium
+Pantone Media Solutions LLP,meeting,lead,P2,Medium,scheduled,42,0,1,1,24,Low
+GLOW SIGN DIGITAL ARTS,meeting,deal,P2,High,scheduled,50,0,3,4,43.33,High
+Smart Designs,meeting,lead,P2,Low,scheduled,3,0,1,3,18.5,Low
+GK ADS,followup,deal,P2,Low,pending,4,0,0,2,21.67,Low
+Fusion Digital,meeting,deal,P2,Low,scheduled,39,0,4,4,37.5,High
+suman deep gs,meeting,lead,P2,Medium,scheduled,13,0,1,3,23.17,Low
+Mavrica Graphics,meeting,deal,P2,Low,scheduled,6,0,1,0,18,Low
+Sun Designss,followup,lead,P2,High,pending,53,0,4,3,40.83,High
+Maythird Design,followup,lead,P2,Low,pending,5,0,2,1,18.83,Low
+Sugilite & Associates,meeting,deal,P2,Medium,scheduled,36,0,5,3,40,High
+Multi Signs,meeting,deal,P2,High,scheduled,7,0,3,1,30.17,Medium
+Compart Design,followup,lead,P2,Low,pending,53,0,5,5,40.83,High
+Milestone Corporation,meeting,lead,P2,High,scheduled,53,0,3,3,36.83,High
+Anomishere,meeting,lead,P2,Low,scheduled,9,0,0,2,15.5,Low
+Sincere Architects,meeting,lead,P2,Medium,scheduled,0,0,1,3,21,Low
+VVT Communication (P) Ltd.,meeting,lead,P2,Medium,scheduled,34,0,2,2,26.67,Medium
+Relight,meeting,deal,P2,Low,scheduled,18,0,1,1,22,Low
+Imazzle advertising pvt ltd,meeting,deal,P2,Medium,scheduled,0,0,1,4,28,Medium
+Akshay Arts,followup,deal,P2,High,pending,32,0,5,2,42.33,High
+Sakura Signs Pvt Ltd,meeting,lead,P2,High,scheduled,4,0,2,5,30.67,Medium
+Omega Construction,meeting,deal,P2,Medium,scheduled,16,0,3,3,32.67,High
+Orion,meeting,deal,P2,Low,scheduled,0,0,0,4,23,Low
+Signex,followup,deal,P2,Low,pending,55,0,3,4,40.17,High
+MUDRA DIGITAL,followup,deal,P2,High,pending,24,0,4,4,43,High
+Autoconz Consulting Group,followup,lead,P2,Medium,pending,19,0,3,5,34.17,High
+Impression Design & Print,meeting,lead,P2,Low,scheduled,22,0,4,2,25.67,Medium
+SUPER SIGNS CREATION LLP,meeting,deal,P2,Low,scheduled,6,0,2,3,26,Medium
+First Page,followup,lead,P2,Low,pending,0,0,0,2,16,Low
+Aqsa Graphics,followup,deal,P2,Low,pending,0,0,1,5,29,Medium
+"SDR Enterprises,",meeting,deal,P2,Low,scheduled,0,0,2,3,25,Medium
+A One Intex,meeting,deal,P2,High,scheduled,50,0,5,1,41.33,High
+arihant  signs,followup,deal,P2,Medium,pending,39,0,1,3,34.5,High
+Visions DIS India Pvt. Ltd.,meeting,lead,P2,High,scheduled,6,0,2,3,27,Medium
+The Monarch  Enterprises,followup,lead,P2,Medium,pending,51,0,4,4,39.5,High
+Khadilkar process stodio,followup,deal,P2,Low,pending,22,0,1,4,30.67,Medium
+VK:a Architecture,followup,deal,P2,Low,pending,51,0,4,5,43.5,High
+Singai signs,meeting,deal,P2,High,scheduled,25,0,3,2,35.17,High
+Shri Balaji Agencies,followup,lead,P2,High,pending,49,0,4,1,36.17,High
+Satin Neo Dimension Pvt. Ltd.,followup,deal,P2,Low,pending,2,0,2,2,25.33,Medium
+SIGNHUB,meeting,deal,P2,Medium,scheduled,29,0,0,1,24.83,Low
+Media event advertising and private ltd,followup,deal,P2,Low,pending,41,0,5,3,39.83,High
+CRD ENTERPRISES,followup,deal,P2,Low,pending,29,0,4,2,33.83,High
+Laxman sign makers,meeting,deal,P2,Medium,scheduled,48,0,3,2,36,High
+P2 graphics and sign board,meeting,lead,P2,Low,scheduled,45,0,3,4,31.5,Medium
+XS,followup,deal,P2,Medium,pending,28,0,5,4,42.67,High
+Alprintz,followup,deal,P2,High,pending,46,0,5,1,42.67,High
+shade graphics,followup,lead,P2,High,pending,26,0,3,1,30.33,Medium
+CREATIVERACE SIGNS & PROJECTS PVT. LTD.,meeting,lead,P2,Low,scheduled,13,0,0,2,16.17,Low
+SOUNDARYA DIGITAL ARTS,meeting,deal,P2,Low,scheduled,9,0,1,2,22.5,Low
+INFINITY PRINT AND SIGNAGE INDUSTRIES,meeting,lead,P2,High,scheduled,36,0,5,3,38,High
+Mahakali prints,meeting,lead,P2,High,scheduled,58,0,2,2,33.67,High
+PRATIBHA PRESS AND MULTIMEDIA PVT LTD,meeting,deal,P2,Medium,scheduled,43,0,3,3,37.17,High
+JSD RETAILS (OPS) PVT. LTD.,followup,deal,P2,Medium,pending,10,0,2,4,33.67,High
+Bharath Graphics,followup,deal,P2,Low,pending,11,0,2,3,28.83,Medium
+S T ENTERPRISES,meeting,lead,P2,Medium,scheduled,4,0,1,3,21.67,Low
+A.K.Enterprise,meeting,deal,P2,Low,scheduled,7,0,1,5,28.17,Medium
+Welpac,followup,deal,P2,High,pending,36,0,5,2,43,High
+Test Rutika Client,followup,deal,P2,High,pending,16,0,2,1,31.67,Medium
+Liftbyte Automation Private Limited,meeting,lead,P2,Low,scheduled,1,0,0,3,16.17,Low
+Global Enterprises,meeting,lead,P2,Medium,scheduled,35,0,4,2,30.83,Medium
+Healthy Fabrication,meeting,deal,P2,High,scheduled,19,0,2,5,38.17,High
+Sign at Site,meeting,deal,P2,Low,scheduled,25,0,1,2,25.17,Medium
+Sarode Arts And Gifts,meeting,deal,P2,Low,scheduled,10,0,5,4,34.67,High
+Inter Ext Pvt. Ltd,meeting,lead,P2,Low,scheduled,13,0,1,2,18.17,Low
+Chitra Art Glass Studio,followup,deal,P2,High,pending,57,0,2,4,44.5,High
+Signex,followup,deal,P2,Medium,pending,27,0,3,2,34.5,High
+Innovative Associates,meeting,lead,P2,Low,scheduled,19,0,2,2,21.17,Low
+JYOTI TRADING COMPANY,meeting,deal,P2,Medium,scheduled,27,0,4,2,34.5,High
+Chankya,meeting,lead,P2,Medium,scheduled,39,0,1,2,25.5,Medium
+Faith Inc,followup,deal,P2,Medium,pending,24,0,3,4,38,High
+Amit Khandelwal,meeting,lead,P2,High,scheduled,40,0,5,2,36.67,High
+SIGN TRONIX,meeting,deal,P2,Low,scheduled,12,0,2,1,23,Low
+Taksh,meeting,deal,P2,High,scheduled,42,0,4,2,40,High
+Singh Graphics,followup,deal,P2,Medium,pending,13,0,3,2,32.17,High
+Cosmo sign,meeting,deal,P2,Low,scheduled,4,0,2,1,21.67,Low
+Manjarabad Infrastructure Pvt Ltd,meeting,deal,P2,Low,scheduled,10,0,2,1,22.67,Low
+SIGNAGE SOLUTIONS - pune,meeting,lead,P2,Medium,scheduled,38,0,4,3,33.33,High
+ISHWARI GRAPHICS,followup,deal,P2,High,pending,47,0,3,5,46.83,High
+SHAPES COMMUNICATIONS PVT LTD,meeting,deal,P2,Low,scheduled,6,0,1,3,24,Low
+RELIABLE ENGINEERS,followup,deal,P2,Low,pending,12,0,2,3,29,Medium
+Omega Designs,meeting,deal,P2,Low,scheduled,1,0,2,3,25.17,Medium
+LMP H shop,meeting,lead,P2,High,scheduled,40,0,3,2,32.67,High
+Ulka creation,followup,deal,P2,Low,pending,1,0,0,1,19.17,Low
+Solcom,followup,deal,P2,High,pending,1,0,0,4,31.17,Medium
+INSTA MARK PVT LTD,meeting,deal,P2,Medium,scheduled,34,0,3,3,35.67,High
+True Ads Pvt Ltd,followup,lead,P2,High,pending,3,0,1,3,26.5,Medium
+Mahalakshmi Marketing,followup,deal,P2,Low,pending,40,0,3,2,33.67,High
+Xenon Signage,followup,deal,P2,Low,pending,14,0,3,5,35.33,High
+RANGTARA ARTS,followup,deal,P2,Medium,pending,20,0,3,5,39.33,High
+GINNI ENTERPRISES,meeting,deal,P2,High,scheduled,39,0,3,2,37.5,High
+EKTA ARTS,followup,deal,P2,Low,pending,10,0,1,4,28.67,Medium
+nutan,followup,deal,P2,Medium,pending,56,0,3,2,39.33,High
+"MIPL Global Design Pvt Ltd.,",followup,deal,P2,Medium,pending,22,0,1,1,27.67,Medium
+Sri lepakshi enterprises,followup,lead,P2,Medium,pending,11,0,1,2,22.83,Low
+Aakruti Acrymould,meeting,lead,P2,Low,scheduled,41,0,4,5,34.83,High
+Nitin Attarde,followup,deal,P2,Medium,pending,10,0,4,2,33.67,High
+Kala Indesign,meeting,lead,P2,Low,scheduled,14,0,1,1,16.33,Low
+CANWHART,meeting,deal,P2,Medium,scheduled,13,0,1,5,32.17,High
+m.m. creation,followup,lead,P2,Medium,pending,7,0,3,2,26.17,Medium
+Xandril media,meeting,deal,P2,High,scheduled,0,0,1,4,31,Medium
+om sai graphics,meeting,deal,P2,Low,scheduled,15,0,1,4,27.5,Medium
+CHINTAMANI Creation,followup,lead,P2,High,pending,60,0,4,4,44,High
+CANWHART,meeting,deal,P2,Medium,scheduled,45,0,2,5,39.5,High
+J tronics,followup,deal,P2,High,pending,5,0,1,4,33.83,High
+Siddhakash digital world,followup,deal,P2,Medium,pending,24,0,2,5,38,High
+Sai Flex & Vinyl Printing,followup,deal,P2,Medium,pending,28,0,2,3,34.67,High
+Inovatiq,followup,deal,P2,High,pending,23,0,2,3,36.83,High
+PRABHAT SIGNS,followup,deal,P2,Low,pending,13,0,1,1,23.17,Low
+Omkar Arts,meeting,deal,P2,High,scheduled,47,0,3,3,40.83,High
+GINNI ENTERPRISES,followup,lead,P2,High,pending,57,0,4,3,41.5,High
+Drishya Enterprises,followup,lead,P2,Low,pending,14,0,3,2,24.33,Low
+LPFLEX Sign India Pvt. Ltd.,meeting,lead,P2,Medium,scheduled,32,0,5,3,34.33,High
+Supreme Digitals,followup,deal,P2,Low,pending,2,0,2,4,29.33,Medium
+Sign Siddhi,meeting,deal,P2,Low,scheduled,10,0,1,2,22.67,Low
+Charushila Kuwar,followup,deal,P2,High,pending,38,0,3,1,37.33,High
+TRENDGEN WORLD,meeting,deal,P2,Low,scheduled,0,0,2,2,23,Low
+Interior Exterior Design Studio,meeting,lead,P2,Medium,scheduled,0,0,1,4,23,Low
+Info sign,meeting,deal,P2,Medium,scheduled,33,0,3,3,35.5,High
+INS & OUT,meeting,deal,P2,Low,scheduled,7,0,0,3,22.17,Low
+Perfect colors,followup,deal,P2,High,pending,28,0,1,2,33.67,High
+Masterpieces Signage,meeting,lead,P2,High,scheduled,18,0,2,2,27,Medium
+ONE SOURCE ENTERPRISES,meeting,lead,P2,Medium,scheduled,29,0,1,3,25.83,Medium
+Aesthesy,meeting,deal,P2,High,scheduled,38,0,4,1,37.33,High
+Adnest Media LLP,meeting,lead,P2,Medium,scheduled,23,0,2,5,30.83,Medium
+V ART'S,meeting,deal,P2,Low,scheduled,0,0,2,1,21,Low
+PM traders,meeting,deal,P2,Medium,scheduled,24,0,3,5,38,High
+Era turn key Projects,meeting,lead,P2,High,scheduled,55,0,3,5,41.17,High
+NCC Ltd - WTC,meeting,lead,P2,Medium,scheduled,28,0,3,3,29.67,Medium
+Marcon Signage Pvt Ltd,followup,lead,P2,High,pending,12,0,1,3,28,Medium
+Unilux LED Lighting Technology,followup,deal,P2,High,pending,60,0,3,5,49,High
+JD Sign Service,meeting,deal,P2,High,scheduled,15,0,2,3,33.5,High
+Signage Matters,meeting,deal,P2,Medium,scheduled,43,0,5,2,39.17,High
+Black Papper,followup,deal,P2,Medium,pending,21,0,4,3,37.5,High
+Ad Net Advertising,meeting,deal,P2,Medium,scheduled,42,0,4,1,35,High
+Shree Onkar Arts,meeting,lead,P2,Medium,scheduled,5,0,0,3,19.83,Low
+Nova Ads/Expo,followup,lead,P2,Medium,pending,45,0,3,3,34.5,High
+DEEPAK ENGINEERING WORKAS,meeting,deal,P2,Medium,scheduled,10,0,1,5,31.67,Medium
+Cherry Arts,meeting,deal,P2,Low,scheduled,0,0,1,3,23,Low
+Instawings India pvt. Ltd,meeting,lead,P2,Medium,scheduled,9,0,2,1,20.5,Low
+Fusion Digital,followup,deal,P2,Low,pending,7,0,1,1,22.17,Low
+CUSTOM WRAPS INDIA PRIVATE LIMITED,meeting,deal,P2,Low,scheduled,22,0,3,5,34.67,High
+Classic Advertising,followup,lead,P2,Medium,pending,35,0,3,2,30.83,Medium
+Hipixo photography,followup,lead,P2,High,pending,40,0,5,3,40.67,High
+Nucleus Graphics,followup,lead,P2,Medium,pending,10,0,2,3,26.67,Medium
+SHREY DIGITALS,followup,lead,P2,Low,pending,12,0,1,1,18,Low
+ZAHID AD,followup,lead,P2,Low,pending,5,0,2,2,20.83,Low
+GRAPHO TECH,followup,lead,P2,Low,pending,4,0,0,2,16.67,Low
+MMERAKI,meeting,lead,P2,Medium,scheduled,31,0,3,1,26.17,Medium
+Romney Arts,followup,lead,P2,High,pending,57,0,3,4,41.5,High
+IKIO Solutions Pvt Limited,followup,deal,P2,Low,pending,9,0,2,2,26.5,Medium
+AL-SAMA,meeting,lead,P2,Low,scheduled,11,0,2,3,21.83,Low
+Sri Azubodha,followup,deal,P2,High,pending,48,0,4,3,45,High
+Pioneer Enterprises,followup,lead,P2,Medium,pending,25,0,2,3,29.17,Medium
+CUSTOM WRAPS INDIA PRIVATE LIMITED,meeting,deal,P2,Medium,scheduled,8,0,4,3,33.33,High
+Dharshan Adss,meeting,deal,P2,Low,scheduled,47,0,5,1,34.83,High
+I-OSign International Pvt Ltd,meeting,lead,P2,Medium,scheduled,35,0,3,4,32.83,High
+First Impression Systems,meeting,deal,P2,Medium,scheduled,35,0,3,5,39.83,High
+SHREE GANESH OFFSET PRINTING,followup,lead,P2,Medium,pending,16,0,1,1,21.67,Low
+Parasuram Enterprises,followup,deal,P2,Medium,pending,8,0,0,5,31.33,Medium
+Sign Time Display Systems,followup,deal,P2,Low,pending,13,0,4,2,31.17,Medium
+Nilraj signage and display board,meeting,lead,P2,Medium,scheduled,47,0,5,3,36.83,High
+Shiva Arts,meeting,deal,P2,High,scheduled,35,0,3,5,42.83,High
+Srushti Neons,meeting,deal,P2,High,scheduled,57,0,4,1,40.5,High
+Chanel Signs,followup,deal,P2,Medium,pending,41,0,5,4,44.83,High
+Jukuna Associates,followup,lead,P2,High,pending,51,0,5,3,42.5,High
+A one Arts,followup,deal,P2,Low,pending,35,0,4,3,36.83,High
+SIGN EXPO,followup,lead,P2,High,pending,46,0,1,2,31.67,Medium
+UNIQUE NEON,meeting,deal,P2,Low,scheduled,12,0,1,1,21,Low
+Sign-In,meeting,deal,P2,Low,scheduled,4,0,2,3,25.67,Medium
+M/S Arpita Frame Gallery,meeting,deal,P2,Medium,scheduled,17,0,1,4,30.83,Medium
+Maharaja display products business,meeting,deal,P2,Low,scheduled,0,0,0,1,17,Low
+Dharshan Adss,followup,lead,P2,Medium,pending,36,0,1,4,31,Medium
+Signtime Display systems,meeting,lead,P2,Low,scheduled,10,0,1,4,21.67,Low
+Studio INTERIX,meeting,deal,P2,High,scheduled,50,0,3,5,45.33,High
+Multisyn,followup,deal,P2,Medium,pending,12,0,4,4,38,High
+THE DEVINE ART,followup,deal,P2,High,pending,53,0,4,3,45.83,High
+Mahavir color lab,followup,deal,P2,Medium,pending,32,0,2,2,33.33,High
+Siddhakash digital world,followup,deal,P2,Low,pending,9,0,0,5,28.5,Medium
+CHINTAMANI Creation,followup,deal,P2,Low,pending,29,0,3,2,31.83,Medium
+VJR Signs,followup,deal,P2,Low,pending,15,0,3,3,31.5,Medium
+Vivek traders,followup,lead,P2,Low,pending,46,0,4,2,31.67,Medium
+Ubiquitous Signs Pvt. Ltd.,followup,deal,P2,High,pending,42,0,3,1,38,High
+SSV Electricals Pvt. Ltd.,followup,deal,P2,Low,pending,11,0,2,2,26.83,Medium
+Signage and Design,followup,deal,P2,Medium,pending,42,0,3,1,35,High
+Hsuma Industries,followup,lead,P2,High,pending,54,0,3,4,41,High
+Sharin Bhausaheb Nalawade,followup,deal,P2,Low,pending,3,0,2,3,27.5,Medium
+BRIGS ESPRO SERVICES,followup,deal,P2,Low,pending,46,0,4,1,34.67,High
+Soham Enterprise,followup,deal,P2,Medium,pending,23,0,3,2,33.83,High
+THE SHOPP,followup,lead,P2,High,pending,35,0,5,3,39.83,High
+Azim arts,meeting,lead,P2,High,scheduled,35,0,5,1,33.83,High
+Kakkara Signages,followup,lead,P2,High,pending,49,0,4,4,42.17,High
+Lovely Crayon,meeting,lead,P2,Low,scheduled,60,0,3,3,32,High
+SHREE DECOR STUDIO,meeting,deal,P2,High,scheduled,53,0,4,5,47.83,High
+Arzyam Labs (OPC) private Limited,meeting,deal,P2,Low,scheduled,43,0,3,2,32.17,High
+Himanshu Enterprises,meeting,deal,P2,High,scheduled,51,0,4,3,43.5,High
+Smart ads,meeting,deal,P2,Low,scheduled,59,0,5,2,38.83,High
+Outlook Advertising,meeting,lead,P2,Low,scheduled,37,0,0,0,16.17,Low
+JYOTI PUBLICITY,meeting,lead,P2,High,scheduled,35,0,3,2,31.83,Medium
+TEETANNART,meeting,lead,P2,High,scheduled,35,0,5,2,35.83,High
+Multisyn,followup,deal,P2,Low,pending,1,0,2,3,27.17,Medium
+Opulence Media,meeting,deal,P2,Medium,scheduled,28,0,2,2,30.67,Medium
+Swostik Graphics,meeting,deal,P2,Low,scheduled,5,0,1,5,27.83,Medium
+KIRAN OFFSET PRINTING PRESS,followup,deal,P2,Low,pending,5,0,2,3,27.83,Medium
+ESPRITCO MEDIA LLP,followup,deal,P2,Low,pending,5,0,4,5,35.83,High
+Yash Industries,meeting,deal,P2,Low,scheduled,1,0,1,2,21.17,Low
+Magenta Sign,meeting,lead,P2,Low,scheduled,34,0,3,2,25.67,Medium
+Srinidhi Sign Shoppe,meeting,deal,P2,Low,scheduled,31,0,5,1,32.17,High
+Raj Arts,meeting,deal,P2,Low,scheduled,42,0,4,3,36,High
+CREO SIGNS,followup,lead,P2,Low,pending,8,0,3,5,29.33,Medium
+Maxit,followup,deal,P2,Medium,pending,28,0,1,4,34.67,High
+City lights,followup,deal,P2,Low,pending,0,0,0,3,23,Low
+Descon Infrastructures,meeting,lead,P2,Medium,scheduled,60,0,3,5,39,High
+NG Brothers,followup,lead,P2,High,pending,21,0,0,1,23.5,Low
+Sri Shivasai Creatives,meeting,lead,P2,Medium,scheduled,42,0,2,3,30,Medium
+Brain Point,meeting,lead,P2,High,scheduled,44,0,4,0,31.33,Medium
+G.D.ENTERPISES,meeting,deal,P2,Medium,scheduled,37,0,4,2,36.17,High
+Advision Communication Pvt. Ltd.,meeting,deal,P2,High,scheduled,55,0,3,2,40.17,High
+Varaprasad Choudary,followup,lead,P2,Medium,pending,13,0,3,0,23.17,Low
+Shri Mahalaxmi Associats.,followup,deal,P2,Medium,pending,14,0,2,2,30.33,Medium
+SIGNS N DSIGN,meeting,deal,P2,Low,scheduled,9,0,2,3,26.5,Medium
+SRI SAI ENTERPRISES,followup,lead,P2,Medium,pending,10,0,3,3,28.67,Medium
+CRE DESIGN SIGNAGE STUDIO,followup,deal,P2,Low,pending,0,0,0,3,23,Low
+Direction Display,meeting,lead,P2,Low,scheduled,14,0,0,3,18.33,Low
+A.S.GRAPHICS,followup,deal,P2,High,pending,9,0,2,3,34.5,High
+Tirtha Signage Solutions,followup,deal,P2,Medium,pending,32,0,1,1,29.33,Medium
+Admark,followup,deal,P2,Low,pending,11,0,2,3,28.83,Medium
+CLIQUE BRAND INDIA LLP,followup,lead,P2,Low,pending,3,0,1,3,20.5,Low
+JM Deepa Art,followup,deal,P2,Medium,pending,25,0,3,3,36.17,High
+Dzire Graphics,followup,deal,P2,Medium,pending,27,0,2,3,34.5,High
+Fine Pro Multi Developers,followup,deal,P2,High,pending,11,0,1,3,32.83,High
+VJR Signs,meeting,deal,P2,Medium,scheduled,13,0,2,4,32.17,High
+MK Sign,meeting,lead,P2,Medium,scheduled,22,0,3,4,30.67,Medium
+SILVERLINE WORLD,followup,lead,P2,High,pending,3,0,1,2,24.5,Low
+Siddhivinayak enterprises,followup,lead,P2,High,pending,44,0,4,3,39.33,High
+MAGENTA COMMUNICATION,meeting,deal,P2,High,scheduled,8,0,1,2,28.33,Medium
+Creative Arts,meeting,deal,P2,Low,scheduled,17,0,2,3,27.83,Medium
+Mahakali prints,followup,lead,P2,High,pending,37,0,2,2,32.17,High
+LPFLEX Sign India Pvt. Ltd.,followup,lead,P2,Medium,pending,31,0,3,0,26.17,Medium
+JYOTI TRADING COMPANY,meeting,lead,P2,Low,scheduled,5,0,0,1,12.83,Low
+Creative Advertising,meeting,deal,P2,Low,scheduled,4,0,1,3,23.67,Low
+Descon Infrastructures,followup,lead,P2,Medium,pending,22,0,2,2,26.67,Medium
+Fabworks,meeting,lead,P2,High,scheduled,55,0,5,2,39.17,High
+BRAND SIGNS,meeting,deal,P2,High,scheduled,35,0,3,2,36.83,High
+KANSAI VERSATILE RESOURCES,followup,lead,P2,Low,pending,0,0,1,2,18,Low
+wattamwar defence and Arospace Pvt. Ltd,followup,lead,P2,Low,pending,4,0,1,5,24.67,Low
+LORENZ IMAGING,followup,lead,P2,Medium,pending,20,0,1,2,24.33,Low
+creative signs,followup,lead,P2,Medium,pending,0,0,2,2,23,Low
+Stylo Maximage Unit Of Stylo Graphics Private Limited,meeting,deal,P2,Low,scheduled,14,0,2,5,31.33,Medium
+Jai Maa Sheetla Enterprises,meeting,deal,P2,High,scheduled,3,0,2,4,33.5,High
+nexus creative,meeting,lead,P2,Low,scheduled,0,0,2,3,20,Low
+Green Tech Solutions,followup,lead,P2,Medium,pending,32,0,1,3,28.33,Medium
+Inkfish Creations,followup,deal,P2,Medium,pending,19,0,5,3,39.17,High
+Kaarmik,followup,deal,P2,Low,pending,7,0,1,5,30.17,Medium
+Onepath integrated Solutions pvt Ltd,followup,deal,P2,Low,pending,6,0,0,3,24,Low
+Gaurav Sales Corporation,followup,deal,P2,Medium,pending,53,0,3,2,38.83,High
+BHAGAVATI PRINTING AND TRADING CO.,meeting,lead,P2,High,scheduled,35,0,5,3,37.83,High
+Gloplast Advertising Pvt. Ltd.,followup,deal,P2,Low,pending,12,0,2,4,31,Medium
+SUFALAM STREET,meeting,deal,P2,Medium,scheduled,30,0,3,5,39,High
+Design world,followup,lead,P2,Low,pending,7,0,2,5,27.17,Medium
+CYAN ENTERPRISES,meeting,deal,P2,Medium,scheduled,13,0,3,3,32.17,High
+MK Sign,meeting,lead,P2,Medium,scheduled,22,0,3,1,24.67,Low
+Signage Solutions,meeting,lead,P2,Medium,scheduled,60,0,5,1,35,High
+POSITIVE IMAGES,followup,deal,P2,High,pending,36,0,3,4,43,High
+Jyotsna Art Creation,followup,deal,P2,Medium,pending,49,0,2,3,38.17,High
+Swastik Digital,followup,lead,P2,Medium,pending,8,0,1,3,24.33,Low
+RSK consultancy,followup,deal,P2,Low,pending,5,0,2,1,23.83,Low
+SK Digital Signs,meeting,deal,P2,Low,scheduled,38,0,2,1,27.33,Medium
+AMOL GRAPHICS,followup,deal,P2,High,pending,6,0,0,2,28,Medium
+ankush arts,followup,deal,P2,High,pending,35,0,1,1,32.83,High
+Deepak Advertising,followup,deal,P2,High,pending,40,0,2,5,43.67,High
+Artistic Prints,meeting,lead,P2,Low,scheduled,8,0,2,2,19.33,Low
+Sign & Glaze,followup,deal,P2,Medium,pending,19,0,2,4,35.17,High
+Nishitha ads,meeting,deal,P2,Low,scheduled,5,0,2,5,29.83,Medium
+Midas touch creations,followup,deal,P2,Low,pending,6,0,2,3,28,Medium
+testp,followup,deal,P2,Low,pending,2,0,1,2,23.33,Low
+Soham Enterprise,meeting,lead,P2,Low,scheduled,15,0,2,2,20.5,Low
+YT Sign Solution,followup,deal,P2,Medium,pending,40,0,3,5,42.67,High
+VAMA SAFETY,followup,lead,P2,Medium,pending,26,0,2,2,27.33,Medium
+Signage Partner,meeting,deal,P2,Low,scheduled,8,0,4,2,28.33,Medium
+Teetan Art,followup,deal,P2,Medium,pending,8,0,1,4,31.33,Medium
+Adinn advertising services limited,followup,deal,P2,High,pending,53,0,5,3,47.83,High
+The Sign World Enterprises,followup,lead,P2,High,pending,45,0,3,0,31.5,Medium
+L K Creations,followup,deal,P2,Low,pending,2,0,1,5,29.33,Medium
+Magenta Sign,followup,deal,P2,High,pending,37,0,3,2,39.17,High
+Cosign India Pvt Ltd,meeting,lead,P2,Medium,scheduled,29,0,3,2,27.83,Medium
+Fenix Advertising,meeting,lead,P2,High,scheduled,35,0,5,3,37.83,High
+The Exclusive,meeting,deal,P2,Medium,scheduled,19,0,3,3,33.17,High
+New Alif Enterprises,meeting,deal,P2,High,scheduled,35,0,4,4,42.83,High
+Taj Advertising,meeting,deal,P2,Medium,scheduled,14,0,2,3,30.33,Medium
+Bigg Impact Advertising,followup,lead,P2,Medium,pending,59,0,3,4,38.83,High
+Kala Indesign,followup,lead,P2,High,pending,46,0,4,0,33.67,High
+Shadows,meeting,deal,P2,Low,scheduled,7,0,2,3,26.17,Medium
+THE DEVINE ART,followup,lead,P2,Low,pending,6,0,2,0,17,Low
+Sarode Arts And Gifts,followup,deal,P2,High,pending,51,0,1,0,33.5,High
+Brand Value Sign Solution,meeting,deal,P2,Medium,scheduled,23,0,5,4,39.83,High
+A one Arts,meeting,lead,P2,Low,scheduled,7,0,2,1,17.17,Low
+rutika testing,followup,lead,P2,Medium,pending,51,0,3,5,39.5,High
+PRINTOUCH,followup,deal,P2,Medium,pending,40,0,4,2,38.67,High
+R R Consultancy,followup,deal,P2,Low,pending,6,0,2,4,30,Medium
+Ideal Creations,followup,deal,P2,High,pending,53,0,4,2,43.83,High
+Mindmade,followup,deal,P2,Low,pending,42,0,4,5,42,High
+Five Star Creatives,followup,deal,P2,Medium,pending,11,0,1,2,27.83,Medium
+"SDR Enterprises,",followup,deal,P2,Low,pending,6,0,2,3,28,Medium
+Galore,followup,deal,P2,High,pending,21,0,3,1,34.5,High
+KALPANA STRUCT-CON PVT LTD,followup,deal,P2,Medium,pending,4,0,2,0,24.67,Low
+Cosign Bangalore,followup,deal,P2,High,pending,60,0,5,2,47,High
+Woodpecker interieurs,meeting,deal,P2,Medium,scheduled,3,0,0,4,26.5,Medium
+Sharp Signs,meeting,lead,P2,High,scheduled,4,0,3,1,24.67,Low
+Signature Graphics,followup,lead,P2,Low,pending,45,0,3,3,31.5,Medium
+Ingenious Solution Group,followup,lead,P2,Medium,pending,39,0,1,2,27.5,Medium
+test mplanner lead,meeting,deal,P2,Medium,scheduled,19,0,3,3,33.17,High
+CREO SIGNS,followup,deal,P2,Low,pending,3,0,2,3,27.5,Medium
+Designworks,followup,deal,P2,High,pending,12,0,2,3,35,High
+ANS Enterprises,followup,deal,P2,High,pending,35,0,3,2,38.83,High
+3S Photo Art Pvt Ltd,followup,deal,P2,Low,pending,0,0,3,3,29,Medium
+SHILP CREATION,meeting,lead,P2,High,scheduled,13,0,2,4,30.17,Medium
+Wattamwar Capital,meeting,deal,P2,High,scheduled,17,0,4,3,37.83,High
+L K Creations,meeting,deal,P2,Medium,scheduled,33,0,1,2,29.5,Medium
+Amreesh Neon Pvt Ltd,meeting,deal,P2,Medium,scheduled,10,0,1,4,29.67,Medium
+XS,followup,lead,P2,Medium,pending,39,0,1,3,29.5,Medium
+21st Century Signs,followup,lead,P2,Low,pending,48,0,3,1,28,Medium
+Origon Branding solutions,followup,lead,P2,High,pending,60,0,4,5,46,High
+VISUAL STACK,meeting,lead,P2,High,scheduled,10,0,3,3,29.67,Medium
+A.S.GRAPHICS,meeting,lead,P2,Low,scheduled,41,0,3,3,28.83,Medium
+Digi Max,meeting,lead,P2,Medium,scheduled,25,0,3,4,31.17,Medium
+Sign Times Private Limites,meeting,deal,P2,High,scheduled,50,0,1,2,35.33,High
+The Sign World Enterprises,followup,deal,P2,Low,pending,8,0,1,4,28.33,Medium
+sky arts,followup,lead,P2,Medium,pending,28,0,4,2,31.67,Medium
+test alias test,followup,lead,P2,Medium,pending,39,0,2,3,31.5,Medium
+BISWAKARMA SIGNAGES,meeting,deal,P2,Medium,scheduled,35,0,4,3,37.83,High
+Biosphere Sign,followup,deal,P2,Low,pending,5,0,1,4,27.83,Medium
+Infosigns,meeting,deal,P2,Low,scheduled,4,0,2,0,19.67,Low
+SPL Advertising Pvt Ltd,meeting,deal,P2,Low,scheduled,44,0,2,4,34.33,High
+Five Senses Sign System,followup,lead,P2,Low,pending,14,0,2,4,26.33,Medium
+Inter Ext Pvt. Ltd,followup,deal,P2,Low,pending,7,0,2,3,28.17,Medium
+Kumar Creation,followup,deal,P2,Low,pending,0,0,4,5,35,High
+SHILP CREATION,meeting,deal,P2,High,scheduled,35,0,5,2,40.83,High
+Mini sign design,meeting,lead,P2,Low,scheduled,5,0,1,1,14.83,Low
+Roop Sign & Graphics,followup,deal,P2,High,pending,10,0,1,4,34.67,High
+VISIONARY SIGNS,followup,deal,P2,High,pending,43,0,5,2,44.17,High
+Impression Design & Print,followup,deal,P2,Medium,pending,3,0,3,3,32.5,High
+LMP H shop,meeting,deal,P2,High,scheduled,42,0,4,3,42,High
+Adview Advertising Pvt.Ltd,followup,deal,P2,High,pending,0,0,1,2,29,Medium
+Pranaya Samantara,meeting,lead,P2,Low,scheduled,10,0,2,3,21.67,Low
+SHREE CHINTAMANI  GRAPHICS,followup,deal,P2,Low,pending,2,0,0,3,23.33,Low
+KASTAMYSED DESIGN & PRINT,followup,deal,P2,Medium,pending,14,0,4,3,36.33,High
+The SignMan,meeting,deal,P2,Low,scheduled,1,0,2,0,19.17,Low
+Swastik Print AD Industries,meeting,deal,P2,Medium,scheduled,10,0,2,3,29.67,Medium
+Wonder Creation,followup,deal,P2,High,pending,37,0,5,2,43.17,High
+testp,followup,lead,P2,Medium,pending,34,0,0,1,22.67,Low
+Ad Signs,meeting,deal,P2,Medium,scheduled,8,0,1,1,23.33,Low
+JMD`,meeting,deal,P2,High,scheduled,36,0,2,1,33,High
+Miracles Creation,followup,lead,P2,Medium,pending,10,0,2,2,24.67,Low
+creative signs,meeting,deal,P2,High,scheduled,4,0,2,3,31.67,Medium
+Edifice Consultants Private Limited,meeting,deal,P2,High,scheduled,59,0,3,2,40.83,High
+Innovision,meeting,lead,P2,Low,scheduled,8,0,3,5,27.33,Medium
+Supreme Digitals,followup,deal,P2,Medium,pending,9,0,2,3,31.5,Medium
+Abhi creations,meeting,deal,P2,High,scheduled,39,0,4,3,41.5,High
+Ramakrishna - A Complete Printing Solution,followup,deal,P2,Medium,pending,28,0,3,2,34.67,High
+Color Concept India Pvt . Ltd,meeting,deal,P2,Low,scheduled,33,0,2,1,26.5,Medium
+Vara Ecom llp,meeting,lead,P2,Medium,scheduled,32,0,5,3,34.33,High
+Best IDEAS Advertising,meeting,deal,P2,High,scheduled,51,0,4,2,41.5,High
+Gleam Lighting,followup,lead,P2,Medium,pending,14,0,2,5,31.33,Medium
+Kulswamini enterprises,meeting,deal,P2,Medium,scheduled,35,0,5,1,35.83,High
+Craftech,followup,deal,P2,Low,pending,2,0,2,0,21.33,Low
+Tuva Signs,followup,lead,P2,Medium,pending,31,0,2,1,26.17,Medium
+test client,followup,lead,P2,Medium,pending,18,0,3,4,32,High
+Raj Creation,followup,deal,P2,High,pending,60,0,4,2,45,High
+Sign o hub,meeting,lead,P2,Low,scheduled,9,0,2,2,19.5,Low
+Mermaid Digital Pvt Ltd,meeting,lead,P2,Low,scheduled,0,0,2,3,20,Low
+Chitra graphic,meeting,deal,P2,Medium,scheduled,25,0,3,2,32.17,High
+Spectrum Color Labs,followup,lead,P2,Low,pending,35,0,4,2,29.83,Medium
+CMYK Grapahics,followup,deal,P2,Medium,pending,35,0,5,4,43.83,High
+ELEPHANT Design Pvt Ltd.,followup,lead,P2,Low,pending,12,0,1,5,26,Medium
+Elcare Systems Pvt Ltd,followup,deal,P2,High,pending,47,0,3,3,42.83,High
+Sangam Enterprises,meeting,lead,P2,Low,scheduled,10,0,2,4,23.67,Low
+Vrutha 360,followup,deal,P2,Medium,pending,60,0,4,3,44,High
+SANE AND SHINDE ASSOCIATES,meeting,deal,P2,Medium,scheduled,33,0,5,4,41.5,High
+Suman Offset Printers,followup,lead,P2,Low,pending,5,0,1,2,18.83,Low
+Mahavir color lab,meeting,deal,P2,Low,scheduled,5,0,2,0,19.83,Low
+Onepath integrated Solutions pvt Ltd,followup,deal,P2,High,pending,35,0,3,3,40.83,High
+Signaletics,meeting,lead,P2,Medium,scheduled,10,0,4,5,32.67,High
+Singai signs,followup,deal,P2,High,pending,42,0,3,2,40,High
+Madhu Copy Centre,meeting,deal,P2,High,scheduled,48,0,4,3,43,High
+Khadilkar process stodio,meeting,lead,P2,Low,scheduled,11,0,2,4,23.83,Low
+Protector Fire and Safety,meeting,lead,P2,Low,scheduled,6,0,1,5,23,Low
+Maharaja Marketing,meeting,deal,P2,Medium,scheduled,21,0,2,5,35.5,High
+V R PRINTER,followup,deal,P2,Low,pending,8,0,2,1,24.33,Low
+MANISH SIGN TECHNOLOGIES (20-21),followup,deal,P2,High,pending,42,0,2,1,36,High
+Black Papper,followup,lead,P2,High,pending,0,0,2,3,28,Medium
+Pratyush Enterprises,meeting,lead,P2,Medium,scheduled,35,0,2,2,26.83,Medium
+Demarg Advertisers,followup,deal,P2,Low,pending,8,0,1,4,28.33,Medium
+Shubh laxmi Signages,followup,lead,P2,Low,pending,4,0,2,3,22.67,Low
+Sanjay Art Gallery,followup,deal,P2,High,pending,13,0,0,4,33.17,High
+Sameer Advertising,meeting,deal,P2,Low,scheduled,24,0,3,4,33,High
+Prakashal Digital Zone,followup,lead,P2,Medium,pending,18,0,5,1,30,Medium
+SMEDOR,followup,deal,P2,High,pending,41,0,5,1,41.83,High
+Green Tech Solutions,meeting,lead,P2,Low,scheduled,25,0,5,2,28.17,Medium
+City Advertising & Marketing,meeting,deal,P2,Medium,scheduled,22,0,3,5,37.67,High
+Rennix solutions,followup,deal,P2,Low,pending,11,0,3,0,24.83,Low
+GOGIA PLASTICS,followup,lead,P2,High,pending,55,0,4,2,39.17,High
+Working Together,meeting,lead,P2,Low,scheduled,7,0,1,3,19.17,Low
+S K ARTS,meeting,lead,P2,Medium,scheduled,38,0,5,1,31.33,Medium
+Spectrum Digital Solutions,meeting,deal,P2,Low,scheduled,1,0,0,2,19.17,Low
+City lights,meeting,deal,P2,Medium,scheduled,54,0,3,3,39,High
+X-treme solutions,meeting,deal,P2,Medium,scheduled,8,0,1,5,31.33,Medium
+Radiance Signs Pvt Ltd,followup,deal,P2,High,pending,52,0,3,4,45.67,High
+S4 Signs Solution,meeting,deal,P2,Medium,scheduled,0,0,0,4,26,Medium
+Hipixo photography,meeting,deal,P2,Low,scheduled,4,0,2,4,27.67,Medium
+City Advertising & Marketing,followup,lead,P2,Low,pending,17,0,1,4,24.83,Low
+Vara Ecom llp,meeting,lead,P2,Low,scheduled,10,0,2,2,19.67,Low
+ONE SOURCE ENTERPRISES,meeting,deal,P2,High,scheduled,43,0,4,5,46.17,High
+SHRI SAI PRINTERS & TRADERS,meeting,deal,P2,Low,scheduled,8,0,1,2,22.33,Low
+A B C DISPLAY SYSTEMS,meeting,deal,P2,High,scheduled,35,0,2,1,32.83,High
+Jay Vision Care & Ophthalmics Pvt Ltd,followup,lead,P2,High,pending,59,0,4,5,45.83,High
+Electrographics Sign pvt.ltd.,followup,lead,P2,High,pending,49,0,3,0,32.17,High
+Delta solutions,meeting,lead,P2,High,scheduled,60,0,5,5,46,High
+supreme enterprises (kondwa),meeting,lead,P2,Medium,scheduled,37,0,0,3,25.17,Medium
+VAJRA SIGN TRADE,meeting,lead,P2,High,scheduled,36,0,3,5,38,High
+Taksh,followup,deal,P2,High,pending,8,0,1,2,30.33,Medium
+H G graphics,meeting,lead,P2,Low,scheduled,13,0,2,1,18.17,Low
+GANESHA ADVERTISING,followup,lead,P2,Low,pending,6,0,1,5,25,Medium
+Sheetal print and sign,followup,lead,P2,Medium,pending,60,0,1,1,29,Medium
+Shiva Arts,meeting,deal,P2,Low,scheduled,11,0,3,2,26.83,Medium
+Edifice Consultants Private Limited,followup,lead,P2,Medium,pending,41,0,3,3,33.83,High
+Kumar Creation,followup,lead,P2,Medium,pending,8,0,4,2,28.33,Medium
+The Sign Company,meeting,deal,P2,High,scheduled,41,0,5,3,43.83,High
+The Grey Cell,followup,deal,P2,Low,pending,10,0,0,3,24.67,Low
+PRINTBUZZ,meeting,lead,P2,Medium,scheduled,11,0,4,2,26.83,Medium
+Y2K Signs,meeting,lead,P2,Medium,scheduled,10,0,3,4,28.67,Medium
+Max Media,followup,lead,P2,Low,pending,0,0,1,1,16,Low
+Giri sign makers,followup,deal,P2,High,pending,5,0,3,4,37.83,High
+Neocraft,followup,deal,P2,Low,pending,8,0,1,3,26.33,Medium
+Asia Enterprise,meeting,deal,P2,Low,scheduled,4,0,2,3,25.67,Medium
+sign Makers,meeting,lead,P2,Medium,scheduled,21,0,3,4,30.5,Medium
+Nova Ads/Expo,meeting,deal,P2,High,scheduled,0,0,1,2,27,Medium
+HCP,meeting,lead,P2,Low,scheduled,56,0,3,1,27.33,Medium
+Excel sign solutions,meeting,deal,P2,High,scheduled,35,0,5,4,44.83,High
+Vaibhav Readymades,meeting,lead,P2,Low,scheduled,1,0,0,2,14.17,Low
+Crest Creative,meeting,deal,P2,Medium,scheduled,13,0,3,3,32.17,High
+SIGN LANGUAGE STUDIO LLP,meeting,deal,P2,Low,scheduled,15,0,1,5,29.5,Medium
+Outlook Advertising,meeting,lead,P2,Medium,scheduled,13,0,0,3,21.17,Low
+Excel sign solutions,meeting,lead,P2,Low,scheduled,54,0,4,0,27,Medium
+PaperPixel,meeting,deal,P2,Low,scheduled,14,0,1,2,23.33,Low
+Penxels Creation,meeting,deal,P2,Low,scheduled,2,0,2,5,29.33,Medium
+Metro Imaging,followup,deal,P2,Medium,pending,3,0,2,1,26.5,Medium
+True Ads Pvt Ltd,followup,deal,P2,Medium,pending,2,0,2,2,28.33,Medium
+PATI GRAPHICS,meeting,deal,P2,Low,scheduled,12,0,2,2,25,Medium
+shiva digital printing,followup,deal,P2,Low,pending,11,0,0,4,26.83,Medium
+Bright Sign,meeting,deal,P2,High,scheduled,44,0,2,1,34.33,High
+CANWHART,meeting,lead,P2,High,scheduled,39,0,4,4,38.5,High
+Bright Sign,followup,deal,P2,High,pending,42,0,1,2,36,High
+Shree enterprises,followup,lead,P2,Low,pending,2,0,0,2,16.33,Low
+Artistry Inc,followup,deal,P2,High,pending,35,0,1,4,38.83,High
+Iris Print,followup,deal,P2,Medium,pending,15,0,1,1,26.5,Medium
+SACHIN ARTS,followup,deal,P2,Low,pending,6,0,0,4,26,Medium
+Cosign India,meeting,deal,P2,Low,scheduled,0,0,4,3,29,Medium
+RAJPUT CREATION,followup,deal,P2,High,pending,39,0,3,5,45.5,High
+Midas touch creations,meeting,deal,P2,High,scheduled,30,0,1,2,32,High
+CAPITAL OFFICE SOLUTIONS,meeting,deal,P2,Low,scheduled,14,0,4,3,31.33,Medium
+Brand Space,followup,deal,P2,Low,pending,0,0,1,2,23,Low
+Moraya Graphics,followup,lead,P2,Medium,pending,42,0,5,1,34,High
+LMN Plaza Pvt Ltd.,followup,deal,P2,Medium,pending,34,0,2,3,35.67,High
+H D CREATIONS,followup,deal,P2,High,pending,56,0,4,4,48.33,High
+Shree Graphics ( pune),followup,deal,P2,Medium,pending,25,0,2,4,36.17,High
+TANVIR CREATION PRIVATE LIMITED,followup,deal,P2,Low,pending,9,0,2,2,26.5,Medium
+Fine Pro Multi Developers,followup,deal,P2,Medium,pending,16,0,5,3,38.67,High
+Spectrum Color Labs,followup,deal,P2,Low,pending,7,0,1,3,26.17,Medium
+Manjarabad Infrastructure Pvt Ltd,followup,deal,P2,Low,pending,1,0,0,0,17.17,Low
+AMOL GRAPHICS,followup,deal,P2,Medium,pending,9,0,2,5,35.5,High
+Aristocrat light n sign inc,followup,lead,P2,High,pending,47,0,1,3,33.83,High
+Stylo Maximage Unit Of Stylo Graphics Private Limited,meeting,deal,P2,Medium,scheduled,16,0,2,4,32.67,High
+test alias test,followup,deal,P2,Low,pending,60,0,3,3,39,High
+print place,followup,lead,P2,Low,pending,7,0,0,2,17.17,Low
+pratima,followup,deal,P2,Low,pending,9,0,1,5,30.5,Medium
+First Impression Systems,followup,deal,P2,Medium,pending,19,0,2,2,31.17,Medium
+GLOW SIGN,followup,lead,P2,Low,pending,11,0,2,2,21.83,Low
+Shamba Shadashiv Enterprises,followup,deal,P2,Medium,pending,10,0,0,4,29.67,Medium
+SIGN OPTIONS,followup,lead,P2,High,pending,10,0,5,3,35.67,High
+Media Exhibitors Pvt Ltd,followup,deal,P2,Medium,pending,56,0,4,2,41.33,High
+Zeliant Engineering Private Ltd,followup,deal,P2,High,pending,40,0,3,3,41.67,High
+GRAPHO TECH,meeting,lead,P2,Medium,scheduled,35,0,5,0,28.83,Medium
+Chitra graphic,meeting,deal,P2,Low,scheduled,13,0,2,2,25.17,Medium
+RIDDHI ENTERPRISES - PUNE,meeting,deal,P2,Low,scheduled,4,0,3,5,31.67,Medium
+CRYSTAL ADVERTISING & INTERIOR,followup,deal,P2,Low,pending,12,0,1,3,27,Medium
+United Engineering,meeting,lead,P2,Low,scheduled,41,0,3,1,24.83,Low
+Signtech Advertising,followup,deal,P2,High,pending,47,0,3,2,40.83,High
+SIDDHESHWAR ENTERPRISES,followup,deal,P2,Low,pending,40,0,4,1,33.67,High
+Rennix solutions,followup,deal,P2,High,pending,47,0,5,2,44.83,High
+SHAPES COMMUNICATIONS PVT LTD,meeting,deal,P2,Medium,scheduled,7,0,1,0,21.17,Low
+Peetsar Graphics,meeting,lead,P2,Low,scheduled,10,0,1,4,21.67,Low
+Balaji plastic,meeting,deal,P2,Medium,scheduled,43,0,4,1,35.17,High
+Innovision,meeting,deal,P2,High,scheduled,4,0,0,3,27.67,Medium
+Asrast Technologies,followup,deal,P2,Medium,pending,26,0,1,1,28.33,Medium
+Signaletics,followup,deal,P2,Low,pending,18,0,4,0,28,Medium
+Sign Solutions,meeting,lead,P2,Medium,scheduled,52,0,3,3,33.67,High
+PRISM Enterprises,meeting,deal,P2,Medium,scheduled,10,0,2,2,27.67,Medium
+Adnest Media LLP,followup,deal,P2,Low,pending,15,0,1,3,27.5,Medium
+Color Concept India Pvt . Ltd,followup,deal,P2,High,pending,35,0,4,2,40.83,High
+rutuja,followup,lead,P2,Low,pending,4,0,3,1,20.67,Low
+APPAJI ENTERPRISES,meeting,lead,P2,Low,scheduled,10,0,2,5,25.67,Medium
+Bhairav arts,meeting,lead,P2,Low,scheduled,0,0,1,2,16,Low
+AURORA IMPRESSIONS,meeting,deal,P2,Medium,scheduled,31,0,3,2,33.17,High
+Bigg Impact Advertising,followup,deal,P2,Low,pending,4,0,0,1,19.67,Low
+SMEDOR,followup,lead,P2,Low,pending,0,0,2,2,20,Low
+Angel Ads,meeting,lead,P2,High,scheduled,35,0,3,5,37.83,High
+Anomishere,meeting,lead,P2,Medium,scheduled,32,0,3,2,28.33,Medium
+Label Theory,meeting,deal,P2,Medium,scheduled,16,0,2,0,24.67,Low
+SUNSIGN,meeting,deal,P2,Medium,scheduled,28,0,2,1,28.67,Medium
+"Concept Creator,",followup,deal,P2,High,pending,28,0,4,5,45.67,High
+Joyti print & pack pvt ltd,followup,deal,P2,Low,pending,10,0,2,0,22.67,Low
+Infinity signage system,followup,lead,P2,Low,pending,6,0,1,3,21,Low
+Parallel Learning,followup,deal,P2,Low,pending,49,0,3,5,41.17,High
+Prasad Kumbhare,meeting,deal,P2,Medium,scheduled,35,0,4,2,35.83,High
+Classic Advertising,meeting,deal,P2,Low,scheduled,1,0,2,4,27.17,Medium
+Ark Square Service Pvt Ltd,followup,deal,P2,High,pending,35,0,4,4,44.83,High
+Ramakrishna - A Complete Printing Solution,followup,lead,P2,High,pending,27,0,2,4,34.5,High
+Hemu Products,meeting,deal,P2,High,scheduled,5,0,1,4,31.83,Medium
+Universal Sign,meeting,deal,P2,Low,scheduled,48,0,4,0,31,Medium
+Motif Graphics pvt ltd,followup,deal,P2,Low,pending,12,0,1,3,27,Medium
+HiFi Printers,followup,deal,P2,Medium,pending,34,0,4,3,39.67,High
+SUNSIGN,meeting,deal,P2,High,scheduled,38,0,4,4,43.33,High
+Asrast Technologies,followup,deal,P2,Medium,pending,21,0,2,2,31.5,Medium
+KWALITY SIGNBIZ,meeting,deal,P2,High,scheduled,15,0,1,2,29.5,Medium
+Creative Concept India Private Limited,followup,lead,P2,Medium,pending,60,0,4,3,39,High
+SIGNFORMECH,meeting,deal,P2,Low,scheduled,16,0,1,3,25.67,Medium
+INFINITY PRINT AND SIGNAGE INDUSTRIES,meeting,deal,P2,High,scheduled,46,0,3,1,36.67,High
+P.G.ENTERPRISES,followup,deal,P2,Medium,pending,15,0,1,4,32.5,High
+JBSS SIGNAGES PVT LTD,followup,deal,P2,Low,pending,25,0,3,3,33.17,High
+Signx India,followup,deal,P2,Low,pending,19,0,1,1,24.17,Low
+Sejal Enterprise,meeting,deal,P2,Low,scheduled,0,0,0,3,21,Low
+Akshay Arts,meeting,deal,P2,Low,scheduled,27,0,2,1,25.5,Medium
+Hindustan Aluminium Works,meeting,lead,P2,Low,scheduled,0,0,1,3,18,Low
+Inkwell Printing Services,followup,lead,P2,Medium,pending,45,0,5,1,34.5,High
+GANESHA ADVERTISING,meeting,lead,P2,Medium,scheduled,18,0,3,1,24,Low
+NCC Ltd - WTC,meeting,lead,P2,Low,scheduled,40,0,4,5,34.67,High
+GLOW SIGN DIGITAL ARTS,followup,deal,P2,High,pending,10,0,1,0,26.67,Medium
+Sign-In,meeting,deal,P2,Low,scheduled,11,0,3,4,30.83,Medium
+SANJAY SIGNS,meeting,lead,P2,High,scheduled,12,0,2,0,22,Low
+Shree gajanan signs,meeting,lead,P2,High,scheduled,11,0,2,1,23.83,Low
+Adview Advertising Pvt.Ltd,followup,deal,P2,Medium,pending,10,0,2,0,25.67,Medium
+The Sign World Enterprises,meeting,deal,P2,Low,scheduled,35,0,4,3,34.83,High
+R M Batt and co (Pankore Naka),followup,deal,P2,Medium,pending,51,0,5,2,42.5,High
+Ammar arts,meeting,deal,P2,Low,scheduled,6,0,1,3,24,Low
+21st Century Signs,meeting,lead,P2,Medium,scheduled,39,0,3,5,35.5,High
+Bansal Graphics & Advertisers,followup,deal,P2,Low,pending,10,0,2,4,30.67,Medium
+Print Life Media,followup,deal,P2,Low,pending,19,0,1,5,32.17,High
+TARAPARA INDUSTRIES,followup,deal,P2,Medium,pending,12,0,2,4,34,High
+US Communication,meeting,deal,P2,Medium,scheduled,0,0,2,3,28,Medium
+A TO Z Enterprises,followup,deal,P2,Medium,pending,23,0,2,1,29.83,Medium
+RNR Project,followup,deal,P2,Medium,pending,26,0,2,2,32.33,High
+Agarwal Digital Printer,meeting,deal,P2,Medium,scheduled,39,0,5,3,40.5,High
+First Page,followup,lead,P2,Medium,pending,13,0,2,3,27.17,Medium
+Kumar Creation,meeting,lead,P2,Low,scheduled,27,0,4,2,26.5,Medium
+SD INDUSTRIAL SOLUTION,followup,deal,P2,High,pending,38,0,3,1,37.33,High
+Pro Signs,meeting,deal,P2,High,scheduled,35,0,3,1,34.83,High
+Sheetla Hospital.,followup,deal,P2,Medium,pending,20,0,3,3,35.33,High
+Signtek,meeting,lead,P2,Low,scheduled,9,0,0,3,17.5,Low
+SPL Advertising,followup,lead,P2,Medium,pending,35,0,4,2,32.83,High
+Chennai Digital Printer,meeting,lead,P2,Low,scheduled,41,0,5,0,26.83,Medium
+CRYSTAL DECORATORS,followup,deal,P2,High,pending,35,0,1,5,40.83,High
+Seema Enterprise,followup,deal,P2,High,pending,55,0,5,2,46.17,High
+ADS SPACE PRINTERES AND ADVERTISE,followup,deal,P2,Low,pending,0,0,1,4,27,Medium
+K Square India,meeting,lead,P2,Medium,scheduled,8,0,2,2,22.33,Low
+ROHINI SIGNS,followup,deal,P2,High,pending,57,0,5,3,48.5,High
+Mini Signage & graphics llp,followup,lead,P2,Medium,pending,20,0,3,4,32.33,High
+m.m. creation,followup,deal,P2,High,pending,10,0,2,1,30.67,Medium
+British Signs,meeting,deal,P2,Low,scheduled,35,0,1,0,22.83,Low
+Moraya Graphics,followup,lead,P2,Low,pending,14,0,1,5,26.33,Medium
+LORENZ IMAGING,meeting,deal,P2,Low,scheduled,6,0,2,0,20,Low
+DD Enterprise,followup,deal,P2,Medium,pending,39,0,4,1,36.5,High
+OM SAI PROCESS,meeting,lead,P2,Medium,scheduled,18,0,5,4,34,High
+"SignTech Indian,",followup,lead,P2,High,pending,9,0,3,4,33.5,High
+Seema Enterprise,followup,lead,P2,High,pending,47,0,4,4,41.83,High
+INGENIOUS BUSINESS SOLUTION,meeting,lead,P2,Low,scheduled,14,0,1,1,16.33,Low
+Impact Bulk Handling Services,followup,deal,P2,Medium,pending,22,0,3,4,37.67,High
+Mini Signage & graphics llp,meeting,lead,P2,Medium,scheduled,7,0,1,3,22.17,Low
+Sandeep Advertising,meeting,deal,P2,Medium,scheduled,35,0,3,4,37.83,High
+ANUSHREE SIGNS,followup,lead,P2,Medium,pending,36,0,5,1,33,High
+Taksh impressions llp,followup,deal,P2,High,pending,40,0,5,3,45.67,High
+Indinno Technoligies Pvt Ltd,followup,deal,P2,High,pending,35,0,3,4,42.83,High
+Aditya Signage,meeting,deal,P2,High,scheduled,48,0,5,0,39,High
+test client,meeting,deal,P2,Low,scheduled,43,0,3,2,32.17,High
+ZAHID AD,meeting,lead,P2,High,scheduled,35,0,4,3,35.83,High
+POSHDECOR,followup,lead,P2,Medium,pending,13,0,2,2,25.17,Medium
+GFE signages.,meeting,lead,P2,Medium,scheduled,19,0,3,3,28.17,Medium
+SLN DIGITALS,followup,deal,P2,High,pending,57,0,5,3,48.5,High
+Raj Arts,followup,deal,P2,Low,pending,0,0,2,3,27,Medium
+M/s Arham LED,followup,lead,P2,High,pending,44,0,4,3,39.33,High
+Shri Durga Trading,meeting,lead,P2,Low,scheduled,6,0,2,2,19,Low
+Xenon Signage,meeting,deal,P2,Low,scheduled,35,0,4,3,34.83,High
+Amaan Advertising,followup,lead,P2,Low,pending,13,0,0,2,18.17,Low
+Shree gajanan signs,meeting,deal,P2,Medium,scheduled,6,0,1,2,25,Medium
+Aqsa Graphics,meeting,deal,P2,Low,scheduled,4,0,1,2,21.67,Low
+Aarti Arts,meeting,deal,P2,Medium,scheduled,17,0,3,3,32.83,High
+Woodpecker interieurs,followup,deal,P2,Low,pending,31,0,4,4,38.17,High
+RELIABLE ENGINEERS,meeting,deal,P2,High,scheduled,54,0,3,3,42,High
+Media of Advertising and Publicity,meeting,deal,P2,High,scheduled,43,0,3,3,40.17,High
+supreme enterprises (kondwa),meeting,deal,P2,Medium,scheduled,37,0,1,2,30.17,Medium
+Apex Digital Innovative,meeting,deal,P2,Medium,scheduled,24,0,3,4,36,High
+SYTECH,followup,deal,P2,Low,pending,1,0,2,1,23.17,Low
+Galore,followup,deal,P2,Low,pending,7,0,2,3,28.17,Medium
+INFOSIGN,followup,deal,P2,High,pending,42,0,5,5,50,High
+H G graphics,followup,deal,P2,Low,pending,7,0,0,3,24.17,Low
+Prasad Kumbhare,meeting,deal,P2,Low,scheduled,32,0,5,2,34.33,High
+Aaptec,meeting,deal,P2,Medium,scheduled,31,0,2,1,29.17,Medium
+Mahalaxmi creation,meeting,deal,P2,Medium,scheduled,0,0,1,4,28,Medium
+Avasiti Design,meeting,deal,P2,Low,scheduled,20,0,2,1,24.33,Low
+MASS Media,followup,lead,P2,Low,pending,1,0,1,4,22.17,Low
+Vedanshee Safety and sign pvt ltd,meeting,deal,P2,Medium,scheduled,3,0,1,1,22.5,Low
+Black Papper,followup,deal,P2,Medium,pending,45,0,1,1,31.5,Medium
+Rivet Design Studio,followup,deal,P2,Medium,pending,36,0,3,3,38,High
+M/s Arham LED,meeting,deal,P2,High,scheduled,54,0,4,3,44,High
+Bharath Graphics,followup,deal,P2,Medium,pending,36,0,5,3,42,High
+IMAGE MEDIA,meeting,lead,P2,Medium,scheduled,35,0,5,5,38.83,High
+S S Print & Signs,meeting,lead,P2,Low,scheduled,5,0,1,3,18.83,Low
+Yash  graphics,meeting,deal,P2,Medium,scheduled,11,0,3,1,27.83,Medium
+sharda creation,followup,deal,P2,High,pending,45,0,3,4,44.5,High
+The Signage Studio,followup,deal,P2,Low,pending,6,0,1,4,28,Medium
+Ashirbad Graphics,meeting,deal,P2,Medium,scheduled,18,0,3,4,35,High
+SV Corporation,followup,lead,P2,High,pending,13,0,1,5,32.17,High
+Dakhni Raj Kalakruti,followup,lead,P2,Medium,pending,37,0,4,2,33.17,High
+SHYAM FLEX PRINTERS,meeting,lead,P2,High,scheduled,35,0,3,2,31.83,Medium
+siddhy,followup,deal,P2,High,pending,39,0,5,1,41.5,High
+Dynamic Solutions,followup,deal,P2,Low,pending,0,0,0,5,27,Medium
+om sai graphics,followup,deal,P2,Medium,pending,43,0,4,2,39.17,High
+H D CREATIONS,followup,lead,P2,Low,pending,3,0,2,4,24.5,Low
+Ishaan graphics,meeting,deal,P2,Low,scheduled,44,0,3,5,38.33,High
+Galaxy Traders,followup,deal,P2,High,pending,50,0,4,3,45.33,High
+Amit Khandelwal,meeting,deal,P2,Low,scheduled,10,0,1,5,28.67,Medium
+JM Deepa Art,followup,deal,P2,Medium,pending,10,0,2,5,35.67,High
+Global Peripheral  Solution Pvt. Ltd,followup,lead,P2,High,pending,6,0,2,3,29,Medium
+Signature Graphics,meeting,deal,P2,Low,scheduled,5,0,0,4,23.83,Low
+Chitra Art Glass Studio,followup,deal,P2,Medium,pending,52,0,5,2,42.67,High
+SP Technology,followup,deal,P2,Low,pending,9,0,0,3,24.5,Low
+18 creation,followup,deal,P2,Low,pending,8,0,1,2,24.33,Low
+SHREE ARTS,followup,deal,P2,High,pending,39,0,4,0,37.5,High
+Pan Media Solutions,meeting,deal,P2,High,scheduled,60,0,1,0,33,High
+Kraftix Digital,meeting,deal,P2,Low,scheduled,60,0,3,4,39,High
+Pantone Media Solutions LLP,meeting,lead,P2,Medium,scheduled,18,0,3,3,28,Medium
+Loyality Media (OPC) Pvt Ltd,followup,deal,P2,High,pending,10,0,2,2,32.67,High
+Mignon Enterprises,meeting,deal,P2,Medium,scheduled,7,0,3,1,27.17,Medium
+Aditya Signage,followup,deal,P2,Medium,pending,34,0,3,2,35.67,High
+Rainbow Print,followup,lead,P2,Low,pending,5,0,1,1,16.83,Low
+VK:a Architecture,followup,lead,P2,High,pending,2,0,2,3,28.33,Medium
+Shree Shyam Signages,followup,lead,P2,Medium,pending,35,0,4,4,36.83,High
+Transform Sign Unfold Everything,meeting,deal,P2,Medium,scheduled,22,0,1,1,25.67,Medium
+SHRADDHA ENTERPRISES,followup,deal,P2,Medium,pending,0,0,0,3,26,Medium
+RAHUL ARTS,meeting,deal,P2,Low,scheduled,7,0,1,2,22.17,Low
+P5 INDIA,meeting,lead,P2,High,scheduled,42,0,1,2,29,Medium
+ROYAL ARTS,followup,deal,P2,Medium,pending,15,0,5,3,38.5,High
+9 Expression,followup,deal,P2,Low,pending,6,0,2,5,32,High
+Sharin Bhausaheb Nalawade,followup,deal,P2,Medium,pending,33,0,1,4,35.5,High
+Macro Media Digital Imaging Pvt. Ltd.,meeting,lead,P2,High,scheduled,35,0,3,0,27.83,Medium
+Printex advertising,meeting,deal,P2,High,scheduled,22,0,4,1,34.67,High
+Paix Surveillance Pvt Ltd,followup,deal,P2,Medium,pending,22,0,4,2,35.67,High
+Think grey ads pvt ltd,meeting,deal,P2,Low,scheduled,0,0,1,3,23,Low
+INSTA MARK PVT LTD,followup,deal,P2,Low,pending,34,0,3,2,32.67,High
+C R SOLUTIONS,followup,deal,P2,High,pending,35,0,4,3,42.83,High
+Fine Pro Multi Developers,followup,deal,P2,High,pending,48,0,3,4,45,High
+G K Enterprise,meeting,deal,P2,Medium,scheduled,20,0,5,2,35.33,High
+Adview Advertising Pvt.Ltd,meeting,deal,P2,High,scheduled,53,0,3,3,41.83,High
+Instawings India Pvt Ltd,followup,lead,P2,Medium,pending,8,0,0,1,18.33,Low
+test rutuja pandit,meeting,lead,P2,Medium,scheduled,24,0,3,2,27,Medium
+STAR  SIGNAGE,meeting,deal,P2,Medium,scheduled,13,0,2,2,28.17,Medium
+Enkon Pvt Ltd,followup,deal,P2,Medium,pending,9,0,0,2,25.5,Medium
+Maruti Advertising,meeting,lead,P2,Low,scheduled,0,0,0,5,20,Low
+Brigs espro,followup,deal,P2,Medium,pending,26,0,2,2,32.33,High
+Sangam Enterprises,followup,deal,P2,High,pending,35,0,4,5,46.83,High
+INNOVATIVE CONCEPT ENTERPRISES,meeting,lead,P2,Medium,scheduled,19,0,2,4,28.17,Medium
+Smartants Group,followup,deal,P2,Low,pending,6,0,2,2,26,Medium
+PRINTOUCH,followup,lead,P2,Medium,pending,16,0,2,5,31.67,Medium
+Kraftix Digital,meeting,lead,P2,High,scheduled,45,0,2,3,33.5,High
+Amit Joshi,meeting,deal,P2,Medium,scheduled,11,0,3,2,29.83,Medium
+LETTERSHOP INDIA PVT LTD,followup,lead,P2,Medium,pending,0,0,2,1,21,Low
+Flambird,followup,deal,P2,Medium,pending,17,0,2,2,30.83,Medium
+Kushla Enterprises,followup,lead,P2,High,pending,43,0,4,3,39.17,High
+Architect Hafeez Contractor,followup,lead,P2,Medium,pending,11,0,5,4,34.83,High
+THE DEVINE ART,followup,deal,P2,Low,pending,9,0,0,2,22.5,Low
+Kaarmik,followup,lead,P2,Medium,pending,33,0,1,2,26.5,Medium
+Lachhman Dass & Co.,meeting,lead,P2,Low,scheduled,8,0,1,5,23.33,Low
+Sheetal print and sign,followup,deal,P2,Low,pending,8,0,2,3,28.33,Medium
+Vishalaakshi Consultant,followup,deal,P2,Low,pending,34,0,3,2,32.67,High
+Sanjay Art Gallery,meeting,lead,P2,Medium,scheduled,10,0,2,3,24.67,Low
+DSIGN,meeting,lead,P2,Medium,scheduled,19,0,2,3,26.17,Medium
+METRO SIGN,meeting,lead,P2,Medium,scheduled,42,0,4,1,30,Medium
+Hitech Vision,followup,deal,P2,Low,pending,18,0,0,2,24,Low
+H G graphics,meeting,deal,P2,Medium,scheduled,46,0,5,2,39.67,High
+Lakshmi Signtech,followup,lead,P2,High,pending,46,0,4,2,37.67,High
+SUPER SIGNS CREATION LLP,meeting,deal,P2,Medium,scheduled,14,0,4,2,32.33,High
+Pan Media Solutions,meeting,deal,P2,Medium,scheduled,10,0,5,5,39.67,High
+Sachin,followup,lead,P2,Low,pending,1,0,2,2,20.17,Low
+"MIPL Global Design Pvt Ltd.,",followup,deal,P2,High,pending,42,0,2,2,38,High
+IKIO Solutions Pvt Limited,followup,deal,P2,Medium,pending,10,0,1,4,31.67,Medium
+Perfect Solutions and Stationery,followup,lead,P2,Medium,pending,54,0,3,0,30,Medium
+Impact signs,meeting,deal,P2,High,scheduled,42,0,5,4,46,High
+Karthik Signage,meeting,lead,P2,Low,scheduled,9,0,1,3,19.5,Low
+spectrum imaging,followup,deal,P2,High,pending,39,0,3,4,43.5,High
+Jyoti display pvt ltd,meeting,lead,P2,Medium,scheduled,24,0,2,0,21,Low
+Transform Sign Unfold Everything,meeting,deal,P2,High,scheduled,45,0,4,3,42.5,High
+Flame Productions,meeting,lead,P2,Low,scheduled,7,0,2,4,23.17,Low
+SHREE ARTS,followup,deal,P2,High,pending,56,0,4,2,44.33,High
+Attitude,meeting,deal,P2,Low,scheduled,6,0,1,1,20,Low
+Pan Media Solutions,followup,deal,P2,Medium,pending,10,0,2,3,31.67,Medium
+Maha Sai Enterprises,followup,lead,P2,Medium,pending,25,0,2,4,31.17,Medium
+test client,followup,deal,P2,Low,pending,9,0,1,5,30.5,Medium
+City lights,meeting,lead,P2,High,scheduled,51,0,3,1,32.5,High
+Wings,followup,lead,P2,Medium,pending,44,0,2,3,32.33,High
+Bansal Graphics & Advertisers,meeting,deal,P2,High,scheduled,25,0,3,2,35.17,High
+OM sai lamination,meeting,deal,P2,High,scheduled,0,0,2,5,35,High
+Shri Yadav Trading,followup,deal,P2,Medium,pending,43,0,5,0,37.17,High
+SHREY DIGITALS,followup,deal,P2,Medium,pending,13,0,3,4,36.17,High
+RANGTARA ARTS,meeting,lead,P2,Low,scheduled,0,0,2,3,20,Low
+M.P SIGNAGES & PRINTING,meeting,deal,P2,Low,scheduled,8,0,1,4,26.33,Medium
+Shubharambh,meeting,lead,P2,Low,scheduled,7,0,0,4,19.17,Low
+Mani arts,followup,deal,P2,High,pending,14,0,0,4,33.33,High
+Vivek Kumar,followup,lead,P2,High,pending,45,0,3,3,37.5,High
+HiFi Printers,followup,deal,P2,Low,pending,3,0,2,2,25.5,Medium
+3D Solutions,meeting,lead,P2,Medium,scheduled,14,0,2,1,21.33,Low
+SD industrial solutions,meeting,deal,P2,Low,scheduled,33,0,4,3,34.5,High
+Suntony Signage Pvt Ltd,meeting,deal,P2,High,scheduled,35,0,4,4,42.83,High
+Parallel Learning,meeting,deal,P2,Low,scheduled,7,0,2,2,24.17,Low
+Laxman sign makers,meeting,lead,P2,Medium,scheduled,22,0,2,1,22.67,Low
+VG Enterprises,meeting,lead,P2,Low,scheduled,15,0,0,4,20.5,Low
+Posh designz,meeting,lead,P2,Low,scheduled,21,0,2,4,25.5,Medium
+TANVIR CREATION PRIVATE LIMITED,followup,lead,P2,High,pending,40,0,3,1,32.67,High
+Manjarabad Infrastructure Pvt Ltd,followup,deal,P2,Low,pending,0,0,1,2,23,Low
+Fireplan India pvt.ltd,meeting,deal,P2,Medium,scheduled,30,0,1,3,31,Medium
+nexus creative,meeting,lead,P2,Low,scheduled,0,0,3,4,24,Low
+Sign-In,followup,deal,P2,Low,pending,7,0,1,2,24.17,Low
+IN & OUT IMPRESSION PVT LTD,meeting,lead,P2,Medium,scheduled,24,0,3,4,31,Medium
+PREMKAND Engineering,meeting,lead,P2,High,scheduled,22,0,3,4,33.67,High
+Mahalakshmi Marketing,followup,deal,P2,Medium,pending,22,0,2,3,33.67,High
+Cosign Bangalore,followup,lead,P2,Medium,pending,10,0,1,2,22.67,Low
+Ad Wave Creations,followup,deal,P2,Medium,pending,36,0,4,3,40,High
+YT Sign Solution,meeting,deal,P2,High,scheduled,39,0,1,4,37.5,High
+L K Creations,followup,deal,P2,High,pending,13,0,4,4,41.17,High
+Attitude,followup,deal,P2,Low,pending,10,0,2,5,32.67,High
+Affly Systems,meeting,deal,P2,Medium,scheduled,29,0,3,4,36.83,High
+D l corporation,followup,lead,P2,Medium,pending,37,0,5,1,33.17,High
+Daddy Media,meeting,deal,P2,Medium,scheduled,35,0,5,1,35.83,High
+Exact Graphics,followup,deal,P2,Low,pending,4,0,0,1,19.67,Low
+PRACHI SIGNAGE,followup,deal,P2,High,pending,49,0,4,1,41.17,High
+Cheera signs,meeting,deal,P2,High,scheduled,36,0,3,2,37,High
+Ecumen Edge,followup,deal,P2,Medium,pending,17,0,1,4,32.83,High
+INNOVATION ENTERPRISES,followup,lead,P2,High,pending,6,0,1,2,25,Medium
+Vijetha Digital,meeting,deal,P2,Low,scheduled,1,0,0,3,21.17,Low
+JD Sign Service,meeting,lead,P2,High,scheduled,1,0,0,2,20.17,Low
+Graphica,meeting,deal,P2,Medium,scheduled,50,0,2,2,34.33,High
+CHINTAMANI THERMAL TECHNOLOGIES PVT LTD,meeting,deal,P2,Low,scheduled,45,0,4,4,38.5,High
+PAWAR ARTS,meeting,deal,P2,High,scheduled,37,0,3,0,33.17,High
+YFA Advertising & Marketing Pvt Ltd,meeting,lead,P2,Low,scheduled,9,0,1,1,15.5,Low
+Maythird Design,followup,lead,P2,Low,pending,46,0,0,5,29.67,Medium
+rutu,meeting,deal,P2,Low,scheduled,9,0,1,4,26.5,Medium
+Sachin Enterprises,followup,lead,P2,Low,pending,5,0,0,3,18.83,Low
+Ss Electricals Enterprises,followup,deal,P2,Low,pending,11,0,2,3,28.83,Medium
+test alias test,followup,deal,P2,Low,pending,35,0,5,2,36.83,High
+Jaison Safety Solution,meeting,deal,P2,Low,scheduled,2,0,0,1,17.33,Low
+Inkpot Graphics,followup,deal,P2,Medium,pending,10,0,2,2,29.67,Medium
+MIDWAY TRADING CO.,meeting,lead,P2,High,scheduled,35,0,4,5,39.83,High
+SREE ADS,followup,lead,P2,Medium,pending,35,0,3,2,30.83,Medium
+Muktagiri Signage & Graphics,meeting,deal,P2,High,scheduled,35,0,3,2,36.83,High
+Prakashal Digital Zone,meeting,deal,P2,Medium,scheduled,10,0,3,4,33.67,High
+Rennix solutions,meeting,deal,P2,High,scheduled,44,0,5,3,44.33,High
+Mayooram AD-MEDIA,meeting,lead,P2,Low,scheduled,7,0,3,3,23.17,Low
+Kala Indesign,meeting,deal,P2,Medium,scheduled,28,0,4,2,34.67,High
+Inchworm Creational LLP,followup,lead,P2,Low,pending,14,0,2,2,22.33,Low
+First Impression Systems,followup,lead,P2,Medium,pending,13,0,1,5,29.17,Medium
+Gloplast Advertising Pvt. Ltd.,meeting,deal,P2,Low,scheduled,5,0,0,3,21.83,Low
+Genius Graphics,meeting,deal,P2,High,scheduled,43,0,3,1,36.17,High
+Kiwa,followup,deal,P2,Low,pending,5,0,3,5,33.83,High
+First Impression Systems,followup,lead,P2,High,pending,0,0,2,3,28,Medium
+Galore,followup,lead,P2,Low,pending,17,0,3,5,30.83,Medium
+KYZEN ADVERTISING & MARKETING PRIVATE LIMITED,followup,deal,P2,High,pending,35,0,4,3,42.83,High
+Stylo Maximage Unit Of Stylo Graphics Private Limited,meeting,deal,P2,Low,scheduled,6,0,0,3,22,Low
+Signaletics,meeting,deal,P2,High,scheduled,38,0,4,1,37.33,High
+"Savitha Printer, Sign & Display",meeting,lead,P2,High,scheduled,47,0,3,3,35.83,High
+LAXMI ENTERPRISES,followup,deal,P2,Medium,pending,10,0,1,3,29.67,Medium
+LAXMI ENTERPRISES,meeting,lead,P2,High,scheduled,44,0,3,1,31.33,Medium
+Creative Mind Works,followup,deal,P2,High,pending,25,0,4,2,39.17,High
+PURAN GRAPHICS,meeting,deal,P2,High,scheduled,35,0,3,1,34.83,High
+Sinex Systems Private Ltd,followup,deal,P2,Medium,pending,37,0,3,3,38.17,High
+SuperUs Systems Pvt Ltd,meeting,deal,P2,High,scheduled,40,0,4,2,39.67,High
+Shanti Acrylic,meeting,lead,P2,Medium,scheduled,14,0,2,3,25.33,Medium
+Info sign,followup,lead,P2,Low,pending,9,0,0,5,23.5,Low
+Magnus Brand Solution,meeting,lead,P2,Medium,scheduled,30,0,2,5,32,High
+SDB Signs,meeting,deal,P2,Medium,scheduled,15,0,2,1,26.5,Medium
+Mangalmurti Arts,followup,lead,P2,Low,pending,51,0,5,3,36.5,High
+Shamba Shadashiv Enterprises,meeting,lead,P2,Medium,scheduled,17,0,5,3,31.83,Medium
+The Signage factory,meeting,deal,P2,Medium,scheduled,18,0,3,3,33,High
+Shree Shyam Signages,followup,deal,P2,Low,pending,6,0,1,4,28,Medium
+AD-N-AD,meeting,lead,P2,Medium,scheduled,55,0,1,2,28.17,Medium
+Sugilite & Associates,meeting,lead,P2,Medium,scheduled,8,0,1,4,24.33,Low
+AL-SAMA,followup,deal,P2,High,pending,41,0,4,5,47.83,High
+MIDWAY TRADING CO.,meeting,deal,P2,High,scheduled,60,0,5,1,43,High
+SREE ADS,followup,lead,P2,Medium,pending,3,0,1,1,19.5,Low
+TRIDENT COMBINES,followup,deal,P2,Low,pending,20,0,3,4,34.33,High
+Brigs Espro Services Pvt Ltd,meeting,deal,P2,High,scheduled,51,0,3,4,43.5,High
+Delhi signage,followup,lead,P2,Medium,pending,50,0,3,4,37.33,High
+RIDDHI ENTERPRISES - PUNE,followup,deal,P2,Medium,pending,0,0,2,2,28,Medium
+Taksh impressions llp,followup,deal,P2,Low,pending,0,0,2,4,29,Medium
+Mark designs,meeting,lead,P2,High,scheduled,5,0,2,1,22.83,Low
+Paix Surveillance Pvt Ltd,followup,deal,P2,Medium,pending,10,0,1,4,31.67,Medium
+FUTURE SIGNAGES PRIVATE LIMITED,meeting,deal,P2,High,scheduled,35,0,3,2,36.83,High
+Mayooram AD-MEDIA,followup,lead,P2,High,pending,35,0,0,4,31.83,Medium
+shade graphics,followup,lead,P2,Low,pending,4,0,2,1,18.67,Low
+Creative Advertising,followup,lead,P2,High,pending,52,0,3,3,38.67,High
+AGX RETAIL SOLUTIONS PRIVATE LIMITED,followup,deal,P2,Medium,pending,46,0,5,3,43.67,High
+Wattamwar Capital,meeting,lead,P2,Low,scheduled,1,0,1,4,20.17,Low
+LUCKY COPIERS,followup,deal,P2,Medium,pending,9,0,1,3,29.5,Medium
+Gk global,meeting,deal,P2,Low,scheduled,37,0,1,3,29.17,Medium
+AD SIGN,meeting,lead,P2,High,scheduled,41,0,4,4,38.83,High
+ELECTRONICS AND ELECTRONICS CORPORATION,meeting,deal,P2,Low,scheduled,30,0,1,5,32,High
+rutika testing,meeting,deal,P2,Medium,scheduled,44,0,3,4,39.33,High
+Absolute Brand & Retail  pvt ltd,followup,deal,P2,Medium,pending,22,0,5,4,41.67,High
+Drishya Enterprises,meeting,deal,P2,Medium,scheduled,11,0,1,3,27.83,Medium
+Dzire Graphics,meeting,deal,P2,High,scheduled,44,0,4,5,46.33,High
+Aditya Enterprise,followup,deal,P2,Medium,pending,0,0,2,1,26,Medium
+INNOVATION ENTERPRISES,followup,deal,P2,Medium,pending,6,0,2,3,31,Medium
+Sign star,meeting,deal,P2,Low,scheduled,12,0,2,2,25,Medium
+test rutuja pandit,followup,lead,P2,Medium,pending,13,0,1,2,23.17,Low
+Ministry of graphics,meeting,deal,P2,Low,scheduled,37,0,3,2,31.17,Medium
+Signsn Dsigns,meeting,deal,P2,High,scheduled,35,0,2,2,34.83,High
+Admark,followup,lead,P2,Medium,pending,45,0,1,3,30.5,Medium
+24 brand creation,meeting,lead,P2,Medium,scheduled,20,0,2,5,30.33,Medium
+The Signage factory,meeting,deal,P2,Low,scheduled,7,0,1,3,24.17,Low
+Bright Sign World,meeting,lead,P2,High,scheduled,35,0,4,4,37.83,High
+The SignMan,meeting,deal,P2,High,scheduled,45,0,2,1,34.5,High
+Mavrica Graphics,followup,deal,P2,Low,pending,8,0,1,0,20.33,Low
+Rennix solutions,meeting,lead,P2,Low,scheduled,12,0,1,4,22,Low
+Rukhshar art,meeting,lead,P2,Medium,scheduled,25,0,4,2,29.17,Medium
+Penxels Creation,meeting,deal,P2,High,scheduled,41,0,4,3,41.83,High
+Groen Industries,followup,lead,P2,Medium,pending,17,0,2,4,29.83,Medium
+success engravers in pvt ltd,meeting,deal,P2,Medium,scheduled,10,0,1,4,29.67,Medium
+ARC DOCUMENT SOLUTIONS INDIA PRIVATE LIMITED,followup,deal,P2,Low,pending,10,0,2,3,28.67,Medium
+Magic Media Solutions,followup,deal,P2,Medium,pending,42,0,4,4,43,High
+PURAN GRAPHICS,followup,lead,P2,Low,pending,25,0,2,2,24.17,Low
+Marvel Signs,followup,deal,P2,Low,pending,8,0,0,3,24.33,Low
+Mad design solutions,followup,lead,P2,Medium,pending,26,0,3,5,35.33,High
+Asrast Technologies,followup,deal,P2,High,pending,35,0,3,5,44.83,High
+Srushti Neons,followup,deal,P2,Low,pending,2,0,2,0,21.33,Low
+VG Enterprises,meeting,deal,P2,Low,scheduled,30,0,4,4,36,High
+Tactile Artworks Private Limited,meeting,deal,P2,Medium,scheduled,5,0,0,4,26.83,Medium
+Get Your Reach,meeting,lead,P2,Low,scheduled,14,0,1,1,16.33,Low
+Indinno Technoligies Pvt Ltd,meeting,deal,P2,High,scheduled,42,0,3,2,38,High
+shivshakti enterprises,meeting,deal,P2,High,scheduled,7,0,2,3,32.17,High
+Ranu Signage Industries,followup,deal,P2,Low,pending,1,0,1,4,27.17,Medium
+CUSTOM WRAPS INDIA PRIVATE LIMITED,followup,deal,P2,Low,pending,12,0,0,3,25,Medium
+Sharp Signs,meeting,deal,P2,Medium,scheduled,29,0,2,2,30.83,Medium
+Signwork,followup,lead,P2,Low,pending,2,0,1,1,16.33,Low
+Nishitha ads,meeting,deal,P2,Medium,scheduled,54,0,1,3,35,High
+Vivek traders,meeting,lead,P2,High,scheduled,38,0,3,3,34.33,High
+Amaan signage,followup,deal,P2,Medium,pending,60,0,4,1,40,High
+Sarg Design Studio LLP,meeting,deal,P2,Low,scheduled,10,0,1,4,26.67,Medium
+Cosign India Pvt Ltd,meeting,deal,P2,Medium,scheduled,24,0,4,4,38,High
+RNR Project,followup,deal,P2,High,pending,8,0,1,0,26.33,Medium
+JE ENGINEERS PVT LTD,followup,deal,P2,Medium,pending,16,0,2,4,34.67,High
+LETTERSHOP INDIA PVT LTD,followup,deal,P2,Low,pending,6,0,2,3,28,Medium
+test new project,followup,deal,P2,Medium,pending,7,0,2,2,29.17,Medium
+testp,followup,lead,P2,Low,pending,37,0,4,3,32.17,High
+Signature Graphics,meeting,lead,P2,High,scheduled,60,0,5,4,44,High
+INFINITY TRADING CO.,meeting,deal,P2,High,scheduled,17,0,3,5,39.83,High
+SIGNS N DSIGN,meeting,lead,P2,Low,scheduled,47,0,3,4,31.83,Medium
+Prashant Arts,meeting,deal,P2,High,scheduled,60,0,4,2,43,High
+GLOW SIGN,meeting,deal,P2,Medium,scheduled,7,0,2,3,29.17,Medium
+Chennai Sticker Point,followup,lead,P2,High,pending,35,0,4,2,35.83,High
+SP Technology,followup,lead,P2,High,pending,10,0,3,2,29.67,Medium
+Media of Advertising and Publicity,meeting,deal,P2,High,scheduled,35,0,5,3,42.83,High
+Maa Laser art,meeting,deal,P2,Low,scheduled,10,0,0,1,18.67,Low
+CRYSTAL DECORATORS,followup,lead,P2,Medium,pending,45,0,5,2,36.5,High
+"SignTech Indian,",followup,deal,P2,Low,pending,29,0,3,4,35.83,High
+shade graphics,followup,lead,P2,High,pending,35,0,4,3,37.83,High
+Creative Image,followup,deal,P2,Medium,pending,28,0,2,5,38.67,High
+Tata Elxsi,followup,deal,P2,Medium,pending,10,0,2,4,33.67,High
+GANDHARVA ARTS,meeting,lead,P2,High,scheduled,35,0,4,3,35.83,High
+ADS SPACE PRINTERES AND ADVERTISE,meeting,deal,P2,High,scheduled,46,0,4,2,40.67,High
+Curativiti Ideas,meeting,deal,P2,Medium,scheduled,45,0,3,2,35.5,High
+Ulka creation,followup,deal,P2,Medium,pending,17,0,4,3,36.83,High
+Yash Industries,followup,deal,P2,High,pending,53,0,2,3,41.83,High
+Elements signage,followup,lead,P2,Medium,pending,27,0,3,5,35.5,High
+Crista associates,followup,lead,P2,Medium,pending,22,0,2,4,30.67,Medium
+Hipixo photography,followup,lead,P2,Medium,pending,10,0,2,3,26.67,Medium
+Moraya Graphics,followup,deal,P2,High,pending,42,0,1,4,40,High
+Design world,meeting,lead,P2,Medium,scheduled,38,0,5,5,39.33,High
+Moonlight Sign,meeting,lead,P2,Low,scheduled,14,0,2,4,24.33,Low
+Midas touch creations,followup,deal,P2,High,pending,42,0,1,1,34,High
+Signtek,meeting,lead,P2,Low,scheduled,20,0,2,2,21.33,Low
+Mudra Signs,meeting,lead,P2,High,scheduled,47,0,3,0,29.83,Medium
+24 brand creation,followup,deal,P2,Medium,pending,23,0,3,4,37.83,High
+Ashoka,meeting,deal,P2,High,scheduled,50,0,3,2,39.33,High
+Akshaya Signs Express,meeting,deal,P2,Low,scheduled,10,0,1,4,26.67,Medium
+F6 Architects,followup,lead,P2,Low,pending,4,0,1,2,18.67,Low
+Smart Designs,followup,deal,P2,High,pending,45,0,4,4,46.5,High
+test new project,followup,deal,P2,Medium,pending,18,0,0,1,25,Medium
+Leon Enterprises,followup,deal,P2,Medium,pending,21,0,3,5,39.5,High
+Sanjay Art Gallery,meeting,lead,P2,Low,scheduled,10,0,0,3,17.67,Low
+Skill Fest Creators,meeting,lead,P2,Medium,scheduled,28,0,3,2,27.67,Medium
+Aesthesy,followup,deal,P2,High,pending,49,0,1,2,37.17,High
+Cosign India North,followup,lead,P2,Medium,pending,5,0,1,2,21.83,Low
+SARAYU BRANDING & PRINTING Pvt Ltd,meeting,deal,P2,Low,scheduled,0,0,2,4,27,Medium
+MMERAKI,meeting,deal,P2,High,scheduled,34,0,3,1,34.67,High
+VJR Signs,meeting,deal,P2,High,scheduled,19,0,1,4,34.17,High
+Masira arts & trading,meeting,lead,P2,Low,scheduled,1,0,2,2,18.17,Low
+EON CREATION,meeting,deal,P2,Low,scheduled,21,0,2,1,24.5,Low
+Essentix Office Solution,meeting,deal,P2,High,scheduled,46,0,3,3,40.67,High
+SHINDE CREATIONS,meeting,deal,P2,High,scheduled,50,0,3,2,39.33,High
+Bezel Designs and Communication Pvt. Ltd.,followup,deal,P2,Medium,pending,37,0,5,4,44.17,High
+Navi Mumbai International Airport pvt Ltd,followup,lead,P2,Medium,pending,31,0,2,3,30.17,Medium
+Impression Printing Press,followup,lead,P2,Low,pending,29,0,1,0,18.83,Low
+True Ads Pvt Ltd,meeting,deal,P2,Medium,scheduled,24,0,2,3,32,High
+SHINDE CREATIONS,followup,deal,P2,Low,pending,26,0,3,4,35.33,High
+GB MEDIA VISION,followup,lead,P2,High,pending,26,0,0,4,30.33,Medium
+GINNI ENTERPRISES,followup,lead,P2,Low,pending,5,0,1,3,20.83,Low
+PaperPixel,meeting,lead,P2,Low,scheduled,37,0,2,1,22.17,Low
+Digvijay Rajdev Architects,meeting,lead,P2,Low,scheduled,0,0,0,4,18,Low
+The Grey Cell,meeting,deal,P2,Low,scheduled,5,0,1,2,21.83,Low
+Creative Concepts Mumbai,followup,lead,P2,Medium,pending,50,0,3,1,31.33,Medium
+Opulence Media,followup,deal,P2,High,pending,40,0,1,3,37.67,High
+SUN ATLURI GREEN ENERGY SAGE,meeting,deal,P2,Medium,scheduled,23,0,1,0,23.83,Low
+ITD Cementation Pvt. Ltd.,meeting,lead,P2,Medium,scheduled,27,0,5,1,29.5,Medium
+Mermaid Digital Pvt Ltd,followup,deal,P2,Low,pending,1,0,2,3,27.17,Medium
+Adems Digital imaging solutions,followup,deal,P2,Low,pending,7,0,1,4,28.17,Medium
+Fusion Digital,followup,lead,P2,High,pending,46,0,1,2,31.67,Medium
+VWF Industries (P) Ltd,followup,lead,P2,Medium,pending,8,0,1,4,26.33,Medium
+Master Sign India,followup,lead,P2,Medium,pending,50,0,4,1,33.33,High
+Ambis Signage,followup,lead,P2,High,pending,7,0,2,1,25.17,Medium
+ELITE GRAPHICS,meeting,lead,P2,Low,scheduled,1,0,2,3,20.17,Low
+Magic Platinum Services,meeting,lead,P2,Low,scheduled,5,0,1,2,16.83,Low
+Impetus Sign India LLP,meeting,deal,P2,High,scheduled,8,0,2,3,32.33,High
+Mahima,meeting,deal,P2,High,scheduled,11,0,2,2,30.83,Medium
+RANGTARA ARTS,followup,deal,P2,Medium,pending,14,0,5,5,42.33,High
+Maruti Branding Solution,followup,lead,P2,Medium,pending,43,0,4,2,34.17,High
+Octopus Advertising,followup,lead,P2,High,pending,42,0,0,4,33,High
+Cherry Arts,followup,deal,P2,High,pending,45,0,3,2,40.5,High
+Signtist,followup,deal,P2,High,pending,39,0,4,4,45.5,High
+TRU SIGNS,meeting,lead,P2,Low,scheduled,6,0,1,0,13,Low
+Asia Enterprise,followup,deal,P2,Low,pending,0,0,0,3,23,Low
+JMS UNIVERSAL TECHNOLOGIES PVT LTD,followup,deal,P2,High,pending,5,0,2,1,29.83,Medium
+Sanika Signage  & Designers,meeting,deal,P2,High,scheduled,51,0,1,4,39.5,High
+Sign star,followup,deal,P2,High,pending,45,0,4,3,44.5,High
+ILLUSION DESIGN,meeting,deal,P2,Low,scheduled,12,0,0,1,19,Low
+SIGNEX VISUAL,meeting,deal,P2,High,scheduled,10,0,1,2,28.67,Medium
+Lakshya signages,followup,lead,P2,Low,pending,14,0,1,5,26.33,Medium
+Sugilite & Associates,meeting,lead,P2,Medium,scheduled,39,0,4,5,37.5,High
+PRATIBHA PRESS AND MULTIMEDIA PVT LTD,followup,deal,P2,Low,pending,0,0,0,4,25,Medium
+Image Printer,meeting,deal,P2,Low,scheduled,40,0,3,2,31.67,Medium
+Swastik Print AD Industries,followup,lead,P2,High,pending,53,0,5,3,42.83,High
+Pearlton,meeting,deal,P2,Medium,scheduled,18,0,4,5,39,High
+CMYK Grapahics,meeting,lead,P2,Medium,scheduled,4,0,1,5,25.67,Medium
+Sign Smart,followup,deal,P2,Low,pending,17,0,2,4,31.83,Medium
+TOUCHPOINT TOOLS PRIVATE LIMITED,meeting,deal,P2,Low,scheduled,6,0,1,3,24,Low
+SARAYU BRANDING & PRINTING Pvt Ltd,followup,deal,P2,Low,pending,47,0,2,3,34.83,High
+Crayon,meeting,deal,P2,Medium,scheduled,38,0,2,4,36.33,High
+Wattamwar Capital,meeting,deal,P2,Low,scheduled,0,0,2,4,27,Medium
+LAVS D'SIGNS,meeting,deal,P2,Low,scheduled,51,0,0,2,27.5,Medium
+Sapphire techwork solutions,meeting,lead,P2,Medium,scheduled,35,0,0,4,26.83,Medium
+Satyam Graphics Nagpur,followup,deal,P2,Low,pending,7,0,1,3,26.17,Medium
+SHRI SAI PRINTERS & TRADERS,followup,deal,P2,Medium,pending,60,0,0,0,30,Medium
+Sharin Bhausaheb Nalawade,followup,deal,P2,Medium,pending,5,0,1,0,22.83,Low
+Ad Net Advertising,followup,lead,P2,High,pending,8,0,3,3,31.33,Medium
+Onepath integrated Solutions pvt Ltd,followup,deal,P2,Low,pending,22,0,2,1,26.67,Medium
+SHREY DIGITALS,meeting,deal,P2,Low,scheduled,7,0,0,3,22.17,Low
+K SQUARE ARCHITECTS,followup,deal,P2,Low,pending,24,0,5,5,41,High
+"MIPL Global Design Pvt Ltd.,",followup,deal,P2,Medium,pending,60,0,3,1,38,High
+SINE O CRAFT,followup,deal,P2,Medium,pending,11,0,1,1,25.83,Medium
+Vara Ecom llp,followup,deal,P2,High,pending,51,0,5,3,47.5,High
+Aai Advertising & Sports,followup,deal,P2,High,pending,40,0,3,5,45.67,High
+Promotage,followup,deal,P2,High,pending,45,0,4,2,42.5,High
+SRI DATTA FASHIONS,followup,lead,P2,Medium,pending,15,0,0,1,19.5,Low
+S.S Digital India,followup,lead,P2,Low,pending,10,0,1,2,19.67,Low
+Wattamwar Capital,meeting,deal,P2,High,scheduled,28,0,4,5,43.67,High
+CUSTOM WRAPS INDIA PRIVATE LIMITED,meeting,deal,P2,Low,scheduled,1,0,2,4,27.17,Medium
+Addwall,meeting,deal,P2,High,scheduled,59,0,4,1,40.83,High
+Xenon Signage,followup,deal,P2,High,pending,0,0,2,2,31,Medium
+J tronics,meeting,deal,P2,High,scheduled,38,0,3,5,43.33,High
+Parshwa Acrylic,followup,deal,P2,Medium,pending,42,0,2,5,41,High
+KALPANA STRUCT-CON PVT LTD,meeting,deal,P2,Low,scheduled,27,0,4,5,37.5,High
+LORENZ IMAGING,followup,deal,P2,Low,pending,6,0,4,5,36,High
+RUPAK MAITY,followup,deal,P2,Low,pending,7,0,3,3,30.17,Medium
+Aruna Arts,meeting,deal,P2,Medium,scheduled,16,0,1,2,26.67,Medium
+Ranjeet Signage Solution,followup,lead,P2,Medium,pending,36,0,1,1,25,Medium
+Corp Traders,meeting,lead,P2,Low,scheduled,5,0,1,5,22.83,Low
+A J Graphics,meeting,deal,P2,High,scheduled,35,0,4,3,40.83,High
+Himanshu Enterprises,followup,deal,P2,Low,pending,13,0,0,2,23.17,Low
+Primage Signs India Pvt Ltd,meeting,deal,P2,Medium,scheduled,21,0,1,4,31.5,Medium
+Print Xpress,followup,lead,P2,Low,pending,5,0,2,4,24.83,Low
+SHREE GANESH OFFSET PRINTING,followup,lead,P2,Medium,pending,10,0,2,2,24.67,Low
+SB Arts,followup,deal,P2,Low,pending,35,0,4,0,30.83,Medium
+New Alif Enterprises,meeting,deal,P2,Low,scheduled,29,0,4,3,33.83,High
+Khadilkar process stodio,meeting,deal,P2,High,scheduled,53,0,4,3,43.83,High
+Mindmade,followup,deal,P2,Medium,pending,28,0,1,3,32.67,High
+Golden Arts Wall Printing,meeting,lead,P2,High,scheduled,35,0,2,2,29.83,Medium
+British Signs,followup,lead,P2,Medium,pending,20,0,2,4,30.33,Medium
+Inchworm Creational LLP,meeting,deal,P2,Medium,scheduled,20,0,0,5,31.33,Medium
+Sakura Signs Pvt Ltd,followup,deal,P2,Low,pending,9,0,0,0,18.5,Low
+Megha sign and glow,followup,lead,P2,High,pending,35,0,3,2,33.83,High
+Soft Touch,followup,lead,P2,High,pending,32,0,0,4,31.33,Medium
+Sri Shivasai Creatives,meeting,lead,P2,High,scheduled,9,0,2,1,23.5,Low
+Signage and Design,followup,deal,P2,High,pending,50,0,4,2,43.33,High
+Vrutha 360,meeting,deal,P2,High,scheduled,0,0,1,3,29,Medium
+Think grey ads pvt ltd,meeting,lead,P2,Low,scheduled,20,0,3,2,23.33,Low
+Acutel Solutions,followup,lead,P2,Medium,pending,24,0,3,0,25,Medium
+Advision Communication Pvt. Ltd.,followup,lead,P2,Low,pending,13,0,0,3,20.17,Low
+Imthiyas Basha,followup,lead,P2,Low,pending,2,0,1,3,20.33,Low
+Maya Digital,meeting,lead,P2,High,scheduled,55,0,4,3,39.17,High
+Jyoti display pvt ltd,meeting,lead,P2,Medium,scheduled,9,0,1,2,20.5,Low
+Penxels Creation,meeting,deal,P2,High,scheduled,51,0,4,3,43.5,High
+S T ENTERPRISES,meeting,deal,P2,Low,scheduled,10,0,2,5,30.67,Medium
+shade graphics,meeting,deal,P2,High,scheduled,13,0,5,3,39.17,High
+K SQUARE ARCHITECTS,meeting,lead,P2,High,scheduled,41,0,4,2,34.83,High
+SIGNAGE4U,meeting,deal,P2,Low,scheduled,11,0,0,3,22.83,Low
+Ideal Creations,meeting,lead,P2,High,scheduled,31,0,2,2,29.17,Medium
+SPL Advertising Pvt Ltd,meeting,lead,P2,Medium,scheduled,0,0,1,3,21,Low
+Vivek traders,meeting,deal,P2,High,scheduled,36,0,5,4,45,High
+LUCKY COPIERS,meeting,deal,P2,High,scheduled,55,0,2,2,38.17,High
+Bigg Impact Advertising,followup,lead,P2,Low,pending,8,0,2,5,27.33,Medium
+Maha Sai Enterprises,meeting,deal,P2,Medium,scheduled,34,0,3,0,29.67,Medium
+Man Resources,followup,lead,P2,High,pending,39,0,3,0,30.5,Medium
+LPFLEX Sign India Pvt. Ltd.,followup,deal,P2,Low,pending,15,0,2,1,25.5,Medium
+RIGHT MEDIA,meeting,lead,P2,Low,scheduled,0,0,2,2,18,Low
+PRISM Enterprises,meeting,deal,P2,Low,scheduled,54,0,3,2,34,High
+SINE O CRAFT,meeting,lead,P2,Low,scheduled,8,0,1,2,17.33,Low
+AMRIT SALES CORPORATION,followup,deal,P2,Low,pending,8,0,0,0,18.33,Low
+Vedic Enterprises,followup,deal,P2,High,pending,56,0,2,1,38.33,High
+Bright Sign World,followup,deal,P2,High,pending,45,0,4,2,42.5,High
+Printex advertising,followup,deal,P2,High,pending,52,0,4,4,47.67,High
+Creative Mind Works,meeting,deal,P2,Low,scheduled,38,0,3,2,31.33,Medium
+Frames Cottage,meeting,lead,P2,Medium,scheduled,14,0,3,0,21.33,Low
+MERAKI ENTERPRISE,followup,lead,P2,High,pending,48,0,4,2,38,High
