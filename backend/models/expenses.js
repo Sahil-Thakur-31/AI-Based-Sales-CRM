@@ -103,7 +103,7 @@ const expenseSchema = new mongoose.Schema(
     referenceType: {
       type: String,
       required: true,
-      enum: ["Lead", "Deal", "Event"],
+      enum: ["Lead", "Deal", "Event", "Event/Expos"],
       index: true
     },
 

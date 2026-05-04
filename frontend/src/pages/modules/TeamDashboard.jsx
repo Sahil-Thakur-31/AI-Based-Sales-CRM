@@ -916,6 +916,14 @@ export default function TeamDashboard() {
           <section className="team-panel team-panel-insights">
             <div className="team-panel-head">
               <h3>Insights</h3>
+              <button
+                type="button"
+                className="team-btn team-btn-secondary"
+                onClick={() => navigate(`/ai-insights?scope=team&teamId=${selectedTeamId}`)}
+                disabled={!selectedTeamId}
+              >
+                View All
+              </button>
             </div>
             <div className="team-insights-list">
               {dashboardData.insights.length ? (

@@ -908,9 +908,14 @@ button {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.expense-log-modal .expense-form-group select.expense-type-select {
+  font-weight: 700;
+}
+
 .expense-log-modal .expense-form-group select.expense-select-placeholder {
   color: #7a8798;
   background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
+  font-weight: 500;
 }
 
 .expense-log-modal .expense-form-group select option {

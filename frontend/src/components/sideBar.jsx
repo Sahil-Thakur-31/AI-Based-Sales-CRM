@@ -78,6 +78,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
     { name: "Sales Forecasting", iconClass: "bi bi-graph-up-arrow", path: "/sales-forecast" },
     { name: "Expenses", iconClass: "bi bi-cash-stack", path: "/expenses" },
     { name: "AI Lead Gen", iconClass: "bi bi-robot", path: "/ai-leads" },
+    { name: "AI Insights", iconClass: "bi bi-stars", path: "/ai-insights" },
     { name: "Events & Expos", iconClass: "bi bi-calendar-event", path: "/events" },
     ...(isAdminOrManager ? [{ name: "Team Dashboard", iconClass: "bi bi-people-fill", path: "/team-dashboard" }] : []),
     { name: "Reports", iconClass: "bi bi-bar-chart-line", path: "/reports" },
@@ -112,8 +113,8 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
 
       <div className="sidebar-menu">
         {menuItems.map((item, index) => {
-          const restrictedPaths = ["/ai-leads", "/reports", "/sales-forecast"];
-          if (!isAdminOrManager && restrictedPaths.includes(item.path)) {
+          const managerOnlyPaths = ["/ai-leads", "/reports", "/sales-forecast"];
+          if (!isAdminOrManager && managerOnlyPaths.includes(item.path)) {
             return null;
           }
 
