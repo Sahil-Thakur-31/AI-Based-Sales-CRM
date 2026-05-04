@@ -69,7 +69,16 @@ function mapPaymentTerms(row) {
 
 exports.getQuotationClauses = async (req, res) => {
   try {
-    const rows = await QuotationClause.find({ is_deleted: false })
+    const status = String(req.query?.status || "active").trim().toLowerCase();
+    const filter = {};
+
+    if (status === "deleted") {
+      filter.is_deleted = true;
+    } else if (status !== "all") {
+      filter.is_deleted = false;
+    }
+
+    const rows = await QuotationClause.find(filter)
       .populate("industryId", "name")
       .sort({ priority: 1, createdAt: -1 })
       .lean();
@@ -153,6 +162,28 @@ exports.deleteQuotationClause = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to delete quotation clause" });
+  }
+};
+
+exports.restoreQuotationClause = async (req, res) => {
+  try {
+    const restored = await QuotationClause.findByIdAndUpdate(
+      req.params.id,
+      {
+        is_deleted: false,
+        updatedAt: new Date()
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!restored) {
+      return res.status(404).json({ message: "Quotation clause not found" });
+    }
+
+    res.json({ message: "Quotation clause restored successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to restore quotation clause" });
   }
 };
 

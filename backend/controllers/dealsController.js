@@ -127,20 +127,22 @@ async function resolveLocationId(payload = {}) {
 
 function normalizeContactRows(contacts = []) {
   if (!Array.isArray(contacts)) return [];
-  const validContacts = contacts.filter((contact) => contact && (contact.name || contact.phone || contact.email));
+  const validContacts = contacts.filter((contact) => contact && (contact.name || (contact.phone && contact.phone.length) || (contact.email && contact.email.length)));
   const hasPrimary = validContacts.some((contact) => contact.is_primary === true || contact.is_primary === "true");
 
-  return validContacts.map((contact, index) => ({
-    name: contact.name || "",
-    designation: contact.designation || "",
-    phone: contact.phone || "",
-    email: contact.email || "",
-    linkedin: contact.linkedin || "",
-    address: contact.address || "",
-    is_primary: hasPrimary
-      ? (contact.is_primary === true || contact.is_primary === "true")
-      : index === 0,
-  }));
+  return validContacts.map((contact, index) => {
+    let phoneArr = Array.isArray(contact.phone) ? contact.phone : (typeof contact.phone === 'string' ? contact.phone.split(",") : []);
+    let emailArr = Array.isArray(contact.email) ? contact.email : (typeof contact.email === 'string' ? contact.email.split(",") : []);
+    return {
+      name: contact.name || "",
+      designation: contact.designation || "",
+      phone: phoneArr.map(p => String(p).trim()).filter(Boolean).join(", "),
+      email: emailArr.map(e => String(e).trim()).filter(Boolean).join(", "),
+      linkedin: contact.linkedin || "",
+      address: contact.address || "",
+      is_primary: hasPrimary ? (contact.is_primary === true || contact.is_primary === "true") : index === 0,
+    };
+  });
 }
 
 function buildLeadUpdatePayload(body = {}) {
@@ -268,8 +270,8 @@ exports.getDeals = async (req, res) => {
       if (!leadId || contactMap.has(leadId)) continue;
       contactMap.set(leadId, {
         name: contact.name || "",
-        phone: contact.phone || "",
-        email: contact.email || "",
+        phone: typeof contact.phone === 'string' && contact.phone ? contact.phone.split(',')[0].trim() : (Array.isArray(contact.phone) ? contact.phone[0] : ""),
+        email: typeof contact.email === 'string' && contact.email ? contact.email.split(',')[0].trim() : (Array.isArray(contact.email) ? contact.email[0] : ""),
       });
     }
     for (const contact of clientContacts) {
@@ -277,8 +279,8 @@ exports.getDeals = async (req, res) => {
       if (!clientId || clientContactMap.has(clientId)) continue;
       clientContactMap.set(clientId, {
         name: contact.name || "",
-        phone: contact.phone || "",
-        email: contact.email || "",
+        phone: typeof contact.phone === 'string' && contact.phone ? contact.phone.split(',')[0].trim() : (Array.isArray(contact.phone) ? contact.phone[0] : ""),
+        email: typeof contact.email === 'string' && contact.email ? contact.email.split(',')[0].trim() : (Array.isArray(contact.email) ? contact.email[0] : ""),
       });
     }
 
@@ -457,8 +459,8 @@ exports.getDealById = async (req, res) => {
       : clientContacts.map((cc) => ({
         name: cc.name || "",
         designation: cc.designation || "",
-        phone: cc.phone || "",
-        email: cc.email || "",
+        phone: typeof cc.phone === 'string' && cc.phone ? cc.phone.split(',').map(x=>x.trim()).filter(Boolean) : (Array.isArray(cc.phone) ? cc.phone : []),
+        email: typeof cc.email === 'string' && cc.email ? cc.email.split(',').map(x=>x.trim()).filter(Boolean) : (Array.isArray(cc.email) ? cc.email : []),
         linkedin: cc.linkedin || "",
         address: "",
         is_primary: true,

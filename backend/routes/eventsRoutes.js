@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middlewares/auth");
+const paymentScreenshotUpload = require("../config/paymentScreenshotMulter");
 const {
   getEventMeta,
   getEvents,
@@ -10,6 +11,8 @@ const {
   registerForEvent,
   getMyEventRegistration,
   toggleAttending,
+  markEventMissed,
+  saveEventOutcome,
   softDeleteEvent
 } = require("../controllers/eventsController");
 
@@ -20,8 +23,10 @@ router.get("/:id/my-registration", auth, getMyEventRegistration);
 router.get("/:id", auth, getEventById);
 router.post("/", auth, createEvent);
 router.put("/:id", auth, updateEvent);
-router.put("/:id/register", auth, registerForEvent);
+router.put("/:id/register", auth, paymentScreenshotUpload.single("paymentScreenshot"), registerForEvent);
 router.put("/:id/attending", auth, toggleAttending);
+router.put("/:id/missed", auth, markEventMissed);
+router.put("/:id/outcome", auth, saveEventOutcome);
 router.put("/delete/:id", auth, softDeleteEvent);
 
 module.exports = router;

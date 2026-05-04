@@ -23,11 +23,12 @@ const followupsRoutes = require("./routes/followupsRoutes");
 const mongoose = require("mongoose");
 const Meeting = require("./models/meetings");
 const teamRoutes = require("./routes/teamRoutes");
-const ocrRoutes = require("./routes/ocr");
+const ocrRoutes = require("./ocr/routes");
 const eventsRoutes = require("./routes/eventsRoutes");
 const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
+const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
 const salesForecastRoutes = require("./routes/salesForecastRoutes");
@@ -45,7 +46,8 @@ const myServer = http.createServer(app);
 
 const PORT = process.env.PORT || 8080;
 
-app.use(bodyparser.json());
+app.use(bodyparser.json({ limit: "50mb" }));
+app.use(bodyparser.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors());
 
 app.use('/auth', authRoute);
@@ -63,14 +65,11 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/deals", dealsRoutes);
 app.use("/clients", clientRoutes);
 app.use("/quotations", quotationRoutes);
-app.use("/clients", clientRoutes);
-app.use("/quotations", quotationRoutes);
 app.use("/taxes", taxRoutes);
 app.use("/organizations", organizationRoutes);
 app.use("/quotation-clauses", quotationClausesRoutes);
 app.use("/followups", followupsRoutes);
 app.use("/teams", teamRoutes);
-app.use("/taxes", taxRoutes);
 app.use("/events", eventsRoutes);
 app.use("/ai-leads", aiLeadsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
@@ -78,13 +77,19 @@ app.use("/api/manager/dashboard", managerDashboardRoutes);
 app.use("/api/user/dashboard", userDashboardRoutes);
 app.use("/daily-closing", dailyClosingRoutes);
 app.use("/ocr", ocrRoutes);
-app.use("/events", eventsRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/auth/google", googleAuthRoutes);
 app.use("/sales-forecast", salesForecastRoutes);
 
 
-mongoose.connection.once("open", async () => {
+let backgroundWorkersStarted = false;
+
+const startBackgroundWorkers = async () => {
+  if (backgroundWorkersStarted) {
+    return;
+  }
+  backgroundWorkersStarted = true;
+
   try {
     await Meeting.createCollection();
     console.log("meetings collection ensured");
@@ -97,6 +102,17 @@ mongoose.connection.once("open", async () => {
   // Start background workers only after DB is available.
   startNotificationEmailWorker();
   startWhatsAppMeetingWorker();
-});
+  startEventScraperScheduler();
+};
+
+if (mongoose.connection.readyState === 1) {
+  void startBackgroundWorkers();
+} else {
+  mongoose.connection.once("open", () => {
+    void startBackgroundWorkers();
+  });
+}
 
 myServer.listen(PORT, () => console.log('Server started on', PORT));
+// trigger reload for python backend (v11 - Clean Start)!!!!!!!!!!!
+

@@ -80,7 +80,7 @@
 
 .event-form-card {
   max-width: 980px;
-  margin: 0 auto;
+  margin: 0 auto 16px;
   background: #fff;
   border: 1px solid #dbe5f2;
   border-radius: 14px;
@@ -113,6 +113,13 @@
   font-size: 13px;
 }
 
+.success-note {
+  margin: 0 0 12px;
+  color: #0f5132;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .section-title {
   margin: 4px 0 10px;
   color: #143253;
@@ -123,6 +130,12 @@
   margin: 0 0 10px;
   color: #58708f;
   font-size: 13px;
+}
+
+.field-help-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: #4f6685;
 }
 
 .registration-form .form-grid,
@@ -231,6 +244,16 @@
 .success-box p {
   margin: 0 0 14px;
   color: #334155;
+}
+
+.event-missed-reason-display {
+  border: 1px solid #f4d5d4;
+  background: #fff5f5;
+  color: #7f1d1d;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 @media (max-width: 960px) {

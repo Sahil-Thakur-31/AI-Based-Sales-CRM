@@ -244,6 +244,17 @@
   color: #0f172a;
 }
 
+.qdoc-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 14px;
+  row-gap: 1px;
+}
+
+.qdoc-ref-grid .qdoc-title-meta {
+  min-width: 0;
+}
+
 .qdoc-field-value {
   margin: 0;
   color: #0f172a;
@@ -653,6 +664,10 @@
   .qdoc-title-block,
   .qdoc-ref-panel {
     max-width: 100%;
+  }
+
+  .qdoc-ref-grid {
+    grid-template-columns: 1fr;
   }
 
   .qdoc-title-meta-stack {

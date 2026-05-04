@@ -1,0 +1,37 @@
+.event-outcome-line {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #e7e7e7;
+  border-radius: 8px;
+  background: #fbfbfb;
+  color: #223244;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-outcome-line strong {
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.outcome-inline-label {
+  color: #2f435a;
+  font-weight: 600;
+}
+
+.outcome-inline-value {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e8f1ff;
+  color: #0f3f87;
+  font-weight: 800;
+}
+
+.outcome-inline-sep {
+  color: #738399;
+  font-weight: 600;
+}

@@ -313,29 +313,31 @@ export default function QuotationDetails() {
 
                     <div className="qdoc-ref-panel">
                       <h3>Reference</h3>
-                      <div className="qdoc-title-meta">
-                        <span>Reference Type</span>
-                        <strong>{quoteType === "lead" ? "Lead" : "Deal"}</strong>
-                      </div>
-                      <div className="qdoc-title-meta">
-                        <span>{quoteType === "lead" ? "Lead Status" : "Deal Stage"}</span>
-                        <strong>{asReadable(quoteType === "lead" ? detail.lead?.status : detail.deal?.stage)}</strong>
-                      </div>
-                      <div className="qdoc-title-meta">
-                        <span>Currency</span>
-                        <strong>{asReadable(detail.quotation.currency || "INR")}</strong>
-                      </div>
-                      <div className="qdoc-title-meta">
-                        <span>Status</span>
-                        <strong>{asReadable(detail.quotation.status)}</strong>
-                      </div>
-                      <div className="qdoc-title-meta">
-                        <span>Version</span>
-                        <strong>v{asReadable(detail.quotation.version)}</strong>
-                      </div>
-                      <div className="qdoc-title-meta">
-                        <span>Created By</span>
-                        <strong>{asReadable(detail.quotation?.createdBy?.name)}</strong>
+                      <div className="qdoc-ref-grid">
+                        <div className="qdoc-title-meta">
+                          <span>Reference Type</span>
+                          <strong>{quoteType === "lead" ? "Lead" : "Deal"}</strong>
+                        </div>
+                        <div className="qdoc-title-meta">
+                          <span>{quoteType === "lead" ? "Lead Status" : "Deal Stage"}</span>
+                          <strong>{asReadable(quoteType === "lead" ? detail.lead?.status : detail.deal?.stage)}</strong>
+                        </div>
+                        <div className="qdoc-title-meta">
+                          <span>Currency</span>
+                          <strong>{asReadable(detail.quotation.currency || "INR")}</strong>
+                        </div>
+                        <div className="qdoc-title-meta">
+                          <span>Status</span>
+                          <strong>{asReadable(detail.quotation.status)}</strong>
+                        </div>
+                        <div className="qdoc-title-meta">
+                          <span>Version</span>
+                          <strong>v{asReadable(detail.quotation.version)}</strong>
+                        </div>
+                        <div className="qdoc-title-meta">
+                          <span>Created By</span>
+                          <strong>{asReadable(detail.quotation?.createdBy?.name)}</strong>
+                        </div>
                       </div>
                     </div>
                   </section>

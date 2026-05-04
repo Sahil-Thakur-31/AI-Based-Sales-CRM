@@ -202,8 +202,8 @@ async function findBestClientContact(clientId) {
     _id: selected._id,
     name: selected.name || "",
     designation: selected.designation || "",
-    phone: selected.phone || "",
-    email: selected.email || "",
+    phone: Array.isArray(selected.phone) ? selected.phone[0] || "" : (typeof selected.phone === 'string' ? selected.phone.split(",")[0].trim() : ""),
+    email: Array.isArray(selected.email) ? selected.email[0] || "" : (typeof selected.email === 'string' ? selected.email.split(",")[0].trim() : ""),
     linkedin: selected.linkedin || ""
   };
 }

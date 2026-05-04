@@ -24,6 +24,276 @@ function normalizeSourceName(name) {
   return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function compactOcrText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeOcrIdentityKey(value) {
+  return compactOcrText(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeOcrPersonKey(value) {
+  const parts = compactOcrText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter(Boolean);
+
+  if (!parts.length) return "";
+  return [...parts].sort().join(" ");
+}
+
+function splitOcrField(value) {
+  return String(value || "")
+    .split(/\s*(?:\||,|;|\n)\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeContactValueList(value) {
+  const values = Array.isArray(value)
+    ? value.flatMap((item) => splitOcrField(item))
+    : splitOcrField(value);
+
+  return values.filter((item) => {
+    const normalized = String(item || "").trim().toLowerCase();
+    return normalized && normalized !== "unreadable" && normalized !== "undefined" && normalized !== "null";
+  });
+}
+
+function uniqueOcrValues(values, getKey = null) {
+  const seen = new Set();
+  const out = [];
+
+  for (const value of Array.isArray(values) ? values : [values]) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    const key = typeof getKey === "function"
+      ? getKey(text)
+      : text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+  }
+
+  return out;
+}
+
+function mapContactForForm(contact = {}) {
+  return {
+    ...contact,
+    _id: contact?._id || "",
+    name: contact?.name || "",
+    designation: contact?.designation || "",
+    phone: normalizeContactValueList(contact?.phone).length ? normalizeContactValueList(contact?.phone) : [""],
+    email: normalizeContactValueList(contact?.email).length ? normalizeContactValueList(contact?.email) : [""],
+    linkedin: contact?.linkedin || "",
+    address: contact?.address || "",
+    is_primary: Boolean(contact?.is_primary),
+    is_active: contact?.is_active !== false,
+  };
+}
+
+function looksLikeOcrCompanyText(value) {
+  const text = compactOcrText(value);
+  if (!text) return false;
+
+  const normalized = text.toLowerCase();
+  if (/@|www\.|https?:\/\//i.test(text)) return true;
+  if (/[!&]/.test(text) && text.split(" ").length >= 2) return true;
+  if (/(services?|solutions?|media|foods?|products?|industr(?:y|ies)|enterprise|power|energy|systems?|equipment|repairs?|works|digital|agency|tech|technologies|traders?|mart|group|studio|llp|ltd|pvt|inc|corp)\b/i.test(normalized)) {
+    return true;
+  }
+  if (/(slogan|logo|digitally|trusted|quality|since)\b/i.test(normalized)) {
+    return true;
+  }
+  return false;
+}
+
+function looksLikeOcrPersonName(value, companyHints = []) {
+  const text = compactOcrText(value);
+  if (!text) return false;
+  if (text.includes("/")) return false;
+  if (/\d/.test(text)) return false;
+  if (/@|www\.|https?:\/\//i.test(text)) return false;
+
+  const parts = text.split(" ").filter(Boolean);
+  if (parts.length < 2) return false;
+  if (parts.length > 4) return false;
+
+  const normalized = text.toLowerCase();
+  if (/(designer|developer|engineer|manager|director|officer|executive|consultant|analyst|lead|head|founder|owner|sales|marketing|ui|ux)\b/.test(normalized)) {
+    return false;
+  }
+  if (looksLikeOcrCompanyText(text)) return false;
+  if (text === text.toUpperCase() && parts.some((part) => part.length > 6) && !/^[A-Z. ]+$/.test(text.replace(/[^A-Z. ]/g, ""))) {
+    return false;
+  }
+  const textKey = normalizeOcrIdentityKey(text);
+  if (companyHints.some((candidate) => {
+    const candidateKey = normalizeOcrIdentityKey(candidate);
+    return candidateKey && textKey && (candidateKey === textKey || candidateKey.includes(textKey) || textKey.includes(candidateKey));
+  })) {
+    return false;
+  }
+
+  return true;
+}
+
+function extractOcrPersonNames(value, companyHints = []) {
+  const names = splitOcrField(value).filter((candidate) => looksLikeOcrPersonName(candidate, companyHints));
+  if (names.length) return names;
+
+  const fallback = splitOcrField(value).filter((candidate) => !looksLikeOcrCompanyText(candidate));
+  return fallback.length ? [fallback[0]] : [];
+}
+
+function splitOcrAddressField(value) {
+  return String(value || "")
+    .split(/\s*(?:\||\n)\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function compactOcrLineText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function joinLineLabels(lineLabels, targetLabel, limit = Infinity) {
+  const seen = new Set();
+  const out = [];
+
+  for (const line of Array.isArray(lineLabels) ? lineLabels : []) {
+    if (String(line?.label || "").toUpperCase() !== targetLabel) continue;
+    const text = compactOcrLineText(line?.text || "");
+    const key = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    if (!text || !key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+    if (out.length >= limit) break;
+  }
+
+  return out.join(" ").trim();
+}
+
+function extractLineLabelValues(lineLabels, targetLabel) {
+  return uniqueOcrValues(
+    (Array.isArray(lineLabels) ? lineLabels : [])
+      .filter((line) => String(line?.label || "").toUpperCase() === targetLabel)
+      .map((line) => compactOcrLineText(line?.text || ""))
+  );
+}
+
+function looksLikeContactInfo(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+
+  if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text)) return true;
+  if (/(?:https?:\/\/|www\.)/i.test(text)) return true;
+  return /(?:\+?\d[\d\s().-]{8,}\d)/.test(text);
+}
+
+function normalizeOcrAddress(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+
+  const parts = splitOcrAddressField(text);
+  if (!parts.length) return text;
+
+  const cleaned = parts
+    .slice(0, 2)
+    .join(" ")
+    .replace(/^(?:\+?\d[\d\s().-]{7,}\d)\s*[,;:-]\s*/u, "")
+    .replace(/\s{2,}/g, " ")
+    .trim(" ,;");
+
+  return cleaned || text;
+}
+
+function resolveOcrCompanyName(ocrData, ocrLineLabels = []) {
+  const companyCandidates = splitOcrField(ocrData?.company);
+  const company = companyCandidates.filter(Boolean).slice(0, 2).join(" ").trim();
+
+  if (company) return company;
+  const personFallback = uniqueOcrValues([
+    ...extractOcrPersonNames(ocrData?.name),
+    ...extractLineLabelValues(ocrLineLabels, "NAME"),
+  ])[0];
+  return personFallback || "";
+}
+
+function buildInitialOcrContacts(ocrData, ocrLineLabels) {
+  const fallbackDesignation = String(ocrData?.designation || "").trim() || joinLineLabels(ocrLineLabels, "DESIGNATION");
+  const companyCandidates = uniqueOcrValues([
+    ...splitOcrField(ocrData?.company),
+    ...extractLineLabelValues(ocrLineLabels, "COMPANY"),
+  ]);
+  const names = uniqueOcrValues([
+    ...extractOcrPersonNames(ocrData?.name, companyCandidates),
+    ...extractLineLabelValues(ocrLineLabels, "NAME").filter((candidate) => looksLikeOcrPersonName(candidate, companyCandidates)),
+  ], normalizeOcrPersonKey);
+  const phones = uniqueOcrValues(
+    [
+      ...normalizeContactValueList(ocrData?.phone),
+      ...normalizeContactValueList(extractLineLabelValues(ocrLineLabels, "PHONE")),
+    ],
+    (value) => String(value || "").replace(/\D+/g, "")
+  );
+  const emails = uniqueOcrValues(
+    [
+      ...normalizeContactValueList(ocrData?.email),
+      ...normalizeContactValueList(extractLineLabelValues(ocrLineLabels, "EMAIL")),
+    ],
+    (value) => String(value || "").trim().toLowerCase()
+  );
+  const designations = uniqueOcrValues([
+    ...splitOcrField(ocrData?.designation),
+    ...extractLineLabelValues(ocrLineLabels, "DESIGNATION"),
+  ]);
+  const shouldCreateSeparateContacts = names.length > 1;
+
+  if (!shouldCreateSeparateContacts) {
+    return [{
+      name: names[0] || "",
+      designation: designations[0] || fallbackDesignation,
+      phone: phones.length ? phones : [""],
+      email: emails.length ? emails : [""],
+      linkedin: "",
+      address: "",
+      is_primary: true,
+    }];
+  }
+
+  const count = names.length;
+  const contacts = Array.from({ length: count }).map((_, i) => ({
+    name: names[i] || "",
+    designation: designations[i] || (i === 0 ? (designations[0] || fallbackDesignation) : ""),
+    phone: phones[i] ? [phones[i]] : [""],
+    email: emails[i] ? [emails[i]] : [""],
+    linkedin: "",
+    address: "",
+    is_primary: i === 0,
+  }));
+
+  if (phones.length > count) {
+    const extraPhones = phones.slice(count);
+    contacts[0].phone = uniqueOcrValues([
+      ...normalizeContactValueList(contacts[0].phone),
+      ...extraPhones,
+    ]);
+  }
+
+  if (emails.length > count) {
+    const extraEmails = emails.slice(count);
+    contacts[0].email = uniqueOcrValues([
+      ...normalizeContactValueList(contacts[0].email),
+      ...extraEmails,
+    ], (value) => String(value || "").trim().toLowerCase());
+  }
+
+  return contacts;
+}
+
 function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCancel = null, onSaved = null }) {
   const { id } = useParams();
   const location = useLocation();
@@ -70,15 +340,52 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     setEditMode(shouldStartInEditMode);
   }, [shouldStartInEditMode]);
 
+  const ocrData = location.state?.ocrData || null;
+  const ocrLineLabels = Array.isArray(location.state?.ocrLineLabels)
+    ? location.state.ocrLineLabels
+    : [];
+  const ocrPreview = location.state?.ocrPreview || "";
+  const ocrPreviews = Array.isArray(location.state?.ocrPreviews)
+    ? location.state.ocrPreviews.filter(Boolean)
+    : ocrPreview
+      ? [ocrPreview]
+      : [];
+  const ocrWarning = location.state?.ocrWarning || "";
+  const hasOcrContext = Boolean(ocrData || ocrPreviews.length || ocrWarning);
+  const shouldApplyOcr = Boolean(ocrData);
+  const isFromOCR = shouldApplyOcr;
+  const [selectedOcrPreviewIndex, setSelectedOcrPreviewIndex] = useState(0);
+
+  const ocrCompanyName = useMemo(() => {
+    const fromData = resolveOcrCompanyName(ocrData, ocrLineLabels);
+    const fromLabels = joinLineLabels(ocrLineLabels, "COMPANY", 2);
+    return fromData || fromLabels;
+  }, [ocrLineLabels, ocrData]);
+
+  const ocrAddressValue = useMemo(() => {
+    const fromData = normalizeOcrAddress(ocrData?.address || "");
+    const fromLabels = joinLineLabels(ocrLineLabels, "ADDRESS");
+    return fromData || fromLabels;
+  }, [ocrLineLabels, ocrData]);
+
+  useEffect(() => {
+    setSelectedOcrPreviewIndex(0);
+  }, [ocrPreviews.length]);
+
+  const initialContacts = useMemo(() => {
+    if (!shouldApplyOcr) return [{ name: "", designation: "", phone: [""], email: [""], linkedin: "", address: "", is_primary: true }];
+    return buildInitialOcrContacts(ocrData, ocrLineLabels);
+  }, [ocrData, ocrLineLabels, shouldApplyOcr]);
+
   const [lead, setLead] = useState({
     deal_name: "",
-    company_name: "",
+    company_name: shouldApplyOcr ? ocrCompanyName : "",
     industry: "",
     employee_count: "",
     turnover_range: "",
-    Address: "",
-    website: "",
-    source: "",
+    Address: shouldApplyOcr ? ocrAddressValue : "",
+    website: shouldApplyOcr ? (ocrData?.website || "") : "",
+    source: shouldApplyOcr ? "OCR" : "",
     referred_by_user: "",
     expo_event_id: "",
     country: "",
@@ -180,16 +487,27 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   }, [sources, referenceSources, eventExpoSources]);
 
   /* ================= CONTACTS ================= */
-  const [contacts, setContacts] = useState([
-    {
-      name: "",
-      designation: "",
-      phone: "",
-      email: "",
-      linkedin: "",
-      is_primary: true,
-    },
-  ]);
+
+
+  const [contacts, setContacts] = useState(initialContacts);
+
+  useEffect(() => {
+    if (shouldApplyOcr) {
+      console.log("Applying OCR Data to formulate:", ocrData);
+      const companyVal = ocrCompanyName;
+
+      setLead((prev) => ({
+        ...prev,
+        company_name: companyVal || prev.company_name,
+        Address: (ocrAddressValue && ocrAddressValue !== "UNREADABLE")
+          ? ocrAddressValue
+          : prev.Address,
+        website: (ocrData.website && ocrData.website !== "UNREADABLE") ? ocrData.website : prev.website,
+        source: "OCR"
+      }));
+      setContacts(initialContacts);
+    }
+  }, [ocrData, ocrAddressValue, ocrCompanyName, initialContacts, shouldApplyOcr]);
 
   /* ================= LOAD LEAD ================= */
   useEffect(() => {
@@ -211,7 +529,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             industry: loadedClient?.industry?._id || loadedClient?.industry || "",
             employee_count: loadedClient?.employeeCount ?? "",
             turnover_range: loadedClient?.turnoverRange || "",
-            Address: loadedClient?.Address || "",
+            Address: normalizeOcrAddress(loadedClient?.Address || ""),
             website: loadedClient?.website || "",
             source: loadedClient?.source?._id || loadedClient?.source || "",
             referred_by_user:
@@ -237,16 +555,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           }));
 
           if (Array.isArray(data?.contacts)) {
-            const mappedContacts = data.contacts.map((contact) => ({
-              _id: contact?._id || "",
-              name: contact?.name || "",
-              designation: contact?.designation || "",
-              phone: contact?.phone || "",
-              email: contact?.email || "",
-              linkedin: contact?.linkedin || "",
-              is_primary: Boolean(contact?.is_primary),
-              is_active: contact?.is_active !== false,
-            }));
+            const mappedContacts = data.contacts.map((contact) => mapContactForForm(contact));
             setContacts(
               mappedContacts.length
                 ? mappedContacts
@@ -254,8 +563,8 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                   {
                     name: "",
                     designation: "",
-                    phone: "",
-                    email: "",
+                    phone: [""],
+                    email: [""],
                     linkedin: "",
                     is_primary: true,
                   },
@@ -265,7 +574,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
           return;
         }
-        // 🔹 If viewing deal → load deal
+        // ðŸ”¹ If viewing deal â†’ load deal
         if (dealView && dealIdFromQuery) {
           const { data } = await API.get(`/deals/${dealIdFromQuery}`, {
             params: { include_deleted: deletedView },
@@ -296,12 +605,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               : [],
           });
 
-          if (data.contacts?.length) setContacts(data.contacts);
+          if (data.contacts?.length) setContacts(data.contacts.map((contact) => mapContactForForm(contact)));
 
           return;
         }
 
-        // 🔹 Otherwise load lead
+        // ðŸ”¹ Otherwise load lead
         const { data } = await API.get(`/leads/${id}`, {
           params: { include_deleted: deletedView },
         });
@@ -331,7 +640,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             : [],
         });
 
-        if (data.contacts?.length) setContacts(data.contacts);
+        if (data.contacts?.length) setContacts(data.contacts.map((contact) => mapContactForForm(contact)));
 
       } catch (err) {
         console.error("load error", err);
@@ -356,7 +665,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           industry: loadedClient?.industry || prev.industry || "",
           employee_count: loadedClient?.employeeCount ?? prev.employee_count ?? "",
           turnover_range: loadedClient?.turnoverRange || prev.turnover_range || "",
-          Address: loadedClient?.Address || prev.Address || "",
+          Address: normalizeOcrAddress(loadedClient?.Address || prev.Address || ""),
           website: loadedClient?.website || prev.website || "",
           source: loadedClient?.source || prev.source || "",
           referred_by_user: loadedClient?.referred_by_user || prev.referred_by_user || "",
@@ -383,16 +692,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
         if (Array.isArray(data?.contacts) && data.contacts.length) {
           setContacts(
-            data.contacts.map((contact) => ({
-              _id: contact?._id || "",
-              name: contact?.name || "",
-              designation: contact?.designation || "",
-              phone: contact?.phone || "",
-              email: contact?.email || "",
-              linkedin: contact?.linkedin || "",
-              is_primary: Boolean(contact?.is_primary),
-              is_active: contact?.is_active !== false,
-            }))
+            data.contacts.map((contact) => mapContactForForm(contact))
           );
         }
       } catch (err) {
@@ -617,6 +917,23 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     setContacts(updated);
   };
 
+  useEffect(() => {
+    if (isFromOCR) return;
+    if (!lead.company_name) return;
+    setContacts((prev) => {
+      if (!prev.length) return prev;
+      let hasChanges = false;
+      const updated = prev.map((c) => {
+        if (!c.name) {
+          hasChanges = true;
+          return { ...c, name: lead.company_name };
+        }
+        return c;
+      });
+      return hasChanges ? updated : prev;
+    });
+  }, [lead.company_name, isFromOCR]);
+
   const handleHistoryChange = (index, field, value) => {
     setLead((prev) => {
       const history = Array.isArray(prev.contact_history)
@@ -661,9 +978,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       {
         name: "",
         designation: "",
-        phone: "",
-        email: "",
+        phone: [""],
+        email: [""],
         linkedin: "",
+        address: "",
         is_primary: false,
       },
     ]);
@@ -678,8 +996,38 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
   /* ================= SAVE ================= */
   const handleSave = async () => {
-    if (!contacts[0].name || !contacts[0].phone) {
-      showAlert("Validation", "Primary contact required", "error");
+    const finalCompanyName = lead.company_name || (!isFromOCR ? contacts[0]?.name : "") || "";
+
+    const sanitizedContacts = contacts.map((contact) => ({
+      ...contact,
+      name: contact.name || (!isFromOCR ? finalCompanyName : "") || "",
+      phone: normalizeContactValueList(contact.phone),
+      email: normalizeContactValueList(contact.email),
+    }));
+    const resolvedContacts = sanitizedContacts.map((contact) => ({
+      ...contact,
+      phone: contact.phone.join(", "),
+      email: contact.email.join(", "),
+    }));
+    setContacts(
+      sanitizedContacts.map((contact) => ({
+        ...contact,
+        phone: contact.phone.length ? contact.phone : [""],
+        email: contact.email.length ? contact.email : [""],
+      }))
+    );
+
+    setLead((prev) => ({ ...prev, company_name: finalCompanyName }));
+
+    const primaryContact = resolvedContacts.find((contact) => contact.is_primary) || resolvedContacts[0] || {};
+    const hasLeadIdentity = Boolean(String(finalCompanyName || "").trim() || String(primaryContact?.name || "").trim());
+    const hasPrimaryReachability = Boolean(
+      normalizeContactValueList(primaryContact?.phone).length ||
+      normalizeContactValueList(primaryContact?.email).length
+    );
+
+    if (!hasLeadIdentity || !hasPrimaryReachability) {
+      showAlert("Validation", "Please provide a readable company or contact name and at least one phone or email for the primary contact.", "error");
       return;
     }
     if (isReferenceLikeSource && !lead.referred_by_user) {
@@ -696,7 +1044,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       if (clientView) {
         const payload = {
-          name: lead.company_name || "",
+          name: finalCompanyName,
           industry: lead.industry || "",
           Address: lead.Address || "",
           employeeCount: lead.employee_count || "",
@@ -707,7 +1055,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           expo_event_id: lead.expo_event_id || "",
           deal_count: 0,
           location: selectedLocationId || lead.location || null,
-          contacts: contacts.map((contact) => ({
+          contacts: resolvedContacts.map((contact) => ({
             name: contact.name || "",
             designation: contact.designation || "",
             phone: contact.phone || "",
@@ -723,7 +1071,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       } else {
         const payload = {
           ...lead,
-          contacts,
+          company_name: finalCompanyName,
+          contacts: resolvedContacts.map((contact) => ({
+            ...contact,
+            address: contact.address || "",
+          })),
         };
 
         response = isNew
@@ -1068,6 +1420,77 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         </div>
       )}
 
+      {hasOcrContext && ocrPreviews.length > 0 && (
+        <div className="ocr-form-preview">
+          <div className="ocr-form-preview-copy">
+            <span className="ocr-form-preview-tag">OCR Source</span>
+            <h3>Scanned Card Preview</h3>
+            <p>Use these images to verify the extracted details while filling the form.</p>
+          </div>
+          <div className="ocr-form-preview-media">
+            <div className="ocr-form-preview-switcher">
+              <button
+                type="button"
+                className="ocr-form-preview-arrow"
+                onClick={() => setSelectedOcrPreviewIndex((current) => (current - 1 + ocrPreviews.length) % ocrPreviews.length)}
+                disabled={ocrPreviews.length < 2}
+                aria-label="Previous OCR preview"
+              >
+                &lt;
+              </button>
+              <div className="ocr-form-preview-main">
+                <img src={ocrPreviews[selectedOcrPreviewIndex] || ocrPreviews[0]} alt={`Scanned business card ${selectedOcrPreviewIndex + 1}`} />
+                {ocrPreviews.length > 1 && (
+                  <div className="ocr-form-preview-count">
+                    {selectedOcrPreviewIndex + 1} / {ocrPreviews.length}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="ocr-form-preview-arrow"
+                onClick={() => setSelectedOcrPreviewIndex((current) => (current + 1) % ocrPreviews.length)}
+                disabled={ocrPreviews.length < 2}
+                aria-label="Next OCR preview"
+              >
+                &gt;
+              </button>
+            </div>
+            {ocrPreviews.length > 1 && (
+              <div className="ocr-form-preview-thumbs">
+                {ocrPreviews.map((src, idx) => (
+                  <button
+                    type="button"
+                    key={`${src}-${idx}`}
+                    className={`ocr-form-preview-thumb ${idx === selectedOcrPreviewIndex ? "active" : ""}`}
+                    onClick={() => setSelectedOcrPreviewIndex(idx)}
+                    aria-label={`Show preview ${idx + 1}`}
+                  >
+                    <img src={src} alt={`Preview ${idx + 1}`} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasOcrContext && ocrWarning && (
+        <div
+          style={{
+            margin: "16px 0 0",
+            padding: "12px 16px",
+            borderRadius: "10px",
+            background: "#fff7ed",
+            color: "#9a3412",
+            border: "1px solid #fdba74",
+            fontWeight: 600,
+          }}
+        >
+          {ocrWarning}
+        </div>
+      )}
+
       {/* ================= COMPANY INFO ================= */}
       <div className="lead-form">
         {(dealView || lead.deal_name) && (
@@ -1129,7 +1552,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                           industry: s.industry || prev.industry,
                           employee_count: s.employee_count || prev.employee_count,
                           turnover_range: s.turnover_range || prev.turnover_range,
-                          Address: s.Address || prev.Address,
+                          Address: normalizeOcrAddress(s.Address || prev.Address),
                           website: s.website || prev.website,
                           source: s.source || prev.source,
                           referred_by_user: s.referred_by_user || prev.referred_by_user,
@@ -1146,7 +1569,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                         setCompanySuggestions([]);
                         setShowSuggestions(false);
                         if (Array.isArray(s.contacts) && s.contacts.length > 0) {
-                          setContacts(s.contacts);
+                          setContacts(s.contacts.map((contact) => mapContactForForm(contact)));
                         }
                       }}
                     >
@@ -1164,14 +1587,30 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         <div className="field">
           <label>Industry</label>
           {editMode ? (
-            <select name="industry" value={lead.industry || ""} onChange={handleLeadChange}>
-              <option value="">Select Industry</option>
-              {industries.map((item) => (
-                <option key={item?._id || item?.name} value={clientView ? item?._id : item?.name}>
-                  {item?.name}
-                </option>
-              ))}
-            </select>
+            <div className="industry-autocomplete">
+              <input
+                type="text"
+                name="industry"
+                list="industry-options"
+                placeholder="Start typing to search..."
+                value={industryNameMap.get(String(lead.industry || "")) || lead.industry || ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const match = industries.find(
+                    (item) => String(item?.name || "").toLowerCase() === value.toLowerCase()
+                  );
+                  setLead((prev) => ({
+                    ...prev,
+                    industry: match ? match._id || match.name : value,
+                  }));
+                }}
+              />
+              <datalist id="industry-options">
+                {industries.map((item) => (
+                  <option key={item?._id || item?.name} value={item?.name} />
+                ))}
+              </datalist>
+            </div>
           ) : (
             <p>{industryNameMap.get(String(lead.industry || "")) || lead.industry || "-"}</p>
           )}
@@ -1184,93 +1623,103 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         <Field label="Address" name="Address" value={lead.Address} onChange={handleLeadChange} editMode={editMode} />
 
         {/* COUNTRY */}
-        <div className="field">
-          <label>Country</label>
-          {editMode ? (
-            <select name="country" value={lead.country} onChange={handleLeadChange}>
-              <option value="">Select Country</option>
-              {countries.map((c, i) => (
-                <option key={i} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>{lead.country || "-"}</p>
-          )}
-        </div>
+        {!isFromOCR && (
+          <div className="field">
+            <label>Country</label>
+            {editMode ? (
+              <select name="country" value={lead.country} onChange={handleLeadChange}>
+                <option value="">Select Country</option>
+                {countries.map((c, i) => (
+                  <option key={i} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{lead.country || "-"}</p>
+            )}
+          </div>
+        )}
 
         {/* STATE */}
-        <div className="field">
-          <label>State</label>
-          {editMode ? (
-            <select
-              name="State"
-              value={lead.State}
-              onChange={handleLeadChange}
-              disabled={!lead.country}
-            >
-              <option value="">Select State</option>
-              {stateOptions.map((item, i) => (
-                <option key={item?._id || i} value={item?.State || ""}>
-                  {item?.State || ""}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>{lead.State || "-"}</p>
-          )}
-        </div>
+        {!isFromOCR && (
+          <div className="field">
+            <label>State</label>
+            {editMode ? (
+              <select
+                name="State"
+                value={lead.State}
+                onChange={handleLeadChange}
+                disabled={!lead.country}
+              >
+                <option value="">Select State</option>
+                {stateOptions.map((item, i) => (
+                  <option key={item?._id || i} value={item?.State || ""}>
+                    {item?.State || ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{lead.State || "-"}</p>
+            )}
+          </div>
+        )}
 
         {/* CITY */}
-        <div className="field">
-          <label>City</label>
-          {editMode ? (
-            <select
-              name="city"
-              value={lead.city}
-              onChange={handleLeadChange}
-              disabled={!lead.State}
-            >
-              <option value="">Select City</option>
-              {cityOptions.map((item, i) => (
-                <option key={item?._id || i} value={item?.city || ""}>
-                  {item?.city || ""}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>{lead.city || "-"}</p>
-          )}
-        </div>
+        {!isFromOCR && (
+          <div className="field">
+            <label>City</label>
+            {editMode ? (
+              <select
+                name="city"
+                value={lead.city}
+                onChange={handleLeadChange}
+                disabled={!lead.State}
+              >
+                <option value="">Select City</option>
+                {cityOptions.map((item, i) => (
+                  <option key={item?._id || i} value={item?.city || ""}>
+                    {item?.city || ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{lead.city || "-"}</p>
+            )}
+          </div>
+        )}
 
         {/* ZONE */}
-        <div className="field">
-          <label>Zone</label>
-          {editMode ? (
-            <select
-              name="zone"
-              value={lead.zone}
-              onChange={handleLeadChange}
-              disabled={!lead.city}
-            >
-              <option value="">Select Zone</option>
-              {zoneOptions.map((item, i) => (
-                <option key={item?._id || i} value={item?.zone || ""}>
-                  {item?.zone || ""}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p>{lead.zone || "-"}</p>
-          )}
-        </div>
+        {!isFromOCR && (
+          <div className="field">
+            <label>Zone</label>
+            {editMode ? (
+              <select
+                name="zone"
+                value={lead.zone}
+                onChange={handleLeadChange}
+                disabled={!lead.city}
+              >
+                <option value="">Select Zone</option>
+                {zoneOptions.map((item, i) => (
+                  <option key={item?._id || i} value={item?.zone || ""}>
+                    {item?.zone || ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p>{lead.zone || "-"}</p>
+            )}
+          </div>
+        )}
         <Field label="Website" name="website" value={lead.website} onChange={handleLeadChange} editMode={editMode} />
 
         {/* SOURCE */}
         <div className="field">
           <label>Source</label>
-          {editMode ? (
+          {isFromOCR ? (
+            <p>OCR</p>
+          ) : editMode ? (
             <div
               ref={sourceMenuRef}
               style={{ position: "relative" }}
@@ -1395,11 +1844,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
               )}
             </div>
           ) : (
-            <p>{sourceDisplayValue}</p>
+            <p>{isFromOCR ? "OCR" : sourceDisplayValue}</p>
           )}
         </div>
 
-        {!clientView && (
+        {!clientView && !isFromOCR && (
           <div className="field">
             <label>{dealView ? "Assign Deal To" : "Assign Lead To"}</label>
             {editMode && isAdminOrManager ? (
@@ -1454,26 +1903,105 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
             <div className="contact-grid">
               <InputField label="Name" name="name" value={c.name} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="Designation" name="designation" value={c.designation} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <InputField
+                label="Designation"
+                name="designation"
+                value={c.designation}
+                onChange={(e) => handleContactChange(i, e)}
+                editMode={editMode}
+                displayClassName="contact-designation-value"
+              />
               <div className="field">
                 <label>Phone</label>
-                {editMode ? (
-                  <PhoneInput
-                    international
-                    defaultCountry="IN"
-                    value={c.phone || ""}
-                    onChange={(val) => {
-                      const updated = [...contacts];
-                      updated[i].phone = val;
-                      setContacts(updated);
-                    }}
-                  />
-                ) : (
-                  <p>{c.phone || "-"}</p>
+                {(Array.isArray(c.phone) && c.phone.length ? c.phone : [""]).map((p, pIdx) => (
+                  <div key={pIdx} style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: "8px", width: "100%" }}>
+                    <div style={{ flexGrow: 1 }}>
+                      {editMode ? (
+                        <PhoneInput
+                          international
+                          defaultCountry="IN"
+                          value={p || ""}
+                          onChange={(val) => {
+                            const updated = [...contacts];
+                            if (!Array.isArray(updated[i].phone)) updated[i].phone = typeof updated[i].phone === 'string' && updated[i].phone ? updated[i].phone.split(',') : [""];
+                            updated[i].phone[pIdx] = val;
+                            setContacts(updated);
+                          }}
+                        />
+                      ) : (
+                        <p>{p || "-"}</p>
+                      )}
+                    </div>
+                    {editMode && Array.isArray(c.phone) && c.phone.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...contacts];
+                          updated[i].phone.splice(pIdx, 1);
+                          setContacts(updated);
+                        }}
+                        style={{ position: "absolute", right: "10px", background: "#f3f4f6", color: "#9ca3af", border: "none", borderRadius: "50%", width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "12px", fontWeight: "bold", transition: "all 0.2s", zIndex: 2 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = '#f3f4f6'; }}
+                      >✕</button>
+                    )}
+                  </div>
+                ))}
+                {editMode && (
+                  <button type="button" onClick={() => {
+                    const updated = [...contacts];
+                    if (!Array.isArray(updated[i].phone)) updated[i].phone = typeof updated[i].phone === 'string' && updated[i].phone ? updated[i].phone.split(',') : [""];
+                    updated[i].phone.push("");
+                    setContacts(updated);
+                  }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Phone</button>
                 )}
               </div>
-              <InputField label="Email" name="email" value={c.email} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
-              <InputField label="LinkedIn" name="linkedin" value={c.linkedin} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              <div className="field">
+                <label>Email</label>
+                {(Array.isArray(c.email) && c.email.length ? c.email : [""]).map((em, eIdx) => (
+                  <div key={eIdx} style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: "8px", width: "100%" }}>
+                    <div style={{ flexGrow: 1 }}>
+                      {editMode ? (
+                        <input type="email" style={{ width: "100%", paddingRight: Array.isArray(c.email) && c.email.length > 1 ? "36px" : "12px" }} value={em || ""} onChange={(e) => {
+                          const updated = [...contacts];
+                          if (!Array.isArray(updated[i].email)) updated[i].email = typeof updated[i].email === 'string' && updated[i].email ? updated[i].email.split(',') : [""];
+                          updated[i].email[eIdx] = e.target.value;
+                          setContacts(updated);
+                        }} />
+                      ) : (
+                        <p>{em || "-"}</p>
+                      )}
+                    </div>
+                    {editMode && Array.isArray(c.email) && c.email.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                            const updated = [...contacts];
+                            updated[i].email.splice(eIdx, 1);
+                            setContacts(updated);
+                          }}
+                        style={{ position: "absolute", right: "10px", background: "#f3f4f6", color: "#9ca3af", border: "none", borderRadius: "50%", width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "12px", fontWeight: "bold", transition: "all 0.2s", zIndex: 2 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = '#f3f4f6'; }}
+                      >✕</button>
+                    )}
+                  </div>
+                ))}
+                {editMode && (
+                  <button type="button" onClick={() => {
+                    const updated = [...contacts];
+                    if (!Array.isArray(updated[i].email)) updated[i].email = typeof updated[i].email === 'string' && updated[i].email ? updated[i].email.split(',') : [""];
+                    updated[i].email.push("");
+                    setContacts(updated);
+                  }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Email</button>
+                )}
+              </div>
+              {!clientView && (
+                <InputField label="Address" name="address" value={c.address} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              )}
+              {!isFromOCR && (
+                <InputField label="LinkedIn" name="linkedin" value={c.linkedin} onChange={(e) => handleContactChange(i, e)} editMode={editMode} />
+              )}
             </div>
           </div>
         ))}
@@ -1650,14 +2178,14 @@ function Field({ label, name, value, onChange, editMode, type = "text" }) {
   );
 }
 
-function InputField({ label, name, value, onChange, editMode, type = "text" }) {
+function InputField({ label, name, value, onChange, editMode, type = "text", displayClassName = "" }) {
   return (
     <div className="field">
       <label>{label}</label>
       {editMode ? (
         <input type={type} name={name} value={value || ""} onChange={onChange} />
       ) : (
-        <p>{value || "-"}</p>
+        <p className={displayClassName}>{value || "-"}</p>
       )}
     </div>
   );
