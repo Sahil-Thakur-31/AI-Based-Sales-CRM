@@ -23,6 +23,23 @@ import "../styles/AdminHome.css";
 
 // ✅ Switch this to true only if you want mock data
 const USE_MOCK = false;
+const ADMIN_AI_INSIGHTS = [
+  {
+    title: "Deals needing attention",
+    value: "2 high-risk accounts",
+    note: "Review Greenfield Solar and Reliance Infra this week.",
+  },
+  {
+    title: "Best win window",
+    value: "P5 to P6 deals",
+    note: "Proposal-stage conversations are converting fastest right now.",
+  },
+  {
+    title: "Next action",
+    value: "Schedule executive follow-up",
+    note: "Shorter response gaps are helping close larger opportunities.",
+  },
+];
 
 /* ---------- helpers ---------- */
 function cx(...arr) {
@@ -598,59 +615,82 @@ export default function AdminHome() {
               </CCard>
             </div>
 
-            {/* Recent Deals Table */}
-            <CCard className="panel panel--deals">
-              <CCardHeader className="panel__header">
-                <div className="panel__titleRow panel__titleRow--space">
-                  <span className="panel__title">Recent Deals</span>
+            <div className="dealsInsightsGrid">
+              {/* Recent Deals Table */}
+              <CCard className="panel panel--deals">
+                <CCardHeader className="panel__header">
+                  <div className="panel__titleRow panel__titleRow--space">
+                    <span className="panel__title">Recent Deals</span>
 
-                  <CButton
-                    color="primary"
-                    size="sm"
-                    className="btnNeon"
-                    onClick={() => navigate(`/deals`)}
-                  >
-                    View All
-                  </CButton>
-                </div>
-              </CCardHeader>
+                    <CButton
+                      color="primary"
+                      size="sm"
+                      className="btnNeon"
+                      onClick={() => navigate(`/deals`)}
+                    >
+                      View All
+                    </CButton>
+                  </div>
+                </CCardHeader>
 
-              <CCardBody className="p-0">
-                <CTable hover responsive className="tbl mb-0">
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>Client</CTableHeaderCell>
-                      <CTableHeaderCell>Stage</CTableHeaderCell>
-                      <CTableHeaderCell>Value</CTableHeaderCell>
-                      <CTableHeaderCell>Risk</CTableHeaderCell>
-                      <CTableHeaderCell>Close Date</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-
-                  <CTableBody>
-                    {visibleRecentDeals.map((d) => (
-                      <CTableRow key={d.id}>
-                        <CTableDataCell className="tbl__client">
-                          {d.client}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          <StagePill stage={d.stage} />
-                        </CTableDataCell>
-                        <CTableDataCell className="tbl__value">
-                          {formatINR(d.value)}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          <Risk level={d.risk} />
-                        </CTableDataCell>
-                        <CTableDataCell className="muted">
-                          {d.closeDate}
-                        </CTableDataCell>
+                <CCardBody className="p-0">
+                  <CTable hover responsive className="tbl mb-0">
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>Client</CTableHeaderCell>
+                        <CTableHeaderCell>Stage</CTableHeaderCell>
+                        <CTableHeaderCell>Value</CTableHeaderCell>
+                        <CTableHeaderCell>Risk</CTableHeaderCell>
+                        <CTableHeaderCell>Close Date</CTableHeaderCell>
                       </CTableRow>
+                    </CTableHead>
+
+                    <CTableBody>
+                      {visibleRecentDeals.map((d) => (
+                        <CTableRow key={d.id}>
+                          <CTableDataCell className="tbl__client">
+                            {d.client}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <StagePill stage={d.stage} />
+                          </CTableDataCell>
+                          <CTableDataCell className="tbl__value">
+                            {formatINR(d.value)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <Risk level={d.risk} />
+                          </CTableDataCell>
+                          <CTableDataCell className="muted">
+                            {d.closeDate}
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                </CCardBody>
+              </CCard>
+
+              <CCard className="panel panel--aiInsights">
+                <CCardHeader className="panel__header">
+                  <div className="panel__titleRow">
+                    <span className="panel__title">AI Insights</span>
+                    <AiBadge tone="priority">Static</AiBadge>
+                  </div>
+                </CCardHeader>
+
+                <CCardBody>
+                  <div className="aiInsightsList">
+                    {ADMIN_AI_INSIGHTS.map((item) => (
+                      <div key={item.title} className="aiInsightItem">
+                        <span className="aiInsightItem__label">{item.title}</span>
+                        <strong className="aiInsightItem__value">{item.value}</strong>
+                        <p className="aiInsightItem__note">{item.note}</p>
+                      </div>
                     ))}
-                  </CTableBody>
-                </CTable>
-              </CCardBody>
-            </CCard>
+                  </div>
+                </CCardBody>
+              </CCard>
+            </div>
           </div>
         </>
       )}
