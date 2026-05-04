@@ -1,0 +1,58 @@
+{
+  "model_type": "random_forest",
+  "dataset_path": "C:\\Users\\deshm\\Desktop\\AI-Based-Sales-CRM\\Mam Dataset\\D_modified_v2.csv",
+  "row_count": 1373,
+  "train_rows": 1098,
+  "test_rows": 275,
+  "accuracy": 1.0,
+  "roc_auc": 1.0,
+  "confusion_matrix": [
+    [
+      243,
+      0
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "classification_report": {
+    "0": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 243.0
+    },
+    "1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 32.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 275.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 275.0
+    }
+  },
+  "expected_win_rate_on_test": 0.11645735117407846,
+  "forecast_revenue_on_test": 9203295.195790477,
+  "feature_columns": [
+    "deal_stage",
+    "overdue_meeting_count",
+    "expected_close_gap_days",
+    "lead_to_deal_convert_days",
+    "followup_count",
+    "meeting_count",
+    "overdue_followup_count",
+    "last_contact_days"
+  ]
+}

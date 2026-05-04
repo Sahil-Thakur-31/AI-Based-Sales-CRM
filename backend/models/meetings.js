@@ -137,6 +137,12 @@ const meetingsSchema = new mongoose.Schema({
     type: Boolean
   },
 
+  aiPriority: {
+    type: String,
+    enum: ["Low", "Medium", "High"],
+    default: null
+  },
+
   createdAt: {
     type: Date
   },

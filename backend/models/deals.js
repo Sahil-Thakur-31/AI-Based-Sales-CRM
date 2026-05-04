@@ -79,6 +79,42 @@ const dealsSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",
     },
+
+    forecast: {
+      predictedLabel: {
+        type: Number,
+        enum: [0, 1],
+        description: "0 = LOSS, 1 = WIN"
+      },
+      predictedLabelText: {
+        type: String,
+        enum: ["lost", "won"]
+      },
+      winProbability: {
+        type: Number,
+        min: 0,
+        max: 1,
+        description: "Win probability as decimal (0.0 to 1.0)"
+      },
+      winProbabilityPercent: {
+        type: Number,
+        min: 0,
+        max: 100,
+        description: "Win probability as percentage (0 to 100)"
+      },
+      forecastRevenue: {
+        type: Number,
+        description: "Forecast revenue = dealValue × winProbability"
+      },
+      generatedAt: {
+        type: Date,
+        description: "When the prediction was generated"
+      },
+      modelVersion: {
+        type: String,
+        default: "random_forest_v1"
+      }
+    },
   },
   {
     timestamps: {

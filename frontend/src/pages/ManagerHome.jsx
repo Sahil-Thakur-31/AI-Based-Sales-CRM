@@ -301,6 +301,11 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
                         <span className={`follow-kind follow-kind--${item.kind || "followup"}`}>
                           {item.kind === "meeting" ? "Meeting" : "Follow-up"}
                         </span>
+                        {item.aiPriority ? (
+                          <span className={`follow-ai-priority follow-ai-priority--${String(item.aiPriority).toLowerCase()}`}>
+                            AI: {item.aiPriority}
+                          </span>
+                        ) : null}
                         <span
                           className={`follow-status ${
                             isCompletedStatus(item.status)
@@ -374,6 +379,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
               <div className="manager-detail-item"><div className="k">Type</div><div className="v">{selectedItem.kind === "meeting" ? "Meeting" : "Follow-up"}</div></div>
               <div className="manager-detail-item"><div className="k">Time</div><div className="v">{formatTime(selectedItem.dueAt)}</div></div>
               <div className="manager-detail-item"><div className="k">Priority</div><div className="v">{selectedItem.priority || "-"}</div></div>
+              <div className="manager-detail-item"><div className="k">AI Priority</div><div className="v">{selectedItem.aiPriority || "-"}</div></div>
               <div className="manager-detail-item"><div className="k">Status</div><div className="v">{formatStatus(selectedItem.status)}</div></div>
               <div className="manager-detail-item manager-detail-item-full"><div className="k">Details</div><div className="v">{selectedItem.message || "-"}</div></div>
               <div className="manager-detail-item manager-detail-item-full"><div className="k">Notes</div><div className="v">{selectedItem.notes || "-"}</div></div>

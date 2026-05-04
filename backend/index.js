@@ -31,6 +31,7 @@ const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker
 const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
+const salesForecastRoutes = require("./routes/salesForecastRoutes");
 
 require('./config/db');
 const bodyparser = require('body-parser');
@@ -78,6 +79,7 @@ app.use("/daily-closing", dailyClosingRoutes);
 app.use("/ocr", ocrRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/auth/google", googleAuthRoutes);
+app.use("/sales-forecast", salesForecastRoutes);
 
 
 let backgroundWorkersStarted = false;

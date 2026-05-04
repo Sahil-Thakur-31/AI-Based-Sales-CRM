@@ -218,6 +218,13 @@ const followupSchema = new mongoose.Schema(
       maxlength: 1000
     },
 
+    aiPriority: {
+      type: String,
+      enum: ["Low", "Medium", "High"],
+      default: null,
+      index: true
+    },
+
     lastContactDate: {
       type: Date,
       index: true
