@@ -6,7 +6,22 @@ const Tesseract = require("tesseract.js");
 const createWorker = Tesseract.createWorker;
 
 const OCR_TMP_ROOT = path.join(__dirname, "..", "uploads", "receipt", "_ocr_tmp");
-const TESSERACT_LANG_PATH = path.join(__dirname, "..");
+const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
+const resolveTesseractLangPath = () => {
+  const candidates = [
+    path.join(__dirname, ".."),
+    PROJECT_ROOT,
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "eng.traineddata"))) {
+      return candidate;
+    }
+  }
+
+  return path.join(__dirname, "..");
+};
+const TESSERACT_LANG_PATH = resolveTesseractLangPath();
 const hasLocalTesseractLanguage = fs.existsSync(path.join(TESSERACT_LANG_PATH, "eng.traineddata"));
 const EXPENSE_ML_ROOT = path.join(__dirname, "..", "expense_ocr_ml");
 const EXPENSE_ML_SCRIPT_PATH = path.join(EXPENSE_ML_ROOT, "infer_fields.py");
@@ -156,13 +171,40 @@ const commandExists = (command) => {
   return true;
 };
 
+const collectExistingPythonPaths = (baseDir) => {
+  try {
+    if (!baseDir || !fs.existsSync(baseDir)) {
+      return [];
+    }
+
+    return fs.readdirSync(baseDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^python/i.test(entry.name))
+      .map((entry) => path.join(baseDir, entry.name, "python.exe"))
+      .filter((candidate) => fs.existsSync(candidate));
+  } catch (error) {
+    return [];
+  }
+};
+
 const getPythonCommands = () => {
   if (DISABLE_PYTHON_OCR) {
     return [];
   }
   if (process.platform === "win32") {
+    const envPythonCandidates = [
+      process.env.EXPENSE_OCR_PYTHON_EXEC,
+      process.env.OCR_PYTHON_EXEC,
+      process.env.PYTHON_EXECUTABLE,
+    ].filter(Boolean).map((command) => ({ command, args: [] }));
+    const discoveredPythonCandidates = [
+      ...collectExistingPythonPaths(path.join(process.env.LOCALAPPDATA || "", "Programs", "Python")),
+      ...collectExistingPythonPaths(path.join(process.env.ProgramFiles || "", "Python")),
+      ...collectExistingPythonPaths(path.join(process.env["ProgramFiles(x86)"] || "", "Python")),
+    ].map((command) => ({ command, args: [] }));
     const windowsCandidates = [
+      ...envPythonCandidates,
       { command: LOCAL_OCR_PYTHON_CMD, args: [] },
+      ...discoveredPythonCandidates,
       { command: "python", args: [] },
       { command: "python.exe", args: [] },
       { command: "py", args: ["-3"] },

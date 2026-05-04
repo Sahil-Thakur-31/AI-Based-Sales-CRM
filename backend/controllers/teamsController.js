@@ -448,7 +448,7 @@ function summarizeLeadPipeline({
   };
 }
 
-function buildInsights({ winRate, followupsToday, activeDeals, memberPerformance }) {
+function buildInsights({ winRate, closedDeals, followupsToday, activeDeals, memberPerformance }) {
   const insights = [];
 
   if (activeDeals === 0) {
@@ -457,7 +457,7 @@ function buildInsights({ winRate, followupsToday, activeDeals, memberPerformance
       severity: "high",
       message: "No active deals in the current team pipeline."
     });
-  } else if (winRate < 30) {
+  } else if (closedDeals > 0 && winRate < 30) {
     insights.push({
       type: "conversion",
       severity: "medium",
@@ -1397,6 +1397,7 @@ exports.getTeamDashboard = async (req, res) => {
 
     const insights = buildInsights({
       winRate,
+      closedDeals,
       followupsToday,
       activeDeals: openDeals,
       memberPerformance

@@ -1,7 +1,9 @@
 const Expense = require("../models/expenses");
+const OcrFeedback = require("../models/ocrFeedback");
 const Notification = require("../models/notifications");
 const getNextCounter = require("../utils/getNextCounter");
 const { extractReceiptData } = require("../services/expenseReceiptOcr");
+const fs = require("fs").promises;
 require("../models/users");
 
 const isAdmin = (role) => String(role || "").toLowerCase() === "admin";
@@ -222,7 +224,11 @@ const applyReceiptOcrMetadata = (receipt, ocrData) => {
     extractedData: {
       vendor: fields.vendorName || "",
       date: fields.expenseDate || undefined,
-      amount: Number.isFinite(Number(fields.amount)) ? Number(fields.amount) : undefined,
+      amount: Number.isFinite(Number(fields.amount))
+        ? Number(fields.amount)
+        : Number.isFinite(Number(fields.totalAmount))
+          ? Number(fields.totalAmount)
+          : undefined,
       gst: 0,
       currency: fields.currencyCode || "INR",
     },
@@ -254,8 +260,8 @@ const parseBooleanField = (value) => {
 };
 
 exports.extractExpenseReceipt = async (req, res) => {
+  const receiptFile = getFirstUploadedReceiptFile(req);
   try {
-    const receiptFile = getFirstUploadedReceiptFile(req);
     if (!receiptFile) {
       return res.status(400).json({ message: "Receipt file is required" });
     }
@@ -298,6 +304,14 @@ exports.extractExpenseReceipt = async (req, res) => {
     res.status(500).json({
       message: error.message || "Receipt OCR failed",
     });
+  } finally {
+    if (receiptFile && receiptFile.path) {
+      try {
+        await fs.unlink(receiptFile.path);
+      } catch (err) {
+        console.error("Failed to delete temp OCR file:", err);
+      }
+    }
   }
 };
 
@@ -342,6 +356,25 @@ exports.createExpense = async (req, res) => {
     }
 
     const expense = await Expense.create(payload);
+
+    if (receiptOcrData) {
+      try {
+        await OcrFeedback.create({
+          originalExtraction: receiptOcrData,
+          finalData: {
+            vendorName: payload.vendorName,
+            amount: payload.amount,
+            expenseDate: payload.expenseDate,
+            category: payload.category,
+            totalAmount: payload.totalAmount,
+          },
+          imagePath: primaryReceipt,
+          userId: req.user._id,
+        });
+      } catch (feedbackErr) {
+        console.error("Failed to save OCR feedback:", feedbackErr);
+      }
+    }
     res.status(201).json(expense);
   } catch (err) {
     res.status(400).json({ message: err.message });

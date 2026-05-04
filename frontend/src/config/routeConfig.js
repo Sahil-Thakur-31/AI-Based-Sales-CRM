@@ -43,6 +43,7 @@ export const routeConfig = [
 
   // AI
   { path: "/ai-leads", title: "AI Lead Generation" },
+  { path: "/ai-insights", title: "AI Insights" },
 
   // Analytics
   { path: "/events", title: "Events & Expos" },

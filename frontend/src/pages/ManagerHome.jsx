@@ -341,7 +341,16 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
             </div>
 
             <div className="panel manager-side-panel">
-              <h3>AI Insights</h3>
+              <div className="manager-followups-head">
+                <h3>AI Insights</h3>
+                <button
+                  className="manager-mini-btn done"
+                  type="button"
+                  onClick={() => navigate("/ai-insights")}
+                >
+                  View All
+                </button>
+              </div>
 
               {(dashboardData.insights || []).map((insight) => (
                 <div key={insight.id} className={`insight ${insight.severity || "purple"}`}>
