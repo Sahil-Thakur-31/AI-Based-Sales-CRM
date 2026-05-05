@@ -1215,6 +1215,9 @@ exports.updateDeal = async (req, res) => {
         }
       }
     }
+    if (dealUpdate.stage === "P7") {
+      dealUpdate.status = "won";
+    }
     if (Object.prototype.hasOwnProperty.call(update, "probability")) {
       const probability = Number(update.probability);
       if (Number.isFinite(probability)) {

@@ -13,10 +13,29 @@ let ocrUnavailableReason = "";
 let activePythonExec = "";
 let allowAutoRestart = true;
 
+function collectExistingPythonPaths(baseDir) {
+  try {
+    if (!baseDir || !fs.existsSync(baseDir)) {
+      return [];
+    }
+
+    return fs.readdirSync(baseDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^python/i.test(entry.name))
+      .map((entry) => path.join(baseDir, entry.name, "python.exe"))
+      .filter((candidate) => fs.existsSync(candidate));
+  } catch (error) {
+    return [];
+  }
+}
+
 function resolvePythonExec() {
   const candidates = [
     process.env.OCR_PYTHON_EXEC,
+    process.env.EXPENSE_OCR_PYTHON_EXEC,
     LOCAL_PYTHON_EXEC,
+    ...collectExistingPythonPaths(path.join(process.env.LOCALAPPDATA || "", "Programs", "Python")),
+    ...collectExistingPythonPaths(path.join(process.env.ProgramFiles || "", "Python")),
+    ...collectExistingPythonPaths(path.join(process.env["ProgramFiles(x86)"] || "", "Python")),
     "python",
     "py",
   ].filter(Boolean);

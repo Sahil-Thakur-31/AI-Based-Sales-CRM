@@ -314,7 +314,7 @@ const EventExpo = () => {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [locationQuery, setLocationQuery] = useState("");
   const [viewTab, setViewTab] = useState("upcoming");
-  const [quickFilter, setQuickFilter] = useState("near-me");
+  const [quickFilter, setQuickFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date_asc");
   const [userCoordinates, setUserCoordinates] = useState(null);
   const [userPlace, setUserPlace] = useState(null);
@@ -365,6 +365,10 @@ const EventExpo = () => {
   }, []);
 
   useEffect(() => {
+    if (quickFilter !== "near-me") {
+      setLocationStatus((prev) => (prev === "loading" ? "idle" : prev));
+      return undefined;
+    }
     if (!navigator?.geolocation) {
       setLocationStatus("unsupported");
       setLocationError("Location is not supported in this browser.");
@@ -395,10 +399,10 @@ const EventExpo = () => {
     return () => {
       navigator.geolocation.clearWatch(watcherId);
     };
-  }, []);
+  }, [quickFilter]);
 
   useEffect(() => {
-    if (!userCoordinates) return;
+    if (quickFilter !== "near-me" || !userCoordinates) return;
     const key = `${userCoordinates.latitude.toFixed(3)},${userCoordinates.longitude.toFixed(3)}`;
     if (geocodeKeyRef.current === key) return;
     geocodeKeyRef.current = key;
@@ -441,7 +445,7 @@ const EventExpo = () => {
 
     lookup();
     return () => controller.abort();
-  }, [userCoordinates]);
+  }, [quickFilter, userCoordinates]);
 
   const openAddEventPage = () => {
     if (!isAdminOrManager) return;
@@ -486,12 +490,12 @@ const EventExpo = () => {
     const eventId = eventItem?._id;
     if (!eventId) return;
     setOutcomeFormEventItem(eventItem);
-    setOutcomeFormCallback(() => saveOutcomeData);
+    setOutcomeFormCallback(() => ((payload) => saveOutcomeData(payload, eventItem)));
     setOutcomeFormOpen(true);
   };
 
-  const saveOutcomeData = async (payload) => {
-    const eventId = outcomeFormEventItem?._id;
+  const saveOutcomeData = async (payload, targetEventItem = outcomeFormEventItem) => {
+    const eventId = targetEventItem?._id;
     if (!eventId) return;
     
     if (!Object.keys(payload).length) {
@@ -503,7 +507,7 @@ const EventExpo = () => {
 
     // Show confirmation before saving
     setOutcomeConfirmPayload(payload);
-    setOutcomeConfirmEventItem(outcomeFormEventItem);
+    setOutcomeConfirmEventItem(targetEventItem);
     setOutcomeFormOpen(false);
     setOutcomeConfirmOpen(true);
   };
@@ -583,26 +587,27 @@ const EventExpo = () => {
   };
 
   const confirmAndMarkAttended = async () => {
-    const eventId = attendedConfirmEventItem?._id;
+    const targetEventItem = attendedConfirmEventItem;
+    const eventId = targetEventItem?._id;
     if (!eventId) return;
 
     // Don't mark as attended yet - let user enter outcome first
-    setOutcomeFormEventItem(attendedConfirmEventItem);
+    setOutcomeFormEventItem(targetEventItem);
     setOutcomeFormIsFromMarkAttended(true);
-    setOutcomeFormCallback(() => completeAttendanceWithOptionalOutcome);
+    setOutcomeFormCallback(() => ((payload) => completeAttendanceWithOptionalOutcome(payload, targetEventItem)));
     setAttendedConfirmOpen(false);
     setAttendedConfirmEventItem(null);
     setOutcomeFormOpen(true);
   };
 
-  const completeAttendanceWithOptionalOutcome = async (outcomePayload) => {
-    const eventId = outcomeFormEventItem?._id;
+  const completeAttendanceWithOptionalOutcome = async (outcomePayload, targetEventItem = outcomeFormEventItem) => {
+    const eventId = targetEventItem?._id;
     if (!eventId) return;
 
     if (outcomePayload && Object.keys(outcomePayload).length) {
       // Has outcome data - show confirm dialog before marking attended
       setOutcomeConfirmPayload(outcomePayload);
-      setOutcomeConfirmEventItem(outcomeFormEventItem);
+      setOutcomeConfirmEventItem(targetEventItem);
       setOutcomeConfirmIsFromMarkAttended(true);
       setOutcomeFormOpen(false);
       setOutcomeConfirmOpen(true);
@@ -616,17 +621,7 @@ const EventExpo = () => {
     }
   };
 
-  const dedupedEvents = useMemo(() => {
-    const winnerByKey = new Map();
-    events.forEach((item) => {
-      const key = eventDedupKey(item);
-      const existing = winnerByKey.get(key);
-      if (!existing || eventWinnerScore(item) > eventWinnerScore(existing)) {
-        winnerByKey.set(key, item);
-      }
-    });
-    return Array.from(winnerByKey.values());
-  }, [events]);
+  const dedupedEvents = useMemo(() => events, [events]);
 
   const industryOptions = useMemo(() => {
     const map = new Map();
@@ -1054,6 +1049,8 @@ const EventExpo = () => {
             (Array.isArray(eventItem.registeredBy) && eventItem.registeredBy.length > 0) ||
             Boolean(eventItem.isRegistered);
           const isMarkedMissed = Boolean(eventItem.isMissed || String(eventItem.missedReason || "").trim());
+          const scopedHasAttendance = isRestrictedUser ? isAttending : hasAttendance;
+          const scopedHasRegistration = isRestrictedUser ? Boolean(eventItem.isRegistered) : hasRegistration;
           const registrationWebsiteUrl = String(
             eventItem.myRegistration?.websiteUrl ||
             eventItem.registrationWebsiteUrl ||
@@ -1063,10 +1060,10 @@ const EventExpo = () => {
           const isRegisteredTab = viewTab === "registered";
           const isAttendedTab = viewTab === "attended";
           const isMissedTab = viewTab === "missed";
-          const canMarkAttended = isRegisteredTab && !hasAttendance && !isMarkedMissed && isPastEvent;
-          const canMarkMissed = isRegisteredTab && !hasAttendance && !isMarkedMissed && isPastEvent;
+          const canMarkAttended = isRegisteredTab && scopedHasRegistration && !scopedHasAttendance && !isMarkedMissed && isPastEvent;
+          const canMarkMissed = isRegisteredTab && scopedHasRegistration && !scopedHasAttendance && !isMarkedMissed && isPastEvent;
           const historyTag = isPastEvent
-            ? (hasAttendance ? "Attended" : (hasRegistration ? ((isMarkedMissed || isBeyondRegistrationGrace) ? "Missed" : "Registered") : "Uninterested"))
+            ? (scopedHasAttendance ? "Attended" : (scopedHasRegistration ? ((isMarkedMissed || isBeyondRegistrationGrace) ? "Missed" : "Registered") : "Uninterested"))
             : "";
           const outcomeSummaryEntries = [];
           if (eventItem.realizedCollectedLeads != null) {
@@ -1301,6 +1298,7 @@ const EventExpo = () => {
 
       <OutcomeForm
         isOpen={outcomeFormOpen}
+        allowEmptySubmit={outcomeFormIsFromMarkAttended}
         onSubmit={(payload) => {
           if (outcomeFormCallback) {
             outcomeFormCallback(payload);

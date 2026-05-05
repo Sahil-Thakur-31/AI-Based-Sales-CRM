@@ -10,6 +10,7 @@ const User = require("../models/users");
 const Team = require("../models/teams");
 const CRMSettings = require("../models/crmSettings");
 const { syncSingleMeetingToGoogle, deleteSingleMeetingFromGoogle } = require("../services/googleCalendarSync");
+const { refreshPrioritiesForFollowupAndMeeting } = require("../services/followupPriorityAiService");
 
 function normalizeRole(roleName = "") {
   return String(roleName).trim().toLowerCase();
@@ -371,6 +372,20 @@ async function syncMeetingMirrorFromFollowup(doc, actorId) {
   );
 }
 
+async function syncAiPriorityForDoc(doc) {
+  if (!doc?._id) return;
+
+  if (String(doc.kind || "").toLowerCase() === "followup") {
+    await refreshPrioritiesForFollowupAndMeeting(doc, null);
+    return;
+  }
+
+  if (isMeetingLikeFollowup(doc)) {
+    const mirroredMeeting = await Meeting.findOne({ sourceFollowupId: doc._id }).lean();
+    await refreshPrioritiesForFollowupAndMeeting(null, mirroredMeeting);
+  }
+}
+
 async function softDeleteMeetingMirror(followupId) {
   await Meeting.updateOne(
     { sourceFollowupId: followupId },
@@ -707,6 +722,8 @@ exports.create = async (req, res) => {
           fallbackStage: "P1",
         }));
 
+    const resolvedStatus = req.body.status || "pending";
+
     const payload = {
       kind: req.body.kind || "followup",
       actionType: req.body.actionType || "",
@@ -719,7 +736,8 @@ exports.create = async (req, res) => {
       notes: req.body.notes || "",
       cancelReason: req.body.cancelReason || "",
       priority: req.body.priority || "medium",
-      status: req.body.status || "pending",
+      status: resolvedStatus,
+      completedAt: resolvedStatus === "completed" ? new Date() : null,
       dueDateTime: new Date(req.body.dueDateTime),
       reminderEnabled: req.body.reminderEnabled !== false,
       reminderChoice: String(req.body.reminderChoice || (req.body.reminderEnabled === false ? "no" : "yes")).toLowerCase(),
@@ -760,6 +778,12 @@ exports.create = async (req, res) => {
       await syncMeetingMirrorFromFollowup(doc, req.user._id);
     } catch (syncErr) {
       console.error("followups.create syncMeetingMirror error:", syncErr);
+    }
+
+    try {
+      await syncAiPriorityForDoc(doc);
+    } catch (aiErr) {
+      console.error("followups.create ai priority error:", aiErr);
     }
 
     const created = await Followup.findById(doc._id).populate("assignedTo", "name email");
@@ -903,6 +927,12 @@ exports.update = async (req, res) => {
       console.error("followups.update syncMeetingMirror error:", syncErr);
     }
 
+    try {
+      await syncAiPriorityForDoc(updatedDoc);
+    } catch (aiErr) {
+      console.error("followups.update ai priority error:", aiErr);
+    }
+
     const updated = await Followup.findById(current._id).populate("assignedTo", "name email");
 
     const oldAssignee = String(current.assignedTo || "");
@@ -1020,6 +1050,12 @@ exports.updateStatus = async (req, res) => {
     }
 
     try {
+      await syncAiPriorityForDoc(updated);
+    } catch (aiErr) {
+      console.error("followups.updateStatus ai priority error:", aiErr);
+    }
+
+    try {
       await logUserDailyActivity({
         userId: req.user._id,
         activityId: updated._id,
@@ -1052,7 +1088,8 @@ exports.updateStatus = async (req, res) => {
       }
     }
 
-    res.json(updated);
+    const refreshed = await Followup.findById(updated._id).populate("assignedTo", "name email");
+    res.json(refreshed);
   } catch (err) {
     console.error("followups.updateStatus error:", err);
     res.status(500).json({ message: "Failed to update status" });

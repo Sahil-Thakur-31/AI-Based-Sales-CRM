@@ -1,5 +1,35 @@
 # AI-Based-Sales-CRM
 
+## Simple Project Flow
+
+```mermaid
+flowchart LR
+    U[User<br/>Admin / Manager / User]
+    F[React Frontend<br/>Login, Dashboards, CRM Modules]
+    A[Axios API Layer<br/>JWT Token]
+    B[Node.js + Express Backend<br/>Auth, Leads, Clients, Deals,<br/>Followups, Quotations, Events, Reports]
+    D[(MongoDB<br/>Users, Leads, Clients, Deals,<br/>Followups, Events, Settings)]
+    W[Background Workers<br/>Email Reminders, WhatsApp Meetings,<br/>Google Calendar Sync]
+    P[Python AI Services<br/>Followup Priority,<br/>Sales Forecasting]
+
+    U --> F
+    F --> A
+    A --> B
+    B <--> D
+    B --> W
+    B --> P
+    P --> B
+    B --> F
+```
+
+## Flow Summary
+
+1. Users sign in from the React frontend and access role-based dashboards and CRM modules.
+2. The frontend sends requests through Axios to the Express backend using JWT authentication.
+3. The backend handles core CRM operations like leads, clients, deals, followups, quotations, events, expenses, and reports.
+4. MongoDB stores the main business data and settings used across the system.
+5. For smart features, the backend calls Python models for follow-up priority prediction and sales forecasting.
+6. Background workers send notifications, WhatsApp reminders, and support calendar-related automation.
 ## OCR setup
 
 The business-card OCR feature needs a Python environment with the OCR dependencies installed.
@@ -30,3 +60,29 @@ Notes:
 - If `backend/ocr/runtime/.venv` exists, the backend will try to use it first.
 - If OCR dependencies are missing, the backend now stays up and the OCR route returns a clear `503` error instead of crashing the whole server.
 - The bundled OCR ML model was trained with a newer scikit-learn pickle format; the runtime now repairs the known `LogisticRegression.multi_class` mismatch automatically during load.
+
+## Expense OCR setup
+
+The expense receipt OCR route uses the Node backend service in `backend/services/expenseReceiptOcr.js`.
+
+Recommended local setup:
+
+```bash
+cd backend
+python -m venv .venv-ocr
+.venv-ocr\Scripts\activate
+pip install -r expense_ocr_ml/requirements.txt
+pip install opencv-python pytesseract easyocr pillow numpy
+```
+
+Optional environment variables:
+
+```bash
+EXPENSE_OCR_PYTHON_EXEC=backend/.venv-ocr/Scripts/python.exe
+OCR_PYTHON_EXEC=backend/ocr/runtime/.venv/Scripts/python.exe
+```
+
+Notes:
+
+- Expense OCR can still run with `tesseract.js` even if Python preprocessing is unavailable.
+- Keep `eng.traineddata` available in the project root (or `backend/`) for offline OCR.

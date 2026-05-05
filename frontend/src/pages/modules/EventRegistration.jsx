@@ -106,9 +106,9 @@ const EventRegistration = () => {
     () =>
       allUsers.filter((user) => {
         const role = String(user?.roleName || "").trim().toLowerCase();
-        return role !== "admin";
+        return role !== "admin" && String(user?._id || "") !== String(formData.eventManagerUserId || "");
       }),
-    [allUsers]
+    [allUsers, formData.eventManagerUserId]
   );
   const managerUserOptions = useMemo(
     () =>
@@ -133,6 +133,15 @@ const EventRegistration = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value
     }));
+
+    if (name === "eventManagerUserId") {
+      const selectedManagerId = String(value || "");
+      setAttendeeSelections((prev) =>
+        prev.map((attendeeId) =>
+          String(attendeeId || "") === selectedManagerId ? "" : attendeeId
+        )
+      );
+    }
   };
 
   const handlePaymentScreenshotChange = (event) => {
@@ -264,13 +273,16 @@ const EventRegistration = () => {
   const applyRegistrationToForm = (registrationInput) => {
     const registration = registrationInput || {};
     const count = Math.max(1, Math.min(20, toInt(registration.attendeesCount, 1)));
+    const managerUserId = String(registration.eventManagerUser?._id || registration.eventManagerUser || "");
     const selectedUsers = Array.isArray(registration.attendeeUsers)
-      ? registration.attendeeUsers.map((item) => String(item?._id || item || ""))
+      ? registration.attendeeUsers
+        .map((item) => String(item?._id || item || ""))
+        .filter((userId) => userId && userId !== managerUserId)
       : [];
 
     setFormData((prev) => ({
       ...prev,
-      eventManagerUserId: String(registration.eventManagerUser?._id || registration.eventManagerUser || ""),
+      eventManagerUserId: managerUserId,
       participationRole: registration.participationRole || "",
       eventWebsiteUrl: registration.websiteUrl || "",
       attendeesCount: count,
@@ -342,7 +354,9 @@ const EventRegistration = () => {
     if (notes) payload.notes = notes;
 
     if (!Object.keys(payload).length) {
-      setOutcomeError("Add at least one outcome value before saving.");
+      const message = "Add at least one outcome value before saving.";
+      setOutcomeError(message);
+      window.alert(message);
       return;
     }
 
@@ -693,7 +707,7 @@ const EventRegistration = () => {
             <section className="form-section">
               <h4 className="section-title">Outcome Details</h4>
               <p className="section-note">
-                This section stays editable forever, even after attendance is marked.
+                This section stays editable forever, even after attendance is marked. Add at least one value or note to save.
               </p>
               <div className="form-grid">
                 <label>
@@ -772,11 +786,9 @@ const EventRegistration = () => {
               {outcomeSuccess && <p className="success-note">{outcomeSuccess}</p>}
 
               <div className="submit-row">
-                {!isViewOnly && (
-                  <button className="submit-btn" type="submit" disabled={outcomeSaving || !canSubmitEvent}>
-                    {outcomeSaving ? "Saving..." : "Save Outcome"}
-                  </button>
-                )}
+                <button className="submit-btn" type="submit" disabled={outcomeSaving || !canSubmitEvent}>
+                  {outcomeSaving ? "Saving..." : "Save Outcome"}
+                </button>
               </div>
             </section>
           </form>

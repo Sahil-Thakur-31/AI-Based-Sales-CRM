@@ -482,7 +482,59 @@
 }
 
 /* ─── Deals Table (CoreUI CTable) ─── */
-.panel--deals { grid-column: 1 / span 2; }
+.dealsInsightsGrid {
+  grid-column: 1 / span 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.panel--deals,
+.panel--aiInsights {
+  min-width: 0;
+}
+
+.panel--aiInsights .card-body {
+  display: flex;
+  align-items: stretch;
+}
+
+.aiInsightsList {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.aiInsightItem {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8faff 0%, #eef3ff 100%);
+}
+
+.aiInsightItem__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.aiInsightItem__value {
+  display: block;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.aiInsightItem__note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #475569;
+}
 
 .adminHome .tbl,
 .adminHome .tbl.table {
@@ -593,7 +645,7 @@
 @media (max-width: 1200px) {
   .kpiGrid { grid-template-columns: repeat(2, 1fr); }
   .mainGrid { grid-template-columns: 1fr; }
-  .panel--deals { grid-column: auto; }
+  .dealsInsightsGrid { grid-column: auto; grid-template-columns: 1fr; }
   .skeletonGrid { grid-template-columns: repeat(2, 1fr); }
   .sk--panelWide { grid-column: 1 / span 2; }
 }

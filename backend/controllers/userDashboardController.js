@@ -151,7 +151,14 @@ function getRangeLabels(range) {
   };
 }
 
-function buildInsights({ followupsToday, staleLeads, highProbabilityDeals, winRate, monthlyAchievedPct }) {
+function buildInsights({
+  followupsDueToday,
+  staleLeads,
+  highProbabilityDeals,
+  winRate,
+  closedDeals,
+  revenueAchievedPct
+}) {
   const insights = [];
 
   if (highProbabilityDeals.length) {
@@ -173,7 +180,7 @@ function buildInsights({ followupsToday, staleLeads, highProbabilityDeals, winRa
     });
   }
 
-  if (followupsToday === 0) {
+  if (followupsDueToday === 0) {
     insights.push({
       id: "followups-clear",
       type: "Update",
@@ -182,14 +189,14 @@ function buildInsights({ followupsToday, staleLeads, highProbabilityDeals, winRa
     });
   }
 
-  if (monthlyAchievedPct >= 100) {
+  if (revenueAchievedPct >= 100) {
     insights.push({
       id: "target-hit",
       type: "Momentum",
       severity: "green",
-      message: "Monthly revenue target is already achieved."
+      message: "Revenue target for the active target window is already achieved."
     });
-  } else if (winRate < 30) {
+  } else if (closedDeals > 0 && winRate < 30) {
     insights.push({
       id: "win-rate",
       type: "Action",
@@ -273,17 +280,16 @@ exports.getDashboard = async (req, res) => {
         dueDateTime: { $gte: rangeStart, $lt: rangeEnd }
       })
         .sort({ dueDateTime: 1, createdAt: -1 })
-        .select("kind actionType title clientName dueDateTime priority status durationMinutes notes cancelReason")
+        .select("kind actionType title clientName dueDateTime priority aiPriority status durationMinutes notes cancelReason")
         .lean(),
       Meeting.find({
         assignedTo: assignedUserMatch,
         is_deleted: { $ne: true },
         meetingDate: { $gte: rangeStart, $lt: rangeEnd },
-        status: { $in: ["scheduled", "rescheduled", "completed"] }
+        status: { $in: ["scheduled", "rescheduled", "completed", "cancelled", "no_show"] }
       })
         .sort({ startTime: 1, createdAt: -1 })
-        .limit(10)
-        .select("title clientName startTime meetingDate priority status sourceFollowupId Id durationMinutes description cancelReason")
+        .select("title clientName startTime meetingDate priority aiPriority status sourceFollowupId Id durationMinutes description cancelReason")
         .lean(),
       Deal.countDocuments({
         assignedTo: assignedUserMatch,
@@ -480,6 +486,7 @@ exports.getDashboard = async (req, res) => {
       message: doc.title || doc.actionType || "Follow up",
       dueAt: doc.dueDateTime || null,
       priority: getFollowupPriority(doc.priority),
+      aiPriority: doc.aiPriority || null,
       status: doc.status || "pending",
       durationMinutes: doc.durationMinutes || "",
       notes: doc.cancelReason || doc.notes || "",
@@ -493,6 +500,7 @@ exports.getDashboard = async (req, res) => {
       message: meeting.title || "Meeting",
       dueAt: meeting.startTime || meeting.meetingDate || null,
       priority: String(meeting.priority || "medium").replace(/^./, (char) => char.toUpperCase()),
+      aiPriority: meeting.aiPriority || null,
       status: meeting.status || "scheduled",
       durationMinutes: meeting.durationMinutes || "",
       notes: meeting.cancelReason || meeting.description || "",
@@ -533,9 +541,22 @@ exports.getDashboard = async (req, res) => {
       resolvedScheduledMeetings + resolvedCompletedMeetings + resolvedCancelledMeetings;
     const totalEvents = registeredEvents + attendedEvents + missedEvents;
     const rangeLabels = getRangeLabels(selectedRange.range);
+    const followupsDueToday = mappedFollowups.filter((item) => {
+      const dueAt = item.dueAt ? new Date(item.dueAt) : null;
+      if (!dueAt || Number.isNaN(dueAt.getTime())) return false;
+      return dueAt >= todayStart && dueAt < tomorrow;
+    }).length;
+    const meetingsDueToday = mappedMeetings.filter((item) => {
+      const dueAt = item.dueAt ? new Date(item.dueAt) : null;
+      if (!dueAt || Number.isNaN(dueAt.getTime())) return false;
+      return dueAt >= todayStart && dueAt < tomorrow;
+    }).length;
+    const meetingsInRange = mappedMeetings.length || meetingLikeFollowups.length;
     const summary = {
-      followupsToday: mappedFollowups.length,
-      meetingsToday: mappedMeetings.length || meetingLikeFollowups.length,
+      followupsToday: followupsDueToday,
+      followupsInRange: mappedFollowups.length,
+      meetingsToday: meetingsDueToday,
+      meetingsInRange,
       highPriorityFollowups: mappedFollowups.filter((item) => item.priority === "High").length,
       activeDeals,
       activeLeads,
@@ -543,6 +564,8 @@ exports.getDashboard = async (req, res) => {
       monthlyTarget,
       monthlyAchieved,
       monthlyAchievedPct,
+      revenueAchieved: monthlyAchieved,
+      revenueAchievedPct: monthlyAchievedPct,
       winRate,
       wonDeals,
       closedDeals,
@@ -553,8 +576,8 @@ exports.getDashboard = async (req, res) => {
     const statCards = [
       {
         title: "Follow-ups & Meetings",
-        value: summary.followupsToday + summary.meetingsToday,
-        sub: `${summary.highPriorityFollowups} high priority follow-ups, ${summary.meetingsToday} meetings`,
+        value: summary.followupsInRange + summary.meetingsInRange,
+        sub: `${summary.highPriorityFollowups} high priority follow-ups, ${summary.meetingsInRange} meetings in ${selectedRange.range}`,
         icon: "📞",
         color: "blue"
       },
@@ -596,11 +619,12 @@ exports.getDashboard = async (req, res) => {
       followups: mappedFollowups,
       meetings: mappedMeetings,
       insights: buildInsights({
-        followupsToday: mappedFollowups.length,
+        followupsDueToday,
         staleLeads,
         highProbabilityDeals: highPriorityDeals,
         winRate,
-        monthlyAchievedPct
+        closedDeals,
+        revenueAchievedPct: monthlyAchievedPct
       }),
       activity: {
         meetings: [

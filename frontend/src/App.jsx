@@ -28,6 +28,7 @@ import DailyClosingReport from './pages/modules/DailyClosingReport.jsx';
 import SalesForecast from './pages/modules/SalesForecast.jsx';
 import Expenses from './pages/modules/Expenses.jsx';
 import AILeadGeneration from './pages/modules/AILeadGeneration.jsx';
+import AIInsights from './pages/modules/AIInsights.jsx';
 import Events from './pages/modules/Events.jsx';
 import EventRegistration from './pages/modules/EventRegistration.jsx';
 import AddEvent from './pages/modules/AddEvent.jsx';
@@ -122,6 +123,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["Manager", "Admin"]}>
                 <AILeadGeneration />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ai-insights"
+            element={
+              <ProtectedRoute allowedRoles={["User", "Manager", "Admin"]}>
+                <AIInsights />
               </ProtectedRoute>
             }
           />

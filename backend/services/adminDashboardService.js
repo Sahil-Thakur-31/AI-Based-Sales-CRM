@@ -8,6 +8,7 @@ const Lead = require("../models/leads");
 const Followup = require("../models/followUp");
 const User = require("../models/users");
 const Team = require("../models/teams");
+const Role = require("../models/roles");
 
 // Optional model - if file exists in your models folder
 let AiGeneratedLeads = null;
@@ -18,6 +19,28 @@ try {
 }
 
 const { getRangeDates } = require("./dashboardRange.admin");
+
+async function getNonAdminUserIds() {
+  const adminRoles = await Role.find(
+    {
+      is_deleted: { $ne: true },
+      name: { $regex: /^admin$/i }
+    },
+    { _id: 1 }
+  ).lean();
+
+  const adminRoleIds = adminRoles.map((role) => role._id).filter(Boolean);
+  const users = await User.find(
+    {
+      is_deleted: { $ne: true },
+      is_active: { $ne: false },
+      ...(adminRoleIds.length ? { role: { $nin: adminRoleIds } } : {})
+    },
+    { _id: 1 }
+  ).lean();
+
+  return users.map((user) => user._id).filter(Boolean);
+}
 
 function pctChange(curr, prev) {
   if (!prev || prev === 0) return curr > 0 ? 100 : 0;
@@ -54,31 +77,35 @@ function iconFromActionType(actionType = "") {
  */
 async function getSummary(range) {
   const { start, end, prevStart, prevEnd } = getRangeDates(range);
+  const nonAdminUserIds = await getNonAdminUserIds();
 
   // Won revenue in current range
   const wonAgg = await Deal.aggregate([
-    { $match: { status: "won", is_deleted: { $ne: true }, actualCloseDate: { $gte: start, $lte: end } } },
+    { $match: { status: "won", is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: start, $lte: end } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenueWon = wonAgg[0]?.total || 0;
 
   // Won revenue in previous range
   const prevWonAgg = await Deal.aggregate([
-    { $match: { status: "won", is_deleted: { $ne: true }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
+    { $match: { status: "won", is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenuePrev = prevWonAgg[0]?.total || 0;
 
-  // Active deals (open) created in this range
+  // Active deals created in the selected range.
   const activeDeals = await Deal.countDocuments({
     status: "open",
     is_deleted: { $ne: true },
+    assignedTo: { $in: nonAdminUserIds },
     createdAt: { $gte: start, $lte: end },
   });
 
+  // Compare against the previous equivalent range window.
   const activeDealsPrev = await Deal.countDocuments({
     status: "open",
     is_deleted: { $ne: true },
+    assignedTo: { $in: nonAdminUserIds },
     createdAt: { $gte: prevStart, $lte: prevEnd },
   });
 
@@ -88,6 +115,7 @@ async function getSummary(range) {
       $match: {
         is_deleted: { $ne: true },
         status: { $in: ["won", "lost"] },
+        assignedTo: { $in: nonAdminUserIds },
         actualCloseDate: { $gte: start, $lte: end },
       },
     },
@@ -103,6 +131,7 @@ async function getSummary(range) {
       $match: {
         is_deleted: { $ne: true },
         status: { $in: ["won", "lost"] },
+        assignedTo: { $in: nonAdminUserIds },
         actualCloseDate: { $gte: prevStart, $lte: prevEnd },
       },
     },
@@ -113,9 +142,16 @@ async function getSummary(range) {
   const prevTotalClosed = prevWonCount + prevLostCount;
   const prevWinRate = prevTotalClosed === 0 ? 0 : Math.round((prevWonCount / prevTotalClosed) * 100);
 
-  // Pipeline value (sum open deal values)
+  // Pipeline value within the selected range.
   const pipeAgg = await Deal.aggregate([
-    { $match: { status: "open", is_deleted: { $ne: true } } },
+    {
+      $match: {
+        status: "open",
+        is_deleted: { $ne: true },
+        assignedTo: { $in: nonAdminUserIds },
+        createdAt: { $gte: start, $lte: end },
+      }
+    },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const pipelineValue = pipeAgg[0]?.total || 0;
@@ -124,11 +160,12 @@ async function getSummary(range) {
   // For now: keep 0 to avoid wrong info until target logic is final.
   const pipelineDeltaPct = 0;
 
-  // Open leads created in this range
+  // Open leads created in the selected range and still open.
   const openLeads = await Lead.countDocuments({
     is_active: true,
     is_deleted: { $ne: true },
-    status: { $in: ["new", "contacted", "qualified"] },
+    assigned_to: { $in: nonAdminUserIds },
+    status: { $nin: ["converted", "rejected"] },
     created_at: { $gte: start, $lte: end },
   });
 
@@ -138,6 +175,7 @@ async function getSummary(range) {
     openLeadsFromAI = await AiGeneratedLeads.countDocuments({
       is_active: true,
       created_at: { $gte: start, $lte: end },
+      generated_by: { $in: nonAdminUserIds },
       status: { $in: ["new", "reviewed"] },
     });
   }
@@ -165,8 +203,10 @@ async function getSummary(range) {
  * Shape must match frontend:
  * [{ code, label, count, amount }, ...]
  */
-async function getPipeline(/* range */ _, pipelineType = "deal") {
+async function getPipeline(range, pipelineType = "deal") {
+  const { start, end } = getRangeDates(range);
   const normalizedType = String(pipelineType || "deal").toLowerCase() === "lead" ? "lead" : "deal";
+  const nonAdminUserIds = await getNonAdminUserIds();
   const stages = normalizedType === "deal"
     ? ["P1", "P2", "P3", "P7"]
     : ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
@@ -178,7 +218,9 @@ async function getPipeline(/* range */ _, pipelineType = "deal") {
             $match: {
               is_deleted: { $ne: true },
               is_active: true,
+              assigned_to: { $in: nonAdminUserIds },
               status: { $nin: ["converted", "rejected"] },
+              created_at: { $gte: start, $lte: end },
             },
           },
           {
@@ -190,7 +232,14 @@ async function getPipeline(/* range */ _, pipelineType = "deal") {
           },
         ])
       : await Deal.aggregate([
-          { $match: { status: "open", is_deleted: { $ne: true } } },
+          {
+            $match: {
+              status: "open",
+              is_deleted: { $ne: true },
+              assignedTo: { $in: nonAdminUserIds },
+              createdAt: { $gte: start, $lte: end },
+            }
+          },
           { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
         ]);
 
@@ -210,6 +259,7 @@ async function getPipeline(/* range */ _, pipelineType = "deal") {
  */
 async function getTeamPerformance(range) {
   const { start, end } = getRangeDates(range);
+  const nonAdminUserIds = await getNonAdminUserIds();
 
   // Won revenue per salesperson in range
   const userAgg = await Deal.aggregate([
@@ -218,7 +268,7 @@ async function getTeamPerformance(range) {
         status: "won",
         is_deleted: { $ne: true },
         actualCloseDate: { $gte: start, $lte: end },
-        assignedTo: { $ne: null },
+        assignedTo: { $in: nonAdminUserIds },
       },
     },
     { $group: { _id: "$assignedTo", value: { $sum: "$dealValue" } } },
@@ -275,21 +325,20 @@ async function getTeamPerformance(range) {
  * [{ id, title, owner, score, date, priority, icon }, ...]
  */
 async function getFollowups(range, viewerUserId = null) {
-  const { end } = getRangeDates(range);
+  const { start, end } = getRangeDates(range);
   const now = new Date();
 
-  const match = {
+  const baseMatch = {
     is_deleted: { $ne: true },
     kind: { $in: ["followup", "meeting"] },
-    status: "pending",
-    dueDateTime: { $gte: now, $lte: end },
+    dueDateTime: { $gte: start, $lte: end },
   };
-  if (viewerUserId) {
-    match.assignedTo = viewerUserId;
-  }
 
   const list = await Followup.find(
-    match,
+    {
+      ...baseMatch,
+      status: { $in: ["pending", "overdue"] },
+    },
     {
       title: 1,
       clientName: 1,
@@ -298,6 +347,7 @@ async function getFollowups(range, viewerUserId = null) {
       assignedTo: 1,
       aiScore: 1,
       priority: 1,
+      status: 1,
       dueDateTime: 1,
     }
   )
@@ -310,27 +360,47 @@ async function getFollowups(range, viewerUserId = null) {
   const nameMap = new Map(users.map((u) => [String(u._id), u.name]));
 
   const priorityRank = { urgent: 4, high: 3, medium: 2, low: 1 };
-
-  const mapped = list.map((f) => ({
-    id: String(f._id),
-    title: f.title,
-    companyName: f.clientName || "",
-    itemType: f.kind === "meeting" ? "Meeting" : "Follow-up",
-    actionType: f.actionType || "",
-    owner: nameMap.get(String(f.assignedTo)) || "Unknown",
-    score: Number(f.aiScore || 0),
-    date: f.dueDateTime ? new Date(f.dueDateTime).toLocaleDateString("en-IN") : "",
-    dueDateTime: f.dueDateTime ? new Date(f.dueDateTime).toISOString() : "",
-    priority: f.priority || "medium",
-    icon: iconFromActionType(f.actionType),
-  }));
-
-  return mapped.sort((a, b) => {
+  const comparePriority = (a, b) => {
     const pa = priorityRank[String(a.priority || "").toLowerCase()] || 0;
     const pb = priorityRank[String(b.priority || "").toLowerCase()] || 0;
     if (pb !== pa) return pb - pa;
-    return new Date(a.dueDateTime || 0) - new Date(b.dueDateTime || 0);
-  }).map(({ dueDateTime, ...row }) => row);
+    return Number(b.score || 0) - Number(a.score || 0);
+  };
+
+  const mapped = list.map((f) => ({
+      id: String(f._id),
+      title: f.title,
+      companyName: f.clientName || "",
+      itemType: f.kind === "meeting" ? "Meeting" : "Follow-up",
+      actionType: f.actionType || "",
+      owner: nameMap.get(String(f.assignedTo)) || "Unknown",
+      score: Number(f.aiScore || 0),
+      date: f.dueDateTime ? new Date(f.dueDateTime).toLocaleDateString("en-IN") : "",
+      dueDateTime: f.dueDateTime ? new Date(f.dueDateTime).toISOString() : "",
+      status: String(f.status || "").toLowerCase(),
+      priority: f.priority || "medium",
+      icon: iconFromActionType(f.actionType),
+  }));
+
+  const upcoming = mapped
+    .filter((item) => item.status === "pending" && new Date(item.dueDateTime || 0) >= now)
+    .sort((a, b) => {
+      const timeDiff = new Date(a.dueDateTime || 0) - new Date(b.dueDateTime || 0);
+      if (timeDiff !== 0) return timeDiff;
+      return comparePriority(a, b);
+    });
+
+  const previous = mapped
+    .filter((item) => new Date(item.dueDateTime || 0) < now)
+    .sort((a, b) => {
+      const timeDiff = new Date(b.dueDateTime || 0) - new Date(a.dueDateTime || 0);
+      if (timeDiff !== 0) return timeDiff;
+      return comparePriority(a, b);
+    });
+
+  const ordered = upcoming.length > 0 ? upcoming : previous;
+
+  return ordered.map(({ dueDateTime, status, ...row }) => row);
 }
 
 /**
@@ -340,16 +410,18 @@ async function getFollowups(range, viewerUserId = null) {
  */
 async function getRecentDeals(range) {
   const { start, end } = getRangeDates(range);
+  const nonAdminUserIds = await getNonAdminUserIds();
 
   const deals = await Deal.find(
     {
       is_deleted: { $ne: true },
+      assignedTo: { $in: nonAdminUserIds },
       createdAt: { $gte: start, $lte: end },
     },
     { stage: 1, dealValue: 1, aiRiskScore: 1, expectedCloseDate: 1, actualCloseDate: 1, createdAt: 1, client_id: 1 }
   )
     .sort({ createdAt: -1 })
-    .limit(15)
+    .limit(4)
     .populate({ path: "client_id", model: "client", select: "name" })
     .lean();
 

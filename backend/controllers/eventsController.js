@@ -284,6 +284,15 @@ const buildListFilter = (query, userId) => {
   return filter;
 };
 
+const buildOwnEventFilter = (userId) => ({
+  $or: [
+    { "registrations.attendeeUsers": userId },
+    { "registrations.user": userId },
+    { registeredBy: userId },
+    { attendedBy: userId },
+  ],
+});
+
 const toOptionalNonNegativeNumber = (value) => {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -444,14 +453,7 @@ exports.getEvents = async (req, res) => {
 
     const filter = buildListFilter(req.query, req.user?._id);
     const currentUserId = req.user?._id;
-    const ownEventFilter = {
-      $or: [
-        { "registrations.attendeeUsers": currentUserId },
-        { "registrations.user": currentUserId },
-        { registeredBy: currentUserId },
-        { attendedBy: currentUserId },
-      ],
-    };
+    const ownEventFilter = buildOwnEventFilter(currentUserId);
     const mineOnly =
       req.query.mine_only === "true" ||
       req.query.mine_only === true ||
@@ -531,7 +533,7 @@ exports.getEventSummary = async (req, res) => {
     prepReadyDate.setDate(prepReadyDate.getDate() + 3);
     const registrationGraceBoundary = addDays(startOfToday, -REGISTRATION_GRACE_DAYS);
     const baseVisibilityFilter = restrictedMode
-      ? { is_deleted: false, "registrations.attendeeUsers": userId }
+      ? { is_deleted: false, ...buildOwnEventFilter(userId) }
       : { is_deleted: false };
 
     if (restrictedMode) {
@@ -1008,6 +1010,9 @@ exports.registerForEvent = async (req, res) => {
     }
     if (attendeeUsers.length !== attendeesCount) {
       return res.status(400).json({ message: "Attendees count must match the selected attendee users." });
+    }
+    if (attendeeUsers.some((id) => String(id) === String(eventManagerUserId))) {
+      return res.status(400).json({ message: "The selected event manager cannot also be chosen as an attendee." });
     }
     if (
       isPaymentRequired &&
