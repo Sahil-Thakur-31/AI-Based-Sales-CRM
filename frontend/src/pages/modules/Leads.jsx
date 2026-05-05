@@ -735,8 +735,7 @@ function OcrBusinessCardModal({ isOpening = false, onClose }) {
         <div className="expense-modal-header">
           <div className="ocr-bc-title-row">
             <span className="ocr-bc-icon">📇</span>
-            <h3>OCR Business Card Scanner</h3>
-            <span className="ocr-tag" style={{ marginLeft: 8 }}>OCR</span>
+            <h3>Business Card Scanner</h3>
           </div>
           <button className="expense-close-btn ocr-bc-close" onClick={onClose} disabled={scanStatus === "scanning"} aria-label="Close">✕</button>
         </div>
@@ -1240,17 +1239,25 @@ function LeadsDashboard({ defaultView = "leads" }) {
   };
 
   const loading = viewMode === "deals" ? loadingDeals : loadingLeads;
-  const isRowActive = (row) => {
+  const isRowActive = (row, mode = viewMode) => {
     if (!row) return true;
     if (row.is_active === false || row.isActive === false) return false;
+    if (mode === "deals") {
+      const s = (row.status || "open").toLowerCase();
+      if (s === "won" || s === "lost") return false;
+    }
+    if (mode === "leads") {
+      const s = (row.status || "").toLowerCase();
+      if (s === "rejected") return false;
+    }
     return true;
   };
 
   const tabCounts = useMemo(() => {
     let active = 0, inactive = 0, deleted = 0;
     if (viewMode === "deals") {
-      active = deals.filter((d) => isRowActive(d)).length;
-      inactive = deals.filter((d) => !isRowActive(d)).length;
+      active = deals.filter((d) => isRowActive(d, "deals")).length;
+      inactive = deals.filter((d) => !isRowActive(d, "deals")).length;
       deleted = deletedDeals.length;
     } else {
       active = leads.filter((l) => isRowActive(l)).length;
@@ -1264,7 +1271,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const sourceRows = useMemo(() => {
     if (viewMode === "deals") {
       if (activeTab === "deleted") return deletedDeals;
-      return deals.filter((d) => (activeTab === "active" ? isRowActive(d) : !isRowActive(d)));
+      return deals.filter((d) => (activeTab === "active" ? isRowActive(d, "deals") : !isRowActive(d, "deals")));
     } else {
       if (activeTab === "deleted") return deletedLeads;
       return leads.filter((l) => (activeTab === "active" ? isRowActive(l) : !isRowActive(l)));
@@ -1460,7 +1467,8 @@ function LeadsDashboard({ defaultView = "leads" }) {
               {viewMode === "leads" && <th>AI Score</th>}
               {viewMode === "deals" && <th>Stage</th>}
               <th className="col-last-contact">Last Contact</th>
-              <th>Next Action</th>
+              {!(viewMode === "deals" && activeTab === "inactive") && <th>Next Action</th>}
+              {viewMode === "deals" && activeTab === "inactive" && <th>Status</th>}
               {activeTab === "deleted" && <th>Delete Reason</th>}
               <th></th>
             </tr>
@@ -1506,7 +1514,14 @@ function LeadsDashboard({ defaultView = "leads" }) {
                     </td>
                   )}
                   <td className="last-contact-cell">{formatDate(row.last_contact_date)}</td>
-                  <td>{row.next_action || "-"}</td>
+                  {!(viewMode === "deals" && activeTab === "inactive") && <td>{row.next_action || "-"}</td>}
+                  {viewMode === "deals" && activeTab === "inactive" && (
+                    <td>
+                      <span className={`stage-chip ${(row.status || "").toLowerCase()}`} style={{ textTransform: "capitalize" }}>
+                        {row.status || "-"}
+                      </span>
+                    </td>
+                  )}
                   {activeTab === "deleted" && (
                     <td>
                       <span className="delete-reason">

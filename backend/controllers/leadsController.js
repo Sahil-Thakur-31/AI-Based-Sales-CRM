@@ -614,16 +614,19 @@ exports.getLeads = async (req, res) => {
     const followupMap = await fetchLeadFollowupMap(leadIds);
 
     if (!deletedOnly && leads.length) {
-      const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const sixMonthsAhead = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
+      const now = new Date();
       const toDeactivateLeadIds = [];
 
       for (const lead of leads) {
         if (lead.is_deleted === true || lead.is_active === false) continue;
+        if (lead.status === "rejected") continue;
         const leadId = String(lead._id || "");
         const nextFollowup = nextFollowupMap.get(leadId);
-        const leadNextActionDate = toValidDate(lead.next_action_date);
-        const hasNextFollowup = Boolean(nextFollowup || leadNextActionDate);
-        if (hasNextFollowup) continue;
+        const nextFollowupDate = toValidDate(nextFollowup?.dueDateTime);
+        const hasFutureAction = nextFollowupDate && nextFollowupDate > now && nextFollowupDate <= sixMonthsAhead;
+        if (hasFutureAction) continue;
 
         const latestActivityDate = [
           toValidDate(lead.last_contact_date),
@@ -634,7 +637,7 @@ exports.getLeads = async (req, res) => {
           .filter(Boolean)
           .sort((a, b) => b - a)[0];
 
-        if (latestActivityDate && latestActivityDate <= cutoffDate) {
+        if (latestActivityDate && latestActivityDate <= threeMonthsAgo) {
           toDeactivateLeadIds.push(lead._id);
           lead.is_active = false;
         }
@@ -1148,3 +1151,100 @@ exports.convertLeadToDeal = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// ─── helpers for date ranges ───────────────────────────────────────────────
+function _startOfMonth(d) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function _startOfWeek(d) {
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.getFullYear(), d.getMonth(), diff);
+}
+function _startOfQuarter(d) {
+  const q = Math.floor(d.getMonth() / 3);
+  return new Date(d.getFullYear(), q * 3, 1);
+}
+function _startOfYear(d) {
+  return new Date(d.getFullYear(), 0, 1);
+}
+function _addMonths(d, n) {
+  return new Date(d.getFullYear(), d.getMonth() + n, d.getDate());
+}
+function _addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function getLeadsReportRange(period, now = new Date()) {
+  const p = (period || "monthly").toLowerCase();
+  if (p === "weekly") {
+    const s = _startOfWeek(now);
+    return { currentStart: s, currentEnd: _addDays(s, 7) };
+  }
+  if (p === "quarterly") {
+    const s = _startOfQuarter(now);
+    return { currentStart: s, currentEnd: _addMonths(s, 3) };
+  }
+  if (p === "yearly") {
+    const s = _startOfYear(now);
+    return { currentStart: new Date(now.getFullYear(), 0, 1), currentEnd: new Date(now.getFullYear() + 1, 0, 1) };
+  }
+  const s = _startOfMonth(now);
+  return { currentStart: s, currentEnd: _addMonths(s, 1) };
+}
+
+const getLeadsAnalytics = async (req, res) => {
+  try {
+    const actorId = req.user._id;
+    const actorRole = String(req.user.role || "").toLowerCase();
+    const isPrivileged = actorRole === "admin" || actorRole === "manager";
+
+    const { currentStart, currentEnd } = getLeadsReportRange(req.query?.period);
+
+    const baseMatch = {
+      is_deleted: { $ne: true },
+      createdAt: { $gte: currentStart, $lt: currentEnd },
+    };
+    if (!isPrivileged) {
+      baseMatch.assigned_to = actorId;
+    }
+
+    const statusCounts = await Leads.aggregate([
+      { $match: baseMatch },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]);
+
+    const countMap = {};
+    for (const s of statusCounts) countMap[s._id] = s.count;
+
+    const total =
+      (countMap["new"] || 0) +
+      (countMap["contacted"] || 0) +
+      (countMap["qualified"] || 0) +
+      (countMap["converted"] || 0) +
+      (countMap["rejected"] || 0);
+
+    res.json({
+      kpis: {
+        total,
+        new: countMap["new"] || 0,
+        contacted: countMap["contacted"] || 0,
+        qualified: countMap["qualified"] || 0,
+        converted: countMap["converted"] || 0,
+        rejected: countMap["rejected"] || 0,
+      },
+      funnel: [
+        { label: "New", count: countMap["new"] || 0 },
+        { label: "Contacted", count: countMap["contacted"] || 0 },
+        { label: "Qualified", count: countMap["qualified"] || 0 },
+        { label: "Converted", count: countMap["converted"] || 0 },
+      ],
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getLeadsAnalytics = getLeadsAnalytics;

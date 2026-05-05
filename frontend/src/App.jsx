@@ -36,7 +36,7 @@ import TeamSetup from './pages/modules/TeamSetup.jsx';
 import TeamTargets from './pages/modules/TeamTargets.jsx';
 import TeamTargetsAdmin from './pages/modules/TeamTargetsAdmin.jsx';
 import TeamTargetsManager from './pages/modules/TeamTargetsManager.jsx';
-import Reports from './pages/modules/Reports.jsx';
+import Reports from './components/Reports/Reports.jsx';
 import Settings from './pages/modules/Settings.jsx';
 import Profile from './pages/modules/Profile';
 import CalendarPage from './pages/modules/CalendarPage.jsx';

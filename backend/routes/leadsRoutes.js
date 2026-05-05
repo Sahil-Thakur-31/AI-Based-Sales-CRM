@@ -9,9 +9,11 @@ const {
   restoreLead,
   convertLeadToDeal,
   searchCompany,
+  getLeadsAnalytics,
 } = require("../controllers/leadsController");
 
 router.get("/", authenticate, getLeads);
+router.get("/reports/analytics", authenticate, getLeadsAnalytics);
 router.get("/search-company", authenticate, searchCompany);
 router.get("/:id", authenticate, getLeadById);
 router.post("/", authenticate, createLead);

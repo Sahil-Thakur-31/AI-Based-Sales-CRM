@@ -1620,6 +1620,40 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         {!clientView && (
           <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
         )}
+
+        {/* Deal Status */}
+        {dealView && (
+          <div className="field">
+            <label>Status</label>
+            {editMode ? (
+              <select name="status" value={lead.status || "open"} onChange={handleLeadChange}>
+                <option value="open">Open</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
+              </select>
+            ) : (
+              <p style={{ textTransform: "capitalize" }}>{lead.status || "open"}</p>
+            )}
+          </div>
+        )}
+
+        {/* Lead Status */}
+        {!dealView && !clientView && (
+          <div className="field">
+            <label>Status</label>
+            {editMode ? (
+              <select name="status" value={lead.status || "new"} onChange={handleLeadChange}>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="qualified">Qualified</option>
+                <option value="converted">Converted</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            ) : (
+              <p style={{ textTransform: "capitalize" }}>{lead.status || "new"}</p>
+            )}
+          </div>
+        )}
         <Field label="Address" name="Address" value={lead.Address} onChange={handleLeadChange} editMode={editMode} />
 
         {/* COUNTRY */}
