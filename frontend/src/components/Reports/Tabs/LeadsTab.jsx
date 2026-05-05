@@ -194,3 +194,5 @@ function LeadsTab({ period = "monthly" }) {
     </div>
   );
 }
+
+export default LeadsTab;
