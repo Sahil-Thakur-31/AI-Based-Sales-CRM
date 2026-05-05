@@ -1849,7 +1849,8 @@ exports.getTeamTargets = async (req, res) => {
       .map((lead) => String(lead.userId || ""))
       .filter((id) => isObjectId(id));
     const teamUserIds = [...new Set([...teamLeadIds, ...memberIds])];
-    const memberObjectIds = memberIds.map((id) => toObjectId(id));
+    const assignableUserIds = teamUserIds;
+    const assignableUserObjectIds = assignableUserIds.map((id) => toObjectId(id));
     const teamUserObjectIds = teamUserIds.map((id) => toObjectId(id));
 
     const usersMap = await loadUsersMap(teamUserIds);
@@ -1864,9 +1865,9 @@ exports.getTeamTargets = async (req, res) => {
       })
         .sort({ updated_at: -1, created_at: -1 })
         .lean(),
-      memberObjectIds.length
+      assignableUserObjectIds.length
         ? SalesTarget.find({
-            user_id: { $in: memberObjectIds },
+            user_id: { $in: assignableUserObjectIds },
             team_id: team._id,
             period_type: periodType,
             period_start: periodStart,
@@ -1932,12 +1933,12 @@ exports.getTeamTargets = async (req, res) => {
       teamAchievedDeals += achievedDeals;
     }
 
-    const members = memberIds
-      .map((memberId) => {
-        const user = usersMap.get(memberId);
+    const members = assignableUserIds
+      .map((userId) => {
+        const user = usersMap.get(userId);
         if (!user) return null;
-        const target = targetMap.get(memberId);
-        const achieved = achievementMap.get(memberId) || {
+        const target = targetMap.get(userId);
+        const achieved = achievementMap.get(userId) || {
           achievedRevenue: 0,
           achievedDeals: 0
         };
@@ -2093,11 +2094,13 @@ exports.upsertTeamTargets = async (req, res) => {
       return res.status(403).json({ message: "Only team lead can assign user targets" });
     }
 
-    const memberIds = new Set(
-      (team.members || [])
-        .map((member) => String(member.userId || ""))
-        .filter((id) => isObjectId(id))
-    );
+    const memberIds = (team.members || [])
+      .map((member) => String(member.userId || ""))
+      .filter((id) => isObjectId(id));
+    const teamLeadIds = (team.teamLeads || [])
+      .map((lead) => String(lead.userId || ""))
+      .filter((id) => isObjectId(id));
+    const assignableUserIds = new Set([...teamLeadIds, ...memberIds]);
 
     const targets = Array.isArray(req.body?.targets) ? req.body.targets : [];
     if (!targets.length) {
@@ -2108,7 +2111,7 @@ exports.upsertTeamTargets = async (req, res) => {
 
     for (const row of targets) {
       const userId = String(row?.userId || "").trim();
-      if (!isObjectId(userId) || !memberIds.has(userId)) continue;
+      if (!isObjectId(userId) || !assignableUserIds.has(userId)) continue;
 
       const updateDoc = {
         scope_type: "user",
