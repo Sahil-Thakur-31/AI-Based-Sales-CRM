@@ -1422,10 +1422,18 @@ exports.getSalesAnalytics = async (req, res) => {
       ...assigneeScope.leadFilter,
     };
     const performanceDealFilter = shouldShowManagerTeamPerformance
-      ? mergeMongoFilters(periodFilter, managerTeamPerformanceScope?.dealFilter)
+      ? mergeMongoFilters(
+          { is_deleted: { $ne: true } },
+          viewerScope.dealFilter,
+          managerTeamPerformanceScope?.dealFilter
+        )
       : periodFilter;
     const performanceWonFilter = shouldShowManagerTeamPerformance
-      ? mergeMongoFilters(scopedWonFilter, managerTeamPerformanceScope?.dealFilter)
+      ? mergeMongoFilters(
+          { is_deleted: { $ne: true }, status: "won" },
+          viewerScope.dealFilter,
+          managerTeamPerformanceScope?.dealFilter
+        )
       : scopedWonFilter;
 
     const targetSummary =
@@ -1448,9 +1456,16 @@ exports.getSalesAnalytics = async (req, res) => {
         kpiPeriodMatch,
         { $group: { _id: "$assignedTo", wonDeals: { $sum: 1 }, revenue: { $sum: { $ifNull: ["$dealValue", 0] } } } },
       ]),
-      // Total deal counts: filter by createdAt (deals created this period)
+      // Closed deal counts: filter by closedAt so win rate stays on the same timeline basis
       Deal.aggregate([
         { $match: performanceDealFilter },
+        addClosedAt,
+        {
+          $match: {
+            status: { $in: ["won", "lost"] },
+            closedAt: { $gte: ranges.currentStart, $lt: ranges.currentEnd },
+          },
+        },
         { $group: { _id: "$assignedTo", totalDeals: { $sum: 1 } } },
       ]),
       Deal.aggregate([
