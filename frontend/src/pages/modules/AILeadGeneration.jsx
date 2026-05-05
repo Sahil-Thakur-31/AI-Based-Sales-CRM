@@ -57,7 +57,7 @@ export default function AILeadGeneration() {
       }));
     } catch (err) {
       setLeads([]);
-      setError(err?.response?.data?.message || "Failed to load scraped leads.");
+      setError(err?.response?.data?.message || "Failed to load fetched leads.");
     } finally {
       setLoading(false);
     }
@@ -150,7 +150,7 @@ export default function AILeadGeneration() {
       <div className="aiLead-cardGrid">
         <div className="aiLead-summaryCard">
           <h3>{loading ? "..." : totalLeads}</h3>
-          <p>Scraped Leads</p>
+          <p>fetched Leads</p>
         </div>
         <div className="aiLead-summaryCard">
           <h3>{loading ? "..." : importedLeads}</h3>
@@ -226,7 +226,7 @@ export default function AILeadGeneration() {
             {loading && (
               <tr>
                 <td className="aiLead-emptyCell" colSpan={10}>
-                  Loading scraped leads...
+                  Loading fetched leads...
                 </td>
               </tr>
             )}
@@ -273,7 +273,7 @@ export default function AILeadGeneration() {
             {!loading && filteredLeads.length === 0 && (
               <tr>
                 <td className="aiLead-emptyCell" colSpan={10}>
-                  No scraped leads found for the selected industry.
+                  No fetched leads found for the selected industry.
                 </td>
               </tr>
             )}
@@ -282,7 +282,7 @@ export default function AILeadGeneration() {
 
         <div className="aiLead-bulkBar">
           <p>
-            Showing {filteredLeads.length} of {totalLeads} scraped leads
+            Showing {filteredLeads.length} of {totalLeads} fetched leads
             {summary.lastImportedCount || summary.lastUpdatedCount
               ? ` | Last sync: ${summary.lastImportedCount || 0} new, ${summary.lastUpdatedCount || 0} updated`
               : ""}
