@@ -29,6 +29,7 @@ const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
 const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
+const { startLeadScraperScheduler } = require("./services/leadScraperScheduler");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
 const salesForecastRoutes = require("./routes/salesForecastRoutes");
@@ -103,6 +104,7 @@ const startBackgroundWorkers = async () => {
   startNotificationEmailWorker();
   startWhatsAppMeetingWorker();
   startEventScraperScheduler();
+  startLeadScraperScheduler();
 };
 
 if (mongoose.connection.readyState === 1) {

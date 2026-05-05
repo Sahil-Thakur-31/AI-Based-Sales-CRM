@@ -870,7 +870,7 @@ const EventExpo = () => {
             </div>
 
             <div className="event-card event-card-accent-purple">
-              <h4>Last Scraper Run</h4>
+              <h4>Last Fetched</h4>
               <h2>{loading ? "..." : `${lastScraperNewEvents} new`}</h2>
               <p>{summary.lastScraperRunAt ? `${lastScraperRunLabel}${lastScraperUpdatedEvents ? ` | ${lastScraperUpdatedEvents} updated` : ""}` : lastUpdatedLabel}</p>
               {/*
