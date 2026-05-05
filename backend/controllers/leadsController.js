@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Leads = require("../models/leads");
 const LeadContacts = require("../models/leadContacts");
 const Location = require("../models/location");
@@ -1181,65 +1182,87 @@ function getLeadsReportRange(period, now = new Date()) {
   const p = (period || "monthly").toLowerCase();
   if (p === "weekly") {
     const s = _startOfWeek(now);
-    return { currentStart: s, currentEnd: _addDays(s, 7) };
+    return { currentStart: s, currentEnd: _addDays(s, 7), comparisonLabel: "last week" };
   }
   if (p === "quarterly") {
     const s = _startOfQuarter(now);
-    return { currentStart: s, currentEnd: _addMonths(s, 3) };
+    return { currentStart: s, currentEnd: _addMonths(s, 3), comparisonLabel: "previous quarter" };
   }
   if (p === "yearly") {
     const s = _startOfYear(now);
-    return { currentStart: new Date(now.getFullYear(), 0, 1), currentEnd: new Date(now.getFullYear() + 1, 0, 1) };
+    return {
+      currentStart: new Date(now.getFullYear(), 0, 1),
+      currentEnd: new Date(now.getFullYear() + 1, 0, 1),
+      comparisonLabel: "previous year"
+    };
   }
   const s = _startOfMonth(now);
-  return { currentStart: s, currentEnd: _addMonths(s, 1) };
+  return { currentStart: s, currentEnd: _addMonths(s, 1), comparisonLabel: "previous month" };
 }
 
 const getLeadsAnalytics = async (req, res) => {
   try {
+    await normalizeLegacyLeadFlagsOnce();
     const actorId = req.user._id;
     const actorRole = String(req.user.role || "").toLowerCase();
     const isPrivileged = actorRole === "admin" || actorRole === "manager";
 
-    const { currentStart, currentEnd } = getLeadsReportRange(req.query?.period);
+    const ranges = getLeadsReportRange(req.query?.period);
+    const { currentStart, currentEnd, comparisonLabel } = ranges;
 
-    const baseMatch = {
-      is_deleted: { $ne: true },
-      createdAt: { $gte: currentStart, $lt: currentEnd },
-    };
+    const currentMatch = { is_deleted: { $ne: true }, created_at: { $gte: currentStart, $lt: currentEnd } };
+    
+    // Calculate previous period for growth comparison
+    const { currentStart: prevStart, currentEnd: prevEnd } = getLeadsReportRange(req.query?.period, new Date(currentStart.getTime() - 1));
+    const prevMatch = { is_deleted: { $ne: true }, created_at: { $gte: prevStart, $lt: prevEnd } };
+
     if (!isPrivileged) {
-      baseMatch.assigned_to = actorId;
+      const oid = mongoose.Types.ObjectId.isValid(actorId) ? new mongoose.Types.ObjectId(actorId) : actorId;
+      currentMatch.assigned_to = oid;
+      prevMatch.assigned_to = oid;
     }
 
-    const statusCounts = await Leads.aggregate([
-      { $match: baseMatch },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
+    const [currentStats, prevStats, uncontactedCount] = await Promise.all([
+      Leads.aggregate([
+        { $match: currentMatch },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            converted: { $sum: { $cond: [{ $eq: ["$converted_to_deal", true] }, 1, 0] } },
+            newCount: { $sum: { $cond: [{ $eq: ["$status", "new"] }, 1, 0] } },
+            contactedCount: { $sum: { $cond: [{ $eq: ["$status", "contacted"] }, 1, 0] } },
+            qualifiedCount: { $sum: { $cond: [{ $eq: ["$status", "qualified"] }, 1, 0] } },
+            rejectedCount: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+          }
+        }
+      ]),
+      Leads.countDocuments(prevMatch),
+      Leads.countDocuments({ ...currentMatch, last_contact_date: { $eq: null } })
     ]);
 
-    const countMap = {};
-    for (const s of statusCounts) countMap[s._id] = s.count;
-
-    const total =
-      (countMap["new"] || 0) +
-      (countMap["contacted"] || 0) +
-      (countMap["qualified"] || 0) +
-      (countMap["converted"] || 0) +
-      (countMap["rejected"] || 0);
+    const stats = currentStats[0] || { total: 0, converted: 0, newCount: 0, contactedCount: 0, qualifiedCount: 0, rejectedCount: 0 };
+    
+    // Growth formula: ((Current - Previous) / Previous) * 100
+    const growth = prevStats > 0 ? ((stats.total - prevStats) / prevStats) * 100 : (stats.total > 0 ? 100 : 0);
 
     res.json({
       kpis: {
-        total,
-        new: countMap["new"] || 0,
-        contacted: countMap["contacted"] || 0,
-        qualified: countMap["qualified"] || 0,
-        converted: countMap["converted"] || 0,
-        rejected: countMap["rejected"] || 0,
+        total: stats.total,
+        converted: stats.converted,
+        uncontacted: uncontactedCount,
+        growth: growth,
+        // Helpers for funnel
+        new: stats.newCount,
+        contacted: stats.contactedCount,
+        qualified: stats.qualifiedCount,
+        rejected: stats.rejectedCount,
       },
       funnel: [
-        { label: "New", count: countMap["new"] || 0 },
-        { label: "Contacted", count: countMap["contacted"] || 0 },
-        { label: "Qualified", count: countMap["qualified"] || 0 },
-        { label: "Converted", count: countMap["converted"] || 0 },
+        { label: "New Leads", count: stats.newCount },
+        { label: "Contacted", count: stats.contactedCount },
+        { label: "Qualified", count: stats.qualifiedCount },
+        { label: "Converted", count: stats.converted },
       ],
     });
   } catch (err) {
