@@ -58,6 +58,17 @@ function roleNameFromUser(userDoc) {
   return userDoc?.role?.name || "";
 }
 
+function isDuplicateTeamMemberError(err) {
+  const message = String(err?.message || "");
+  return (
+    message.includes("A member can only be assigned") ||
+    (err?.code === 11000 &&
+      (err?.keyPattern?.["members.userId"] ||
+        message.includes("members.userId") ||
+        message.includes("unique_team_member_user")))
+  );
+}
+
 function mapUserForApi(userDoc) {
   return {
     _id: userDoc?._id || null,
@@ -661,6 +672,9 @@ exports.createTeam = async (req, res) => {
     );
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to create team" });
   }
 };
@@ -790,6 +804,9 @@ exports.updateTeam = async (req, res) => {
     return res.json(mapTeamForList(team.toObject(), usersMap, req.user));
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to update team" });
   }
 };
@@ -914,6 +931,9 @@ exports.addMember = async (req, res) => {
     return res.json({ message: "Member added successfully" });
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to add member" });
   }
 };
