@@ -355,6 +355,7 @@ function formatDashboardFollowupRow(followupDoc = {}) {
     _id: followupDoc._id || null,
     title: followupDoc.title || "Follow-up",
     companyName,
+    kind: followupDoc.kind || "followup",
     notes: followupDoc.notes || "",
     actionType: followupDoc.actionType || "",
     stage: followupDoc.stage || "",
@@ -1222,7 +1223,7 @@ exports.getTeamDashboard = async (req, res) => {
         status: { $ne: "cancelled" }
       })
         .select(
-          "title clientName notes actionType stage priority dueDateTime status completedAt leadId dealId clientId assignedTo"
+          "title clientName notes kind actionType stage priority dueDateTime status completedAt leadId dealId clientId assignedTo"
         )
         .populate("assignedTo", "name email")
         .populate("leadId", "company_name")

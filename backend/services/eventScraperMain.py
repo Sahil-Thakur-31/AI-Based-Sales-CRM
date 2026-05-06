@@ -903,7 +903,10 @@ class EventScraper:
             plain_text = self._plain_text(html)
             registration_fee, registration_currency = self._extract_fee_info(payload)
             text_fee, text_currency = self._extract_fee_info_from_text(plain_text)
-            if self.source == "eventbrite" and text_fee is not None:
+            if text_fee == 0:
+                registration_fee = 0.0
+                registration_currency = text_currency or registration_currency
+            elif self.source == "eventbrite" and text_fee is not None:
                 registration_fee = text_fee
                 registration_currency = text_currency or registration_currency
             elif registration_fee is None and text_fee is not None:
@@ -1547,16 +1550,7 @@ class EventScraper:
         cleaned = clean_text(text)
         if not cleaned:
             return None, ""
-        free_patterns = [
-            r"\bfree entry\b",
-            r"\bfree registration\b",
-            r"\bno registration fee\b",
-            r"\bentry free\b",
-            r"\bthis meetup is free\b",
-            r"\bfree to attend\b",
-            r"\bcomplimentary\s+(?:entry|registration|pass|ticket)\b",
-        ]
-        if any(re.search(pattern, cleaned, re.I) for pattern in free_patterns):
+        if EventScraper._text_declares_free_fee(cleaned):
             return 0.0, ""
 
         inr_token = r"(?<![a-zA-Z])(?:rs\.?|inr|₹|â‚¹)(?![a-zA-Z])"
@@ -1596,6 +1590,27 @@ class EventScraper:
             except ValueError:
                 continue
         return None, ""
+
+    @staticmethod
+    def _text_declares_free_fee(text: str) -> bool:
+        cleaned = clean_text(text)
+        if not cleaned:
+            return False
+        free_patterns = [
+            r"\bfree entry\b",
+            r"\bfree event\b",
+            r"\bfree registration\b",
+            r"\bno registration fee\b",
+            r"\bentry free\b",
+            r"\bthis meetup is free\b",
+            r"\bthis event is free\b",
+            r"\bfree to attend\b",
+            r"\bfree\s+to\s+(?:attend|join|register)\b",
+            r"\bfee\s*[:\-]?\s*(?:free|0|zero)\b",
+            r"\b(?:registration|ticket|pass)\s+(?:is\s+)?free\b",
+            r"\bcomplimentary\s+(?:entry|registration|pass|ticket)\b",
+        ]
+        return any(re.search(pattern, cleaned, re.I) for pattern in free_patterns)
 
     def _extract_attendees_count(self, html: str, plain_text: str) -> int | None:
         if self.source == "meetup":

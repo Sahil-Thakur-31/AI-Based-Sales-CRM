@@ -3,6 +3,7 @@ const AiGeneratedLead = require("../models/ai_generated_leads");
 const AiLeadContact = require("../models/ai_lead_contacts");
 const Location = require("../models/location");
 const Source = require("../models/sources");
+const { normalizeEmail, normalizeIndustry } = require("../utils/leadNormalization");
 
 const getScrapedLeadCollectionName = () => process.env.LEAD_SCRAPER_COLLECTION_NAME || "scraped_leads";
 
@@ -99,7 +100,7 @@ function collectContacts(row) {
     contacts.push({
       name: clean(contact.name),
       designation: clean(contact.role || contact.designation),
-      email: clean(contact.email).toLowerCase(),
+      email: normalizeEmail(contact.email),
       phone: compactPhone(contact.phone),
       linkedin: clean(contact.linkedin),
     });
@@ -123,7 +124,7 @@ function collectContacts(row) {
     contacts.push({
       name: "Company Contact",
       designation: "",
-      email: clean(genericEmail).toLowerCase(),
+      email: normalizeEmail(genericEmail),
       phone: compactPhone(genericPhone),
       linkedin: "",
     });
@@ -180,11 +181,21 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
       filterOptions.push({ company_name: companyName });
     }
 
+    const existing = await AiGeneratedLead.findOne({ $or: filterOptions })
+      .select("_id status is_deleted industry")
+      .lean();
+
+    if (existing?.status === "imported" || existing?.is_deleted === true) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const scrapedIndustry = normalizeIndustry(firstFilled(row.normalizedCategory, row.sourceCategory, row.category));
     const score = Number(row.scoreMeta?.finalScore || 0);
     const updateDoc = {
       company_name: companyName,
       website,
-      industry: firstFilled(row.normalizedCategory, row.sourceCategory, row.category),
+      industry: scrapedIndustry,
       Address: clean(row.address),
       employee_range: buildEmployeeRange(row),
       turnover_range: buildTurnoverRange(row),
@@ -201,15 +212,6 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
       raw_score_meta: row.scoreMeta || {},
       scraped_at: row.updatedAt || row.createdAt || new Date(),
     };
-
-    const existing = await AiGeneratedLead.findOne({ $or: filterOptions })
-      .select("_id status is_deleted")
-      .lean();
-
-    if (existing?.status === "imported" || existing?.is_deleted === true) {
-      skippedCount += 1;
-      continue;
-    }
 
     const saved = await AiGeneratedLead.findOneAndUpdate(
       { $or: filterOptions },

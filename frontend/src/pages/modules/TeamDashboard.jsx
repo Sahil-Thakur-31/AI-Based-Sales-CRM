@@ -32,6 +32,17 @@ function formatDate(value) {
   });
 }
 
+function formatFollowupKind(value) {
+  return String(value || "").toLowerCase() === "meeting" ? "Meeting" : "Follow-up";
+}
+
+function getFollowupStatusClass(followup) {
+  const status = String(followup?.status || "").toLowerCase();
+  if (status === "overdue") return "team-member-pill-overdue";
+  if (followup?.isCompleted || status === "completed") return "team-member-pill-completed";
+  return "team-member-pill-pending";
+}
+
 function emptyDashboard(team = null) {
   return {
     team: team || {
@@ -841,10 +852,11 @@ export default function TeamDashboard() {
                     </div>
                     <div className="team-followup-side">
                       <div className="team-followup-time">{formatDateTime(followup.dueDateTime)}</div>
+                      <span className={`team-followup-type-badge team-followup-type-${String(followup.kind || "followup").toLowerCase()}`}>
+                        {formatFollowupKind(followup.kind)}
+                      </span>
                       <span
-                        className={`team-member-pill ${
-                          followup.isCompleted ? "team-member-pill-completed" : "team-member-pill-pending"
-                        }`}
+                        className={`team-member-pill ${getFollowupStatusClass(followup)}`}
                       >
                         {followup.status || "pending"}
                       </span>
@@ -1572,11 +1584,7 @@ export default function TeamDashboard() {
                                   <td>{formatDateTime(followup.dueDateTime)}</td>
                                   <td>
                                     <span
-                                      className={`team-member-pill ${
-                                        followup.isCompleted
-                                          ? "team-member-pill-completed"
-                                          : "team-member-pill-pending"
-                                      }`}
+                                      className={`team-member-pill ${getFollowupStatusClass(followup)}`}
                                     >
                                       {followup.isCompleted ? "Completed" : "Pending"}
                                     </span>

@@ -3,6 +3,7 @@ const AiLeadContact = require("../models/ai_lead_contacts");
 const Lead = require("../models/leads");
 const LeadContact = require("../models/leadContacts");
 const LeadScraperRun = require("../models/leadScraperRuns");
+const { normalizeEmail, normalizeIndustry } = require("../utils/leadNormalization");
 
 function toTitleStatus(status) {
   return status === "imported" ? "Imported" : "New";
@@ -53,7 +54,7 @@ function mapContactPhone(contact) {
 }
 
 function mapContactEmail(contact) {
-  return contact?.email || "";
+  return normalizeEmail(contact?.email);
 }
 
 function buildExistingLeadQuery(aiLead) {
@@ -92,6 +93,24 @@ exports.getAiLeads = async (req, res) => {
         .lean(),
     ]);
 
+    const industryRepairOps = aiLeads
+      .map((lead) => {
+        const normalized = normalizeIndustry(lead.industry);
+        if (!normalized || normalized === lead.industry) return null;
+        lead.industry = normalized;
+        return {
+          updateOne: {
+            filter: { _id: lead._id },
+            update: { $set: { industry: normalized } },
+          },
+        };
+      })
+      .filter(Boolean);
+
+    if (industryRepairOps.length) {
+      await AiGeneratedLead.bulkWrite(industryRepairOps);
+    }
+
     const aiLeadIds = aiLeads.map((item) => item._id);
     const contacts = aiLeadIds.length
       ? await AiLeadContact.find({ ai_lead_id: { $in: aiLeadIds } })
@@ -112,7 +131,7 @@ exports.getAiLeads = async (req, res) => {
         _id: lead._id,
         company: lead.company_name || "-",
         website: lead.website || "",
-        industry: lead.industry || "-",
+        industry: normalizeIndustry(lead.industry) || "-",
         source: lead.source?.name || "Unknown",
         location: formatLocation(lead),
         employees: lead.employee_range || "-",
@@ -165,7 +184,7 @@ exports.importAiLead = async (req, res) => {
     if (!targetLeadId) {
       const newLead = await Lead.create({
         company_name: aiLead.company_name || "",
-        industry: aiLead.industry || "",
+        industry: normalizeIndustry(aiLead.industry),
         employee_count: parseEmployeeCount(aiLead.employee_range),
         turnover_range: aiLead.turnover_range || "",
         Address: aiLead.Address || "",
