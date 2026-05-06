@@ -119,6 +119,15 @@ function emptyPipelineDetail() {
   };
 }
 
+const DASHBOARD_RANGE_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "quarter", label: "This Quarter" },
+  { value: "year", label: "This Year" },
+  { value: "lifetime", label: "Lifetime" }
+];
+
 export default function TeamDashboard() {
   const navigate = useNavigate();
   const roleName = localStorage.getItem("RoleName") || "";
@@ -128,6 +137,7 @@ export default function TeamDashboard() {
 
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [selectedRange, setSelectedRange] = useState("month");
   const [dashboardData, setDashboardData] = useState(emptyDashboard());
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
@@ -207,14 +217,19 @@ export default function TeamDashboard() {
     }
   }, [selectedTeamId]);
 
-  const loadDashboard = useCallback(async (teamId) => {
+  const loadDashboard = useCallback(async (teamId, range = selectedRange) => {
     if (!teamId) return;
 
     try {
       setLoadingDashboard(true);
       setError("");
 
-      const res = await API.get(`/teams/dashboard?teamId=${teamId}`);
+      const res = await API.get("/teams/dashboard", {
+        params: {
+          teamId,
+          range
+        }
+      });
       setDashboardData(res.data || emptyDashboard());
     } catch (err) {
       console.error(err);
@@ -223,7 +238,7 @@ export default function TeamDashboard() {
     } finally {
       setLoadingDashboard(false);
     }
-  }, [selectedTeam]);
+  }, [selectedRange, selectedTeam]);
 
   useEffect(() => {
     loadTeams();
@@ -231,20 +246,13 @@ export default function TeamDashboard() {
 
   useEffect(() => {
     if (selectedTeamId) {
-      loadDashboard(selectedTeamId);
+      loadDashboard(selectedTeamId, selectedRange);
       setPerformancePage(1);
       setFollowupPage(1);
       setFollowupViewType("lead");
       setPipelineViewType("deal");
     }
-  }, [selectedTeamId, loadDashboard]);
-
-  const onRefresh = async () => {
-    await loadTeams();
-    if (selectedTeamId) {
-      await loadDashboard(selectedTeamId);
-    }
-  };
+  }, [selectedTeamId, selectedRange, loadDashboard]);
 
   const closeMemberDetail = () => {
     setSelectedPerformanceRow(null);
@@ -271,7 +279,7 @@ export default function TeamDashboard() {
 
     try {
       const res = await API.get(
-        `/teams/member-detail?teamId=${selectedTeamId}&memberId=${row.user._id}`
+        `/teams/member-detail?teamId=${selectedTeamId}&memberId=${row.user._id}&range=${selectedRange}`
       );
       const payload = res.data || {};
 
@@ -323,7 +331,7 @@ export default function TeamDashboard() {
 
       try {
         const res = await API.get(
-          `/teams/pipeline-detail?teamId=${selectedTeamId}&pipelineType=${type}`
+          `/teams/pipeline-detail?teamId=${selectedTeamId}&pipelineType=${type}&range=${selectedRange}`
         );
         const payload = res.data || {};
         setPipelineDetailData({
@@ -341,7 +349,7 @@ export default function TeamDashboard() {
         setPipelineDetailLoading(false);
       }
     },
-    [selectedTeamId]
+    [selectedRange, selectedTeamId]
   );
 
   const openPipelineDetail = async (type = pipelineViewType) => {
@@ -365,7 +373,7 @@ export default function TeamDashboard() {
       value: dashboardData.kpis.totalLeads ?? dashboardData.leads?.total ?? 0
     },
     {
-      label: "Follow-ups Today",
+      label: selectedRange === "today" ? "Follow-ups Today" : "Follow-ups",
       value: dashboardData.kpis.followupsToday
     },
     {
@@ -669,9 +677,7 @@ export default function TeamDashboard() {
               Create Team
             </button>
           ) : null}
-        </div>
 
-        <div className="team-toolbar-right">
           {canAssignTargets ? (
             <button
               className="team-btn team-btn-primary"
@@ -680,6 +686,21 @@ export default function TeamDashboard() {
               Assign Targets
             </button>
           ) : null}
+        </div>
+
+        <div className="team-toolbar-right">
+          <select
+            className="team-dashboard-select team-dashboard-range-select"
+            value={selectedRange}
+            onChange={(e) => setSelectedRange(e.target.value)}
+            aria-label="Dashboard period"
+          >
+            {DASHBOARD_RANGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
 
           {isAdminUser ? (
             <select
@@ -698,10 +719,6 @@ export default function TeamDashboard() {
               {selectedTeam?.name || dashboardData?.team?.name || "My Team"}
             </div>
           )}
-
-          <button className="team-btn team-btn-secondary" onClick={onRefresh}>
-            Refresh
-          </button>
         </div>
       </div>
 
@@ -721,7 +738,7 @@ export default function TeamDashboard() {
           <section className="team-panel team-panel-performance">
             <div className="team-panel-head">
               <h3>Member Performance</h3>
-              {loadingDashboard ? <small>Refreshing...</small> : null}
+              {loadingDashboard ? <small>Loading...</small> : null}
             </div>
             <div className="team-table-wrap">
               <table className="team-table">

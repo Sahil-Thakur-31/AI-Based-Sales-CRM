@@ -176,6 +176,9 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
     if (companyName && clean(row.address)) {
       filterOptions.push({ company_name: companyName, Address: clean(row.address) });
     }
+    if (companyName) {
+      filterOptions.push({ company_name: companyName });
+    }
 
     const score = Number(row.scoreMeta?.finalScore || 0);
     const updateDoc = {
@@ -199,7 +202,15 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
       scraped_at: row.updatedAt || row.createdAt || new Date(),
     };
 
-    const existing = await AiGeneratedLead.findOne({ $or: filterOptions }).select("_id status").lean();
+    const existing = await AiGeneratedLead.findOne({ $or: filterOptions })
+      .select("_id status is_deleted")
+      .lean();
+
+    if (existing?.status === "imported" || existing?.is_deleted === true) {
+      skippedCount += 1;
+      continue;
+    }
+
     const saved = await AiGeneratedLead.findOneAndUpdate(
       { $or: filterOptions },
       {

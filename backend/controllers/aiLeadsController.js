@@ -48,10 +48,40 @@ function mapPrimaryContact(contact) {
   return `${name} (${designation})`;
 }
 
+function mapContactPhone(contact) {
+  return contact?.phone || "";
+}
+
+function mapContactEmail(contact) {
+  return contact?.email || "";
+}
+
+function buildExistingLeadQuery(aiLead) {
+  const companyName = String(aiLead.company_name || "").trim();
+  const website = String(aiLead.website || "").trim();
+  const address = String(aiLead.Address || "").trim();
+
+  const identityOptions = [];
+  if (companyName && website) {
+    identityOptions.push({ company_name: companyName, website });
+  }
+  if (companyName && address) {
+    identityOptions.push({ company_name: companyName, Address: address });
+  }
+  if (!identityOptions.length && companyName) {
+    identityOptions.push({ company_name: companyName });
+  }
+
+  return {
+    is_deleted: { $ne: true },
+    ...(identityOptions.length ? { $or: identityOptions } : { company_name: companyName }),
+  };
+}
+
 exports.getAiLeads = async (req, res) => {
   try {
     const [aiLeads, importedCount, lastRun] = await Promise.all([
-      AiGeneratedLead.find({ is_active: true })
+      AiGeneratedLead.find({ is_deleted: { $ne: true } })
         .sort({ scraped_at: -1, created_at: -1 })
         .populate("source", "name")
         .populate("location", "city district State state country")
@@ -88,6 +118,8 @@ exports.getAiLeads = async (req, res) => {
         employees: lead.employee_range || "-",
         turnover: lead.turnover_range || "-",
         decisionMaker: mapPrimaryContact(primaryContact),
+        phone: mapContactPhone(primaryContact),
+        email: mapContactEmail(primaryContact),
         rating: Number.isFinite(Number(lead.rating)) ? Number(lead.rating) : null,
         reviewsCount: Number.isFinite(Number(lead.reviews_count)) ? Number(lead.reviews_count) : null,
         generatedAt: lead.scraped_at || lead.created_at || null,
@@ -119,18 +151,14 @@ exports.importAiLead = async (req, res) => {
   try {
     const aiLead = await AiGeneratedLead.findOne({
       _id: req.params.id,
-      is_active: true,
+      is_deleted: { $ne: true },
     }).lean();
 
     if (!aiLead) {
       return res.status(404).json({ message: "AI lead not found" });
     }
 
-    const existingLead = await Lead.findOne({
-      company_name: aiLead.company_name,
-      website: aiLead.website || null,
-      $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }, { is_deleted: "No" }],
-    }).select("_id").lean();
+    const existingLead = await Lead.findOne(buildExistingLeadQuery(aiLead)).select("_id").lean();
 
     let targetLeadId = existingLead?._id || null;
 
@@ -180,6 +208,7 @@ exports.importAiLead = async (req, res) => {
           imported_by: req.user?._id || null,
           imported_at: new Date(),
           is_active: false,
+          is_deleted: true,
         },
       }
     );

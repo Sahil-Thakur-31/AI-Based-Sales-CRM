@@ -36,6 +36,12 @@
   outline: none;
 }
 
+.team-dashboard-range-select {
+  min-width: 132px;
+  width: 132px;
+  padding: 8px 10px;
+}
+
 .team-dashboard-select:focus {
   border-color: #5b6fd8;
   box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);

@@ -195,14 +195,8 @@ export default function AILeadGeneration() {
                 <option value="company-desc">Company Z-A</option>
                 <option value="industry-asc">Industry A-Z</option>
                 <option value="industry-desc">Industry Z-A</option>
-                <option value="rating-desc">Rating High-Low</option>
-                <option value="reviews-desc">Reviews High-Low</option>
               </select>
             </label>
-
-            <button className="aiLead-refreshBtn" type="button" onClick={loadAiLeads} disabled={loading}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
           </div>
         </div>
 
@@ -212,12 +206,11 @@ export default function AILeadGeneration() {
               <th className="aiLead-checkCol"></th>
               <th>Company</th>
               <th>Industry</th>
-              <th>Source</th>
               <th>Location</th>
               <th>Employees</th>
               <th>Turnover</th>
-              <th>Decision Maker</th>
-              <th>Rating</th>
+              <th>Phone</th>
+              <th>Email</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -225,7 +218,7 @@ export default function AILeadGeneration() {
           <tbody>
             {loading && (
               <tr>
-                <td className="aiLead-emptyCell" colSpan={10}>
+                <td className="aiLead-emptyCell" colSpan={9}>
                   Loading fetched leads...
                 </td>
               </tr>
@@ -235,8 +228,6 @@ export default function AILeadGeneration() {
               const leadId = String(lead._id || "");
               const isImporting = importingId === leadId;
               const checked = selectedLeadIds.includes(leadId);
-              const rating = Number(lead.rating || 0);
-              const reviews = Number(lead.reviewsCount || 0);
 
               return (
                 <tr key={leadId || lead.company}>
@@ -250,12 +241,11 @@ export default function AILeadGeneration() {
                   </td>
                   <td>{lead.company || "-"}</td>
                   <td>{lead.industry || "-"}</td>
-                  <td>{lead.source || "-"}</td>
                   <td>{lead.location || "-"}</td>
                   <td>{lead.employees || "-"}</td>
                   <td>{lead.turnover || "-"}</td>
-                  <td>{lead.decisionMaker || "-"}</td>
-                  <td>{rating ? `${rating}${reviews ? ` (${reviews})` : ""}` : "-"}</td>
+                  <td>{lead.phone || "-"}</td>
+                  <td>{lead.email || "-"}</td>
                   <td>
                     <button
                       className="aiLead-importBtn"
@@ -272,7 +262,7 @@ export default function AILeadGeneration() {
 
             {!loading && filteredLeads.length === 0 && (
               <tr>
-                <td className="aiLead-emptyCell" colSpan={10}>
+                <td className="aiLead-emptyCell" colSpan={9}>
                   No fetched leads found for the selected industry.
                 </td>
               </tr>
