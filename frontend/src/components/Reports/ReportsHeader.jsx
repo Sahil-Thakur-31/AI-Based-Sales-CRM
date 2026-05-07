@@ -27,9 +27,10 @@ const SALES_MONTH_OPTIONS = [
 ];
 
 const SALES_QUARTER_OPTIONS = [
-  { value: "jan-apr", label: "Jan-Apr" },
-  { value: "may-aug", label: "May-Aug" },
-  { value: "sep-dec", label: "Sep-Dec" },
+  { value: "q1", label: "Q1 (Jan-Mar)" },
+  { value: "q2", label: "Q2 (Apr-Jun)" },
+  { value: "q3", label: "Q3 (Jul-Sep)" },
+  { value: "q4", label: "Q4 (Oct-Dec)" },
 ];
 
 function sanitizeYearInput(value) {

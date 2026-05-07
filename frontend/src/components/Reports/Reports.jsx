@@ -23,7 +23,7 @@ function createDefaultSalesFilters() {
   return {
     period: "monthly",
     month,
-    quarter: now.getMonth() < 4 ? "jan-apr" : now.getMonth() < 8 ? "may-aug" : "sep-dec",
+    quarter: now.getMonth() < 3 ? "q1" : now.getMonth() < 6 ? "q2" : now.getMonth() < 9 ? "q3" : "q4",
     year,
     assignedTo: "all",
   };

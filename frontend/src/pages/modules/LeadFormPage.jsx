@@ -1384,6 +1384,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       new Date(b?.completed_at || b?.contacted_at || 0) -
       new Date(a?.completed_at || a?.contacted_at || 0)
   );
+  const followupCount = Number(
+    lead?.followup_count !== undefined && lead?.followup_count !== null
+      ? lead.followup_count
+      : historyRows.length
+  );
 
   return (
     <div className={embedded ? "lead-page embedded-lead-page" : "lead-page"}>
@@ -2051,7 +2056,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       {!clientView && !embedded && !isNew && (
         <div className="contacts-section">
-          <h3 className="contacts-title">Follow-up History</h3>
+          <h3 className="contacts-title">{`Follow-up History (${followupCount})`}</h3>
           {historyRows.length === 0 && <p>No follow-up history yet.</p>}
           {historyRows.map((entry, idx) => (
             <div key={`done-${idx}`} className="contact-card">
@@ -2071,7 +2076,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                 </div>
                 <div className="field">
                   <label>Status</label>
-                  <p>{entry.is_completed ? "Completed" : "Pending"}</p>
+                  <p>{String(entry.status || (entry.is_completed ? "completed" : "pending")).replace(/^./, (c) => c.toUpperCase())}</p>
                 </div>
                 <div className="field">
                   <label>Reply / Outcome</label>
