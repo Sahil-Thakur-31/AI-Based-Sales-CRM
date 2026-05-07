@@ -36,6 +36,12 @@
   outline: none;
 }
 
+.team-dashboard-range-select {
+  min-width: 132px;
+  width: 132px;
+  padding: 8px 10px;
+}
+
 .team-dashboard-select:focus {
   border-color: #5b6fd8;
   box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);
@@ -420,6 +426,27 @@
   color: #64748b;
   font-size: 11px;
   text-align: left;
+}
+
+.team-followup-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.team-followup-type-meeting {
+  border-color: #bae6fd;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .team-followup-side {
@@ -1190,7 +1217,8 @@
   color: #166534;
 }
 
-.team-member-pill-pending {
+.team-member-pill-pending,
+.team-member-pill-overdue {
   border-color: #fde68a;
   background: #fef9c3;
   color: #854d0e;

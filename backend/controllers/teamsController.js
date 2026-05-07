@@ -58,6 +58,17 @@ function roleNameFromUser(userDoc) {
   return userDoc?.role?.name || "";
 }
 
+function isDuplicateTeamMemberError(err) {
+  const message = String(err?.message || "");
+  return (
+    message.includes("A member can only be assigned") ||
+    (err?.code === 11000 &&
+      (err?.keyPattern?.["members.userId"] ||
+        message.includes("members.userId") ||
+        message.includes("unique_team_member_user")))
+  );
+}
+
 function mapUserForApi(userDoc) {
   return {
     _id: userDoc?._id || null,
@@ -177,6 +188,66 @@ function startOfToday() {
   return date;
 }
 
+function getTeamDashboardRange(value) {
+  const normalized = String(value || "month").trim().toLowerCase();
+  const range = ["today", "week", "month", "quarter", "year", "lifetime"].includes(normalized)
+    ? normalized
+    : "month";
+
+  if (range === "lifetime") {
+    return {
+      range,
+      label: "Lifetime",
+      start: null,
+      end: null
+    };
+  }
+
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  if (range === "week") {
+    const day = start.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    start.setDate(start.getDate() + diffToMonday);
+  } else if (range === "month") {
+    start.setDate(1);
+  } else if (range === "quarter") {
+    start.setMonth(start.getMonth() - (start.getMonth() % 3), 1);
+  } else if (range === "year") {
+    start.setMonth(0, 1);
+  }
+
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  const labels = {
+    today: "Today",
+    week: "This Week",
+    month: "This Month",
+    quarter: "This Quarter",
+    year: "This Year"
+  };
+
+  return {
+    range,
+    label: labels[range] || "This Month",
+    start,
+    end
+  };
+}
+
+function dateRangeMatch(field, selectedRange) {
+  if (!selectedRange?.start || !selectedRange?.end) return {};
+  return {
+    [field]: {
+      $gte: selectedRange.start,
+      $lte: selectedRange.end
+    }
+  };
+}
+
 function normalizePeriodType(value) {
   const periodType = String(value || "monthly").trim().toLowerCase();
   if (periodType === "quarterly") return "quarterly";
@@ -284,6 +355,7 @@ function formatDashboardFollowupRow(followupDoc = {}) {
     _id: followupDoc._id || null,
     title: followupDoc.title || "Follow-up",
     companyName,
+    kind: followupDoc.kind || "followup",
     notes: followupDoc.notes || "",
     actionType: followupDoc.actionType || "",
     stage: followupDoc.stage || "",
@@ -661,6 +733,9 @@ exports.createTeam = async (req, res) => {
     );
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to create team" });
   }
 };
@@ -790,6 +865,9 @@ exports.updateTeam = async (req, res) => {
     return res.json(mapTeamForList(team.toObject(), usersMap, req.user));
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to update team" });
   }
 };
@@ -914,6 +992,9 @@ exports.addMember = async (req, res) => {
     return res.json({ message: "Member added successfully" });
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to add member" });
   }
 };
@@ -968,6 +1049,7 @@ exports.getTeamDashboard = async (req, res) => {
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
+    const selectedRange = getTeamDashboardRange(req.query?.range);
 
     const leadIds = (team.teamLeads || []).map((lead) => String(lead.userId));
     const memberIds = (team.members || []).map((member) => String(member.userId));
@@ -996,6 +1078,7 @@ exports.getTeamDashboard = async (req, res) => {
           memberCount: 0,
           totalPeople: 0
         },
+        range: selectedRange,
         teamLeads,
         members,
         kpis: {
@@ -1049,12 +1132,12 @@ exports.getTeamDashboard = async (req, res) => {
     const memberObjectIds = allUserIds.map((id) => toObjectId(id));
     const dealsMatch = {
       assignedTo: { $in: memberObjectIds },
-      is_deleted: { $ne: true }
+      is_deleted: { $ne: true },
+      ...dateRangeMatch("createdAt", selectedRange)
     };
 
-    const today = startOfToday();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const followupDueMatch = dateRangeMatch("dueDateTime", selectedRange);
+    const leadDateMatch = dateRangeMatch("created_at", selectedRange);
 
     const [
       dealStatusAgg,
@@ -1118,7 +1201,8 @@ exports.getTeamDashboard = async (req, res) => {
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
         status: "open",
-        stage: { $in: DEAL_PIPELINE_STAGES }
+        stage: { $in: DEAL_PIPELINE_STAGES },
+        ...dateRangeMatch("createdAt", selectedRange)
       })
         .select(
           "_id assignedTo stage dealValue probability expectedCloseDate status updatedAt createdAt lead_id client_id"
@@ -1129,17 +1213,17 @@ exports.getTeamDashboard = async (req, res) => {
       Followup.countDocuments({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        dueDateTime: { $gte: today, $lt: tomorrow },
+        ...followupDueMatch,
         status: { $in: ["pending", "overdue"] }
       }),
       Followup.find({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        dueDateTime: { $gte: today, $lt: tomorrow },
+        ...followupDueMatch,
         status: { $ne: "cancelled" }
       })
         .select(
-          "title clientName notes actionType stage priority dueDateTime status completedAt leadId dealId clientId assignedTo"
+          "title clientName notes kind actionType stage priority dueDateTime status completedAt leadId dealId clientId assignedTo"
         )
         .populate("assignedTo", "name email")
         .populate("leadId", "company_name")
@@ -1151,7 +1235,7 @@ exports.getTeamDashboard = async (req, res) => {
           $match: {
             assignedTo: { $in: memberObjectIds },
             is_deleted: { $ne: true },
-            dueDateTime: { $gte: today, $lt: tomorrow },
+            ...followupDueMatch,
             status: { $in: ["pending", "overdue"] }
           }
         },
@@ -1165,7 +1249,8 @@ exports.getTeamDashboard = async (req, res) => {
       Lead.aggregate([
         {
           $match: getActiveLeadMatch({
-            assigned_to: { $in: memberObjectIds }
+            assigned_to: { $in: memberObjectIds },
+            ...leadDateMatch
           })
         },
         {
@@ -1178,7 +1263,8 @@ exports.getTeamDashboard = async (req, res) => {
       Lead.aggregate([
         {
           $match: getActiveLeadMatch({
-            assigned_to: { $in: memberObjectIds }
+            assigned_to: { $in: memberObjectIds },
+            ...leadDateMatch
           })
         },
         {
@@ -1190,7 +1276,8 @@ exports.getTeamDashboard = async (req, res) => {
       ]),
       Lead.find(
         getActiveLeadMatch({
-          assigned_to: { $in: memberObjectIds }
+          assigned_to: { $in: memberObjectIds },
+          ...leadDateMatch
         })
       )
         .sort({ updated_at: -1, created_at: -1 })
@@ -1203,7 +1290,8 @@ exports.getTeamDashboard = async (req, res) => {
       Lead.aggregate([
         {
           $match: getActiveLeadMatch({
-            assigned_to: { $in: memberObjectIds }
+            assigned_to: { $in: memberObjectIds },
+            ...leadDateMatch
           })
         },
         {
@@ -1220,7 +1308,8 @@ exports.getTeamDashboard = async (req, res) => {
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
         status: { $ne: "cancelled" },
-        leadId: { $exists: true, $ne: null }
+        leadId: { $exists: true, $ne: null },
+        ...dateRangeMatch("dueDateTime", selectedRange)
       })
         .select("leadId assignedTo stage status actionType title dueDateTime clientName updatedAt createdAt")
         .sort({ updatedAt: -1, createdAt: -1 })
@@ -1415,6 +1504,7 @@ exports.getTeamDashboard = async (req, res) => {
       },
       teamLeads,
       members,
+      range: selectedRange,
       kpis: {
         followupsToday,
         activeDeals: openDeals,
@@ -1470,6 +1560,7 @@ exports.getTeamMemberDetail = async (req, res) => {
     if (!teamContainsUser(team, memberId)) {
       return res.status(403).json({ message: "Selected user is not part of this team" });
     }
+    const selectedRange = getTeamDashboardRange(req.query?.range);
 
     const user = await User.findOne({
       _id: memberId,
@@ -1484,17 +1575,14 @@ exports.getTeamMemberDetail = async (req, res) => {
     }
 
     const memberObjectId = toObjectId(memberId);
-    const today = startOfToday();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
     const now = new Date();
 
     const [deals, followups, memberLeads, activeTargetDoc] = await Promise.all([
       Deal.find({
         assignedTo: memberObjectId,
         is_deleted: { $ne: true },
-        status: { $in: ["open", "won", "lost"] }
+        status: { $in: ["open", "won", "lost"] },
+        ...dateRangeMatch("createdAt", selectedRange)
       })
         .populate("client_id", "name")
         .populate("lead_id", "company_name")
@@ -1506,7 +1594,7 @@ exports.getTeamMemberDetail = async (req, res) => {
       Followup.find({
         assignedTo: memberObjectId,
         is_deleted: { $ne: true },
-        dueDateTime: { $gte: today, $lt: tomorrow },
+        ...dateRangeMatch("dueDateTime", selectedRange),
         status: { $ne: "cancelled" }
       })
         .select(
@@ -1516,7 +1604,8 @@ exports.getTeamMemberDetail = async (req, res) => {
         .lean(),
       Lead.find(
         getActiveLeadMatch({
-          assigned_to: memberObjectId
+          assigned_to: memberObjectId,
+          ...dateRangeMatch("created_at", selectedRange)
         })
       )
         .select(
@@ -1650,6 +1739,7 @@ exports.getTeamMemberDetail = async (req, res) => {
         name: team.name || "",
         teamLeadId: team.teamLeads?.[0]?.userId || null
       },
+      range: selectedRange,
       member: mapUserForApi(user),
       target: targetProgress,
       deals: groupedDeals,
@@ -1681,6 +1771,7 @@ exports.getTeamPipelineDetail = async (req, res) => {
       ? "lead"
       : "deal";
     const stageOrder = pipelineType === "lead" ? LEAD_PIPELINE_STAGES : DEAL_PIPELINE_STAGES;
+    const selectedRange = getTeamDashboardRange(req.query?.range);
 
     const team = await resolveTeamForDashboard(req.user, teamId);
     if (!team) {
@@ -1700,6 +1791,7 @@ exports.getTeamPipelineDetail = async (req, res) => {
           totalPeople: 0
         },
         pipelineType,
+        range: selectedRange,
         totals: empty.totals,
         stages: empty.stages.map((stage) => ({
           ...stage,
@@ -1717,7 +1809,8 @@ exports.getTeamPipelineDetail = async (req, res) => {
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
         status: "open",
-        stage: { $in: stageOrder }
+        stage: { $in: stageOrder },
+        ...dateRangeMatch("createdAt", selectedRange)
       })
         .select(
           "_id assignedTo stage dealValue probability expectedCloseDate status updatedAt createdAt lead_id client_id"
@@ -1743,11 +1836,12 @@ exports.getTeamPipelineDetail = async (req, res) => {
       return res.json({
         team: {
           _id: team._id,
-          name: team.name || "",
-          totalPeople: allUserIds.length
-        },
-        pipelineType,
-        totals: dealPipeline.totals,
+        name: team.name || "",
+        totalPeople: allUserIds.length
+      },
+      pipelineType,
+      range: selectedRange,
+      totals: dealPipeline.totals,
         stages: dealPipeline.stages.map((stage) => ({
           ...stage,
           deals: stage.items
@@ -1759,7 +1853,8 @@ exports.getTeamPipelineDetail = async (req, res) => {
       assignedTo: { $in: memberObjectIds },
       is_deleted: { $ne: true },
       status: { $ne: "cancelled" },
-      leadId: { $exists: true, $ne: null }
+      leadId: { $exists: true, $ne: null },
+      ...dateRangeMatch("dueDateTime", selectedRange)
     })
       .select("leadId assignedTo stage status actionType title dueDateTime clientName updatedAt createdAt")
       .sort({ updatedAt: -1, createdAt: -1 })
@@ -1797,11 +1892,12 @@ exports.getTeamPipelineDetail = async (req, res) => {
     return res.json({
       team: {
         _id: team._id,
-        name: team.name || "",
-        totalPeople: allUserIds.length
-      },
-      pipelineType,
-      totals: leadPipeline.totals,
+      name: team.name || "",
+      totalPeople: allUserIds.length
+    },
+    pipelineType,
+    range: selectedRange,
+    totals: leadPipeline.totals,
       stages: leadPipeline.stages.map((stage) => ({
         ...stage,
         leads: stage.items

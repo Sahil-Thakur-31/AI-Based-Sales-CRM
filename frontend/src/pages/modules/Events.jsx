@@ -93,6 +93,16 @@ const formatFee = (amountValue, currencyValue) => {
   }
 };
 
+const getDisplayRegistrationFee = (eventItem = {}) => {
+  const amount = toOptionalNumber(eventItem.registrationFee);
+  const sourceName = String(eventItem.source?.name || "").trim().toLowerCase();
+  const currency = String(eventItem.registrationCurrency || "INR").trim().toUpperCase();
+  if (sourceName === "meetup" && currency === "INR" && amount !== null && amount <= 5) {
+    return 0;
+  }
+  return eventItem.registrationFee;
+};
+
 const formatCount = (value) => {
   const parsed = toOptionalNumber(value);
   if (parsed === null) return "N/A";
@@ -1274,7 +1284,7 @@ const EventExpo = () => {
               </div>
 
               <div className="event-right">
-                <h3>{formatFee(eventItem.registrationFee, eventItem.registrationCurrency)}</h3>
+                <h3>{formatFee(getDisplayRegistrationFee(eventItem), eventItem.registrationCurrency)}</h3>
                 <p>Registration Fee</p>
               </div>
             </div>

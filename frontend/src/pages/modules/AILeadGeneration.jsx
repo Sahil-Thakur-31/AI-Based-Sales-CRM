@@ -57,7 +57,7 @@ export default function AILeadGeneration() {
       }));
     } catch (err) {
       setLeads([]);
-      setError(err?.response?.data?.message || "Failed to load scraped leads.");
+      setError(err?.response?.data?.message || "Failed to load fetched leads.");
     } finally {
       setLoading(false);
     }
@@ -150,7 +150,7 @@ export default function AILeadGeneration() {
       <div className="aiLead-cardGrid">
         <div className="aiLead-summaryCard">
           <h3>{loading ? "..." : totalLeads}</h3>
-          <p>Scraped Leads</p>
+          <p>fetched Leads</p>
         </div>
         <div className="aiLead-summaryCard">
           <h3>{loading ? "..." : importedLeads}</h3>
@@ -195,14 +195,8 @@ export default function AILeadGeneration() {
                 <option value="company-desc">Company Z-A</option>
                 <option value="industry-asc">Industry A-Z</option>
                 <option value="industry-desc">Industry Z-A</option>
-                <option value="rating-desc">Rating High-Low</option>
-                <option value="reviews-desc">Reviews High-Low</option>
               </select>
             </label>
-
-            <button className="aiLead-refreshBtn" type="button" onClick={loadAiLeads} disabled={loading}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
           </div>
         </div>
 
@@ -212,12 +206,11 @@ export default function AILeadGeneration() {
               <th className="aiLead-checkCol"></th>
               <th>Company</th>
               <th>Industry</th>
-              <th>Source</th>
               <th>Location</th>
               <th>Employees</th>
               <th>Turnover</th>
-              <th>Decision Maker</th>
-              <th>Rating</th>
+              <th>Phone</th>
+              <th>Email</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -225,8 +218,8 @@ export default function AILeadGeneration() {
           <tbody>
             {loading && (
               <tr>
-                <td className="aiLead-emptyCell" colSpan={10}>
-                  Loading scraped leads...
+                <td className="aiLead-emptyCell" colSpan={9}>
+                  Loading fetched leads...
                 </td>
               </tr>
             )}
@@ -235,8 +228,6 @@ export default function AILeadGeneration() {
               const leadId = String(lead._id || "");
               const isImporting = importingId === leadId;
               const checked = selectedLeadIds.includes(leadId);
-              const rating = Number(lead.rating || 0);
-              const reviews = Number(lead.reviewsCount || 0);
 
               return (
                 <tr key={leadId || lead.company}>
@@ -250,12 +241,11 @@ export default function AILeadGeneration() {
                   </td>
                   <td>{lead.company || "-"}</td>
                   <td>{lead.industry || "-"}</td>
-                  <td>{lead.source || "-"}</td>
                   <td>{lead.location || "-"}</td>
                   <td>{lead.employees || "-"}</td>
                   <td>{lead.turnover || "-"}</td>
-                  <td>{lead.decisionMaker || "-"}</td>
-                  <td>{rating ? `${rating}${reviews ? ` (${reviews})` : ""}` : "-"}</td>
+                  <td>{lead.phone || "-"}</td>
+                  <td>{lead.email || "-"}</td>
                   <td>
                     <button
                       className="aiLead-importBtn"
@@ -272,8 +262,8 @@ export default function AILeadGeneration() {
 
             {!loading && filteredLeads.length === 0 && (
               <tr>
-                <td className="aiLead-emptyCell" colSpan={10}>
-                  No scraped leads found for the selected industry.
+                <td className="aiLead-emptyCell" colSpan={9}>
+                  No fetched leads found for the selected industry.
                 </td>
               </tr>
             )}
@@ -282,7 +272,7 @@ export default function AILeadGeneration() {
 
         <div className="aiLead-bulkBar">
           <p>
-            Showing {filteredLeads.length} of {totalLeads} scraped leads
+            Showing {filteredLeads.length} of {totalLeads} fetched leads
             {summary.lastImportedCount || summary.lastUpdatedCount
               ? ` | Last sync: ${summary.lastImportedCount || 0} new, ${summary.lastUpdatedCount || 0} updated`
               : ""}
