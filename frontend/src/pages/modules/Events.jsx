@@ -1201,7 +1201,7 @@ const EventExpo = () => {
                       Register
                     </button>
                   )}
-                  {isAdmin && hasRegistrationData && !isUpcomingTab && (
+                  {isAdmin && (hasRegistrationData || isMissedTab) && !isUpcomingTab && (
                     <button
                       className="primary registered-btn"
                       onClick={() => openRegistrationForm(eventItem, { viewOnly: true })}
@@ -1209,7 +1209,7 @@ const EventExpo = () => {
                       View
                     </button>
                   )}
-                  {isManager && hasRegistrationData && !isUpcomingTab && (
+                  {isManager && (hasRegistrationData || isMissedTab) && !isUpcomingTab && (
                     <button
                       className="primary registered-btn"
                       onClick={() => openRegistrationForm(eventItem, { viewOnly: true })}

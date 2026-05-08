@@ -195,7 +195,7 @@ async function main() {
   };
 
   const team = existingTeam
-    ? await Team.findByIdAndUpdate(existingTeam._id, { $set: teamPayload }, { new: true })
+    ? await Team.findByIdAndUpdate(existingTeam._id, { $set: teamPayload }, { returnDocument: "after" })
     : await Team.create(teamPayload);
 
   const now = new Date();

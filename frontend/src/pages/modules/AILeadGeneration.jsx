@@ -108,9 +108,13 @@ export default function AILeadGeneration() {
     });
 
     return [...rows].sort((a, b) => {
+      const generatedA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+      const generatedB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
       if (sortBy === "company-desc") return compareText(b.company, a.company);
       if (sortBy === "industry-asc") return compareText(a.industry, b.industry) || compareText(a.company, b.company);
       if (sortBy === "industry-desc") return compareText(b.industry, a.industry) || compareText(a.company, b.company);
+      if (sortBy === "generated-desc") return generatedB - generatedA || compareText(a.company, b.company);
+      if (sortBy === "generated-asc") return generatedA - generatedB || compareText(a.company, b.company);
       if (sortBy === "rating-desc") return Number(b.rating || 0) - Number(a.rating || 0) || compareText(a.company, b.company);
       if (sortBy === "reviews-desc") return Number(b.reviewsCount || 0) - Number(a.reviewsCount || 0) || compareText(a.company, b.company);
       return compareText(a.company, b.company);
@@ -226,6 +230,8 @@ export default function AILeadGeneration() {
                 <option value="company-desc">Company Z-A</option>
                 <option value="industry-asc">Industry A-Z</option>
                 <option value="industry-desc">Industry Z-A</option>
+                <option value="generated-desc">Generated Newest</option>
+                <option value="generated-asc">Generated Oldest</option>
               </select>
             </label>
           </div>

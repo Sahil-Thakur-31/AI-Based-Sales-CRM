@@ -124,7 +124,11 @@ const EventRegistration = () => {
     const eventData = eventInput || {};
     const hasAttendance = Array.isArray(eventData.attendedBy) && eventData.attendedBy.length > 0;
     if (hasAttendance || Boolean(eventData.isAttending)) return "attended";
-    const markedMissed = Boolean(eventData.isMissed || String(eventData.missedReason || "").trim());
+    const markedMissed = Boolean(
+      eventData.isMissed ||
+      String(eventData.currentTab || "").toLowerCase() === "missed" ||
+      String(eventData.missedReason || "").trim()
+    );
     if (markedMissed) return "missed";
     return "registered";
   };
@@ -408,6 +412,7 @@ const EventRegistration = () => {
         setCurrentEventStatus(resolveEventStatus({
           isAttending: state?.isAttending,
           isMissed: state?.isMissed,
+          currentTab: state?.currentTab,
           missedReason: state?.missedReason,
         }));
         setCurrentMissedReason(String(state?.missedReason || ""));
@@ -829,7 +834,7 @@ const EventRegistration = () => {
         </section>
       )}
 
-      {currentEventStatus === "missed" && (
+      {(currentEventStatus === "missed" || String(state?.currentTab || "").toLowerCase() === "missed") && (
         <section className="event-form-card">
           <form className="registration-form" onSubmit={saveMissedReason}>
             <section className="form-section">
@@ -850,10 +855,6 @@ const EventRegistration = () => {
                 placeholder="Why was this event missed?"
               />
             </label>
-            <div className="event-missed-reason-display">
-              <strong>Current reason:</strong>{" "}
-              {String(currentMissedReason || "").trim() || "No reason captured."}
-            </div>
 
             <FormErrorSlot message={missedReasonError} className="form-error-slot-global" />
             {missedReasonSuccess && <p className="success-note">{missedReasonSuccess}</p>}
