@@ -1,9 +1,10 @@
-opencv-python==4.9.0.80
-pytesseract==0.3.10
-easyocr==1.7.1
-torch==2.2.2
-torchvision==0.17.2
-numpy==1.26.4
-Pillow==10.2.0
+opencv-python==4.13.0.92
+pytesseract==0.3.13
+easyocr==1.7.2
+python-bidi==0.4.2
+torch==2.10.0
+torchvision==0.25.0
+numpy==2.4.4
+Pillow==12.2.0
 scikit-learn==1.8.0
 joblib==1.4.2

@@ -13,6 +13,20 @@ OCR_ROOT = Path(__file__).resolve().parent
 OCR_RUNTIME_DIR = OCR_ROOT / "runtime"
 sys.path.insert(0, str(OCR_RUNTIME_DIR))
 
+
+def patch_bidi_for_easyocr():
+    try:
+        import bidi  # type: ignore
+        if hasattr(bidi, "get_display"):
+            return
+        from bidi.algorithm import get_display as bidi_get_display  # type: ignore
+        bidi.get_display = bidi_get_display
+    except Exception:
+        pass
+
+
+patch_bidi_for_easyocr()
+
 try:
     from ocr_utils import run_easyocr
     from label_engine import predict_labels

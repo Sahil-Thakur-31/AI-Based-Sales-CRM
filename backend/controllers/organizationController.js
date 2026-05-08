@@ -237,6 +237,27 @@ exports.getOrganizations = async (req, res) => {
   }
 };
 
+exports.getPublicOrganizationBrand = async (_req, res) => {
+  try {
+    const row = await Organization.findOne({ is_deleted: false })
+      .sort({ createdAt: -1 })
+      .select("name logoUrl")
+      .lean();
+
+    res.json({
+      organization: row
+        ? {
+            name: row.name || "",
+            logoUrl: row.logoUrl || ""
+          }
+        : null
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch organization brand" });
+  }
+};
+
 exports.createOrganization = async (req, res) => {
   try {
     const name = normalizeText(req.body.name);

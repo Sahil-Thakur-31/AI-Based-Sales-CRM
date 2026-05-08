@@ -1384,6 +1384,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       new Date(b?.completed_at || b?.contacted_at || 0) -
       new Date(a?.completed_at || a?.contacted_at || 0)
   );
+  const followupCount = Number(
+    lead?.followup_count !== undefined && lead?.followup_count !== null
+      ? lead.followup_count
+      : historyRows.length
+  );
 
   return (
     <div className={embedded ? "lead-page embedded-lead-page" : "lead-page"}>
@@ -1619,6 +1624,40 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         <Field label="Turnover" name="turnover_range" value={lead.turnover_range} onChange={handleLeadChange} editMode={editMode} />
         {!clientView && (
           <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
+        )}
+
+        {/* Deal Status */}
+        {dealView && (
+          <div className="field">
+            <label>Status</label>
+            {editMode ? (
+              <select name="status" value={lead.status || "open"} onChange={handleLeadChange}>
+                <option value="open">Open</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
+              </select>
+            ) : (
+              <p style={{ textTransform: "capitalize" }}>{lead.status || "open"}</p>
+            )}
+          </div>
+        )}
+
+        {/* Lead Status */}
+        {!dealView && !clientView && (
+          <div className="field">
+            <label>Status</label>
+            {editMode ? (
+              <select name="status" value={lead.status || "new"} onChange={handleLeadChange}>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="qualified">Qualified</option>
+                <option value="converted">Converted</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            ) : (
+              <p style={{ textTransform: "capitalize" }}>{lead.status || "new"}</p>
+            )}
+          </div>
         )}
         <Field label="Address" name="Address" value={lead.Address} onChange={handleLeadChange} editMode={editMode} />
 
@@ -2017,7 +2056,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       {!clientView && !embedded && !isNew && (
         <div className="contacts-section">
-          <h3 className="contacts-title">Follow-up History</h3>
+          <h3 className="contacts-title">{`Follow-up History (${followupCount})`}</h3>
           {historyRows.length === 0 && <p>No follow-up history yet.</p>}
           {historyRows.map((entry, idx) => (
             <div key={`done-${idx}`} className="contact-card">
@@ -2037,7 +2076,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                 </div>
                 <div className="field">
                   <label>Status</label>
-                  <p>{entry.is_completed ? "Completed" : "Pending"}</p>
+                  <p>{String(entry.status || (entry.is_completed ? "completed" : "pending")).replace(/^./, (c) => c.toUpperCase())}</p>
                 </div>
                 <div className="field">
                   <label>Reply / Outcome</label>

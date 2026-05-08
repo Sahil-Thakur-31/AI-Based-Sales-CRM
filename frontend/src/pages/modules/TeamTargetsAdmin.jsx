@@ -58,7 +58,6 @@ export default function TeamTargetsAdmin() {
   });
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [savingTeamId, setSavingTeamId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -117,18 +116,6 @@ export default function TeamTargetsAdmin() {
       }
     })();
   }, [loadTeamsAndTargets]);
-
-  const refreshAll = async () => {
-    try {
-      setRefreshing(true);
-      await loadTeamsAndTargets();
-    } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || "Failed to refresh targets");
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const openEdit = (teamId) => {
     const targetData = targetsByTeam[String(teamId)] || {};
@@ -246,9 +233,6 @@ export default function TeamTargetsAdmin() {
               />
             </label>
             <div className="team-targets-filter-action team-targets-admin-actions">
-              <button className="team-targets-btn secondary" onClick={refreshAll} disabled={refreshing || loading}>
-                {refreshing ? "Refreshing..." : "Refresh"}
-              </button>
               <button className="team-targets-btn secondary" onClick={() => navigate("/team-dashboard")}>
                 Back To Team Dashboard
               </button>

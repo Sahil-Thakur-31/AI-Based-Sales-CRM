@@ -91,19 +91,6 @@ function Notifications() {
           <h2>Notifications Center</h2>
           <p>Track all alerts and your upcoming reminders.</p>
         </div>
-        <button
-          type="button"
-          className="notifications-refresh-btn"
-          onClick={() => {
-            if (activeTab === "reminders") {
-              loadReminders();
-            } else {
-              loadNotifications();
-            }
-          }}
-        >
-          Refresh
-        </button>
       </div>
 
       <div className="notifications-tabs">

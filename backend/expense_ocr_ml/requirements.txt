@@ -1,6 +1,9 @@
-easyocr
-numpy
-opencv-python
-pillow
-pytesseract
-scikit-learn
+easyocr==1.7.2
+python-bidi==0.4.2
+numpy==2.4.4
+opencv-python==4.13.0.92
+pillow==12.2.0
+pytesseract==0.3.13
+scikit-learn==1.8.0
+torch==2.10.0
+torchvision==0.25.0

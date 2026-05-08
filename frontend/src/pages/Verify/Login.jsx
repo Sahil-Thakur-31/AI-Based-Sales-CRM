@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../../api'
+import AuthBrandHeader from '../../components/AuthBrandHeader';
 import FormErrorSlot from '../../components/FormErrorSlot';
 import { validEmail, strongPassword } from '../../utils/formValidation';
 import "./verify.css"
@@ -99,7 +100,8 @@ function Login() {
     return (
         <div className="login-wrapper">
             <div className='container'>
-                <h1>login</h1>
+                <AuthBrandHeader />
+                <h1>Login</h1>
                 <form onSubmit={handleLogin}>
                     <div>
                         <label>Email</label>

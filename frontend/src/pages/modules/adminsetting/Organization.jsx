@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import API from "../../../api";
+import { notifyOrganizationBrandUpdated } from "../../../utils/branding";
 import "./admin-config.css";
 
 const ACCOUNT_TYPE_OPTIONS = ["Savings", "Current", "Salary", "OD/CC", "NRE", "NRO"];
@@ -355,6 +356,7 @@ export default function Organization() {
         setSignatureRemoved(false);
         setStampFile(null);
         setStampRemoved(false);
+        notifyOrganizationBrandUpdated(org);
       }
 
       setSuccess("Organization profile saved successfully");

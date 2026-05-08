@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AuthBrandHeader from "../../components/AuthBrandHeader";
 import BackButton from "../../components/BackButton";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import { required, strongPassword } from "../../utils/formValidation";
@@ -87,6 +88,7 @@ function ResetPassword() {
   return (
     <div className="login-wrapper">
       <div className="container">
+        <AuthBrandHeader />
         <h1>Reset Password</h1>
         {successMsg && <div className="form-message primary">{successMsg}</div>}
 

@@ -1,6 +1,10 @@
 {
-  "receivedCount": 14,
+  "receivedCount": 17,
   "passingNormalize": [
+    {
+      "title": "Demo for BlueSky team",
+      "start": "2026-03-01T08:30:57.294Z"
+    },
     {
       "title": "Requirement Gadhering",
       "start": "2026-04-11T07:00:00.000Z"
@@ -30,8 +34,16 @@
       "start": "2026-04-18T05:48:00.000Z"
     },
     {
-      "title": "Talk about features",
-      "start": "2026-04-11T09:10:00.000Z"
+      "title": "Horizon Phase 2 discussion",
+      "start": "2026-07-01T08:30:57.294Z"
+    },
+    {
+      "title": "Horizon contract discussion",
+      "start": "2026-03-01T08:30:57.294Z"
+    },
+    {
+      "title": "Initial call with TechNova",
+      "start": "2026-03-01T08:30:57.294Z"
     },
     {
       "title": "Task",

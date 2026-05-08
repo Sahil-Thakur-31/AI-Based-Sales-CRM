@@ -1,51 +1,14 @@
 import "./sideBar.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import { useEffect, useState } from "react";
-import API from "../api";
 
-export default function Sidebar({ isCollapsed = false, onToggleCollapse }) {
+export default function Sidebar({
+  isCollapsed = false,
+  onToggleCollapse,
+  organizationLogoUrl = ""
+}) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [organizationLogoUrl, setOrganizationLogoUrl] = useState("");
-
-  useEffect(() => {
-    let active = true;
-
-    const resolveAssetUrl = (value) => {
-      const raw = String(value || "").trim();
-      if (!raw) return "";
-      if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("blob:")) {
-        return raw;
-      }
-      const normalized = raw.replace(/\\/g, "/");
-      const base = String(API.defaults.baseURL || "").replace(/\/?$/, "/");
-      try {
-        return new URL(normalized, base).toString();
-      } catch (_err) {
-        return `${String(API.defaults.baseURL || "").replace(/\/$/, "")}${
-          normalized.startsWith("/") ? "" : "/"
-        }${normalized}`;
-      }
-    };
-
-    const loadOrganizationLogo = async () => {
-      try {
-        const res = await API.get("/organizations/profile");
-        if (!active) return;
-        const logoUrl = resolveAssetUrl(res.data?.organization?.logoUrl || "");
-        setOrganizationLogoUrl(logoUrl);
-      } catch (_err) {
-        if (!active) return;
-        setOrganizationLogoUrl("");
-      }
-    };
-
-    loadOrganizationLogo();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const token = localStorage.getItem("token");
   let userRole = "";

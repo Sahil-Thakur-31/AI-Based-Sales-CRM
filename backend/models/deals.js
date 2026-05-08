@@ -43,6 +43,7 @@ const dealsSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["open", "won", "lost"],
+      default: "open",
     },
 
     aiRiskScore: {
