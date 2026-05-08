@@ -44,7 +44,7 @@
 }
 
 .fuStagesDeal {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .fuStageTitle {
@@ -66,13 +66,13 @@
   opacity: 0.92;
 }
 
-.fuStageCard:nth-child(1) { background: linear-gradient(135deg, #6a5acd, #7b68ee); }
-.fuStageCard:nth-child(2) { background: linear-gradient(135deg, #2ecc71, #27ae60); }
-.fuStageCard:nth-child(3) { background: linear-gradient(135deg, #3498db, #2980b9); }
-.fuStageCard:nth-child(4) { background: linear-gradient(135deg, #e67e22, #d35400); }
-.fuStageCard:nth-child(5) { background: linear-gradient(135deg, #f1c40f, #d4ac0d); color: #1b1b1b; }
-.fuStageCard:nth-child(6) { background: linear-gradient(135deg, #ff5a5f, #e74c3c); }
-.fuStageCard:nth-child(7) { background: linear-gradient(135deg, #16a085, #0e7c6f); }
+.fuStageCard.stage-p1 { background: linear-gradient(135deg, #6a5acd, #7b68ee); }
+.fuStageCard.stage-p2 { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+.fuStageCard.stage-p3 { background: linear-gradient(135deg, #3498db, #2980b9); }
+.fuStageCard.stage-p4 { background: linear-gradient(135deg, #e67e22, #d35400); }
+.fuStageCard.stage-p5 { background: linear-gradient(135deg, #f1c40f, #d4ac0d); color: #1b1b1b; }
+.fuStageCard.stage-p6 { background: linear-gradient(135deg, #ff5a5f, #e74c3c); }
+.fuStageCard.stage-p7 { background: linear-gradient(135deg, #16a085, #0e7c6f); }
 
 .fuGrid {
   display: grid;

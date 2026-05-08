@@ -10,7 +10,7 @@ const SalesTarget = require("../models/sales_targets");
 const ADMIN_ROLE = "Admin";
 const MANAGER_ROLE = "Manager";
 const LEAD_PIPELINE_STAGES = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
-const DEAL_PIPELINE_STAGES = ["P1", "P2", "P3", "P7"];
+const DEAL_PIPELINE_STAGES = ["P1", "P2", "P3", "P6", "P7"];
 
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

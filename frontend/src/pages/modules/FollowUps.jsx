@@ -15,14 +15,18 @@ const STAGES = [
 ];
 
 const LEAD_STAGES = STAGES.map((stage) =>
-  stage.key === "P7"
-    ? { ...stage, title: "P7 - Lead Convert to Deal", sub: "Converted leads" }
-    : stage
+  stage.key === "P3"
+    ? { ...stage, title: "P3 - Fresh Leads", sub: "When we create new leads" }
+    : stage.key === "P7"
+      ? { ...stage, title: "P7 - Lead Convert to Deal", sub: "Converted leads" }
+      : stage
 );
 
-const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P7"]);
+const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P6", "P7"]);
 const DEAL_STAGES = STAGES.map((stage) => ({
-  ...stage,
+  ...(stage.key === "P3"
+    ? { ...stage, title: "P3 - Fresh Deals", sub: "New deals and converted leads" }
+    : stage),
   hidden: !DEAL_STAGE_KEYS.has(stage.key),
 }));
 
@@ -196,6 +200,26 @@ function mapDocToFollowup(doc) {
   };
 }
 
+function getAssignedUserId(record = {}) {
+  return String(
+    record?.assigned_to?._id ||
+    record?.assigned_to ||
+    record?.assignedTo?._id ||
+    record?.assignedTo ||
+    record?.assignedToId ||
+    ""
+  );
+}
+
+function mapDealToPipelineItem(doc) {
+  return {
+    id: String(doc?._id || ""),
+    stage: String(doc?.stage || "").trim().toUpperCase(),
+    status: String(doc?.status || "").trim().toLowerCase(),
+    assignedToId: getAssignedUserId(doc),
+  };
+}
+
 function getAiPriorityClass(value = "") {
   return String(value || "").trim().toLowerCase();
 }
@@ -231,7 +255,7 @@ function matchesAssigneeFilter({
   currentUserId,
   teamOptions,
 }) {
-  const assignedToId = String(item?.assignedToId || "");
+  const assignedToId = getAssignedUserId(item);
 
   if (selectedEmployeeId) {
     const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
@@ -255,12 +279,25 @@ function matchesAssigneeFilter({
   return true;
 }
 
+function shouldCountDealInStage(deal = {}, stageKey = "") {
+  const stage = String(stageKey || "").trim().toUpperCase();
+  const dealStage = String(deal?.stage || "").trim().toUpperCase();
+  const dealStatus = String(deal?.status || "").trim().toLowerCase();
+
+  if (dealStage !== stage) return false;
+  if (["P1", "P2", "P3"].includes(stage)) return dealStatus === "open";
+  if (stage === "P6") return dealStatus === "lost";
+  if (stage === "P7") return dealStatus === "won" || dealStatus === "win";
+  return false;
+}
+
 export default function Followups() {
   const [activeStage, setActiveStage] = useState("P1");
   const [recordBucket, setRecordBucket] = useState("lead");
   const [followupMode, setFollowupMode] = useState("list");
   const [followups, setFollowups] = useState([]);
   const [meetings, setMeetings] = useState([]);
+  const [deals, setDeals] = useState([]);
   const [meetingMode, setMeetingMode] = useState("list");
   const [statusFilter, setStatusFilter] = useState("all");
   const [meetingPage, setMeetingPage] = useState(1);
@@ -302,9 +339,10 @@ export default function Followups() {
     try {
       setLoading(true);
       setError("");
-      const [meetingRes, followupRes] = await Promise.all([
+      const [meetingRes, followupRes, dealRes] = await Promise.all([
         API.get("/followups", { params: { kind: "meeting" } }),
         API.get("/followups", { params: { kind: "followup" } }),
+        API.get("/deals"),
       ]);
 
       const stageById = new Map(
@@ -339,6 +377,7 @@ export default function Followups() {
 
       setMeetings(mergedMeetings);
       setFollowups((followupRes.data || []).map(mapDocToFollowup));
+      setDeals((dealRes.data || []).map(mapDealToPipelineItem));
     } catch (err) {
       console.error(err);
       setError("Failed to load followups");
@@ -426,15 +465,40 @@ export default function Followups() {
     [bucketedFollowups, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
   );
 
+  const assigneeFilteredDeals = useMemo(
+    () =>
+      deals.filter((deal) =>
+        matchesAssigneeFilter({
+          item: deal,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [deals, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
   const stageCounts = useMemo(() => {
     const map = Object.fromEntries(visibleStageOptions.map((s) => [s.key, 0]));
+
+    if (recordBucket === "deal") {
+      assigneeFilteredDeals.forEach((deal) => {
+        if (!deal?.stage || !(deal.stage in map)) return;
+        if (!shouldCountDealInStage(deal, deal.stage)) return;
+        map[deal.stage] = (map[deal.stage] || 0) + 1;
+      });
+      return map;
+    }
+
     [...assigneeFilteredFollowups, ...assigneeFilteredMeetings].forEach((item) => {
       if (!isOnLocalDate(item?.dueDateTime, getLocalDateISO())) return;
       if (!item?.stage || !(item.stage in map)) return;
       map[item.stage] = (map[item.stage] || 0) + 1;
     });
     return map;
-  }, [assigneeFilteredFollowups, assigneeFilteredMeetings, visibleStageOptions]);
+  }, [assigneeFilteredDeals, assigneeFilteredFollowups, assigneeFilteredMeetings, recordBucket, visibleStageOptions]);
 
   const visibleFollowups = useMemo(
     () => (useStageFilter ? assigneeFilteredFollowups.filter((f) => f.stage === activeStage) : assigneeFilteredFollowups),
@@ -443,7 +507,6 @@ export default function Followups() {
 
   const filteredMeetings = useMemo(
     () => assigneeFilteredMeetings.filter((m) => {
-      const stageMatch = useStageFilter ? m.stage === activeStage : true;
       const todayMatch = isOnLocalDate(
         getRelevantDateForStatus(m, statusFilter),
         getLocalDateISO()
@@ -454,13 +517,13 @@ export default function Followups() {
           : statusFilter === "remaining"
             ? !isCompletedStatus(m.status)
             : true;
-      return stageMatch && todayMatch && statusMatch;
+      return todayMatch && statusMatch;
     }),
-    [assigneeFilteredMeetings, activeStage, useStageFilter, statusFilter]
+    [assigneeFilteredMeetings, statusFilter]
   );
 
   const filteredFollowupsByStatus = useMemo(
-    () => visibleFollowups.filter((f) => {
+    () => assigneeFilteredFollowups.filter((f) => {
       const todayMatch = isOnLocalDate(
         getRelevantDateForStatus(f, statusFilter),
         getLocalDateISO()
@@ -473,7 +536,7 @@ export default function Followups() {
             : true;
       return todayMatch && statusMatch;
     }),
-    [visibleFollowups, statusFilter]
+    [assigneeFilteredFollowups, statusFilter]
   );
 
   const meetingTotalPages = useMemo(
@@ -506,12 +569,12 @@ export default function Followups() {
         isOnLocalDate(getRelevantDateForStatus(m, "completed"), getLocalDateISO()) &&
         isCompletedStatus(m.status)
     ).length;
-    const followupRemaining = visibleFollowups.filter(
+    const followupRemaining = assigneeFilteredFollowups.filter(
       (f) =>
         isOnLocalDate(getRelevantDateForStatus(f, "remaining"), getLocalDateISO()) &&
         !isCompletedStatus(f.status)
     ).length;
-    const followupCompleted = visibleFollowups.filter(
+    const followupCompleted = assigneeFilteredFollowups.filter(
       (f) =>
         isOnLocalDate(getRelevantDateForStatus(f, "completed"), getLocalDateISO()) &&
         isCompletedStatus(f.status)
@@ -521,7 +584,7 @@ export default function Followups() {
       remaining: meetingRemaining + followupRemaining,
       completed: meetingCompleted + followupCompleted,
     };
-  }, [assigneeFilteredMeetings, visibleFollowups]);
+  }, [assigneeFilteredMeetings, assigneeFilteredFollowups]);
 
   useEffect(() => {
     if (!useStageFilter) return;
@@ -850,7 +913,7 @@ export default function Followups() {
             !s.hidden ? (
               <button
                 key={s.key}
-                className={cx("fuStageCard", activeStage === s.key && "active")}
+                className={cx("fuStageCard", `stage-${String(s.key || "").toLowerCase()}`, activeStage === s.key && "active")}
                 onClick={() => {
                   setActiveStage(s.key);
                   if (followupMode === "all") setFollowupMode("list");
@@ -1028,13 +1091,7 @@ export default function Followups() {
           <header className="fuPanelHeader">
             <div>
               <h3>Active Follow-ups</h3>
-              <div className="fuHint">
-                {recordBucket === "existingClient" ? null : followupMode === "all" ? (
-                  <>Showing: <span className="fuHintStrong">All stages</span></>
-                ) : (
-                  <>Stage: <span className="fuHintStrong">{activeStage}</span></>
-                )}
-              </div>
+              <div className="fuHint">Showing: <span className="fuHintStrong">Today's follow-ups</span></div>
             </div>
           </header>
 
@@ -1046,10 +1103,10 @@ export default function Followups() {
                 ) : visibleFollowupsByStatus.length === 0 ? (
                   <div className="fuEmptyBox">
                     {statusFilter === "completed"
-                      ? `No completed follow-ups in ${activeStage}.`
+                      ? "No completed follow-ups for today."
                       : statusFilter === "remaining"
-                        ? `No remaining follow-ups in ${activeStage}.`
-                        : `No follow-ups in ${activeStage}.`}
+                        ? "No remaining follow-ups for today."
+                        : "No follow-ups for today."}
                   </div>
                 ) : (
                   visibleFollowupsByStatus.map((f) => (

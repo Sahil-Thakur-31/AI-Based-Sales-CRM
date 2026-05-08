@@ -793,7 +793,7 @@ exports.createLead = async (req, res) => {
       leadPayload.assigned_to = actorId;
     }
     if (!leadPayload.stage) {
-      leadPayload.stage = "P1";
+      leadPayload.stage = "P3";
     }
     if (leadPayload.assigned_to && (await isAdminAssignee(leadPayload.assigned_to))) {
       return res.status(400).json({ message: "Lead cannot be assigned to an admin user" });
@@ -1110,7 +1110,7 @@ exports.convertLeadToDeal = async (req, res) => {
       lead_id: lead._id,
       assignedTo: lead.assigned_to || null,
       assignedBy: actorId,
-      stage: "P1",
+      stage: "P3",
       dealValue: Number(lead.deal_value_estimate) || 0,
       probability: 10,
       expectedCloseDate,
@@ -1122,7 +1122,7 @@ exports.convertLeadToDeal = async (req, res) => {
 
     await DealStageHistory.create({
       dealId: deal._id,
-      stage: "P1",
+      stage: "P3",
       movedAt: new Date(),
       movedBy: actorId,
     });

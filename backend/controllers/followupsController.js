@@ -244,6 +244,7 @@ function getUtcDayRangeFromQuery(query) {
 function mapFollowupStatusToMeetingStatus(status) {
   if (status === "completed") return "completed";
   if (status === "cancelled") return "cancelled";
+  if (status === "overdue") return "overdue";
   return "scheduled";
 }
 
@@ -591,7 +592,7 @@ exports.listTodayMeetings = async (req, res) => {
       sourceFollowupId: { $exists: true },
       assignedTo: { $in: assignedObjectIds },
       startTime: { $gte: startUtc, $lt: endUtc },
-      status: { $in: ["pending", "scheduled", "rescheduled"] },
+      status: { $in: ["pending", "scheduled", "rescheduled", "overdue"] },
     };
 
     const fallbackMeetings = await Followup.find({

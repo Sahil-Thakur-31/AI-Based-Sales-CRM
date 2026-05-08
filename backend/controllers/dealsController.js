@@ -297,6 +297,8 @@ exports.getDeals = async (req, res) => {
         deal_name: deal.deal_name || "",
         client_id: deal.client_id || null,
         clientId: deal.client_id || null,
+        assignedTo: deal.assignedTo || lead?.assigned_to || null,
+        assigned_to: deal.assignedTo || lead?.assigned_to || null,
         company_name: getCompanyName(deal, lead, client),
         industry: lead?.industry || "",
         deal_value_estimate:

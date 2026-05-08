@@ -208,7 +208,7 @@ async function getPipeline(range, pipelineType = "deal") {
   const normalizedType = String(pipelineType || "deal").toLowerCase() === "lead" ? "lead" : "deal";
   const nonAdminUserIds = await getNonAdminUserIds();
   const stages = normalizedType === "deal"
-    ? ["P1", "P2", "P3", "P7"]
+    ? ["P1", "P2", "P3", "P6", "P7"]
     : ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 
   const agg =
@@ -231,17 +231,65 @@ async function getPipeline(range, pipelineType = "deal") {
             },
           },
         ])
-      : await Deal.aggregate([
-          {
-            $match: {
-              status: "open",
-              is_deleted: { $ne: true },
-              assignedTo: { $in: nonAdminUserIds },
-              createdAt: { $gte: start, $lte: end },
-            }
-          },
-          { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
-        ]);
+      : await (async () => {
+          const [openStageAgg, lostAgg, wonAgg] = await Promise.all([
+            Deal.aggregate([
+              {
+                $match: {
+                  status: "open",
+                  is_deleted: { $ne: true },
+                  assignedTo: { $in: nonAdminUserIds },
+                  createdAt: { $gte: start, $lte: end },
+                  stage: { $nin: ["P6", "P7"] },
+                }
+              },
+              { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
+            ]),
+            Deal.aggregate([
+              {
+                $match: {
+                  status: "lost",
+                  is_deleted: { $ne: true },
+                  assignedTo: { $in: nonAdminUserIds },
+                  actualCloseDate: { $gte: start, $lte: end },
+                }
+              },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  amount: { $sum: "$dealValue" },
+                }
+              },
+            ]),
+            Deal.aggregate([
+              {
+                $match: {
+                  status: "won",
+                  is_deleted: { $ne: true },
+                  assignedTo: { $in: nonAdminUserIds },
+                  actualCloseDate: { $gte: start, $lte: end },
+                }
+              },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  amount: { $sum: "$dealValue" },
+                }
+              },
+            ]),
+          ]);
+
+          const lostStage = lostAgg[0]
+            ? [{ _id: "P6", count: lostAgg[0].count || 0, amount: lostAgg[0].amount || 0 }]
+            : [];
+          const wonStage = wonAgg[0]
+            ? [{ _id: "P7", count: wonAgg[0].count || 0, amount: wonAgg[0].amount || 0 }]
+            : [];
+
+          return [...openStageAgg, ...lostStage, ...wonStage];
+        })();
 
   const map = new Map(agg.map((x) => [x._id, x]));
   return stages.map((s) => ({

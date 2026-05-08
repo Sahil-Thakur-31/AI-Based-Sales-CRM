@@ -28,6 +28,7 @@ const eventsRoutes = require("./routes/eventsRoutes");
 const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
+const { startFollowupOverdueWorker } = require("./services/followupOverdueWorker");
 const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
@@ -102,6 +103,7 @@ const startBackgroundWorkers = async () => {
   // Start background workers only after DB is available.
   startNotificationEmailWorker();
   startWhatsAppMeetingWorker();
+  startFollowupOverdueWorker();
   startEventScraperScheduler();
 };
 
