@@ -37,6 +37,9 @@ function toCategoryLabel(value) {
 }
 
 function matchesExpenseTableFilter(row, filterValue) {
+  const category = String(row.category || "").toLowerCase();
+  const referenceType = String(row.referenceType || "").toLowerCase();
+
   switch (filterValue) {
     case "pending":
     case "approved":
@@ -49,13 +52,13 @@ function matchesExpenseTableFilter(row, filterValue) {
     case "client_meeting":
     case "other":
     case "marketing":
-    case "event":
-      return String(row.category || "").toLowerCase() === filterValue;
+      return category === filterValue;
     case "lead":
     case "deal":
-    case "event":
     case "event/expos":
-      return String(row.referenceType || "").toLowerCase() === filterValue;
+      return referenceType === filterValue;
+    case "event":
+      return category === "event" || referenceType === "event";
     default:
       return true;
   }
