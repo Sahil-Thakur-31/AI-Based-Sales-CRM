@@ -1178,25 +1178,65 @@ function _addDays(d, n) {
   return r;
 }
 
-function getLeadsReportRange(period, now = new Date()) {
-  const p = (period || "monthly").toLowerCase();
-  if (p === "weekly") {
-    const s = _startOfWeek(now);
-    return { currentStart: s, currentEnd: _addDays(s, 7), comparisonLabel: "last week" };
+function normalizeLeadsReportPeriod(period) {
+  const value = String(period || "monthly").trim().toLowerCase();
+  if (value === "quarterly" || value === "quarter") return "quarterly";
+  if (value === "yearly" || value === "year") return "yearly";
+  return "monthly";
+}
+
+function normalizeLeadsReportYear(year, now = new Date()) {
+  const parsed = Number.parseInt(year, 10);
+  if (!Number.isFinite(parsed) || parsed < 2000 || parsed > 9999) {
+    return now.getFullYear();
   }
-  if (p === "quarterly") {
-    const s = _startOfQuarter(now);
+  return parsed;
+}
+
+function normalizeLeadsReportMonth(month, now = new Date()) {
+  const parsed = Number.parseInt(month, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 12) {
+    return now.getMonth() + 1;
+  }
+  return parsed;
+}
+
+function normalizeLeadsReportQuarter(quarter, now = new Date()) {
+  const value = String(quarter || "").trim().toLowerCase();
+  if (["q1", "q2", "q3", "q4"].includes(value)) return value;
+  const month = now.getMonth();
+  if (month < 3) return "q1";
+  if (month < 6) return "q2";
+  if (month < 9) return "q3";
+  return "q4";
+}
+
+function getLeadsReportSelection(input, now = new Date()) {
+  const period = normalizeLeadsReportPeriod(input?.period);
+  return {
+    period,
+    year: normalizeLeadsReportYear(input?.year, now),
+    month: normalizeLeadsReportMonth(input?.month, now),
+    quarter: normalizeLeadsReportQuarter(input?.quarter, now),
+  };
+}
+
+function getLeadsReportRange(input, now = new Date()) {
+  const selection = getLeadsReportSelection(input, now);
+
+  if (selection.period === "quarterly") {
+    const quarterMonthMap = { q1: 0, q2: 3, q3: 6, q4: 9 };
+    const s = new Date(selection.year, quarterMonthMap[selection.quarter], 1);
     return { currentStart: s, currentEnd: _addMonths(s, 3), comparisonLabel: "previous quarter" };
   }
-  if (p === "yearly") {
-    const s = _startOfYear(now);
+  if (selection.period === "yearly") {
     return {
-      currentStart: new Date(now.getFullYear(), 0, 1),
-      currentEnd: new Date(now.getFullYear() + 1, 0, 1),
+      currentStart: new Date(selection.year, 0, 1),
+      currentEnd: new Date(selection.year + 1, 0, 1),
       comparisonLabel: "previous year"
     };
   }
-  const s = _startOfMonth(now);
+  const s = new Date(selection.year, selection.month - 1, 1);
   return { currentStart: s, currentEnd: _addMonths(s, 1), comparisonLabel: "previous month" };
 }
 
@@ -1207,13 +1247,16 @@ const getLeadsAnalytics = async (req, res) => {
     const actorRole = String(req.user.role || "").toLowerCase();
     const isPrivileged = actorRole === "admin" || actorRole === "manager";
 
-    const ranges = getLeadsReportRange(req.query?.period);
+    const ranges = getLeadsReportRange(req.query, new Date());
     const { currentStart, currentEnd, comparisonLabel } = ranges;
 
     const currentMatch = { is_deleted: { $ne: true }, created_at: { $gte: currentStart, $lt: currentEnd } };
     
     // Calculate previous period for growth comparison
-    const { currentStart: prevStart, currentEnd: prevEnd } = getLeadsReportRange(req.query?.period, new Date(currentStart.getTime() - 1));
+    const { currentStart: prevStart, currentEnd: prevEnd } = getLeadsReportRange(
+      req.query,
+      new Date(currentStart.getTime() - 1)
+    );
     const prevMatch = { is_deleted: { $ne: true }, created_at: { $gte: prevStart, $lt: prevEnd } };
 
     if (!isPrivileged) {

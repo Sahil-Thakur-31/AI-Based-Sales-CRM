@@ -47,6 +47,23 @@ function escapeCsvValue(value) {
   return normalized;
 }
 
+function buildReportParams(filters = {}) {
+  const params = {
+    period: filters.period || "monthly",
+    year: filters.year || String(new Date().getFullYear()),
+  };
+
+  if (params.period === "monthly") {
+    params.month = filters.month || String(new Date().getMonth() + 1);
+  }
+
+  if (params.period === "quarterly") {
+    params.quarter = filters.quarter || "q1";
+  }
+
+  return params;
+}
+
 function buildLeadKpiCards(reportData, loading, error) {
   if (loading) {
     return [
@@ -79,16 +96,19 @@ function buildLeadKpiCards(reportData, loading, error) {
   ];
 }
 
-export default function LeadsTab({ period = "monthly" }) {
+export default function LeadsTab({ filters }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [hoveredPointIndex, setHoveredPointIndex] = useState(null);
   const [tableFilter, setTableFilter] = useState("all");
+  const reportParams = buildReportParams(filters);
+  const reportKey = [reportParams.period, reportParams.month || "", reportParams.quarter || "", reportParams.year].join("-");
 
   useEffect(() => {
     setLoading(true);
-    API.get("/leads/reports/analytics", { params: { period } })
+    setError("");
+    API.get("/leads/reports/analytics", { params: reportParams })
       .then((res) => setData(res.data))
       .catch((err) => {
         console.error("Failed to load leads analytics:", err);
@@ -96,7 +116,7 @@ export default function LeadsTab({ period = "monthly" }) {
         setData(null);
       })
       .finally(() => setLoading(false));
-  }, [period]);
+  }, [reportKey]);
 
   const kpiCards = buildLeadKpiCards(data, loading, error);
   const funnel = data?.funnel || [];
@@ -148,7 +168,7 @@ export default function LeadsTab({ period = "monthly" }) {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `leads-report-${period}-${tableFilter}.csv`;
+    link.download = `leads-report-${reportKey}-${tableFilter}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

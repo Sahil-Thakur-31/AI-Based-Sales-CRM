@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import './App.css';
 
 import Login from './pages/Verify/Login';
@@ -52,10 +53,77 @@ import QuotationClauses from './pages/modules/adminsetting/QuotationClauses.jsx'
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import API from "./api";
+import {
+  buildDocumentTitle,
+  getCachedOrganizationBrand,
+  normalizeOrganizationBrand,
+  notifyOrganizationBrandUpdated,
+  ORGANIZATION_BRAND_UPDATED_EVENT,
+  setDocumentFavicon
+} from "./utils/branding";
+import { getPageTitle } from "./utils/pageMeta";
 
 
 
 function App() {
+  const location = useLocation();
+  const authToken = localStorage.getItem("token") || "";
+  const [organizationBrand, setOrganizationBrand] = useState(() => getCachedOrganizationBrand());
+  const pageTitle = useMemo(
+    () => getPageTitle(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
+
+  useEffect(() => {
+    const handleBrandUpdate = (event) => {
+      setOrganizationBrand(normalizeOrganizationBrand(event.detail));
+    };
+
+    const handleStorage = (event) => {
+      if (event.key === "organizationBranding") {
+        setOrganizationBrand(getCachedOrganizationBrand());
+      }
+    };
+
+    window.addEventListener(ORGANIZATION_BRAND_UPDATED_EVENT, handleBrandUpdate);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(ORGANIZATION_BRAND_UPDATED_EVENT, handleBrandUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authToken) return;
+
+    let active = true;
+
+    const loadOrganizationBrand = async () => {
+      try {
+        const res = await API.get("/organizations/profile");
+        if (!active) return;
+        const nextBrand = notifyOrganizationBrandUpdated(res.data?.organization || null);
+        setOrganizationBrand(nextBrand);
+      } catch (err) {
+        if (!active) return;
+        console.error("Failed to load organization brand:", err);
+      }
+    };
+
+    loadOrganizationBrand();
+
+    return () => {
+      active = false;
+    };
+  }, [authToken]);
+
+  useEffect(() => {
+    document.title = buildDocumentTitle(pageTitle, organizationBrand.companyName);
+    setDocumentFavicon(organizationBrand.logoUrl);
+  }, [pageTitle, organizationBrand.companyName, organizationBrand.logoUrl]);
+
   return (
     <div className="App">
 
@@ -72,7 +140,7 @@ function App() {
         {/* Protected routes with Layout */}
         <Route element={
           <ProtectedRoute allowedRoles={["Admin", "Manager", "User", null]}>
-            <Layout />
+            <Layout organizationLogoUrl={organizationBrand.logoUrl} />
           </ProtectedRoute>
         }>
 

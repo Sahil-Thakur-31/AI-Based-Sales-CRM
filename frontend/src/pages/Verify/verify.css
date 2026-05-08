@@ -23,12 +23,35 @@
     justify-content: center;
 }
 
+.auth-brand-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.auth-brand-logo {
+    display: block;
+    max-width: 180px;
+    max-height: 72px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.auth-brand-name {
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 800;
+    text-align: center;
+}
+
 .login-wrapper h1 {
     margin: 0 0 1.5rem 0;
     text-align: center;
     color: #0f172a;
-    font-size: 24px;
-    font-weight: 800;
+    font-size: 20px;
+    font-weight: 450;
 }
 
 .login-wrapper form {

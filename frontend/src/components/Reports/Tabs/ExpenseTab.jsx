@@ -61,6 +61,23 @@ function matchesExpenseTableFilter(row, filterValue) {
   }
 }
 
+function buildReportParams(filters = {}) {
+  const params = {
+    period: filters.period || "monthly",
+    year: filters.year || String(new Date().getFullYear()),
+  };
+
+  if (params.period === "monthly") {
+    params.month = filters.month || String(new Date().getMonth() + 1);
+  }
+
+  if (params.period === "quarterly") {
+    params.quarter = filters.quarter || "q1";
+  }
+
+  return params;
+}
+
 function buildExpenseKpiCards(expenses, loading, error) {
   if (loading) {
     return [
@@ -103,11 +120,13 @@ function buildExpenseKpiCards(expenses, loading, error) {
   ];
 }
 
-function ExpenseTab() {
+function ExpenseTab({ filters }) {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tableFilter, setTableFilter] = useState("all");
+  const reportParams = buildReportParams(filters);
+  const reportKey = [reportParams.period, reportParams.month || "", reportParams.quarter || "", reportParams.year].join("-");
 
   useEffect(() => {
     let isMounted = true;
@@ -116,7 +135,7 @@ function ExpenseTab() {
       setLoading(true);
       setError("");
       try {
-        const res = await API.get("/api/expenses");
+        const res = await API.get("/api/expenses", { params: reportParams });
         if (!isMounted) return;
         setExpenses(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
@@ -133,7 +152,7 @@ function ExpenseTab() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [reportKey]);
 
   const kpiCards = buildExpenseKpiCards(expenses, loading, error);
   const expenseRows = expenses.map((expense) => ({
@@ -221,7 +240,7 @@ function ExpenseTab() {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `expense-report-${tableFilter}.csv`;
+    link.download = `expense-report-${reportKey}-${tableFilter}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

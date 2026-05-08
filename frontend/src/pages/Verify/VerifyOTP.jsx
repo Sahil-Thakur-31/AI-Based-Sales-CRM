@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AuthBrandHeader from "../../components/AuthBrandHeader";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import { OTP_REGEX, required } from "../../utils/formValidation";
 import "./verify.css"
@@ -71,6 +72,7 @@ function VerifyOTP() {
   return (
     <div className="login-wrapper">
       <div className="container">
+        <AuthBrandHeader />
         <h1>Verify OTP</h1>
         {successMsg && <div className="form-message primary">{successMsg}</div>}
 
