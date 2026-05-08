@@ -211,6 +211,7 @@ exports.importAiLead = async (req, res) => {
         lead_temperature: getLeadTemperature(aiLead.similarity_score),
         deal_value_estimate: 0,
         assigned_to: req.user?._id || null,
+        stage: "P3",
         status: "new",
         is_active: true,
         location: aiLead.location || null,
@@ -235,6 +236,16 @@ exports.importAiLead = async (req, res) => {
           }))
         );
       }
+    } else {
+      await Lead.updateOne(
+        { _id: targetLeadId },
+        {
+          $set: {
+            stage: "P3",
+            updated_at: new Date(),
+          },
+        }
+      );
     }
 
     await AiGeneratedLead.updateOne(
