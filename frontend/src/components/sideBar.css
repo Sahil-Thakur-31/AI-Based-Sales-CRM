@@ -55,6 +55,13 @@
   margin: 0 8px;
 }
 
+.sidebar-logo-image-icon {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  object-position: center;
+}
+
 .sidebar-logo-placeholder {
   width: 44px;
   height: 44px;
@@ -239,7 +246,6 @@
 }
 
 .sidebar.sidebar-collapsed .sidebar-logo,
-.sidebar.sidebar-collapsed .sidebar-logo-image,
 .sidebar.sidebar-collapsed .sidebar-logo-placeholder,
 .sidebar.sidebar-collapsed .sidebar-subtitle,
 .sidebar.sidebar-collapsed .sidebar-text,
@@ -251,12 +257,14 @@
 .sidebar.sidebar-collapsed .sidebar-header {
   justify-content: center;
   align-items: center;
-  flex-direction: row;
-  gap: 0;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sidebar.sidebar-collapsed .sidebar-brand {
-  display: none;
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .sidebar.sidebar-collapsed .sidebar-collapse-btn {

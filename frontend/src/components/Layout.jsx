@@ -4,7 +4,7 @@ import Sidebar from "./sideBar";
 import Navbar from "./navBar.jsx";
 import "./layout.css"
 
-function Layout({ organizationLogoUrl = "" }) {
+function Layout({ organizationLogoUrl = "", organizationIconUrl = "" }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved === null ? false : saved === "true";
@@ -20,6 +20,7 @@ function Layout({ organizationLogoUrl = "" }) {
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         organizationLogoUrl={organizationLogoUrl}
+        organizationIconUrl={organizationIconUrl}
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
       />
 

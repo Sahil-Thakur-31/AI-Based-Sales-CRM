@@ -315,6 +315,7 @@ const EventExpo = () => {
     missedPastEvents: 0,
     uninterestedPastEvents: 0,
     avgAiScore: 0,
+    todayFetchedCount: 0,
     lastUpdatedAt: null,
     lastScraperRunAt: null,
     lastScraperNewEvents: 0,
@@ -816,19 +817,7 @@ const EventExpo = () => {
     : Number(summary.upcomingEvents || 0);
   const invitationCount = upcomingCount;
   const pendingInvitationCount = Math.max(0, invitationCount - attendingCount);
-  const formatDateTimeLabel = (value) => (value
-    ? new Date(value).toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    })
-    : "N/A");
-  const lastUpdatedLabel = formatDateTimeLabel(summary.lastUpdatedAt);
-  const lastScraperRunLabel = formatDateTimeLabel(summary.lastScraperRunAt);
-  const lastScraperNewEvents = Number(summary.lastScraperNewEvents || 0);
-  const lastScraperUpdatedEvents = Number(summary.lastScraperUpdatedEvents || 0);
+  const todayFetchedCount = Number(summary.todayFetchedCount || 0);
 
   return (
     <div className="event-page">
@@ -854,9 +843,9 @@ const EventExpo = () => {
             </div>
 
             <div className="event-card event-card-accent-purple">
-              <h4>Last Fetched</h4>
-              <h2>{loading ? "..." : `${lastScraperNewEvents} new`}</h2>
-              <p>{summary.lastScraperRunAt ? lastScraperRunLabel : lastUpdatedLabel}</p>
+              <h4>Today's Fetch</h4>
+              <h2>{loading ? "..." : `${todayFetchedCount} new`}</h2>
+              <p>Events fetched today</p>
             </div>
           </>
         ) : (
@@ -880,16 +869,9 @@ const EventExpo = () => {
             </div>
 
             <div className="event-card event-card-accent-purple">
-              <h4>Last Fetched</h4>
-              <h2>{loading ? "..." : `${lastScraperNewEvents} new`}</h2>
-              <p>{summary.lastScraperRunAt ? `${lastScraperRunLabel}${lastScraperUpdatedEvents ? ` | ${lastScraperUpdatedEvents} updated` : ""}` : lastUpdatedLabel}</p>
-              {/*
-              <p>
-                {summary.lastScraperRunAt
-                  ? `${lastScraperRunLabel}${lastScraperUpdatedEvents ? ` · ${lastScraperUpdatedEvents} updated` : ""}`
-                  : lastUpdatedLabel}
-              </p>
-              */}
+              <h4>Today's Fetch</h4>
+              <h2>{loading ? "..." : `${todayFetchedCount} new`}</h2>
+              <p>Events fetched today</p>
             </div>
           </>
         )}
@@ -1156,7 +1138,7 @@ const EventExpo = () => {
                           <small>
                             {roleComparison.visitor.expectedROIRange || "Range N/A"}
                             {Number.isFinite(Number(roleComparison.visitor.confidence))
-                              ? ` · ${Math.round(Number(roleComparison.visitor.confidence || 0))}% conf`
+                              ? ` Â· ${Math.round(Number(roleComparison.visitor.confidence || 0))}% conf`
                               : ""}
                           </small>
                         </div>
@@ -1168,7 +1150,7 @@ const EventExpo = () => {
                           <small>
                             {roleComparison.exhibitor.expectedROIRange || "Range N/A"}
                             {Number.isFinite(Number(roleComparison.exhibitor.confidence))
-                              ? ` · ${Math.round(Number(roleComparison.exhibitor.confidence || 0))}% conf`
+                              ? ` Â· ${Math.round(Number(roleComparison.exhibitor.confidence || 0))}% conf`
                               : ""}
                           </small>
                         </div>
@@ -1176,7 +1158,7 @@ const EventExpo = () => {
                     </div>
                     <div className="roi-role-summary">
                       Suggested mode: {roleComparison.recommendedRole || "N/A"}
-                      {roleComparison.decisionSummary ? ` · ${roleComparison.decisionSummary}` : ""}
+                      {roleComparison.decisionSummary ? ` Â· ${roleComparison.decisionSummary}` : ""}
                     </div>
                   </div>
                 )}
