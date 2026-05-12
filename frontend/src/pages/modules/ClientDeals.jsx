@@ -92,7 +92,6 @@ export default function ClientDeals() {
             <tr>
               <th>Company</th>
               <th>Stage</th>
-              <th>Status</th>
               <th>Value</th>
               <th>Updated</th>
               <th>Actions</th>
@@ -101,11 +100,11 @@ export default function ClientDeals() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6}>Loading deals...</td>
+                <td colSpan={5}>Loading deals...</td>
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan={6}>{error}</td>
+                <td colSpan={5}>{error}</td>
               </tr>
             ) : paginatedDeals.length ? (
               paginatedDeals.map((deal) => {
@@ -114,7 +113,6 @@ export default function ClientDeals() {
                   <tr key={dealId}>
                     <td className="company-cell">{deal.company_name || "-"}</td>
                     <td>{deal.stage || "-"}</td>
-                    <td>{deal.status || "-"}</td>
                     <td>{formatCurrency(deal.deal_value_estimate || deal.dealValue)}</td>
                     <td>{formatDate(deal.updatedAt || deal.last_contact_date)}</td>
                     <td>
@@ -133,7 +131,7 @@ export default function ClientDeals() {
               })
             ) : (
               <tr>
-                <td colSpan={6}>No deals found for this client.</td>
+                <td colSpan={5}>No deals found for this client.</td>
               </tr>
             )}
           </tbody>
@@ -146,4 +144,3 @@ export default function ClientDeals() {
     </div>
   );
 }
-

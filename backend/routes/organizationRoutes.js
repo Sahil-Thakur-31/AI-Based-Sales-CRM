@@ -14,6 +14,7 @@ const {
 
 const organizationAssetUpload = organizationLogoUpload.fields([
   { name: "logo", maxCount: 1 },
+  { name: "icon", maxCount: 1 },
   { name: "signature", maxCount: 1 },
   { name: "stamp", maxCount: 1 }
 ]);

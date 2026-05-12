@@ -118,7 +118,12 @@ function startPythonBridge() {
   let proc;
   try {
     proc = spawn(pythonCommand.command, [...(pythonCommand.args || []), BRIDGE_SCRIPT], {
-      env: { ...process.env, OCR_USE_GPU: process.env.OCR_USE_GPU || "1" },
+      env: {
+        ...process.env,
+        OCR_USE_GPU: process.env.OCR_USE_GPU || "1",
+        PYTHONIOENCODING: process.env.PYTHONIOENCODING || "utf-8",
+        PYTHONUTF8: process.env.PYTHONUTF8 || "1",
+      },
     });
   } catch (err) {
     disableAutoRestart(`Failed to start OCR Python bridge using ${activePythonExec}: ${err.message || err}`);
@@ -143,6 +148,10 @@ function startPythonBridge() {
 
       try {
         const result = JSON.parse(line);
+        if (result?.error && /EasyOCR init failed|Import failed/i.test(String(result.error))) {
+          disableAutoRestart(result.error);
+          continue;
+        }
         const req = pendingRequests.shift();
         if (req) {
           req.resolve(result);

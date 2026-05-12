@@ -24,7 +24,9 @@ export function resolveAssetUrl(value) {
 export function normalizeOrganizationBrand(organization) {
   return {
     companyName: String(organization?.companyName || organization?.name || "").trim(),
-    logoUrl: resolveAssetUrl(organization?.logoUrl || "")
+    shortName: String(organization?.shortName || "").trim(),
+    logoUrl: resolveAssetUrl(organization?.logoUrl || ""),
+    iconUrl: resolveAssetUrl(organization?.iconUrl || "")
   };
 }
 
@@ -35,7 +37,9 @@ export function getCachedOrganizationBrand() {
     const parsed = JSON.parse(raw);
     return {
       companyName: String(parsed?.companyName || "").trim(),
-      logoUrl: String(parsed?.logoUrl || "").trim()
+      shortName: String(parsed?.shortName || "").trim(),
+      logoUrl: String(parsed?.logoUrl || "").trim(),
+      iconUrl: String(parsed?.iconUrl || "").trim()
     };
   } catch (_err) {
     return normalizeOrganizationBrand(null);

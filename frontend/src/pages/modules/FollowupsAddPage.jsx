@@ -425,7 +425,7 @@ export default function FollowupsAddPage() {
           id: String(lead._id),
           label: lead.company_name || "Untitled Lead",
           sourceType: "lead",
-          stage: "P1",
+          stage: lead.stage || "P1",
           leadId: String(lead._id),
         }));
     }
@@ -1172,7 +1172,7 @@ export default function FollowupsAddPage() {
             {formData.sourceType !== "existingClient" && (
               <label>
                 Stage
-                <input type="text" value={formData.stage || "No stage found"} readOnly />
+                <input type="text" value={formData.stage ? getStageOptionLabel(STAGES.find((s) => s.key === formData.stage)) : "No stage found"} readOnly />
               </label>
             )}
 

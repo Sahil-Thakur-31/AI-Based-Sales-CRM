@@ -28,6 +28,16 @@ function parseEmployeeCount(rangeValue) {
   return Math.round((min + max) / 2);
 }
 
+function sanitizeEmployeeDisplay(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "-") return "";
+  const numbers = text.match(/\d+/g) || [];
+  if (!numbers.length) return text;
+  const maxValue = Math.max(...numbers.map((item) => Number(item)).filter(Number.isFinite), 0);
+  if (!Number.isFinite(maxValue) || maxValue <= 0 || maxValue > 10000) return "";
+  return text;
+}
+
 function formatLocation(lead) {
   const location = lead.location;
   if (location && typeof location === "object") {
@@ -81,34 +91,60 @@ function buildExistingLeadQuery(aiLead) {
 
 exports.getAiLeads = async (req, res) => {
   try {
-    const [aiLeads, importedCount, lastRun] = await Promise.all([
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const todayFetchFilter = {
+      $or: [
+        { scraped_at: { $gte: startOfToday, $lt: startOfTomorrow } },
+        {
+          $and: [
+            { $or: [{ scraped_at: { $exists: false } }, { scraped_at: null }] },
+            { created_at: { $gte: startOfToday, $lt: startOfTomorrow } },
+          ],
+        },
+      ],
+    };
+
+    const [aiLeads, importedCount, todayFetchedCount, lastRun] = await Promise.all([
       AiGeneratedLead.find({ is_deleted: { $ne: true } })
         .sort({ scraped_at: -1, created_at: -1 })
         .populate("source", "name")
         .populate("location", "city district State state country")
         .lean(),
       AiGeneratedLead.countDocuments({ status: "imported" }),
+      AiGeneratedLead.countDocuments(todayFetchFilter),
       LeadScraperRun.findOne({})
         .sort({ startedAt: -1 })
         .lean(),
     ]);
 
-    const industryRepairOps = aiLeads
+    const leadRepairOps = aiLeads
       .map((lead) => {
         const normalized = normalizeIndustry(lead.industry);
-        if (!normalized || normalized === lead.industry) return null;
-        lead.industry = normalized;
+        const employeeRange = sanitizeEmployeeDisplay(lead.employee_range);
+        const updates = {};
+        if (normalized && normalized !== lead.industry) {
+          updates.industry = normalized;
+          lead.industry = normalized;
+        }
+        if (employeeRange !== String(lead.employee_range || "").trim()) {
+          updates.employee_range = employeeRange;
+          lead.employee_range = employeeRange;
+        }
+        if (!Object.keys(updates).length) return null;
         return {
           updateOne: {
             filter: { _id: lead._id },
-            update: { $set: { industry: normalized } },
+            update: { $set: updates },
           },
         };
       })
       .filter(Boolean);
 
-    if (industryRepairOps.length) {
-      await AiGeneratedLead.bulkWrite(industryRepairOps);
+    if (leadRepairOps.length) {
+      await AiGeneratedLead.bulkWrite(leadRepairOps);
     }
 
     const aiLeadIds = aiLeads.map((item) => item._id);
@@ -134,7 +170,7 @@ exports.getAiLeads = async (req, res) => {
         industry: normalizeIndustry(lead.industry) || "-",
         source: lead.source?.name || "Unknown",
         location: formatLocation(lead),
-        employees: lead.employee_range || "-",
+        employees: sanitizeEmployeeDisplay(lead.employee_range) || "-",
         turnover: lead.turnover_range || "-",
         decisionMaker: mapPrimaryContact(primaryContact),
         phone: mapContactPhone(primaryContact),
@@ -155,6 +191,7 @@ exports.getAiLeads = async (req, res) => {
         total: activeItems.length,
         imported: importedCount,
         industries: industries.length,
+        todayFetchedCount,
         lastRunAt: lastRun?.finishedAt || lastRun?.startedAt || null,
         lastRunStatus: lastRun?.status || "",
         lastImportedCount: Number(lastRun?.syncResult?.importedCount || 0),
@@ -193,7 +230,7 @@ exports.importAiLead = async (req, res) => {
         lead_temperature: getLeadTemperature(aiLead.similarity_score),
         deal_value_estimate: 0,
         assigned_to: req.user?._id || null,
-        status: "new",
+        stage: "P3",
         is_active: true,
         location: aiLead.location || null,
       });
@@ -217,6 +254,16 @@ exports.importAiLead = async (req, res) => {
           }))
         );
       }
+    } else {
+      await Lead.updateOne(
+        { _id: targetLeadId },
+        {
+          $set: {
+            stage: "P3",
+            updated_at: new Date(),
+          },
+        }
+      );
     }
 
     await AiGeneratedLead.updateOne(

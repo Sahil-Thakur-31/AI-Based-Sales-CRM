@@ -201,7 +201,7 @@ function summarizeDealActivity(followups = []) {
   let meetingCount = 0;
   let overdueMeetingCount = 0;
   let overdueFollowupCount = 0;
-  let latestActivityAt = null;
+  let latestCompletedContactAt = null;
 
   for (const item of followups) {
     const kind = String(item?.kind || "").toLowerCase();
@@ -216,19 +216,13 @@ function summarizeDealActivity(followups = []) {
       if (status === "overdue") overdueFollowupCount += 1;
     }
 
-    const candidates = [
-      item?.lastContactDate,
-      item?.completedAt,
-      item?.updatedAt,
-      item?.createdAt,
-    ]
-      .map((value) => (value ? new Date(value) : null))
-      .filter((value) => value && !Number.isNaN(value.getTime()));
+    if (!isCompleted || !item?.completedAt) continue;
 
-    if (!candidates.length) continue;
-    const newest = new Date(Math.max(...candidates.map((value) => value.getTime())));
-    if (!latestActivityAt || newest > latestActivityAt) {
-      latestActivityAt = newest;
+    const completedAt = new Date(item.completedAt);
+    if (Number.isNaN(completedAt.getTime())) continue;
+
+    if (!latestCompletedContactAt || completedAt > latestCompletedContactAt) {
+      latestCompletedContactAt = completedAt;
     }
   }
 
@@ -237,7 +231,7 @@ function summarizeDealActivity(followups = []) {
     meetingCount,
     overdueMeetingCount,
     overdueFollowupCount,
-    latestActivityAt,
+    latestCompletedContactAt,
   };
 }
 
@@ -247,8 +241,8 @@ function buildModelInputRow({ deal, lead, activity }) {
   const expectedCloseGapDays = deal?.expectedCloseDate ? diffDays(new Date(), deal.expectedCloseDate) : 0;
   const leadToDealConvertDays =
     lead?.created_at && deal?.createdAt ? diffDays(lead.created_at, deal.createdAt) : 0;
-  const lastContactDays = activity.latestActivityAt
-    ? diffDays(activity.latestActivityAt, new Date())
+  const lastContactDays = activity.latestCompletedContactAt
+    ? diffDays(activity.latestCompletedContactAt, new Date())
     : lead?.last_contact_date
       ? diffDays(lead.last_contact_date, new Date())
       : 0;
@@ -272,6 +266,57 @@ function buildModelInputRow({ deal, lead, activity }) {
     overdue_followup_count: activity.overdueFollowupCount,
     last_contact_days: lastContactDays,
   };
+}
+
+function logModelInputs(rows = [], dealsById = new Map(), leadsById = new Map()) {
+  const printableRows = rows.map((row) => {
+    const deal = dealsById.get(String(row.dealId)) || {};
+    const lead = deal?.lead_id ? leadsById.get(String(deal.lead_id)) || {} : {};
+    const cliArgs = [
+      `--deal_stage ${row.deal_stage}`,
+      `--deal_value ${row.deal_value}`,
+      `--overdue_meeting_count ${row.overdue_meeting_count}`,
+      `--expected_close_gap_days ${row.expected_close_gap_days}`,
+      `--lead_to_deal_convert_days ${row.lead_to_deal_convert_days}`,
+      `--followup_count ${row.followup_count}`,
+      `--meeting_count ${row.meeting_count}`,
+      `--overdue_followup_count ${row.overdue_followup_count}`,
+      `--last_contact_days ${row.last_contact_days}`,
+    ].join(" ");
+
+    return {
+      dealId: row.dealId,
+      dealName: row.name,
+      companyName: row.companyName,
+      modelInputArgs: cliArgs,
+      "db:deals.stage -> model:deal_stage": row.deal_stage,
+      "db:deals.expectedCloseDate -> model:expected_close_gap_days": row.expected_close_gap_days,
+      "db:leads.created_at + deals.createdAt -> model:lead_to_deal_convert_days":
+        row.lead_to_deal_convert_days,
+      "db:followups(kind=followup,status=completed) -> model:followup_count": row.followup_count,
+      "db:followups(kind=meeting,status=completed) -> model:meeting_count": row.meeting_count,
+      "db:followups(kind=meeting,status=overdue) -> model:overdue_meeting_count":
+        row.overdue_meeting_count,
+      "db:followups(kind=followup,status=overdue) -> model:overdue_followup_count":
+        row.overdue_followup_count,
+      "db:latest followups.completedAt where status=completed or leads.last_contact_date -> model:last_contact_days":
+        row.last_contact_days,
+      "db:deals.dealValue or leads.deal_value_estimate -> revenue only:deal_value": row.deal_value,
+      "raw:deals.stage": deal?.stage ?? null,
+      "raw:deals.expectedCloseDate": deal?.expectedCloseDate ?? null,
+      "raw:deals.createdAt": deal?.createdAt ?? null,
+      "raw:leads.created_at": lead?.created_at ?? null,
+      "raw:leads.last_contact_date": lead?.last_contact_date ?? null,
+      "raw:deals.dealValue": deal?.dealValue ?? null,
+      "raw:leads.deal_value_estimate": lead?.deal_value_estimate ?? null,
+    };
+  });
+
+  console.log("Sales forecast model inputs:");
+  for (const row of printableRows) {
+    console.log(`[Sales Forecast] ${row.dealName} (${row.dealId})`);
+    console.log(row.modelInputArgs);
+  }
 }
 
 function runBatchPrediction(inputRows) {
@@ -399,6 +444,7 @@ async function getSalesForecast(user = {}, options = {}) {
   ]);
 
   const leadMap = new Map(leads.map((lead) => [String(lead._id), lead]));
+  const dealMap = new Map(deals.map((deal) => [String(deal._id), deal]));
   const activityMap = new Map();
 
   for (const row of followups) {
@@ -415,6 +461,8 @@ async function getSalesForecast(user = {}, options = {}) {
     const activity = summarizeDealActivity(activityMap.get(dealId) || []);
     return buildModelInputRow({ deal, lead, activity });
   });
+
+  logModelInputs(inputRows, dealMap, leadMap);
 
   const predictionResponse = await runBatchPrediction(inputRows);
   const predictions = Array.isArray(predictionResponse?.predictions)

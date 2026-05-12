@@ -7,6 +7,12 @@ import os
 import numpy as np
 from pathlib import Path
 
+for stream in (sys.stdout, sys.stderr):
+    try:
+        stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Use the vendored OCR runtime inside this project instead of depending on the
 # external research/training workspace.
 OCR_ROOT = Path(__file__).resolve().parent

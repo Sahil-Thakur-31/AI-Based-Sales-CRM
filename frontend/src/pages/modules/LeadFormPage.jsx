@@ -394,7 +394,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     zone: "",
     lead_temperature: "cold",
     deal_value_estimate: "",
-    status: "new",
+    stage: "P3",
     next_action: "",
     next_action_date: "",
     assigned_to: "",
@@ -1077,6 +1077,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             address: contact.address || "",
           })),
         };
+        delete payload.status;
 
         response = isNew
           ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
@@ -1626,36 +1627,40 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
         )}
 
-        {/* Deal Status */}
+        {/* Pipeline Stage */}
         {dealView && (
           <div className="field">
-            <label>Status</label>
+            <label>Stage</label>
             {editMode ? (
-              <select name="status" value={lead.status || "open"} onChange={handleLeadChange}>
-                <option value="open">Open</option>
-                <option value="won">Won</option>
-                <option value="lost">Lost</option>
+              <select name="stage" value={lead.stage || "P3"} onChange={handleLeadChange}>
+                <option value="P1">P1</option>
+                <option value="P2">P2</option>
+                <option value="P3">P3</option>
+                <option value="P6">P6</option>
+                <option value="P7">P7</option>
               </select>
             ) : (
-              <p style={{ textTransform: "capitalize" }}>{lead.status || "open"}</p>
+              <p>{lead.stage || "P3"}</p>
             )}
           </div>
         )}
 
-        {/* Lead Status */}
+        {/* Lead Stage */}
         {!dealView && !clientView && (
           <div className="field">
-            <label>Status</label>
+            <label>Stage</label>
             {editMode ? (
-              <select name="status" value={lead.status || "new"} onChange={handleLeadChange}>
-                <option value="new">New</option>
-                <option value="contacted">Contacted</option>
-                <option value="qualified">Qualified</option>
-                <option value="converted">Converted</option>
-                <option value="rejected">Rejected</option>
+              <select name="stage" value={lead.stage || "P3"} onChange={handleLeadChange}>
+                <option value="P1">P1</option>
+                <option value="P2">P2</option>
+                <option value="P3">P3</option>
+                <option value="P4">P4</option>
+                <option value="P5">P5</option>
+                <option value="P6">P6</option>
+                <option value="P7">P7</option>
               </select>
             ) : (
-              <p style={{ textTransform: "capitalize" }}>{lead.status || "new"}</p>
+              <p>{lead.stage || "P3"}</p>
             )}
           </div>
         )}

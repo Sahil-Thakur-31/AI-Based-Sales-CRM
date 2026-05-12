@@ -68,19 +68,7 @@ const leadsSchema = new mongoose.Schema(
     stage: {
       type: String,
       enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
-      default: "P1",
-    },
-
-    status: {
-      type: String,
-      enum: ["new", "contacted", "qualified", "converted", "rejected"],
-      default: "new",
-    },
-
-    stage: {
-      type: String,
-      enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
-      default: "P1",
+      default: "P3",
     },
 
     converted_deal_id: {

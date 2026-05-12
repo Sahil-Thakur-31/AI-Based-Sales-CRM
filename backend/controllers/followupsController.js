@@ -153,9 +153,11 @@ async function syncStageToLinkedEntity(stage, { leadId, dealId }) {
   if (!normalizedStage) return;
 
   if (dealId && mongoose.Types.ObjectId.isValid(String(dealId))) {
+    const dealStatus =
+      normalizedStage === "P7" ? "won" : normalizedStage === "P6" ? "lost" : "open";
     await Deal.updateOne(
       { _id: new mongoose.Types.ObjectId(String(dealId)) },
-      { $set: { stage: normalizedStage } }
+      { $set: { stage: normalizedStage, status: dealStatus } }
     );
   }
 
@@ -244,6 +246,7 @@ function getUtcDayRangeFromQuery(query) {
 function mapFollowupStatusToMeetingStatus(status) {
   if (status === "completed") return "completed";
   if (status === "cancelled") return "cancelled";
+  if (status === "overdue") return "overdue";
   return "scheduled";
 }
 
@@ -591,7 +594,7 @@ exports.listTodayMeetings = async (req, res) => {
       sourceFollowupId: { $exists: true },
       assignedTo: { $in: assignedObjectIds },
       startTime: { $gte: startUtc, $lt: endUtc },
-      status: { $in: ["pending", "scheduled", "rescheduled"] },
+      status: { $in: ["pending", "scheduled", "rescheduled", "overdue"] },
     };
 
     const fallbackMeetings = await Followup.find({

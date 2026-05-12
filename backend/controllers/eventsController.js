@@ -712,7 +712,13 @@ exports.getEventSummary = async (req, res) => {
       ],
     };
 
-    const [upcomingEvents, registeredEvents, attendingEvents, missedPastEvents, uninterestedPastEvents, avgAi, lastUpdated, lastScraperRun] = await Promise.all([
+    const startOfTomorrow = addDays(startOfToday, 1);
+    const todayFetchedFilter = {
+      ...baseVisibilityFilter,
+      createdAt: { $gte: startOfToday, $lt: startOfTomorrow },
+    };
+
+    const [upcomingEvents, registeredEvents, attendingEvents, missedPastEvents, uninterestedPastEvents, avgAi, lastUpdated, todayFetchedCount, lastScraperRun] = await Promise.all([
       Event.countDocuments(upcomingFilter),
       Event.countDocuments(registeredFilter),
       Event.countDocuments(attendingFilter),
@@ -723,6 +729,7 @@ exports.getEventSummary = async (req, res) => {
         { $group: { _id: null, avgScore: { $avg: "$aiRelevanceScore" } } }
       ]),
       Event.findOne(baseVisibilityFilter).sort({ updatedAt: -1 }).select("updatedAt").lean(),
+      Event.countDocuments(todayFetchedFilter),
       EventScraperRun.findOne({
         finishedAt: { $ne: null },
       })
@@ -739,6 +746,7 @@ exports.getEventSummary = async (req, res) => {
       uninterestedPastEvents,
       avgAiScore: Number(avgAi?.[0]?.avgScore || 0),
       lastUpdatedAt: lastUpdated?.updatedAt || null,
+      todayFetchedCount,
       lastScraperRunAt: lastScraperRun?.finishedAt || null,
       lastScraperNewEvents: Number(lastScraperRun?.syncResult?.importedCount || 0),
       lastScraperUpdatedEvents: Number(lastScraperRun?.syncResult?.updatedCount || 0),

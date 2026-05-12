@@ -5,7 +5,8 @@ import { jwtDecode } from "jwt-decode";
 export default function Sidebar({
   isCollapsed = false,
   onToggleCollapse,
-  organizationLogoUrl = ""
+  organizationLogoUrl = "",
+  organizationIconUrl = ""
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,6 +27,7 @@ export default function Sidebar({
     .trim()
     .toLowerCase();
   const isAdminOrManager = normalizedRole === "admin" || normalizedRole === "manager";
+  const brandImageUrl = isCollapsed ? (organizationIconUrl || organizationLogoUrl) : organizationLogoUrl;
 
   let dashboardPath = "/userhome";
   if (normalizedRole === "admin") dashboardPath = "/adminhome";
@@ -52,8 +54,12 @@ export default function Sidebar({
     <div className={`sidebar ${isCollapsed ? "sidebar-collapsed" : ""}`.trim()}>
       <div className="sidebar-header">
         <div className="sidebar-brand">
-          {organizationLogoUrl ? (
-            <img className="sidebar-logo-image" src={organizationLogoUrl} alt="Organization logo" />
+          {brandImageUrl ? (
+            <img
+              className={`sidebar-logo-image ${isCollapsed ? "sidebar-logo-image-icon" : ""}`.trim()}
+              src={brandImageUrl}
+              alt="Organization logo"
+            />
           ) : (
             <div className="sidebar-logo-placeholder" aria-hidden="true">
               🏢
