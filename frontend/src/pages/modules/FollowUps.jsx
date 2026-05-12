@@ -220,6 +220,17 @@ function mapDealToPipelineItem(doc) {
   };
 }
 
+function mapLeadToPipelineItem(doc) {
+  return {
+    id: String(doc?._id || ""),
+    stage: String(doc?.stage || "").trim().toUpperCase(),
+    status: String(doc?.status || "").trim().toLowerCase(),
+    convertedToDeal:
+      doc?.converted_to_deal === true || String(doc?.status || "").trim().toLowerCase() === "converted",
+    assignedToId: getAssignedUserId(doc),
+  };
+}
+
 function getAiPriorityClass(value = "") {
   return String(value || "").trim().toLowerCase();
 }
@@ -298,6 +309,7 @@ export default function Followups() {
   const [followups, setFollowups] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [deals, setDeals] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [meetingMode, setMeetingMode] = useState("list");
   const [statusFilter, setStatusFilter] = useState("all");
   const [meetingPage, setMeetingPage] = useState(1);
@@ -339,10 +351,11 @@ export default function Followups() {
     try {
       setLoading(true);
       setError("");
-      const [meetingRes, followupRes, dealRes] = await Promise.all([
+      const [meetingRes, followupRes, dealRes, leadRes] = await Promise.all([
         API.get("/followups", { params: { kind: "meeting" } }),
         API.get("/followups", { params: { kind: "followup" } }),
         API.get("/deals"),
+        API.get("/leads", { params: { include_converted: true } }),
       ]);
 
       const stageById = new Map(
@@ -378,6 +391,7 @@ export default function Followups() {
       setMeetings(mergedMeetings);
       setFollowups((followupRes.data || []).map(mapDocToFollowup));
       setDeals((dealRes.data || []).map(mapDealToPipelineItem));
+      setLeads((leadRes.data || []).map(mapLeadToPipelineItem));
     } catch (err) {
       console.error(err);
       setError("Failed to load followups");
@@ -480,6 +494,21 @@ export default function Followups() {
     [deals, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
   );
 
+  const assigneeFilteredLeads = useMemo(
+    () =>
+      leads.filter((lead) =>
+        matchesAssigneeFilter({
+          item: lead,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [leads, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
   const stageCounts = useMemo(() => {
     const map = Object.fromEntries(visibleStageOptions.map((s) => [s.key, 0]));
 
@@ -492,13 +521,12 @@ export default function Followups() {
       return map;
     }
 
-    [...assigneeFilteredFollowups, ...assigneeFilteredMeetings].forEach((item) => {
-      if (!isOnLocalDate(item?.dueDateTime, getLocalDateISO())) return;
-      if (!item?.stage || !(item.stage in map)) return;
-      map[item.stage] = (map[item.stage] || 0) + 1;
+    assigneeFilteredLeads.forEach((lead) => {
+      if (!lead?.stage || !(lead.stage in map)) return;
+      map[lead.stage] = (map[lead.stage] || 0) + 1;
     });
     return map;
-  }, [assigneeFilteredDeals, assigneeFilteredFollowups, assigneeFilteredMeetings, recordBucket, visibleStageOptions]);
+  }, [assigneeFilteredDeals, assigneeFilteredLeads, recordBucket, visibleStageOptions]);
 
   const visibleFollowups = useMemo(
     () => (useStageFilter ? assigneeFilteredFollowups.filter((f) => f.stage === activeStage) : assigneeFilteredFollowups),
@@ -655,6 +683,21 @@ export default function Followups() {
         durationMinutes: Number(doneModal.durationMinutes),
         notes: doneModal.minutesOfMeeting.trim(),
       });
+
+      // Update lead/deal stage to match the selected stage
+      const source = doneModal.sourceData || {};
+      if (doneModal.nextStage && doneModal.nextStage !== source.stage) {
+        try {
+          if (source.leadId) {
+            await API.put(`/leads/${source.leadId}`, { stage: doneModal.nextStage });
+          } else if (source.dealId) {
+            await API.put(`/deals/${source.dealId}`, { stage: doneModal.nextStage });
+          }
+        } catch (err) {
+          console.error("Failed to update lead/deal stage:", err);
+          // Continue with the rest of the process even if stage update fails
+        }
+      }
 
       if (doneModal.nextFollowup === "yes") {
         const source = doneModal.sourceData || {};
@@ -1460,7 +1503,7 @@ export default function Followups() {
                   {doneModalStageOptions
                     .filter((s) => !s.hidden || s.key === doneModal.nextStage)
                     .map((s) => (
-                      <option key={s.key} value={s.key}>{s.key}</option>
+                      <option key={s.key} value={s.key}>{s.title || s.key}</option>
                     ))}
                 </select>
               </label>

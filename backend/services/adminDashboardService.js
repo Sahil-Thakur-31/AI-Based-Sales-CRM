@@ -47,14 +47,6 @@ function pctChange(curr, prev) {
   return Number((((curr - prev) / prev) * 100).toFixed(1));
 }
 
-function riskLabelFromAi(aiRiskScore) {
-  const s = Number(aiRiskScore);
-  if (!Number.isFinite(s)) return "medium";
-  if (s <= 33) return "low";
-  if (s <= 66) return "medium";
-  return "high";
-}
-
 function iconFromActionType(actionType = "") {
   const a = String(actionType).toLowerCase();
   if (a.includes("call")) return "📞";
@@ -209,28 +201,58 @@ async function getPipeline(range, pipelineType = "deal") {
   const nonAdminUserIds = await getNonAdminUserIds();
   const stages = normalizedType === "deal"
     ? ["P1", "P2", "P3", "P6", "P7"]
-    : ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+    : ["P1", "P2", "P3", "P4", "P5", "P6"];
 
   const agg =
     normalizedType === "lead"
-      ? await Lead.aggregate([
-          {
-            $match: {
-              is_deleted: { $ne: true },
-              is_active: true,
-              assigned_to: { $in: nonAdminUserIds },
-              status: { $nin: ["converted", "rejected"] },
-              created_at: { $gte: start, $lte: end },
-            },
-          },
-          {
-            $group: {
-              _id: "$stage",
-              count: { $sum: 1 },
-              amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
-            },
-          },
-        ])
+      ? await (async () => {
+          const [openLeadAgg, rejectedAgg] = await Promise.all([
+            Lead.aggregate([
+              {
+                $match: {
+                  is_deleted: { $ne: true },
+                  is_active: true,
+                  assigned_to: { $in: nonAdminUserIds },
+                  status: { $nin: ["converted", "rejected"] },
+                  created_at: { $gte: start, $lte: end },
+                  stage: { $in: ["P1", "P2", "P3", "P4", "P5"] },
+                },
+              },
+              {
+                $group: {
+                  _id: "$stage",
+                  count: { $sum: 1 },
+                  amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
+                },
+              },
+            ]),
+            Lead.aggregate([
+              {
+                $match: {
+                  is_deleted: { $ne: true },
+                  is_active: false,
+                  assigned_to: { $in: nonAdminUserIds },
+                  status: "rejected",
+                  stage: "P6",
+                  created_at: { $gte: start, $lte: end },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
+                },
+              },
+            ]),
+          ]);
+
+          const rejectedStage = rejectedAgg[0]
+            ? [{ _id: "P6", count: rejectedAgg[0].count || 0, amount: rejectedAgg[0].amount || 0 }]
+            : [];
+
+          return [...openLeadAgg, ...rejectedStage];
+        })()
       : await (async () => {
           const [openStageAgg, lostAgg, wonAgg] = await Promise.all([
             Deal.aggregate([
@@ -454,7 +476,7 @@ async function getFollowups(range, viewerUserId = null) {
 /**
  * RECENT DEALS
  * Shape must match frontend:
- * [{ id, client, stage, value, risk, closeDate }, ...]
+ * [{ id, dealName, stage, value, closeDate }, ...]
  */
 async function getRecentDeals(range) {
   const { start, end } = getRangeDates(range);
@@ -466,19 +488,17 @@ async function getRecentDeals(range) {
       assignedTo: { $in: nonAdminUserIds },
       createdAt: { $gte: start, $lte: end },
     },
-    { stage: 1, dealValue: 1, aiRiskScore: 1, expectedCloseDate: 1, actualCloseDate: 1, createdAt: 1, client_id: 1 }
+    { deal_name: 1, stage: 1, dealValue: 1, expectedCloseDate: 1, actualCloseDate: 1, createdAt: 1 }
   )
     .sort({ createdAt: -1 })
     .limit(4)
-    .populate({ path: "client_id", model: "client", select: "name" })
     .lean();
 
   return deals.map((d) => ({
     id: String(d._id),
-    client: d.client_id?.name || "Client",
+    dealName: d.deal_name || "Unnamed Deal",
     stage: d.stage || "P1",
     value: Number(d.dealValue || 0),
-    risk: riskLabelFromAi(d.aiRiskScore),
     closeDate: d.expectedCloseDate
       ? new Date(d.expectedCloseDate).toLocaleDateString("en-IN")
       : d.actualCloseDate

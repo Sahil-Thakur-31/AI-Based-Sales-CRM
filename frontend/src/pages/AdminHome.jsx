@@ -79,20 +79,6 @@ function AiBadge({ children, tone = "ai" }) {
   return <span className={cx("badge", `badge--${tone}`)}>{children}</span>;
 }
 
-// risk badge
-function Risk({ level }) {
-  const colorMap = { low: "success", medium: "warning", high: "danger" };
-  return (
-    <CBadge
-      color={colorMap[level] || "secondary"}
-      className={cx("risk-badge", `risk--${level}`)}
-      shape="rounded-pill"
-    >
-      {level}
-    </CBadge>
-  );
-}
-
 // stage
 function StagePill({ stage }) {
   return (
@@ -212,22 +198,22 @@ function getMockDashboard(range = "month", pipelineType = "deal") {
   const recentDeals =
     range === "week"
       ? [
-          { id: "d2", client: "Reliance Infra", stage: "P4", value: 4500000, risk: "medium", closeDate: "This week" },
-          { id: "d4", client: "Medanta Hospitals", stage: "P6", value: 3200000, risk: "low", closeDate: "This week" },
+          { id: "d2", dealName: "Reliance Infra Renewal", stage: "P4", value: 4500000, closeDate: "This week" },
+          { id: "d4", dealName: "Medanta Expansion", stage: "P6", value: 3200000, closeDate: "This week" },
         ]
       : range === "quarter"
       ? [
-          { id: "d1", client: "TechNova Pvt Ltd", stage: "P5", value: 2800000, risk: "low", closeDate: "Apr 2025" },
-          { id: "d2", client: "Reliance Infra", stage: "P4", value: 6500000, risk: "medium", closeDate: "May 2025" },
-          { id: "d3", client: "Greenfield Solar", stage: "P3", value: 9200000, risk: "high", closeDate: "Jun 2025" },
-          { id: "d4", client: "Medanta Hospitals", stage: "P6", value: 4200000, risk: "low", closeDate: "Apr 2025" },
-          { id: "d5", client: "Apex Logistics", stage: "P2", value: 1800000, risk: "medium", closeDate: "Jun 2025" },
+          { id: "d1", dealName: "TechNova Platform Rollout", stage: "P5", value: 2800000, closeDate: "Apr 2025" },
+          { id: "d2", dealName: "Reliance Infra Renewal", stage: "P4", value: 6500000, closeDate: "May 2025" },
+          { id: "d3", dealName: "Greenfield Solar Procurement", stage: "P3", value: 9200000, closeDate: "Jun 2025" },
+          { id: "d4", dealName: "Medanta Expansion", stage: "P6", value: 4200000, closeDate: "Apr 2025" },
+          { id: "d5", dealName: "Apex Logistics Upgrade", stage: "P2", value: 1800000, closeDate: "Jun 2025" },
         ]
       : [
-          { id: "d1", client: "TechNova Pvt Ltd", stage: "P5", value: 1800000, risk: "low", closeDate: "28 Mar 2025" },
-          { id: "d2", client: "Reliance Infra", stage: "P4", value: 4500000, risk: "medium", closeDate: "15 Apr 2025" },
-          { id: "d3", client: "Greenfield Solar", stage: "P3", value: 7200000, risk: "high", closeDate: "02 May 2025" },
-          { id: "d4", client: "Medanta Hospitals", stage: "P6", value: 3200000, risk: "low", closeDate: "22 Mar 2025" },
+          { id: "d1", dealName: "TechNova Platform Rollout", stage: "P5", value: 1800000, closeDate: "28 Mar 2025" },
+          { id: "d2", dealName: "Reliance Infra Renewal", stage: "P4", value: 4500000, closeDate: "15 Apr 2025" },
+          { id: "d3", dealName: "Greenfield Solar Procurement", stage: "P3", value: 7200000, closeDate: "02 May 2025" },
+          { id: "d4", dealName: "Medanta Expansion", stage: "P6", value: 3200000, closeDate: "22 Mar 2025" },
         ];
 
   return { summary, pipeline, teamPerformance, followups, recentDeals };
@@ -637,10 +623,9 @@ export default function AdminHome() {
                   <CTable hover responsive className="tbl mb-0">
                     <CTableHead>
                       <CTableRow>
-                        <CTableHeaderCell>Client</CTableHeaderCell>
+                        <CTableHeaderCell>Deal</CTableHeaderCell>
                         <CTableHeaderCell>Stage</CTableHeaderCell>
                         <CTableHeaderCell>Value</CTableHeaderCell>
-                        <CTableHeaderCell>Risk</CTableHeaderCell>
                         <CTableHeaderCell>Close Date</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
@@ -649,16 +634,13 @@ export default function AdminHome() {
                       {visibleRecentDeals.map((d) => (
                         <CTableRow key={d.id}>
                           <CTableDataCell className="tbl__client">
-                            {d.client}
+                            {d.dealName}
                           </CTableDataCell>
                           <CTableDataCell>
                             <StagePill stage={d.stage} />
                           </CTableDataCell>
                           <CTableDataCell className="tbl__value">
                             {formatINR(d.value)}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <Risk level={d.risk} />
                           </CTableDataCell>
                           <CTableDataCell className="muted">
                             {d.closeDate}
