@@ -105,6 +105,12 @@ const leadsSchema = new mongoose.Schema(
       type: String,
     },
 
+    reason_for_lost: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     is_active: {
       type: Boolean,
       default: true,

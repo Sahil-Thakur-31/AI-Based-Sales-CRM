@@ -58,6 +58,7 @@ const EMPTY_DONE_MODAL = {
   nextFollowupDate: "",
   nextReminder: "yes",
   nextStage: "P1",
+  reasonForLost: "",
   sourceData: null,
 };
 
@@ -216,6 +217,7 @@ function mapDealToPipelineItem(doc) {
     id: String(doc?._id || ""),
     stage: String(doc?.stage || "").trim().toUpperCase(),
     status: String(doc?.status || "").trim().toLowerCase(),
+    reasonForLost: String(doc?.reason_for_lost || ""),
     assignedToId: getAssignedUserId(doc),
   };
 }
@@ -225,6 +227,7 @@ function mapLeadToPipelineItem(doc) {
     id: String(doc?._id || ""),
     stage: String(doc?.stage || "").trim().toUpperCase(),
     status: String(doc?.status || "").trim().toLowerCase(),
+    reasonForLost: String(doc?.reason_for_lost || ""),
     convertedToDeal:
       doc?.converted_to_deal === true || String(doc?.status || "").trim().toLowerCase() === "converted",
     assignedToId: getAssignedUserId(doc),
@@ -256,6 +259,14 @@ function inferRecordBucket(doc) {
   if (doc?.dealId) return "deal";
   if (doc?.leadId) return "lead";
   return "deal";
+}
+
+function requiresReasonForLost(nextStage = "", sourceData = null) {
+  const stage = String(nextStage || "").trim().toUpperCase();
+  const bucket = inferRecordBucket(sourceData || {});
+  if (bucket === "lead") return stage === "P4" || stage === "P6";
+  if (bucket === "deal") return stage === "P6";
+  return false;
 }
 
 function matchesAssigneeFilter({
@@ -332,6 +343,7 @@ export default function Followups() {
   const [cancelModal, setCancelModal] = useState(EMPTY_CANCEL_MODAL);
   const [cancelModalError, setCancelModalError] = useState("");
   const [savingCancel, setSavingCancel] = useState(false);
+  const [successModal, setSuccessModal] = useState({ open: false, title: "", subtitle: "" });
   const [scopeLabel, setScopeLabel] = useState("My Records");
   const [currentRole, setCurrentRole] = useState("");
   const [teamOptions, setTeamOptions] = useState([]);
@@ -634,6 +646,16 @@ export default function Followups() {
     if (followupPage > followupTotalPages) setFollowupPage(followupTotalPages);
   }, [followupPage, followupTotalPages]);
 
+  const getExistingReasonForLost = (source = {}) => {
+    if (source?.dealId) {
+      return deals.find((deal) => String(deal.id) === String(source.dealId))?.reasonForLost || "";
+    }
+    if (source?.leadId) {
+      return leads.find((lead) => String(lead.id) === String(source.leadId))?.reasonForLost || "";
+    }
+    return "";
+  };
+
   const handleMeetingDone = async (id) => {
     const meeting = meetings.find((m) => String(m.id) === String(id)) || selectedMeeting;
     if (!meeting || isCompletedStatus(meeting.status) || isCancelledStatus(meeting.status)) return;
@@ -647,6 +669,7 @@ export default function Followups() {
       nextFollowupDate: "",
       nextReminder: "yes",
       nextStage: meeting?.stage || activeStage || "P1",
+      reasonForLost: getExistingReasonForLost(meeting),
       sourceData: meeting || null,
     });
     setDoneModalError("");
@@ -656,6 +679,13 @@ export default function Followups() {
     if (savingDone) return;
     setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
     setDoneModalError("");
+  };
+
+  const showSuccessModal = (title, subtitle = "") => {
+    setSuccessModal({ open: true, title, subtitle });
+    setTimeout(() => {
+      setSuccessModal({ open: false, title: "", subtitle: "" });
+    }, 3000);
   };
 
   const submitMeetingDone = async (e) => {
@@ -674,6 +704,13 @@ export default function Followups() {
     if (doneModal.nextFollowup === "yes" && !doneModal.nextFollowupDate) {
       return setDoneModalError("Next follow-up date is required");
     }
+    const needsReasonForLost = requiresReasonForLost(doneModal.nextStage, doneModal.sourceData);
+    const trimmedReasonForLost = String(doneModal.reasonForLost || "").trim();
+    const existingReasonForLost = String(getExistingReasonForLost(doneModal.sourceData) || "").trim();
+    if (needsReasonForLost) {
+      const reasonError = minLength(trimmedReasonForLost, 3, "Reason for lost");
+      if (reasonError) return setDoneModalError(reasonError);
+    }
 
     try {
       setSavingDone(true);
@@ -686,12 +723,46 @@ export default function Followups() {
 
       // Update lead/deal stage to match the selected stage
       const source = doneModal.sourceData || {};
-      if (doneModal.nextStage && doneModal.nextStage !== source.stage) {
+      const shouldSyncLinkedEntity =
+        Boolean(doneModal.nextStage) &&
+        (
+          doneModal.nextStage !== source.stage ||
+          (needsReasonForLost && trimmedReasonForLost !== existingReasonForLost)
+        );
+      if (shouldSyncLinkedEntity) {
         try {
           if (source.leadId) {
-            await API.put(`/leads/${source.leadId}`, { stage: doneModal.nextStage });
+            await API.put(`/leads/${source.leadId}`, {
+              stage: doneModal.nextStage,
+              ...(needsReasonForLost ? { reason_for_lost: trimmedReasonForLost } : {}),
+            });
+            setLeads((prev) =>
+              prev.map((lead) =>
+                String(lead.id) === String(source.leadId)
+                  ? {
+                      ...lead,
+                      stage: doneModal.nextStage,
+                      reasonForLost: needsReasonForLost ? trimmedReasonForLost : lead.reasonForLost,
+                    }
+                  : lead
+              )
+            );
           } else if (source.dealId) {
-            await API.put(`/deals/${source.dealId}`, { stage: doneModal.nextStage });
+            await API.put(`/deals/${source.dealId}`, {
+              stage: doneModal.nextStage,
+              ...(needsReasonForLost ? { reason_for_lost: trimmedReasonForLost } : {}),
+            });
+            setDeals((prev) =>
+              prev.map((deal) =>
+                String(deal.id) === String(source.dealId)
+                  ? {
+                      ...deal,
+                      stage: doneModal.nextStage,
+                      reasonForLost: needsReasonForLost ? trimmedReasonForLost : deal.reasonForLost,
+                    }
+                  : deal
+              )
+            );
           }
         } catch (err) {
           console.error("Failed to update lead/deal stage:", err);
@@ -732,13 +803,20 @@ export default function Followups() {
       }
 
       if (doneModal.kind === "meeting") {
-        const updated = mapDocToMeeting(res.data);
-        setMeetings((prev) => prev.map((m) => (m.id === doneModal.id ? { ...m, ...updated, status: "completed" } : m)));
+        const updated = {
+          ...mapDocToMeeting(res.data),
+          stage: doneModal.nextStage || mapDocToMeeting(res.data).stage,
+          status: "completed",
+        };
+        setMeetings((prev) => prev.map((m) => (m.id === doneModal.id ? { ...m, ...updated } : m)));
         if (selectedMeeting?.id === doneModal.id) {
-          setSelectedMeeting((prev) => ({ ...prev, ...updated, status: "completed" }));
+          setSelectedMeeting((prev) => ({ ...prev, ...updated }));
         }
       } else {
-        const updated = mapDocToFollowup(res.data);
+        const updated = {
+          ...mapDocToFollowup(res.data),
+          stage: doneModal.nextStage || mapDocToFollowup(res.data).stage,
+        };
         setFollowups((prev) => prev.map((x) => (x.id === doneModal.id ? updated : x)));
         if (selectedFollowup?.id === doneModal.id) {
           setSelectedFollowup(updated);
@@ -754,6 +832,9 @@ export default function Followups() {
           setFollowups((prev) => [nextFollowup, ...prev]);
         }
       }
+
+      const messageType = doneModal.kind === "meeting" ? "Meeting" : "Followup";
+      showSuccessModal(`${messageType} Completed Successfully`);
 
       setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
     } catch (err) {
@@ -777,6 +858,7 @@ export default function Followups() {
       nextFollowupDate: "",
       nextReminder: "yes",
       nextStage: followup?.stage || activeStage || "P1",
+      reasonForLost: getExistingReasonForLost(followup),
       sourceData: followup || null,
     });
     setDoneModalError("");
@@ -830,6 +912,9 @@ export default function Followups() {
         }
       }
       setCancelModal(EMPTY_CANCEL_MODAL);
+      showSuccessModal(
+        `${cancelModal.kind === "meeting" ? "Meeting" : "Follow-up"} Cancelled Successfully`
+      );
     } catch (err) {
       console.error(err);
       setCancelModalError(err?.response?.data?.message || "Failed to cancel record");
@@ -913,6 +998,7 @@ export default function Followups() {
       setSelectedMeeting(updated);
       setEditingMeetingId(null);
       setMeetingMode("view");
+      showSuccessModal("Meeting Updated Successfully");
     } catch (err) {
       console.error(err);
       setMeetingFormError(err?.response?.data?.errors?.[0] || "Failed to update meeting");
@@ -942,6 +1028,7 @@ export default function Followups() {
       setSelectedFollowup(updated);
       setEditingFollowupId(null);
       setFollowupMode("list");
+      showSuccessModal("Follow-up Updated Successfully");
     } catch (err) {
       console.error(err);
       setFormError(err?.response?.data?.errors?.[0] || "Failed to update follow-up");
@@ -1507,6 +1594,17 @@ export default function Followups() {
                     ))}
                 </select>
               </label>
+              {requiresReasonForLost(doneModal.nextStage, doneModal.sourceData) && (
+                <label className="fuFormLabel fuFull">
+                  Reason For Lost*
+                  <textarea
+                    className="fuField fuTextarea"
+                    rows={4}
+                    value={doneModal.reasonForLost}
+                    onChange={(e) => setDoneModal((prev) => ({ ...prev, reasonForLost: e.target.value }))}
+                  />
+                </label>
+              )}
             </div>
             <FormErrorSlot message={doneModalError} className="form-error-slot-global" />
             <div className="fuFormActions">
@@ -1547,6 +1645,17 @@ export default function Followups() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {successModal.open && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label={successModal.title}>
+          <div className="fuModalCard fuSuccessModalCard">
+            <div className="fuSuccessContent">
+              <div className="fuSuccessCheckmark">✓</div>
+              <h3 className="fuSuccessTitle">{successModal.title}</h3>
+              {successModal.subtitle ? <p className="fuSuccessSubtitle">{successModal.subtitle}</p> : null}
+            </div>
+          </div>
         </div>
       )}
     </div>

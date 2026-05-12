@@ -19,6 +19,7 @@ import {
   CFormSelect,
   CButton,
 } from "@coreui/react";
+import Pagination from "../components/Pagination";
 import "../styles/AdminHome.css";
 
 // ✅ Switch this to true only if you want mock data
@@ -239,8 +240,13 @@ async function fetchDashboard(range, pipelineType, signal) {
 }
 
 export default function AdminHome() {
+  const DEALS_PER_PAGE = 4;
+  const FOLLOWUPS_PER_PAGE = 2;
+
   const [range, setRange] = useState("month");
   const [pipelineType, setPipelineType] = useState("deal");
+  const [recentDealsPage, setRecentDealsPage] = useState(1);
+  const [followupsPage, setFollowupsPage] = useState(1);
 
   // first load skeleton
   const [loading, setLoading] = useState(true);
@@ -275,10 +281,46 @@ export default function AdminHome() {
     [pipeline]
   );
 
-  const visibleRecentDeals = useMemo(
-    () => recentDeals.slice(0, 4),
-    [recentDeals]
+  const totalRecentDealsPages = useMemo(
+    () => Math.max(1, Math.ceil(recentDeals.length / DEALS_PER_PAGE)),
+    [recentDeals.length]
   );
+
+  const totalFollowupsPages = useMemo(
+    () => Math.max(1, Math.ceil(followups.length / FOLLOWUPS_PER_PAGE)),
+    [followups.length]
+  );
+
+  const visibleRecentDeals = useMemo(
+    () =>
+      recentDeals.slice(
+        (recentDealsPage - 1) * DEALS_PER_PAGE,
+        recentDealsPage * DEALS_PER_PAGE
+      ),
+    [recentDeals, recentDealsPage]
+  );
+
+  const visibleFollowups = useMemo(
+    () =>
+      followups.slice(
+        (followupsPage - 1) * FOLLOWUPS_PER_PAGE,
+        followupsPage * FOLLOWUPS_PER_PAGE
+      ),
+    [followups, followupsPage]
+  );
+
+  useEffect(() => {
+    setRecentDealsPage(1);
+    setFollowupsPage(1);
+  }, [range, pipelineType]);
+
+  useEffect(() => {
+    setRecentDealsPage((current) => Math.min(current, totalRecentDealsPages));
+  }, [totalRecentDealsPages]);
+
+  useEffect(() => {
+    setFollowupsPage((current) => Math.min(current, totalFollowupsPages));
+  }, [totalFollowupsPages]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -563,7 +605,7 @@ export default function AdminHome() {
 
                 <CCardBody>
                   <div className="followList">
-                    {followups.slice(0, 2).map((f) => (
+                    {visibleFollowups.map((f) => (
                       <div key={f.id} className="followItem">
                         <div className="followIcon">{f.icon}</div>
 
@@ -596,6 +638,14 @@ export default function AdminHome() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                  <div className="admin-panel-pagination">
+                    <Pagination
+                      currentPage={followupsPage}
+                      totalPages={totalFollowupsPages}
+                      handlePageChange={setFollowupsPage}
+                      showSinglePage
+                    />
                   </div>
                 </CCardBody>
               </CCard>
@@ -649,6 +699,14 @@ export default function AdminHome() {
                       ))}
                     </CTableBody>
                   </CTable>
+                  <div className="admin-panel-pagination admin-panel-pagination--table">
+                    <Pagination
+                      currentPage={recentDealsPage}
+                      totalPages={totalRecentDealsPages}
+                      handlePageChange={setRecentDealsPage}
+                      showSinglePage
+                    />
+                  </div>
                 </CCardBody>
               </CCard>
 

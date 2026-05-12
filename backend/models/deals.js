@@ -34,6 +34,11 @@ const dealsSchema = new mongoose.Schema(
 
     expectedCloseDate: {
       type: Date,
+      default: () => {
+        const date = new Date();
+        date.setDate(date.getDate() + 60);
+        return date;
+      },
     },
 
     actualCloseDate: {
@@ -66,6 +71,12 @@ const dealsSchema = new mongoose.Schema(
     },
 
     deleted_reason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    reason_for_lost: {
       type: String,
       trim: true,
       default: "",

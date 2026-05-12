@@ -475,6 +475,50 @@
   color: #4f46e5;
 }
 
+.fuSuccessModalCard {
+  max-width: 400px;
+  background: #ffffff;
+  border: 2px solid #10b981;
+  border-radius: 16px;
+  padding: 32px 24px;
+  box-shadow: 0 10px 40px rgba(16, 185, 129, 0.1);
+}
+
+.fuSuccessContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.fuSuccessCheckmark {
+  width: 60px;
+  height: 60px;
+  background: #10b981;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.fuSuccessTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+}
+
+.fuSuccessSubtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+  text-align: center;
+}
+
 .fuAiPriorityChip.high {
   background: #fee2e2;
   border-color: #fecaca;

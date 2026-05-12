@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { CSpinner } from "@coreui/react";
 import API from "../../api";
+import Pagination from "../../components/Pagination";
 import "./styles/SalesForecasting.css";
 
 const RANGE_OPTIONS = [
@@ -19,6 +21,8 @@ const EMPTY_SUMMARY = {
   selectedRange: "all",
 };
 
+const ITEMS_PER_PAGE = 4;
+
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -35,14 +39,20 @@ const SalesForecasting = () => {
   const [forecastData, setForecastData] = useState(null);
   const [selectedRange, setSelectedRange] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [stagePages, setStagePages] = useState({});
 
   useEffect(() => {
     let ignore = false;
 
     const loadForecast = async () => {
       try {
-        setLoading(true);
+        if (forecastData?.pipeline?.length) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
         setError("");
         const params = selectedRange === "all" ? {} : { range: selectedRange };
         const { data } = await API.get("/sales-forecast", { params });
@@ -59,6 +69,7 @@ const SalesForecasting = () => {
       } finally {
         if (!ignore) {
           setLoading(false);
+          setRefreshing(false);
         }
       }
     };
@@ -73,13 +84,44 @@ const SalesForecasting = () => {
   const summary = forecastData?.summary || EMPTY_SUMMARY;
   const pipelineData = forecastData?.pipeline || [];
 
+  useEffect(() => {
+    setStagePages((previousPages) => {
+      const nextPages = {};
+
+      for (const stage of pipelineData) {
+        const totalPages = Math.max(1, Math.ceil((stage.items?.length || 0) / ITEMS_PER_PAGE));
+        nextPages[stage.stageKey] = Math.min(previousPages[stage.stageKey] || 1, totalPages);
+      }
+
+      return nextPages;
+    });
+  }, [pipelineData]);
+
+  const handleStagePageChange = (stageKey, page) => {
+    const stage = pipelineData.find((item) => item.stageKey === stageKey);
+    const totalPages = Math.max(1, Math.ceil((stage?.items?.length || 0) / ITEMS_PER_PAGE));
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
+
+    setStagePages((previousPages) => ({
+      ...previousPages,
+      [stageKey]: nextPage,
+    }));
+  };
+
   return (
     <div className="forecast-container">
+      {loading || refreshing ? (
+        <div className="forecast-refresh-overlay">
+          <CSpinner color="primary" />
+        </div>
+      ) : null}
+
       <div className="topBar forecast-top-bar">
         <div className="topActions">
           <select
             className="select forecast-range-select"
             value={selectedRange}
+            disabled={refreshing}
             onChange={(event) => setSelectedRange(event.target.value)}
           >
             {RANGE_OPTIONS.map((option) => (
@@ -119,10 +161,7 @@ const SalesForecasting = () => {
       <div className="pipeline-section">
         <h3>Sales Pipeline</h3>
 
-        {loading ? (
-          <div className="forecast-message">Loading forecast from model...</div>
-        ) : null}
-        {!loading && error ? (
+        {error ? (
           <div className="forecast-message forecast-error">{error}</div>
         ) : null}
         {!loading && !error && pipelineData.length === 0 ? (
@@ -130,29 +169,48 @@ const SalesForecasting = () => {
         ) : null}
 
         <div className="pipeline-grid">
-          {pipelineData.map((stage) => (
-            <div key={stage.stageKey} className="pipeline-card">
-              <div className="stage-header">
-                <h4>{stage.stageLabel}</h4>
-                <h5>{formatCurrency(stage.value)}</h5>
-                <p>{stage.deals} deals</p>
-              </div>
+          {pipelineData.map((stage) => {
+            const currentPage = stagePages[stage.stageKey] || 1;
+            const totalPages = Math.max(1, Math.ceil((stage.items?.length || 0) / ITEMS_PER_PAGE));
+            const visibleItems = stage.items.slice(
+              (currentPage - 1) * ITEMS_PER_PAGE,
+              currentPage * ITEMS_PER_PAGE
+            );
 
-              {stage.items.map((item) => (
-                <div key={item._id} className="deal-card">
-                  <div className="deal-card-main">
-                    <span>{item.name}</span>
-                    {item.companyName ? <small>{item.companyName}</small> : null}
-                    <small>
-                      Win rate: {formatPercent(item.winProbability)} | Forecast:{" "}
-                      {formatCurrency(item.forecastRevenueContribution)}
-                    </small>
-                  </div>
-                  <strong>{formatCurrency(item.amount)}</strong>
+            return (
+              <div key={stage.stageKey} className="pipeline-card">
+                <div className="stage-header">
+                  <h4>{stage.stageLabel}</h4>
+                  <h5>{formatCurrency(stage.value)}</h5>
+                  <p>{stage.deals} deals</p>
                 </div>
-              ))}
-            </div>
-          ))}
+
+                <div className="deal-list">
+                  {visibleItems.map((item) => (
+                    <div key={item._id} className="deal-card">
+                      <div className="deal-card-main">
+                        <span>{item.name}</span>
+                        {item.companyName ? <small>{item.companyName}</small> : null}
+                        <small>
+                          Win rate: {formatPercent(item.winProbability)} | Forecast:{" "}
+                          {formatCurrency(item.forecastRevenueContribution)}
+                        </small>
+                      </div>
+                      <strong>{formatCurrency(item.amount)}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="forecast-stage-pagination">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    handlePageChange={(page) => handleStagePageChange(stage.stageKey, page)}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

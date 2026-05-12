@@ -1110,7 +1110,7 @@ exports.convertLeadToDeal = async (req, res) => {
     }
 
     const expectedCloseDate = new Date();
-    expectedCloseDate.setDate(expectedCloseDate.getDate() + 30);
+    expectedCloseDate.setDate(expectedCloseDate.getDate() + 60);
 
     const deal = await Deal.create({
       deal_name: requestedDealName,

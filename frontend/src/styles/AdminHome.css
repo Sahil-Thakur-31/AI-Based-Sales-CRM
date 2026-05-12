@@ -409,6 +409,28 @@
   margin-bottom: 10px;
 }
 
+.admin-panel-pagination {
+  margin-top: auto;
+}
+
+.admin-panel-pagination .pagination-container {
+  margin-top: 0;
+  border-top: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #f8fafc;
+}
+
+.admin-panel-pagination--table .pagination-container {
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0 0 var(--r16) var(--r16);
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
 .followItem {
   display: grid;
   grid-template-columns: 36px 1fr 120px;

@@ -208,6 +208,7 @@ function buildLeadUpdatePayload(body = {}) {
     "next_action",
     "last_contact_date",
     "assigned_to",
+    "reason_for_lost",
   ];
 
   for (const field of leadFields) {
@@ -1277,6 +1278,9 @@ exports.updateDeal = async (req, res) => {
           }
         }
       }
+    }
+    if (Object.prototype.hasOwnProperty.call(update, "reason_for_lost")) {
+      dealUpdate.reason_for_lost = String(update.reason_for_lost || "").trim();
     }
     if (dealUpdate.stage === "P7") {
       dealUpdate.status = "won";

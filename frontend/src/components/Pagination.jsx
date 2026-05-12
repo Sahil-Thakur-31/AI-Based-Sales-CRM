@@ -1,8 +1,13 @@
 import React from "react";
 import "./Pagination.css";
 
-function Pagination({ currentPage, totalPages, handlePageChange }) {
-    if (totalPages <= 1) return null;
+function Pagination({
+    currentPage,
+    totalPages,
+    handlePageChange,
+    showSinglePage = false,
+}) {
+    if (totalPages <= 1 && !showSinglePage) return null;
 
     return (
         <div className="pagination-container">
