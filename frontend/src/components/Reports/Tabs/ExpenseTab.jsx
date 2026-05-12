@@ -1,6 +1,21 @@
 import React, { useEffect, useState } from "react";
 import API from "../../../api";
 
+const MONTH_LABELS = {
+  1: "January",
+  2: "February",
+  3: "March",
+  4: "April",
+  5: "May",
+  6: "June",
+  7: "July",
+  8: "August",
+  9: "September",
+  10: "October",
+  11: "November",
+  12: "December",
+};
+
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("en-IN", {
     style: "currency",
@@ -81,6 +96,21 @@ function buildReportParams(filters = {}) {
   return params;
 }
 
+function formatReportPeriod(params = {}) {
+  const year = String(params.year || "").trim();
+  if (params.period === "quarterly") {
+    const quarterLabel = String(params.quarter || "q1").toUpperCase();
+    return `${quarterLabel} ${year}`.trim();
+  }
+
+  if (params.period === "yearly") {
+    return year || "this year";
+  }
+
+  const monthLabel = MONTH_LABELS[Number(params.month)] || "Selected month";
+  return `${monthLabel} ${year}`.trim();
+}
+
 function buildExpenseKpiCards(expenses, loading, error) {
   if (loading) {
     return [
@@ -128,8 +158,10 @@ function ExpenseTab({ filters }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tableFilter, setTableFilter] = useState("all");
+  const [scopeLabel, setScopeLabel] = useState("");
   const reportParams = buildReportParams(filters);
   const reportKey = [reportParams.period, reportParams.month || "", reportParams.quarter || "", reportParams.year].join("-");
+  const periodLabel = formatReportPeriod(reportParams);
 
   useEffect(() => {
     let isMounted = true;
@@ -138,14 +170,17 @@ function ExpenseTab({ filters }) {
       setLoading(true);
       setError("");
       try {
-        const res = await API.get("/api/expenses", { params: reportParams });
+        const res = await API.get("/api/expenses/reports/analytics", { params: reportParams });
         if (!isMounted) return;
-        setExpenses(Array.isArray(res.data) ? res.data : []);
+        const payload = res.data || {};
+        setExpenses(Array.isArray(payload.expenses) ? payload.expenses : []);
+        setScopeLabel(String(payload.scopeLabel || ""));
       } catch (err) {
         if (!isMounted) return;
         console.error("Failed to load expense analytics:", err);
         setError("Failed to load expenses");
         setExpenses([]);
+        setScopeLabel("");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -204,6 +239,9 @@ function ExpenseTab({ filters }) {
     return acc;
   }, new Map());
   const expenseTrend = [...trendMap.entries()].map(([label, total]) => ({ label, total }));
+  const noExpensesMessage = scopeLabel
+    ? `No expenses found for ${periodLabel}. Scope: ${scopeLabel}.`
+    : `No expenses found for ${periodLabel}.`;
 
   function handleExportExcel() {
     const headers = [
@@ -265,7 +303,7 @@ function ExpenseTab({ filters }) {
       <section className="reports-card">
         <h2 className="reports-card-title">Expense Trend</h2>
         {expenseTrend.length === 0 ? (
-          <div className="chart-box" style={{ color: "#9ca3af" }}>{loading ? "Loading..." : "No expense data yet"}</div>
+          <div className="chart-box" style={{ color: "#9ca3af" }}>{loading ? "Loading..." : noExpensesMessage}</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
             {expenseTrend.map((item) => (
@@ -293,7 +331,7 @@ function ExpenseTab({ filters }) {
           <h2 className="reports-card-title">Expense Breakdown</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
             {breakdownRows.length === 0 ? (
-              <p style={{ color: "#9ca3af", fontSize: 13 }}>No category data</p>
+              <p style={{ color: "#9ca3af", fontSize: 13 }}>{loading ? "Loading..." : noExpensesMessage}</p>
             ) : (
               breakdownRows.map((row) => (
                 <div key={row.key}>
@@ -340,6 +378,7 @@ function ExpenseTab({ filters }) {
             <h2 className="reports-card-title" style={{ marginBottom: 4 }}>Expense Table</h2>
             <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
               {filteredExpenseRows.length} of {expenseRows.length} expenses
+              {scopeLabel ? ` • Scope: ${scopeLabel}` : ""}
             </p>
           </div>
 
@@ -412,7 +451,7 @@ function ExpenseTab({ filters }) {
               {filteredExpenseRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
-                    {loading ? "Loading..." : error ? error : "No expenses match this filter."}
+                    {loading ? "Loading..." : error ? error : expenseRows.length === 0 ? noExpensesMessage : "No expenses match this filter."}
                   </td>
                 </tr>
               ) : (

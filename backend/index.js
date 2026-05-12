@@ -41,6 +41,7 @@ const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const managerDashboardRoutes = require("./routes/managerDashboardRoutes");
 const userDashboardRoutes = require("./routes/userDashboardRoutes");
 const dailyClosingRoutes = require("./routes/dailyClosingRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 const myServer = http.createServer(app);
@@ -81,6 +82,7 @@ app.use("/ocr", ocrRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/auth/google", googleAuthRoutes);
 app.use("/sales-forecast", salesForecastRoutes);
+app.use("/reports", reportRoutes);
 
 
 let backgroundWorkersStarted = false;
