@@ -100,6 +100,7 @@ function stripLeadPayloadFields(payload) {
   delete cleaned.contact_history;
   delete cleaned.next_action_date;
   delete cleaned.ai_score;
+  delete cleaned.status;
 
   if (cleaned.is_existing_company !== undefined && cleaned.is_existing_client === undefined) {
     cleaned.is_existing_client = cleaned.is_existing_company;
@@ -626,7 +627,6 @@ exports.getLeads = async (req, res) => {
 
       for (const lead of leads) {
         if (lead.is_deleted === true || lead.is_active === false) continue;
-        if (lead.status === "rejected") continue;
         const leadId = String(lead._id || "");
         const nextFollowup = nextFollowupMap.get(leadId);
         const nextFollowupDate = toValidDate(nextFollowup?.dueDateTime);
@@ -890,7 +890,7 @@ exports.updateLead = async (req, res) => {
 
     const lead = await Leads.findOneAndUpdate(
       accessFilter,
-      leadPayload,
+      { $set: leadPayload, $unset: { status: "" } },
       { returnDocument: "after" }
     ).lean();
 
@@ -1119,10 +1119,10 @@ exports.convertLeadToDeal = async (req, res) => {
       assignedTo: lead.assigned_to || null,
       assignedBy: actorId,
       stage: "P3",
+      status: "open",
       dealValue: Number(lead.deal_value_estimate) || 0,
       probability: 10,
       expectedCloseDate,
-      status: "open",
       aiRiskScore: computeAiRiskScore(lead.lead_temperature),
       isActive: true,
       is_deleted: false,
@@ -1141,7 +1141,7 @@ exports.convertLeadToDeal = async (req, res) => {
 
     lead.converted_to_deal = true;
     lead.is_existing_client = true;
-    lead.status = "converted";
+    lead.stage = "P7";
     lead.converted_deal_id = deal._id;
     lead.deal_name = requestedDealName;
     await lead.save();
@@ -1278,7 +1278,11 @@ const getLeadsAnalytics = async (req, res) => {
             _id: null,
             total: { $sum: 1 },
             converted: { $sum: { $cond: [{ $eq: ["$converted_to_deal", true] }, 1, 0] } },
-            qualifiedCount: { $sum: { $cond: [{ $eq: ["$status", "qualified"] }, 1, 0] } },
+            qualifiedCount: {
+              $sum: {
+                $cond: [{ $in: ["$stage", ["P4", "P5", "P6", "P7"]] }, 1, 0]
+              }
+            },
           }
         }
       ]),
@@ -1299,7 +1303,7 @@ const getLeadsAnalytics = async (req, res) => {
       ]),
       // Lead Aging (Unconverted leads)
       Leads.aggregate([
-        { $match: { ...currentMatch, converted_to_deal: { $ne: true }, status: { $ne: "rejected" } } },
+        { $match: { ...currentMatch, converted_to_deal: { $ne: true }, stage: { $ne: "P7" } } },
         { $project: { days: { $divide: [{ $subtract: [now, "$created_at"] }, 1000 * 60 * 60 * 24] } } },
         { $bucket: { groupBy: "$days", boundaries: [0, 3, 8], default: 8, output: { count: { $sum: 1 } } } }
       ]),
@@ -1310,7 +1314,7 @@ const getLeadsAnalytics = async (req, res) => {
         { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
       ]),
       Leads.find(currentMatch)
-        .select("_id company_name lead_temperature status converted_to_deal last_contact_date created_at assigned_to source")
+        .select("_id company_name lead_temperature stage converted_to_deal last_contact_date created_at assigned_to source")
         .sort({ created_at: -1 })
         .lean(),
       Followup.aggregate([
@@ -1400,7 +1404,7 @@ const getLeadsAnalytics = async (req, res) => {
       const hasActivity = hasFollowups || hasLastContact;
       const isConverted =
         leadRow?.converted_to_deal === true ||
-        String(leadRow?.status || "").toLowerCase() === "converted";
+        String(leadRow?.stage || "").toUpperCase() === "P7";
 
       if (hasFollowups) leadsWithFollowupsCount += 1;
       if (hasActivity) contactedCount += 1;
@@ -1413,7 +1417,7 @@ const getLeadsAnalytics = async (req, res) => {
         id: leadId,
         companyName: leadRow?.company_name || "Unnamed Lead",
         sourceLabel: sourceMap.get(String(leadRow?.source || ""))?.name || "Unknown",
-        status: String(leadRow?.status || "new"),
+        status: isConverted ? "converted" : "active",
         leadTemperature: String(leadRow?.lead_temperature || "cold"),
         assignedToName:
           assigneeMap.get(String(leadRow?.assigned_to || ""))?.name ||

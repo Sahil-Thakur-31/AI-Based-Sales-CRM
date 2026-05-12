@@ -153,9 +153,11 @@ async function syncStageToLinkedEntity(stage, { leadId, dealId }) {
   if (!normalizedStage) return;
 
   if (dealId && mongoose.Types.ObjectId.isValid(String(dealId))) {
+    const dealStatus =
+      normalizedStage === "P7" ? "won" : normalizedStage === "P6" ? "lost" : "open";
     await Deal.updateOne(
       { _id: new mongoose.Types.ObjectId(String(dealId)) },
-      { $set: { stage: normalizedStage } }
+      { $set: { stage: normalizedStage, status: dealStatus } }
     );
   }
 

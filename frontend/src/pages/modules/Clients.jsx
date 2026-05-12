@@ -363,7 +363,6 @@ export default function Clients() {
                                       </span>
                                       <strong>{deal?.company_name || client.name || "Untitled Deal"}</strong>
                                       <span>Stage: {deal?.stage || "-"}</span>
-                                      <span>Status: {deal?.status || "-"}</span>
                                       <span>Value: {formatCurrency(deal?.deal_value_estimate || 0)}</span>
                                       <span>Updated: {formatDate(updatedOn)}</span>
                                     </div>
@@ -405,4 +404,3 @@ export default function Clients() {
     </div>
   );
 }
-

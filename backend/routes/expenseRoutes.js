@@ -22,6 +22,7 @@ const withExpenseUpload = (fields) => (req, res, next) =>
   });
 
 router.get("/", authenticate, controller.getExpenses);
+router.get("/reports/analytics", authenticate, controller.getExpenseReportAnalytics);
 router.post(
   "/ocr/extract",
   authenticate,

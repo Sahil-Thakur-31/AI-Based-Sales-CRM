@@ -1084,7 +1084,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
       assigned_to: normalizeObjectId(
         firstFilled(row, ["assigned_to", "owner", "user_id", "assignee", "lead_owner"])
       ),
-      status: normalizeStatus(firstFilled(row, ["status", "lead_status"])),
+      stage: firstFilled(row, ["stage", "pipeline_stage"]) || "P3",
       country: firstFilled(row, ["country", "nation"]),
       State: firstFilled(row, ["state", "province", "region"]),
       city: firstFilled(row, ["city", "town"]),
@@ -1243,12 +1243,12 @@ function LeadsDashboard({ defaultView = "leads" }) {
     if (!row) return true;
     if (row.is_active === false || row.isActive === false) return false;
     if (mode === "deals") {
-      const s = (row.status || "open").toLowerCase();
-      if (s === "won" || s === "lost") return false;
+      const stage = String(row.stage || "").toUpperCase();
+      if (stage === "P7" || stage === "P6") return false;
     }
     if (mode === "leads") {
-      const s = (row.status || "").toLowerCase();
-      if (s === "rejected") return false;
+      const stage = String(row.stage || "").toUpperCase();
+      if (stage === "P7") return false;
     }
     return true;
   };
@@ -1468,7 +1468,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
               {viewMode === "deals" && <th>Stage</th>}
               <th className="col-last-contact">Last Contact</th>
               {!(viewMode === "deals" && activeTab === "inactive") && <th>Next Action</th>}
-              {viewMode === "deals" && activeTab === "inactive" && <th>Status</th>}
+              {viewMode === "deals" && activeTab === "inactive" && <th>Stage</th>}
               {activeTab === "deleted" && <th>Delete Reason</th>}
               <th></th>
             </tr>
@@ -1517,8 +1517,8 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   {!(viewMode === "deals" && activeTab === "inactive") && <td>{row.next_action || "-"}</td>}
                   {viewMode === "deals" && activeTab === "inactive" && (
                     <td>
-                      <span className={`stage-chip ${(row.status || "").toLowerCase()}`} style={{ textTransform: "capitalize" }}>
-                        {row.status || "-"}
+                      <span className="stage-chip">
+                        {row.stage || "-"}
                       </span>
                     </td>
                   )}

@@ -19,6 +19,14 @@ try {
 }
 
 const { getRangeDates } = require("./dashboardRange.admin");
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+const dealClosedNorMatch = {
+  $nor: [
+    { stage: DEAL_WON_STAGE },
+    { stage: DEAL_LOST_STAGE }
+  ]
+};
 
 async function getNonAdminUserIds() {
   const adminRoles = await Role.find(
@@ -73,29 +81,34 @@ async function getSummary(range) {
 
   // Won revenue in current range
   const wonAgg = await Deal.aggregate([
-    { $match: { status: "won", is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: start, $lte: end } } },
+    { $match: { stage: DEAL_WON_STAGE, is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: start, $lte: end } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenueWon = wonAgg[0]?.total || 0;
 
   // Won revenue in previous range
   const prevWonAgg = await Deal.aggregate([
-    { $match: { status: "won", is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
+    { $match: { stage: DEAL_WON_STAGE, is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenuePrev = prevWonAgg[0]?.total || 0;
 
-  // Active deals created in the selected range.
+  // Active deals are current pipeline counts, not created-in-range counts.
   const activeDeals = await Deal.countDocuments({
-    status: "open",
+    ...dealClosedNorMatch,
+    is_deleted: { $ne: true },
+    assignedTo: { $in: nonAdminUserIds },
+  });
+
+  // Delta still tells how many active deals were created in the selected range.
+  const activeDealsCreatedInRange = await Deal.countDocuments({
+    ...dealClosedNorMatch,
     is_deleted: { $ne: true },
     assignedTo: { $in: nonAdminUserIds },
     createdAt: { $gte: start, $lte: end },
   });
-
-  // Compare against the previous equivalent range window.
   const activeDealsPrev = await Deal.countDocuments({
-    status: "open",
+    ...dealClosedNorMatch,
     is_deleted: { $ne: true },
     assignedTo: { $in: nonAdminUserIds },
     createdAt: { $gte: prevStart, $lte: prevEnd },
@@ -106,15 +119,15 @@ async function getSummary(range) {
     {
       $match: {
         is_deleted: { $ne: true },
-        status: { $in: ["won", "lost"] },
         assignedTo: { $in: nonAdminUserIds },
         actualCloseDate: { $gte: start, $lte: end },
+        stage: { $in: [DEAL_WON_STAGE, DEAL_LOST_STAGE] },
       },
     },
-    { $group: { _id: "$status", c: { $sum: 1 } } },
+    { $group: { _id: "$stage", c: { $sum: 1 } } },
   ]);
-  const wonCount = closedAgg.find((x) => x._id === "won")?.c || 0;
-  const lostCount = closedAgg.find((x) => x._id === "lost")?.c || 0;
+  const wonCount = closedAgg.find((x) => x._id === DEAL_WON_STAGE)?.c || 0;
+  const lostCount = closedAgg.find((x) => x._id === DEAL_LOST_STAGE)?.c || 0;
   const totalClosed = wonCount + lostCount;
   const winRatePct = totalClosed === 0 ? 0 : Math.round((wonCount / totalClosed) * 100);
 
@@ -122,26 +135,25 @@ async function getSummary(range) {
     {
       $match: {
         is_deleted: { $ne: true },
-        status: { $in: ["won", "lost"] },
         assignedTo: { $in: nonAdminUserIds },
         actualCloseDate: { $gte: prevStart, $lte: prevEnd },
+        stage: { $in: [DEAL_WON_STAGE, DEAL_LOST_STAGE] },
       },
     },
-    { $group: { _id: "$status", c: { $sum: 1 } } },
+    { $group: { _id: "$stage", c: { $sum: 1 } } },
   ]);
-  const prevWonCount = prevClosedAgg.find((x) => x._id === "won")?.c || 0;
-  const prevLostCount = prevClosedAgg.find((x) => x._id === "lost")?.c || 0;
+  const prevWonCount = prevClosedAgg.find((x) => x._id === DEAL_WON_STAGE)?.c || 0;
+  const prevLostCount = prevClosedAgg.find((x) => x._id === DEAL_LOST_STAGE)?.c || 0;
   const prevTotalClosed = prevWonCount + prevLostCount;
   const prevWinRate = prevTotalClosed === 0 ? 0 : Math.round((prevWonCount / prevTotalClosed) * 100);
 
-  // Pipeline value within the selected range.
+  // Pipeline value is current live pipeline value.
   const pipeAgg = await Deal.aggregate([
     {
       $match: {
-        status: "open",
+        ...dealClosedNorMatch,
         is_deleted: { $ne: true },
         assignedTo: { $in: nonAdminUserIds },
-        createdAt: { $gte: start, $lte: end },
       }
     },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
@@ -152,13 +164,13 @@ async function getSummary(range) {
   // For now: keep 0 to avoid wrong info until target logic is final.
   const pipelineDeltaPct = 0;
 
-  // Open leads created in the selected range and still open.
+  // Open leads are current lead pipeline counts.
   const openLeads = await Lead.countDocuments({
     is_active: true,
     is_deleted: { $ne: true },
     assigned_to: { $in: nonAdminUserIds },
-    status: { $nin: ["converted", "rejected"] },
-    created_at: { $gte: start, $lte: end },
+    converted_to_deal: { $ne: true },
+    stage: { $ne: "P7" },
   });
 
   // AI-sourced leads created in this range (if model exists)
@@ -177,7 +189,7 @@ async function getSummary(range) {
     revenueDeltaPct: pctChange(revenueWon, revenuePrev),
 
     activeDeals,
-    activeDealsDelta: activeDeals - activeDealsPrev,
+    activeDealsDelta: activeDealsCreatedInRange - activeDealsPrev,
 
     winRatePct,
     winRateDeltaPct: winRatePct - prevWinRate,
@@ -196,7 +208,6 @@ async function getSummary(range) {
  * [{ code, label, count, amount }, ...]
  */
 async function getPipeline(range, pipelineType = "deal") {
-  const { start, end } = getRangeDates(range);
   const normalizedType = String(pipelineType || "deal").toLowerCase() === "lead" ? "lead" : "deal";
   const nonAdminUserIds = await getNonAdminUserIds();
   const stages = normalizedType === "deal"
@@ -206,63 +217,32 @@ async function getPipeline(range, pipelineType = "deal") {
   const agg =
     normalizedType === "lead"
       ? await (async () => {
-          const [openLeadAgg, rejectedAgg] = await Promise.all([
-            Lead.aggregate([
-              {
-                $match: {
-                  is_deleted: { $ne: true },
-                  is_active: true,
-                  assigned_to: { $in: nonAdminUserIds },
-                  status: { $nin: ["converted", "rejected"] },
-                  created_at: { $gte: start, $lte: end },
-                  stage: { $in: ["P1", "P2", "P3", "P4", "P5"] },
-                },
+          return Lead.aggregate([
+            {
+              $match: {
+                is_deleted: { $ne: true },
+                assigned_to: { $in: nonAdminUserIds },
+                converted_to_deal: { $ne: true },
+                stage: { $in: ["P1", "P2", "P3", "P4", "P5", "P6"] },
               },
-              {
-                $group: {
-                  _id: "$stage",
-                  count: { $sum: 1 },
-                  amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
-                },
+            },
+            {
+              $group: {
+                _id: "$stage",
+                count: { $sum: 1 },
+                amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
               },
-            ]),
-            Lead.aggregate([
-              {
-                $match: {
-                  is_deleted: { $ne: true },
-                  is_active: false,
-                  assigned_to: { $in: nonAdminUserIds },
-                  status: "rejected",
-                  stage: "P6",
-                  created_at: { $gte: start, $lte: end },
-                },
-              },
-              {
-                $group: {
-                  _id: null,
-                  count: { $sum: 1 },
-                  amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
-                },
-              },
-            ]),
+            },
           ]);
-
-          const rejectedStage = rejectedAgg[0]
-            ? [{ _id: "P6", count: rejectedAgg[0].count || 0, amount: rejectedAgg[0].amount || 0 }]
-            : [];
-
-          return [...openLeadAgg, ...rejectedStage];
         })()
       : await (async () => {
           const [openStageAgg, lostAgg, wonAgg] = await Promise.all([
             Deal.aggregate([
               {
                 $match: {
-                  status: "open",
                   is_deleted: { $ne: true },
                   assignedTo: { $in: nonAdminUserIds },
-                  createdAt: { $gte: start, $lte: end },
-                  stage: { $nin: ["P6", "P7"] },
+                  ...dealClosedNorMatch,
                 }
               },
               { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
@@ -270,10 +250,9 @@ async function getPipeline(range, pipelineType = "deal") {
             Deal.aggregate([
               {
                 $match: {
-                  status: "lost",
+                  stage: DEAL_LOST_STAGE,
                   is_deleted: { $ne: true },
                   assignedTo: { $in: nonAdminUserIds },
-                  actualCloseDate: { $gte: start, $lte: end },
                 }
               },
               {
@@ -287,10 +266,9 @@ async function getPipeline(range, pipelineType = "deal") {
             Deal.aggregate([
               {
                 $match: {
-                  status: "won",
+                  stage: DEAL_WON_STAGE,
                   is_deleted: { $ne: true },
                   assignedTo: { $in: nonAdminUserIds },
-                  actualCloseDate: { $gte: start, $lte: end },
                 }
               },
               {
@@ -335,7 +313,7 @@ async function getTeamPerformance(range) {
   const userAgg = await Deal.aggregate([
     {
       $match: {
-        status: "won",
+        stage: DEAL_WON_STAGE,
         is_deleted: { $ne: true },
         actualCloseDate: { $gte: start, $lte: end },
         assignedTo: { $in: nonAdminUserIds },

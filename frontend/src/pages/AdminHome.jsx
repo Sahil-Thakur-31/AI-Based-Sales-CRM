@@ -89,6 +89,19 @@ function StagePill({ stage }) {
   );
 }
 
+const DASHBOARD_RANGE_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "quarter", label: "This Quarter" },
+  { value: "year", label: "This Year" },
+  { value: "lifetime", label: "Lifetime" },
+];
+
+function getRangeLabel(range) {
+  return DASHBOARD_RANGE_OPTIONS.find((item) => item.value === range)?.label || "This Month";
+}
+
 async function apiGet(path, params = {}, signal) {
   const res = await API.get(path, { params, signal });
   return res.data;
@@ -275,6 +288,7 @@ export default function AdminHome() {
   const [recentDeals, setRecentDeals] = useState([]);
 
   const navigate = useNavigate();
+  const rangeLabel = getRangeLabel(range);
 
   const totalPipelineCount = useMemo(
     () => pipeline.reduce((acc, p) => acc + (p.count || 0), 0),
@@ -374,7 +388,7 @@ export default function AdminHome() {
       value: formatINR(summary.revenueWon),
       sub: `${summary.revenueDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.revenueDeltaPct
-      )}% vs last ${range}`,
+      )}% vs previous ${rangeLabel.toLowerCase()}`,
       accent: "green",
     },
     {
@@ -382,7 +396,7 @@ export default function AdminHome() {
       value: String(summary.activeDeals),
       sub: `${summary.activeDealsDelta >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.activeDealsDelta
-      )} this ${range}`,
+      )} added in ${rangeLabel.toLowerCase()}`,
       accent: "blue",
     },
     {
@@ -390,7 +404,7 @@ export default function AdminHome() {
       value: `${summary.winRatePct}%`,
       sub: `${summary.winRateDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.winRateDeltaPct
-      )}% this ${range}`,
+      )}% in ${rangeLabel.toLowerCase()}`,
       accent: "cyan",
     },
     {
@@ -429,9 +443,11 @@ export default function AdminHome() {
             disabled={refreshing}
             onChange={(e) => setRange(e.target.value)}
           >
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="quarter">This Quarter</option>
+            {DASHBOARD_RANGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </CFormSelect>
         </div>
       </div>
@@ -476,7 +492,7 @@ export default function AdminHome() {
             {/* Deal Pipeline */}
             <CCard className="panel panel--pipeline">
               <CCardHeader className="panel__header">
-                <div className="panel__titleRow panel__titleRow--space">
+                <div className="panel__titleRow">
                   <div className="panel__titleRow">
                     <span className="panel__title">
                       {pipelineType === "lead" ? "Lead Pipeline" : "Deal Pipeline"}
@@ -500,7 +516,6 @@ export default function AdminHome() {
                       </button>
                     </div>
                   </div>
-                  <span className="panel__meta">{range.toUpperCase()}</span>
                 </div>
               </CCardHeader>
 

@@ -50,24 +50,49 @@ function endOfQuarter(d) {
   return endOfDay(new Date(start.getFullYear(), start.getMonth() + 3, 0));
 }
 
+function startOfYear(d) {
+  return new Date(d.getFullYear(), 0, 1);
+}
+
+function endOfYear(d) {
+  return endOfDay(new Date(d.getFullYear(), 11, 31));
+}
+
 function getRangeDates(range = "month") {
   const now = new Date();
+  const normalizedRange = String(range || "month").toLowerCase();
   let start;
   let end;
   let prevStart;
   let prevEnd;
 
-  if (range === "week") {
+  if (normalizedRange === "today" || normalizedRange === "day") {
+    start = startOfDay(now);
+    end = endOfDay(now);
+    prevStart = startOfDay(addDays(start, -1));
+    prevEnd = endOfDay(addDays(start, -1));
+  } else if (normalizedRange === "week") {
     start = startOfWeek(now);
     end = endOfWeek(now);
     prevStart = addDays(start, -7);
     prevEnd = endOfDay(addDays(start, -1));
-  } else if (range === "quarter") {
+  } else if (normalizedRange === "quarter") {
     start = startOfQuarter(now);
     end = endOfQuarter(now);
     const prevQuarterDate = new Date(start.getFullYear(), start.getMonth() - 3, 1);
     prevStart = startOfQuarter(prevQuarterDate);
     prevEnd = endOfQuarter(prevQuarterDate);
+  } else if (normalizedRange === "year") {
+    start = startOfYear(now);
+    end = endOfYear(now);
+    const prevYearDate = new Date(start.getFullYear() - 1, 0, 1);
+    prevStart = startOfYear(prevYearDate);
+    prevEnd = endOfYear(prevYearDate);
+  } else if (normalizedRange === "lifetime" || normalizedRange === "all") {
+    start = new Date(0);
+    end = endOfDay(now);
+    prevStart = new Date(0);
+    prevEnd = new Date(0);
   } else {
     start = startOfMonth(now);
     end = endOfMonth(now);

@@ -30,6 +30,16 @@ function firstFilled(...values) {
   return values.map(clean).find(Boolean) || "";
 }
 
+function sanitizeEmployeeCount(value) {
+  const digits = clean(value).replace(/[^\d]/g, "");
+  if (!digits) return "";
+  const count = Number(digits);
+  if (!Number.isFinite(count) || count <= 0) return "";
+  // Scraped pages often join unrelated numbers into fake headcounts. Keep only plausible CRM lead sizes.
+  if (count > 10000) return "";
+  return String(count);
+}
+
 async function resolveSourceId(sourceKey) {
   const name = titleFromSourceKey(sourceKey);
   const now = new Date();
@@ -84,8 +94,15 @@ async function resolveLocationId(row) {
 }
 
 function buildEmployeeRange(row) {
-  const hint = row.companySizeSignals?.employeeCountHint;
-  return clean(hint);
+  const signals = row.companySizeSignals || {};
+  const exactHint = sanitizeEmployeeCount(signals.employeeCountHint);
+  if (exactHint) return exactHint;
+
+  const rangeHint = clean(signals.employeeRangeHint);
+  if (!rangeHint) return "";
+  const numbers = rangeHint.match(/\d+/g) || [];
+  const maxValue = Math.max(...numbers.map((item) => Number(item)).filter(Number.isFinite), 0);
+  return maxValue > 0 && maxValue <= 10000 ? rangeHint : "";
 }
 
 function buildTurnoverRange(row) {

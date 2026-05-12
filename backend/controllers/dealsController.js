@@ -11,6 +11,9 @@ const DealStageHistory = require("../models/dealStageHistory");
 const SalesTarget = require("../models/sales_targets");
 const Team = require("../models/teams");
 
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+
 function mapTemperatureFromLead(lead) {
   const temp = (lead?.lead_temperature || "").toLowerCase();
   if (temp === "hot") return { ai_score: 90, lead_temperature: "hot" };
@@ -636,7 +639,7 @@ async function aggregateWonRevenue(accessFilter, start, end) {
     },
     {
       $match: {
-        status: "won",
+        stage: DEAL_WON_STAGE,
         closedAt: { $gte: start, $lt: end },
       },
     },
@@ -667,13 +670,13 @@ async function aggregateClosedDealStats(accessFilter, start, end) {
     },
     {
       $match: {
-        status: { $in: ["won", "lost"] },
+        stage: { $in: [DEAL_WON_STAGE, DEAL_LOST_STAGE] },
         closedAt: { $gte: start, $lt: end },
       },
     },
     {
       $group: {
-        _id: "$status",
+        _id: "$stage",
         count: { $sum: 1 },
       },
     },
@@ -681,8 +684,8 @@ async function aggregateClosedDealStats(accessFilter, start, end) {
 
   const stats = rows.reduce(
     (acc, row) => {
-      if (row?._id === "won") acc.wonDeals = Number(row.count || 0);
-      if (row?._id === "lost") acc.lostDeals = Number(row.count || 0);
+      if (row?._id === DEAL_WON_STAGE) acc.wonDeals = Number(row.count || 0);
+      if (row?._id === DEAL_LOST_STAGE) acc.lostDeals = Number(row.count || 0);
       return acc;
     },
     { wonDeals: 0, lostDeals: 0 }
@@ -707,7 +710,7 @@ async function aggregateSalesCycle(accessFilter, start, end) {
     },
     {
       $match: {
-        status: "won",
+        stage: DEAL_WON_STAGE,
         closedAt: { $gte: start, $lt: end },
       },
     },
@@ -747,7 +750,7 @@ async function aggregateLeadCohortConversion(leadFilter, start, end) {
     is_deleted: { $ne: true },
     created_at: { $gte: start, $lt: end },
   })
-    .select("_id converted_to_deal converted_deal_id status")
+    .select("_id converted_to_deal converted_deal_id stage")
     .lean();
 
   const leadCount = cohortLeads.length;
@@ -769,7 +772,7 @@ async function aggregateLeadCohortConversion(leadFilter, start, end) {
           (lead) =>
             lead?.converted_deal_id &&
             (lead?.converted_to_deal === true ||
-              String(lead?.status || "").toLowerCase() === "converted")
+              String(lead?.stage || "").toUpperCase() === "P7")
         )
         .map((lead) => String(lead.converted_deal_id))
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
@@ -780,7 +783,7 @@ async function aggregateLeadCohortConversion(leadFilter, start, end) {
   const wonCount = dealCount
     ? await Deal.countDocuments({
         _id: { $in: convertedDealIds },
-        status: "won",
+        stage: DEAL_WON_STAGE,
         is_deleted: { $ne: true },
       })
     : 0;
@@ -908,7 +911,6 @@ exports.getDeals = async (req, res) => {
         last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
         next_action: lead?.next_action || "",
         next_action_date: null,
-        status: deal.status || "open",
         stage: deal.stage || "",
         converted_to_deal: true,
         primary_contact:
@@ -931,7 +933,7 @@ exports.getDeals = async (req, res) => {
 
       for (const deal of deals) {
         if (deal.is_deleted === true || deal.isActive === false) continue;
-        if (deal.status === "won" || deal.status === "lost") continue;
+        if (["P6", "P7"].includes(String(deal.stage || "").toUpperCase())) continue;
 
         const dealId = String(deal._id || "");
         const leadId = deal.lead_id ? String(deal.lead_id) : "";
@@ -1171,7 +1173,6 @@ exports.getDealById = async (req, res) => {
           : lead?.deal_value_estimate || 0,
       assigned_to: deal.assignedTo || lead?.assigned_to || "",
       lead_temperature: lead?.lead_temperature || "",
-      status: deal.status || "open",
       stage: deal.stage || "",
       last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
       next_action:
@@ -1254,36 +1255,20 @@ exports.updateDeal = async (req, res) => {
     }
     if (Object.prototype.hasOwnProperty.call(update, "stage")) {
       const stage = String(update.stage || "P1").trim().toUpperCase();
-      if (["P1", "P2", "P3", "P4", "P5", "P6", "P7"].includes(stage)) {
+      if (["P1", "P2", "P3", "P6", "P7"].includes(stage)) {
         dealUpdate.stage = stage;
-        if (stage === "P7") {
-          dealUpdate.status = "won";
+        dealUpdate.status = dealStatusFromStage(stage);
+        if (stage === "P7" || stage === "P6") {
           dealUpdate.isActive = false;
           if (!existingDeal.actualCloseDate) dealUpdate.actualCloseDate = new Date();
+        } else {
+          dealUpdate.isActive = true;
         }
       }
     }
     if (Object.prototype.hasOwnProperty.call(update, "deal_value_estimate") || Object.prototype.hasOwnProperty.call(update, "dealValue")) {
       const amount = Number(update.dealValue ?? update.deal_value_estimate);
       dealUpdate.dealValue = Number.isFinite(amount) ? amount : 0;
-    }
-    if (Object.prototype.hasOwnProperty.call(update, "status")) {
-      const status = String(update.status || "open").trim().toLowerCase();
-      if (["open", "won", "lost"].includes(status)) {
-        dealUpdate.status = status;
-        if (status === "won" || status === "lost") {
-          dealUpdate.isActive = false;
-          if (!existingDeal.actualCloseDate) {
-            dealUpdate.actualCloseDate = new Date();
-          }
-        }
-      }
-    }
-    if (Object.prototype.hasOwnProperty.call(update, "reason_for_lost")) {
-      dealUpdate.reason_for_lost = String(update.reason_for_lost || "").trim();
-    }
-    if (dealUpdate.stage === "P7") {
-      dealUpdate.status = "won";
     }
     if (Object.prototype.hasOwnProperty.call(update, "probability")) {
       const probability = Number(update.probability);
@@ -1317,7 +1302,11 @@ exports.updateDeal = async (req, res) => {
 
     let deal = existingDeal;
     if (Object.keys(dealUpdate).length) {
-      deal = await Deal.findOneAndUpdate(accessFilter, { $set: dealUpdate }, { returnDocument: "after" }).lean();
+      deal = await Deal.findOneAndUpdate(
+        accessFilter,
+        { $set: dealUpdate },
+        { returnDocument: "after" }
+      ).lean();
     }
 
     if (existingDeal.lead_id && Object.keys(leadUpdate).length) {
@@ -1453,7 +1442,7 @@ exports.getSalesAnalytics = async (req, res) => {
 
     const wonFilter = await buildDealAggregateAccessFilter(req.user, {
       is_deleted: { $ne: true },
-      status: "won",
+      stage: DEAL_WON_STAGE,
       ...effectiveAnalyticsDealScope,
     });
     const scopedWonFilter = mergeMongoFilters(wonFilter, viewerScope.dealFilter);
@@ -1508,7 +1497,7 @@ exports.getSalesAnalytics = async (req, res) => {
         );
     const performanceWonFilter = shouldShowManagerTeamPerformance
       ? mergeMongoFilters(
-          { is_deleted: { $ne: true }, status: "won" },
+          { is_deleted: { $ne: true }, stage: DEAL_WON_STAGE },
           viewerScope.dealFilter,
           managerTeamPerformanceScope?.dealFilter
         )
@@ -1568,7 +1557,7 @@ exports.getSalesAnalytics = async (req, res) => {
         addClosedAt,
         {
           $match: {
-            status: { $in: ["won", "lost"] },
+            stage: { $in: [DEAL_WON_STAGE, DEAL_LOST_STAGE] },
             closedAt: { $gte: ranges.currentStart, $lt: ranges.currentEnd },
           },
         },
@@ -1584,7 +1573,7 @@ exports.getSalesAnalytics = async (req, res) => {
         { $group: { _id: "$sizeLabel", count: { $sum: 1 } } },
       ]),
       Deal.find(periodFilter)
-        .select("_id deal_name client_id lead_id assignedTo dealValue status stage createdAt actualCloseDate isActive")
+        .select("_id deal_name client_id lead_id assignedTo dealValue stage createdAt actualCloseDate isActive")
         .sort({ createdAt: -1 })
         .lean(),
     ]);
@@ -1692,7 +1681,6 @@ exports.getSalesAnalytics = async (req, res) => {
         createdAt: deal?.createdAt || null,
         closedAt: deal?.actualCloseDate || null,
         dealValue: Number(deal?.dealValue || 0),
-        status: String(deal?.status || "open"),
         stage: String(deal?.stage || ""),
         assignedToName: assignee?.name || assignee?.email || "Unassigned",
         isActive: deal?.isActive !== false,

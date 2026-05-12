@@ -174,7 +174,6 @@ export default function TeamDashboard() {
   });
   const [memberDealFilters, setMemberDealFilters] = useState({
     query: "",
-    status: "all",
     stage: "all"
   });
   const [memberFollowupFilters, setMemberFollowupFilters] = useState({
@@ -184,7 +183,6 @@ export default function TeamDashboard() {
   });
   const [memberLeadFilters, setMemberLeadFilters] = useState({
     query: "",
-    status: "all",
     temperature: "all"
   });
 
@@ -271,9 +269,9 @@ export default function TeamDashboard() {
     setMemberDetailLoading(false);
     setMemberDetailError("");
     setMemberDetailData(emptyMemberDetail());
-    setMemberDealFilters({ query: "", status: "all", stage: "all" });
+    setMemberDealFilters({ query: "", stage: "all" });
     setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
-    setMemberLeadFilters({ query: "", status: "all", temperature: "all" });
+    setMemberLeadFilters({ query: "", temperature: "all" });
   };
 
   const openMemberDetail = async (row) => {
@@ -284,9 +282,9 @@ export default function TeamDashboard() {
     setMemberDetailLoading(true);
     setMemberDetailError("");
     setMemberDetailData(emptyMemberDetail());
-    setMemberDealFilters({ query: "", status: "all", stage: "all" });
+    setMemberDealFilters({ query: "", stage: "all" });
     setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
-    setMemberLeadFilters({ query: "", status: "all", temperature: "all" });
+    setMemberLeadFilters({ query: "", temperature: "all" });
 
     try {
       const res = await API.get(
@@ -491,7 +489,6 @@ export default function TeamDashboard() {
         item.assignedTo?.name,
         item.assignedTo?.email,
         item.stageLabel,
-        item.status,
         item.actionType,
         item.title
       ]
@@ -535,7 +532,7 @@ export default function TeamDashboard() {
       memberDealSections.flatMap((section) =>
         section.rows.map((deal) => ({
           ...deal,
-          dealStatus: section.key
+          dealStageGroup: section.key
         }))
       ),
     [memberDealSections]
@@ -549,12 +546,11 @@ export default function TeamDashboard() {
   const filteredMemberDeals = useMemo(() => {
     const query = memberDealFilters.query.trim().toLowerCase();
     return memberDealsFlat.filter((deal) => {
-      const statusOk = memberDealFilters.status === "all" || deal.dealStatus === memberDealFilters.status;
       const stageOk = memberDealFilters.stage === "all" || (deal.stage || "") === memberDealFilters.stage;
-      if (!statusOk || !stageOk) return false;
+      if (!stageOk) return false;
       if (!query) return true;
 
-      const haystack = [deal._id, deal.companyName, deal.stage, deal.dealStatus]
+      const haystack = [deal._id, deal.companyName, deal.stage]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -592,10 +588,6 @@ export default function TeamDashboard() {
     });
   }, [memberDetailData.followups, memberFollowupFilters]);
 
-  const memberLeadStatusOptions = useMemo(
-    () => [...new Set((memberDetailData.leads || []).map((lead) => lead.status).filter(Boolean))],
-    [memberDetailData.leads]
-  );
   const memberLeadTemperatureOptions = useMemo(
     () =>
       [...new Set((memberDetailData.leads || []).map((lead) => lead.temperature).filter(Boolean))],
@@ -604,18 +596,16 @@ export default function TeamDashboard() {
   const filteredMemberLeads = useMemo(() => {
     const query = memberLeadFilters.query.trim().toLowerCase();
     return (memberDetailData.leads || []).filter((lead) => {
-      const statusOk =
-        memberLeadFilters.status === "all" || (lead.status || "") === memberLeadFilters.status;
       const temperatureOk =
         memberLeadFilters.temperature === "all" ||
         (lead.temperature || "") === memberLeadFilters.temperature;
-      if (!statusOk || !temperatureOk) return false;
+      if (!temperatureOk) return false;
       if (!query) return true;
 
       const haystack = [
         lead._id,
         lead.companyName,
-        lead.status,
+        lead.stage,
         lead.temperature,
         lead.nextAction
       ]
@@ -754,15 +744,18 @@ export default function TeamDashboard() {
             <div className="team-table-wrap">
               <table className="team-table">
                 <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Leads</th>
-                    <th>Open</th>
-                    <th>Won</th>
-                    <th>Lost</th>
-                    <th>Follow-ups</th>
-                    <th>Win Rate</th>
-                    <th>Actions</th>
+                  <tr className="team-table-group-row">
+                    <th rowSpan={2}>Member</th>
+                    <th rowSpan={2} className="team-lead-column team-group-start">Lead Pipeline</th>
+                    <th colSpan={4} className="team-deal-group">Deals</th>
+                    <th rowSpan={2}>Follow-ups</th>
+                    <th rowSpan={2}>Actions</th>
+                  </tr>
+                  <tr className="team-table-subhead-row">
+                    <th className="team-deal-column team-group-start">Open</th>
+                    <th className="team-deal-column">Won</th>
+                    <th className="team-deal-column">Lost</th>
+                    <th className="team-deal-column">Win Rate</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -780,12 +773,12 @@ export default function TeamDashboard() {
                             <span title={row.user.email}>{row.user.email}</span>
                           </div>
                         </td>
-                        <td>{row.totalLeads || 0}</td>
-                        <td>{row.openDeals}</td>
-                        <td>{row.wonDeals}</td>
-                        <td>{row.lostDeals}</td>
+                        <td className="team-lead-column team-group-start">{row.totalLeads || 0}</td>
+                        <td className="team-deal-column team-group-start">{row.openDeals}</td>
+                        <td className="team-deal-column">{row.wonDeals}</td>
+                        <td className="team-deal-column">{row.lostDeals}</td>
+                        <td className="team-deal-column">{row.winRate}%</td>
                         <td>{row.followupsToday}</td>
-                        <td>{row.winRate}%</td>
                         <td>
                           <button
                             className="team-inline-view-btn"
@@ -1314,37 +1307,11 @@ export default function TeamDashboard() {
                       ))}
                     </select>
                   </div>
-                  <div className="team-modal-tabs" role="tablist" aria-label="Member deal status tabs">
-                    {[
-                      { key: "all", label: "All" },
-                      { key: "open", label: "Open" },
-                      { key: "won", label: "Won" },
-                      { key: "lost", label: "Lost" }
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        className={`team-modal-tab-btn ${
-                          memberDealFilters.status === tab.key ? "active" : ""
-                        }`}
-                        onClick={() =>
-                          setMemberDealFilters((prev) => ({
-                            ...prev,
-                            status: tab.key
-                          }))
-                        }
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
                   {hasMemberDeals ? (
                     <div className="team-modal-table-wrap">
                       <table className="team-modal-table team-modal-table-compact">
                         <thead>
                           <tr>
-                            <th>Status</th>
                             <th>Company</th>
                             <th>Stage</th>
                             <th>Value</th>
@@ -1354,12 +1321,7 @@ export default function TeamDashboard() {
                         <tbody>
                           {filteredMemberDeals.length ? (
                             filteredMemberDeals.map((deal) => (
-                              <tr key={`${deal._id}-${deal.dealStatus}`}>
-                                <td>
-                                  <span className="team-member-pill">
-                                    {deal.dealStatus?.toUpperCase() || "-"}
-                                  </span>
-                                </td>
+                              <tr key={`${deal._id}-${deal.stage || ""}`}>
                                 <td title={deal.companyName}>{deal.companyName || "-"}</td>
                                 <td>{deal.stage || "-"}</td>
                                 <td>{formatCurrency(deal.dealValue || 0)}</td>
@@ -1368,7 +1330,7 @@ export default function TeamDashboard() {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={5} className="team-table-empty">
+                                <td colSpan={4} className="team-table-empty">
                                 No deals match current filters.
                               </td>
                             </tr>
@@ -1402,7 +1364,7 @@ export default function TeamDashboard() {
                         <input
                           type="text"
                           className="team-modal-filter-input"
-                          placeholder="Search by lead, status or next action..."
+                          placeholder="Search by lead, stage or next action..."
                           value={memberLeadFilters.query}
                           onChange={(e) =>
                             setMemberLeadFilters((prev) => ({
@@ -1411,23 +1373,6 @@ export default function TeamDashboard() {
                             }))
                           }
                         />
-                        <select
-                          className="team-modal-filter-select"
-                          value={memberLeadFilters.status}
-                          onChange={(e) =>
-                            setMemberLeadFilters((prev) => ({
-                              ...prev,
-                              status: e.target.value
-                            }))
-                          }
-                        >
-                          <option value="all">All Statuses</option>
-                          {memberLeadStatusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
                         <select
                           className="team-modal-filter-select"
                           value={memberLeadFilters.temperature}
@@ -1452,7 +1397,7 @@ export default function TeamDashboard() {
                           <thead>
                             <tr>
                               <th>Company</th>
-                              <th>Status</th>
+                              <th>Stage</th>
                               <th>Temperature</th>
                               <th>Estimated Value</th>
                               <th>Last Contact</th>
@@ -1465,7 +1410,7 @@ export default function TeamDashboard() {
                               filteredMemberLeads.map((lead) => (
                                 <tr key={lead._id}>
                                   <td title={lead.companyName}>{lead.companyName || "-"}</td>
-                                  <td>{lead.status || "-"}</td>
+                                  <td>{lead.stage || "-"}</td>
                                   <td>{lead.temperature || "-"}</td>
                                   <td>{formatCurrency(lead.estimatedValue || 0)}</td>
                                   <td>{formatDateTime(lead.lastContactDate)}</td>
@@ -1483,7 +1428,7 @@ export default function TeamDashboard() {
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={8} className="team-table-empty">
+                                <td colSpan={7} className="team-table-empty">
                                   No leads match current filters.
                                 </td>
                               </tr>
