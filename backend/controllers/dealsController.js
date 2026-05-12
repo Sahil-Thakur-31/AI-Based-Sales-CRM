@@ -1254,8 +1254,9 @@ exports.updateDeal = async (req, res) => {
     }
     if (Object.prototype.hasOwnProperty.call(update, "stage")) {
       const stage = String(update.stage || "P1").trim().toUpperCase();
-      if (["P1", "P2", "P3", "P4", "P5", "P6", "P7"].includes(stage)) {
+      if (["P1", "P2", "P3", "P6", "P7"].includes(stage)) {
         dealUpdate.stage = stage;
+        dealUpdate.status = dealStatusFromStage(stage);
         if (stage === "P7" || stage === "P6") {
           dealUpdate.isActive = false;
           if (!existingDeal.actualCloseDate) dealUpdate.actualCloseDate = new Date();
@@ -1302,7 +1303,7 @@ exports.updateDeal = async (req, res) => {
     if (Object.keys(dealUpdate).length) {
       deal = await Deal.findOneAndUpdate(
         accessFilter,
-        { $set: dealUpdate, $unset: { status: "" } },
+        { $set: dealUpdate },
         { returnDocument: "after" }
       ).lean();
     }

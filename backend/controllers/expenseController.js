@@ -1,12 +1,15 @@
 const Expense = require("../models/expenses");
 const OcrFeedback = require("../models/ocrFeedback");
 const Notification = require("../models/notifications");
+const Team = require("../models/teams");
 const getNextCounter = require("../utils/getNextCounter");
 const { extractReceiptData } = require("../services/expenseReceiptOcr");
 const fs = require("fs").promises;
+const mongoose = require("mongoose");
 require("../models/users");
 
 const isAdmin = (role) => String(role || "").toLowerCase() === "admin";
+const isManager = (role) => String(role || "").toLowerCase() === "manager";
 const normalizeVendorKey = (value) =>
   String(value || "")
     .toLowerCase()
@@ -77,6 +80,51 @@ function getExpenseReportRange(input, now = new Date()) {
 
   const start = new Date(selection.year, selection.month - 1, 1);
   return { start, end: addMonths(start, 1) };
+}
+
+async function getExpenseReportScopeFilter(user = {}) {
+  if (!user?._id) {
+    return { userFilter: {}, scopeLabel: "All Expenses" };
+  }
+
+  if (isAdmin(user.role)) {
+    return { userFilter: {}, scopeLabel: "All Expenses" };
+  }
+
+  if (!isManager(user.role)) {
+    return {
+      userFilter: { userId: user._id },
+      scopeLabel: "My Expenses",
+    };
+  }
+
+  const teams = await Team.find({ "teamLeads.userId": user._id })
+    .select("teamLeads members")
+    .lean();
+
+  const scopedIds = [
+    String(user._id),
+    ...teams.flatMap((team) => [
+      ...(team.teamLeads || []).map((lead) => String(lead.userId || "")),
+      ...(team.members || []).map((member) => String(member.userId || "")),
+    ]),
+  ].filter(Boolean);
+
+  const objectIds = [...new Set(scopedIds)]
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  if (!objectIds.length) {
+    return {
+      userFilter: { userId: user._id },
+      scopeLabel: "My Team + Me",
+    };
+  }
+
+  return {
+    userFilter: { userId: { $in: objectIds } },
+    scopeLabel: "My Team + Me",
+  };
 }
 
 const levenshteinDistance = (source, target) => {
@@ -463,6 +511,29 @@ exports.getExpenses = async (req, res) => {
       .sort({ expenseDate: -1, updatedAt: -1 });
 
     res.json(expenses);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getExpenseReportAnalytics = async (req, res) => {
+  try {
+    const filter = { is_deleted: false };
+    const { start, end } = getExpenseReportRange(req.query, new Date());
+    const { userFilter, scopeLabel } = await getExpenseReportScopeFilter(req.user);
+
+    filter.expenseDate = { $gte: start, $lt: end };
+    Object.assign(filter, userFilter);
+
+    const expenses = await Expense.find(filter)
+      .populate("userId", "name email")
+      .sort({ expenseDate: -1, updatedAt: -1 });
+
+    res.json({
+      expenses,
+      scopeLabel,
+      selection: getExpenseReportSelection(req.query, new Date()),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
