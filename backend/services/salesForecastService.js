@@ -397,8 +397,7 @@ function groupPipeline(items = []) {
 async function getSalesForecast(user = {}, options = {}) {
   const baseFilter = {
     is_deleted: { $ne: true },
-    status: "open",
-    stage: { $ne: "P7" },
+    stage: { $nin: ["P6", "P7"] },
     isActive: { $ne: false },
   };
   const rangeFilter = getExpectedCloseDateFilter(options?.range);

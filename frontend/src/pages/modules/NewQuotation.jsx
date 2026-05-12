@@ -51,7 +51,7 @@ function getLeadDisplayName(lead) {
   return (
     lead.company_name ||
     lead.primary_contact?.name ||
-    lead.status ||
+    lead.stage ||
     `Lead ${String(lead._id || "").slice(-6)}`
   );
 }
@@ -186,8 +186,8 @@ export default function NewQuotation() {
     return source
       .filter((lead) => {
         const leadName = String(getLeadDisplayName(lead) || "").toLowerCase();
-        const status = String(lead.status || "").toLowerCase();
-        return leadName.includes(searchTerm) || status.includes(searchTerm);
+        const stage = String(lead.stage || "").toLowerCase();
+        return leadName.includes(searchTerm) || stage.includes(searchTerm);
       })
       .slice(0, 10);
   }, [eligibleLeads, leadSearch]);
@@ -778,7 +778,7 @@ export default function NewQuotation() {
                             <span className="quote-deal-suggestion-meta">
                               {quoteType === "deal"
                                 ? source.stage || "No stage"
-                                : source.status || "No status"}{" "}
+                                : source.stage || "No stage"}{" "}
                               | {String(source._id).slice(-6)}
                             </span>
                           </li>
