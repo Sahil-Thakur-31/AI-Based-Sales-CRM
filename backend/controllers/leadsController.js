@@ -584,21 +584,25 @@ exports.getLeads = async (req, res) => {
     await normalizeLegacyLeadFlagsOnce();
     const deletedOnly =
       req.query.deleted_only === "true" || req.query.deleted_only === true;
+    const includeConverted =
+      req.query.include_converted === "true" || req.query.include_converted === true;
     const limit = Number(req.query.limit);
 
     const filter = deletedOnly
       ? { is_deleted: true }
-      : {
-        $and: [
-          { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
-          {
-            $or: [
-              { converted_to_deal: { $ne: true } },
-              { is_active: false },
-            ],
-          },
-        ],
-      };
+      : includeConverted
+        ? { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] }
+        : {
+          $and: [
+            { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
+            {
+              $or: [
+                { converted_to_deal: { $ne: true } },
+                { is_active: false },
+              ],
+            },
+          ],
+        };
 
     if (!isPrivilegedUser(req.user)) {
       filter.assigned_to = req.user?._id || null;
