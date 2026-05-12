@@ -28,6 +28,16 @@ function parseEmployeeCount(rangeValue) {
   return Math.round((min + max) / 2);
 }
 
+function sanitizeEmployeeDisplay(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "-") return "";
+  const numbers = text.match(/\d+/g) || [];
+  if (!numbers.length) return text;
+  const maxValue = Math.max(...numbers.map((item) => Number(item)).filter(Number.isFinite), 0);
+  if (!Number.isFinite(maxValue) || maxValue <= 0 || maxValue > 10000) return "";
+  return text;
+}
+
 function formatLocation(lead) {
   const location = lead.location;
   if (location && typeof location === "object") {
@@ -110,22 +120,31 @@ exports.getAiLeads = async (req, res) => {
         .lean(),
     ]);
 
-    const industryRepairOps = aiLeads
+    const leadRepairOps = aiLeads
       .map((lead) => {
         const normalized = normalizeIndustry(lead.industry);
-        if (!normalized || normalized === lead.industry) return null;
-        lead.industry = normalized;
+        const employeeRange = sanitizeEmployeeDisplay(lead.employee_range);
+        const updates = {};
+        if (normalized && normalized !== lead.industry) {
+          updates.industry = normalized;
+          lead.industry = normalized;
+        }
+        if (employeeRange !== String(lead.employee_range || "").trim()) {
+          updates.employee_range = employeeRange;
+          lead.employee_range = employeeRange;
+        }
+        if (!Object.keys(updates).length) return null;
         return {
           updateOne: {
             filter: { _id: lead._id },
-            update: { $set: { industry: normalized } },
+            update: { $set: updates },
           },
         };
       })
       .filter(Boolean);
 
-    if (industryRepairOps.length) {
-      await AiGeneratedLead.bulkWrite(industryRepairOps);
+    if (leadRepairOps.length) {
+      await AiGeneratedLead.bulkWrite(leadRepairOps);
     }
 
     const aiLeadIds = aiLeads.map((item) => item._id);
@@ -151,7 +170,7 @@ exports.getAiLeads = async (req, res) => {
         industry: normalizeIndustry(lead.industry) || "-",
         source: lead.source?.name || "Unknown",
         location: formatLocation(lead),
-        employees: lead.employee_range || "-",
+        employees: sanitizeEmployeeDisplay(lead.employee_range) || "-",
         turnover: lead.turnover_range || "-",
         decisionMaker: mapPrimaryContact(primaryContact),
         phone: mapContactPhone(primaryContact),
@@ -212,7 +231,6 @@ exports.importAiLead = async (req, res) => {
         deal_value_estimate: 0,
         assigned_to: req.user?._id || null,
         stage: "P3",
-        status: "new",
         is_active: true,
         location: aiLead.location || null,
       });

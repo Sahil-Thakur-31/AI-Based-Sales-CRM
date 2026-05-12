@@ -11,6 +11,15 @@ const ADMIN_ROLE = "Admin";
 const MANAGER_ROLE = "Manager";
 const LEAD_PIPELINE_STAGES = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 const DEAL_PIPELINE_STAGES = ["P1", "P2", "P3", "P6", "P7"];
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+
+function dealStatusFromStage(stage = "P3") {
+  const normalized = String(stage || "P3").trim().toUpperCase();
+  if (normalized === DEAL_WON_STAGE) return "won";
+  if (normalized === DEAL_LOST_STAGE) return "lost";
+  return "open";
+}
 
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -300,7 +309,7 @@ function formatMemberDealRow(dealDoc = {}) {
   return {
     _id: dealDoc._id,
     companyName: lead?.company_name || client?.name || "Untitled Deal",
-    status: dealDoc.status || "open",
+    status: dealStatusFromStage(dealDoc.stage),
     stage: dealDoc.stage || "",
     dealValue: Number(dealDoc.dealValue) || 0,
     probability: Number(dealDoc.probability) || 0,
@@ -376,7 +385,9 @@ function formatDashboardFollowupRow(followupDoc = {}) {
 }
 
 function formatMemberLeadRow(leadDoc = {}) {
-  const status = String(leadDoc.status || "new");
+  const status = leadDoc.converted_to_deal || String(leadDoc.stage || "").toUpperCase() === "P7"
+    ? "converted"
+    : "active";
   return {
     _id: leadDoc._id || null,
     companyName: leadDoc.company_name || "Unknown company",
@@ -422,7 +433,10 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
   let totalValue = 0;
 
   for (const deal of deals) {
-    const stage = stageOrder.includes(String(deal.stage || "")) ? String(deal.stage || "") : null;
+    const status = dealStatusFromStage(deal.stage);
+    const rawStage = String(deal.stage || "");
+    const displayStage = rawStage;
+    const stage = stageOrder.includes(displayStage) ? displayStage : null;
     if (!stage) continue;
     const stageEntry = stageMap.get(stage);
     if (!stageEntry) continue;
@@ -436,7 +450,7 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
       _id: deal._id,
       companyName: deal.companyName || "Untitled Deal",
       stage,
-      status: deal.status || "open",
+      status,
       dealValue,
       probability: Number(deal.probability || 0),
       expectedCloseDate: deal.expectedCloseDate || null,
@@ -458,9 +472,8 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
 }
 
 function summarizeLeadPipeline({
-  leadFollowups = [],
   usersMap = new Map(),
-  leadsMap = new Map(),
+  leads = [],
   stageOrder = LEAD_PIPELINE_STAGES
 }) {
   const stageMap = new Map(
@@ -478,31 +491,29 @@ function summarizeLeadPipeline({
   let totalCount = 0;
   let totalValue = 0;
 
-  for (const row of leadFollowups) {
-    const stage = stageOrder.includes(String(row.stage || "")) ? String(row.stage || "") : null;
+  for (const lead of leads) {
+    const stage = stageOrder.includes(String(lead.stage || "")) ? String(lead.stage || "") : null;
     if (!stage) continue;
     const stageEntry = stageMap.get(stage);
     if (!stageEntry) continue;
 
-    const lead = leadsMap.get(String(row.leadId || ""));
-    if (!lead) continue;
-    const assignedUser = usersMap.get(String(row.assignedTo || ""));
+    const assignedUser = usersMap.get(String(lead.assigned_to || ""));
     const estimatedValue = Number(lead?.deal_value_estimate || 0);
 
     stageEntry.count += 1;
     stageEntry.value += estimatedValue;
     stageEntry.items.push({
-      _id: row._id,
-      leadId: row.leadId,
-      companyName: lead?.company_name || row.clientName || "Untitled Lead",
+      _id: lead._id,
+      leadId: lead._id,
+      companyName: lead?.company_name || "Untitled Lead",
       stage,
-      status: row.status || "pending",
-      actionType: row.actionType || "",
-      title: row.title || "Follow-up",
-      dueDateTime: row.dueDateTime || null,
-      updatedAt: row.updatedAt || row.createdAt || null,
+      status: lead?.converted_to_deal || stage === "P7" ? "converted" : "active",
+      actionType: lead.next_action || "",
+      title: lead.next_action || "",
+      dueDateTime: lead.last_contact_date || null,
+      updatedAt: lead.updated_at || lead.created_at || null,
       estimatedValue,
-      leadStatus: lead?.status || "new",
+      leadStatus: lead?.converted_to_deal || stage === "P7" ? "converted" : "active",
       temperature: lead?.lead_temperature || "cold",
       assignedTo: assignedUser ? mapUserForApi(assignedUser) : null
     });
@@ -594,7 +605,7 @@ function getActiveLeadMatch(extraMatch = {}) {
   return {
     ...extraMatch,
     is_deleted: { $ne: true },
-    status: { $ne: "converted" },
+    stage: { $ne: "P7" },
     converted_to_deal: { $ne: true },
     $or: [{ converted_deal_id: { $exists: false } }, { converted_deal_id: null }]
   };
@@ -1150,13 +1161,13 @@ exports.getTeamDashboard = async (req, res) => {
       leadTempAgg,
       recentLeadRows,
       memberLeadAgg,
-      leadPipelineRawRows
+      leadPipelineRows
     ] = await Promise.all([
       Deal.aggregate([
         { $match: dealsMatch },
         {
           $group: {
-            _id: "$status",
+            _id: "$stage",
             count: { $sum: 1 },
             value: { $sum: { $ifNull: ["$dealValue", 0] } }
           }
@@ -1168,18 +1179,18 @@ exports.getTeamDashboard = async (req, res) => {
           $group: {
             _id: "$assignedTo",
             openDeals: {
-              $sum: { $cond: [{ $eq: ["$status", "open"] }, 1, 0] }
+              $sum: { $cond: [{ $not: [{ $in: ["$stage", [DEAL_WON_STAGE, DEAL_LOST_STAGE]] }] }, 1, 0] }
             },
             wonDeals: {
-              $sum: { $cond: [{ $eq: ["$status", "won"] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ["$stage", DEAL_WON_STAGE] }, 1, 0] }
             },
             lostDeals: {
-              $sum: { $cond: [{ $eq: ["$status", "lost"] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ["$stage", DEAL_LOST_STAGE] }, 1, 0] }
             },
             pipelineValue: {
               $sum: {
                 $cond: [
-                  { $eq: ["$status", "open"] },
+                  { $not: [{ $in: ["$stage", [DEAL_WON_STAGE, DEAL_LOST_STAGE]] }] },
                   { $ifNull: ["$dealValue", 0] },
                   0
                 ]
@@ -1188,7 +1199,7 @@ exports.getTeamDashboard = async (req, res) => {
             wonRevenue: {
               $sum: {
                 $cond: [
-                  { $eq: ["$status", "won"] },
+                  { $eq: ["$stage", DEAL_WON_STAGE] },
                   { $ifNull: ["$dealValue", 0] },
                   0
                 ]
@@ -1200,12 +1211,10 @@ exports.getTeamDashboard = async (req, res) => {
       Deal.find({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        status: "open",
-        stage: { $in: DEAL_PIPELINE_STAGES },
         ...dateRangeMatch("createdAt", selectedRange)
       })
         .select(
-          "_id assignedTo stage dealValue probability expectedCloseDate status updatedAt createdAt lead_id client_id"
+          "_id assignedTo stage dealValue probability expectedCloseDate updatedAt createdAt lead_id client_id"
         )
         .populate("lead_id", "company_name")
         .populate("client_id", "name")
@@ -1255,7 +1264,7 @@ exports.getTeamDashboard = async (req, res) => {
         },
         {
           $group: {
-            _id: "$status",
+            _id: "$stage",
             count: { $sum: 1 }
           }
         }
@@ -1283,7 +1292,7 @@ exports.getTeamDashboard = async (req, res) => {
         .sort({ updated_at: -1, created_at: -1 })
         .limit(8)
         .select(
-          "company_name status lead_temperature assigned_to next_action last_contact_date deal_value_estimate converted_to_deal created_at updated_at"
+          "company_name stage lead_temperature assigned_to next_action last_contact_date deal_value_estimate converted_to_deal created_at updated_at"
         )
         .populate("assigned_to", "name email")
         .lean(),
@@ -1304,26 +1313,33 @@ exports.getTeamDashboard = async (req, res) => {
           }
         }
       ]),
-      Followup.find({
-        assignedTo: { $in: memberObjectIds },
-        is_deleted: { $ne: true },
-        status: { $ne: "cancelled" },
-        leadId: { $exists: true, $ne: null },
-        ...dateRangeMatch("dueDateTime", selectedRange)
-      })
-        .select("leadId assignedTo stage status actionType title dueDateTime clientName updatedAt createdAt")
-        .sort({ updatedAt: -1, createdAt: -1 })
+      Lead.find(
+        getActiveLeadMatch({
+          assigned_to: { $in: memberObjectIds },
+          ...leadDateMatch
+        })
+      )
+        .select(
+          "company_name stage lead_temperature assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
+        )
+        .sort({ updated_at: -1, created_at: -1 })
         .lean()
     ]);
 
     const dealStatusMap = new Map(dealStatusAgg.map((item) => [String(item._id), item]));
-    const openDeals = dealStatusMap.get("open")?.count || 0;
-    const wonDeals = dealStatusMap.get("won")?.count || 0;
-    const lostDeals = dealStatusMap.get("lost")?.count || 0;
+    const wonDeals = dealStatusMap.get(DEAL_WON_STAGE)?.count || 0;
+    const lostDeals = dealStatusMap.get(DEAL_LOST_STAGE)?.count || 0;
+    const openDeals = (dealStatusAgg || []).reduce((sum, item) => {
+      const stage = String(item?._id || "");
+      return [DEAL_WON_STAGE, DEAL_LOST_STAGE].includes(stage) ? sum : sum + Number(item?.count || 0);
+    }, 0);
     const closedDeals = wonDeals + lostDeals;
     const winRate = closedDeals ? Math.round((wonDeals / closedDeals) * 100) : 0;
-    const pipelineValue = dealStatusMap.get("open")?.value || 0;
-    const wonRevenue = dealStatusMap.get("won")?.value || 0;
+    const pipelineValue = (dealStatusAgg || []).reduce((sum, item) => {
+      const stage = String(item?._id || "");
+      return [DEAL_WON_STAGE, DEAL_LOST_STAGE].includes(stage) ? sum : sum + Number(item?.value || 0);
+    }, 0);
+    const wonRevenue = dealStatusMap.get(DEAL_WON_STAGE)?.value || 0;
 
     const followupByMemberMap = new Map(
       followupByMemberAgg.map((item) => [String(item._id), item.count])
@@ -1339,7 +1355,7 @@ exports.getTeamDashboard = async (req, res) => {
     const dealPipelineRows = (activeDealRows || []).map((deal) => ({
       _id: deal._id,
       stage: deal.stage || "",
-      status: deal.status || "open",
+      status: dealStatusFromStage(deal.stage),
       dealValue: Number(deal.dealValue || 0),
       probability: Number(deal.probability || 0),
       expectedCloseDate: deal.expectedCloseDate || null,
@@ -1349,34 +1365,9 @@ exports.getTeamDashboard = async (req, res) => {
     }));
     const dealPipeline = summarizeDealPipeline(dealPipelineRows, usersMap, DEAL_PIPELINE_STAGES);
 
-    const latestLeadFollowups = [];
-    const seenLeadIds = new Set();
-    for (const row of leadPipelineRawRows || []) {
-      const leadId = String(row?.leadId || "");
-      if (!leadId || seenLeadIds.has(leadId)) continue;
-      seenLeadIds.add(leadId);
-      latestLeadFollowups.push(row);
-    }
-
-    const leadPipelineLeadIds = latestLeadFollowups
-      .map((row) => String(row?.leadId || ""))
-      .filter(Boolean);
-    const leadPipelineLeadDocs = leadPipelineLeadIds.length
-      ? await Lead.find(
-          getActiveLeadMatch({
-            _id: { $in: leadPipelineLeadIds }
-          })
-        )
-          .select("company_name status lead_temperature deal_value_estimate")
-          .lean()
-      : [];
-    const leadPipelineLeadMap = new Map(
-      leadPipelineLeadDocs.map((lead) => [String(lead._id), lead])
-    );
     const leadPipeline = summarizeLeadPipeline({
-      leadFollowups: latestLeadFollowups,
       usersMap,
-      leadsMap: leadPipelineLeadMap,
+      leads: leadPipelineRows,
       stageOrder: LEAD_PIPELINE_STAGES
     });
 
@@ -1441,11 +1432,15 @@ exports.getTeamDashboard = async (req, res) => {
     const statusMap = new Map((leadStatusAgg || []).map((item) => [String(item?._id || ""), Number(item?.count || 0)]));
     const tempMap = new Map((leadTempAgg || []).map((item) => [String(item?._id || ""), Number(item?.count || 0)]));
 
-    leadSummary.new = statusMap.get("new") || 0;
-    leadSummary.contacted = statusMap.get("contacted") || 0;
-    leadSummary.qualified = statusMap.get("qualified") || 0;
+    leadSummary.new = statusMap.get("P1") || 0;
+    leadSummary.contacted = statusMap.get("P2") || 0;
+    leadSummary.qualified =
+      (statusMap.get("P3") || 0) +
+      (statusMap.get("P4") || 0) +
+      (statusMap.get("P5") || 0) +
+      (statusMap.get("P6") || 0);
     leadSummary.converted = 0;
-    leadSummary.rejected = statusMap.get("rejected") || 0;
+    leadSummary.rejected = 0;
     leadSummary.total = Array.from(statusMap.values()).reduce((acc, count) => acc + count, 0);
     leadSummary.hot = tempMap.get("hot") || 0;
     leadSummary.warm = tempMap.get("warm") || 0;
@@ -1581,13 +1576,12 @@ exports.getTeamMemberDetail = async (req, res) => {
       Deal.find({
         assignedTo: memberObjectId,
         is_deleted: { $ne: true },
-        status: { $in: ["open", "won", "lost"] },
         ...dateRangeMatch("createdAt", selectedRange)
       })
         .populate("client_id", "name")
         .populate("lead_id", "company_name")
         .select(
-          "status stage dealValue probability expectedCloseDate actualCloseDate updatedAt createdAt client_id lead_id"
+          "stage dealValue probability expectedCloseDate actualCloseDate updatedAt createdAt client_id lead_id"
         )
         .sort({ updatedAt: -1, createdAt: -1 })
         .lean(),
@@ -1609,7 +1603,7 @@ exports.getTeamMemberDetail = async (req, res) => {
         })
       )
         .select(
-          "company_name status lead_temperature deal_value_estimate next_action last_contact_date converted_to_deal created_at updated_at"
+          "company_name stage lead_temperature deal_value_estimate next_action last_contact_date converted_to_deal created_at updated_at"
         )
         .sort({ updated_at: -1, created_at: -1 })
         .lean(),
@@ -1659,7 +1653,7 @@ exports.getTeamMemberDetail = async (req, res) => {
           {
             $match: {
               assignedTo: memberObjectId,
-              status: "won",
+              stage: DEAL_WON_STAGE,
               is_deleted: { $ne: true },
               $or: [
                 { actualCloseDate: { $gte: targetStart, $lte: targetEnd } },
@@ -1711,10 +1705,8 @@ exports.getTeamMemberDetail = async (req, res) => {
     const leadSummary = leads.reduce(
       (acc, lead) => {
         acc.total += 1;
-        if (lead.status === "new") acc.new += 1;
-        if (lead.status === "contacted") acc.contacted += 1;
-        if (lead.status === "qualified") acc.qualified += 1;
-        if (lead.status === "rejected") acc.rejected += 1;
+        if (lead.status === "converted") acc.converted += 1;
+        else acc.new += 1;
         if (lead.temperature === "hot") acc.hot += 1;
         if (lead.temperature === "warm") acc.warm += 1;
         if (lead.temperature === "cold") acc.cold += 1;
@@ -1808,12 +1800,10 @@ exports.getTeamPipelineDetail = async (req, res) => {
       const deals = await Deal.find({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        status: "open",
-        stage: { $in: stageOrder },
         ...dateRangeMatch("createdAt", selectedRange)
       })
         .select(
-          "_id assignedTo stage dealValue probability expectedCloseDate status updatedAt createdAt lead_id client_id"
+          "_id assignedTo stage dealValue probability expectedCloseDate updatedAt createdAt lead_id client_id"
         )
         .populate("lead_id", "company_name")
         .populate("client_id", "name")
@@ -1823,7 +1813,7 @@ exports.getTeamPipelineDetail = async (req, res) => {
       const dealRows = (deals || []).map((deal) => ({
         _id: deal._id,
         stage: deal.stage || "",
-        status: deal.status || "open",
+        status: dealStatusFromStage(deal.stage),
         dealValue: Number(deal.dealValue || 0),
         probability: Number(deal.probability || 0),
         expectedCloseDate: deal.expectedCloseDate || null,
@@ -1849,43 +1839,21 @@ exports.getTeamPipelineDetail = async (req, res) => {
       });
     }
 
-    const leadPipelineRaw = await Followup.find({
-      assignedTo: { $in: memberObjectIds },
-      is_deleted: { $ne: true },
-      status: { $ne: "cancelled" },
-      leadId: { $exists: true, $ne: null },
-      ...dateRangeMatch("dueDateTime", selectedRange)
-    })
-      .select("leadId assignedTo stage status actionType title dueDateTime clientName updatedAt createdAt")
-      .sort({ updatedAt: -1, createdAt: -1 })
+    const leadRows = await Lead.find(
+      getActiveLeadMatch({
+        assigned_to: { $in: memberObjectIds },
+        stage: { $in: stageOrder },
+        ...dateRangeMatch("created_at", selectedRange)
+      })
+    )
+      .select(
+        "company_name stage lead_temperature assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
+      )
+      .sort({ stage: 1, updated_at: -1, created_at: -1 })
       .lean();
-
-    const latestLeadRows = [];
-    const seenLeadIds = new Set();
-    for (const row of leadPipelineRaw || []) {
-      const leadId = String(row?.leadId || "");
-      if (!leadId || seenLeadIds.has(leadId)) continue;
-      seenLeadIds.add(leadId);
-      latestLeadRows.push(row);
-    }
-
-    const leadIdsForLookup = latestLeadRows
-      .map((row) => String(row?.leadId || ""))
-      .filter(Boolean);
-    const leadDocs = leadIdsForLookup.length
-      ? await Lead.find(
-          getActiveLeadMatch({
-            _id: { $in: leadIdsForLookup }
-          })
-        )
-          .select("company_name status lead_temperature deal_value_estimate")
-          .lean()
-      : [];
-    const leadsMap = new Map(leadDocs.map((lead) => [String(lead._id), lead]));
     const leadPipeline = summarizeLeadPipeline({
-      leadFollowups: latestLeadRows,
       usersMap,
-      leadsMap,
+      leads: leadRows,
       stageOrder
     });
 
@@ -1979,7 +1947,7 @@ exports.getTeamTargets = async (req, res) => {
             {
               $match: {
                 assignedTo: { $in: teamUserObjectIds },
-                status: "won",
+                stage: DEAL_WON_STAGE,
                 is_deleted: { $ne: true }
               }
             },

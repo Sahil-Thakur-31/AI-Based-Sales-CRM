@@ -2,6 +2,7 @@ const Quotation = require("../models/quatations");
 const QuotationItem = require("../models/quatation_item");
 const Deal = require("../models/deals");
 const Lead = require("../models/leads");
+const DealStageHistory = require("../models/dealStageHistory");
 const Client = require("../models/client");
 const ClientContact = require("../models/client_contact");
 const Product = require("../models/products");
@@ -23,6 +24,8 @@ const QUOTATION_STATUSES = [
 const VERSION_ALLOWED_PREVIOUS_STATUSES = ["expired", "rejected"];
 const QUOTATION_TYPES = new Set(["deal", "lead"]);
 const VIEW_ONLY_ADMIN_MESSAGE = "Admins can only view quotations";
+const DEAL_WON_STAGE = "P7";
+const QUOTATION_CREATED_STAGE = "P1";
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -89,6 +92,154 @@ function getUserScopedQuotationFilter(user = {}, baseFilter = {}) {
     ...baseFilter,
     createdBy: user?._id
   };
+}
+
+async function moveDealToStage(dealId, stage, actorId = null) {
+  if (!dealId) return null;
+  const existingDeal = await Deal.findById(dealId).select("_id stage actualCloseDate").lean();
+  if (!existingDeal) return null;
+
+  const update = {
+    stage,
+    isActive: stage === DEAL_WON_STAGE ? false : true
+  };
+  if (stage === DEAL_WON_STAGE && !existingDeal.actualCloseDate) {
+    update.actualCloseDate = new Date();
+  }
+
+  const deal = await Deal.findByIdAndUpdate(
+    dealId,
+    { $set: update, $unset: { status: "" } },
+    { returnDocument: "after" }
+  );
+
+  if (String(existingDeal.stage || "") !== stage) {
+    await DealStageHistory.create({
+      dealId,
+      stage,
+      movedAt: new Date(),
+      movedBy: actorId || null
+    });
+  }
+
+  return deal;
+}
+
+async function resolveClientForLead(lead, actorId, preferredClientId = null) {
+  if (preferredClientId) {
+    const preferred = await Client.findById(preferredClientId);
+    if (preferred) return preferred;
+  }
+
+  const companyName = String(lead?.company_name || "").trim();
+  const client = companyName
+    ? await Client.findOne({
+        name: new RegExp(`^${companyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+        is_deleted: { $ne: true }
+      })
+    : null;
+
+  if (client) return client;
+
+  return Client.create({
+    name: companyName || `Converted Client ${String(lead?._id || "").slice(-6)}`,
+    industry: lead?.industry || null,
+    Address: lead?.Address || "",
+    employeeCount: lead?.employee_count || null,
+    turnoverRange: lead?.turnover_range || "",
+    website: lead?.website || "",
+    source: lead?.source || null,
+    deal_count: 0,
+    createdBy: actorId || null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    is_deleted: false,
+    location: lead?.location || null
+  });
+}
+
+async function approveLeadQuotationAsWonDeal(quotation, actorId = null) {
+  const lead = await Lead.findById(quotation.leadId);
+  if (!lead) return null;
+
+  if (lead.converted_deal_id) {
+    const existingDeal = await moveDealToStage(lead.converted_deal_id, DEAL_WON_STAGE, actorId);
+    if (existingDeal) {
+      await Lead.findByIdAndUpdate(lead._id, {
+        $set: {
+          stage: DEAL_WON_STAGE,
+          converted_to_deal: true,
+          is_existing_client: true,
+          converted_deal_id: existingDeal._id,
+          deal_name: existingDeal.deal_name || lead.deal_name || ""
+        },
+        $unset: { status: "" }
+      });
+      return existingDeal;
+    }
+  }
+
+  const client = await resolveClientForLead(lead, actorId, quotation.clientId);
+  const deal = await Deal.create({
+    deal_name: lead.deal_name || `${lead.company_name || "Lead"} Deal`,
+    client_id: client?._id || null,
+    lead_id: lead._id,
+    assignedTo: lead.assigned_to || quotation.assignedTo || null,
+    assignedBy: actorId || null,
+    stage: DEAL_WON_STAGE,
+    dealValue: Number(quotation.grandTotal || lead.deal_value_estimate || 0),
+    probability: 100,
+    expectedCloseDate: new Date(),
+    actualCloseDate: new Date(),
+    isActive: false,
+    is_deleted: false
+  });
+
+  await DealStageHistory.create({
+    dealId: deal._id,
+    stage: DEAL_WON_STAGE,
+    movedAt: new Date(),
+    movedBy: actorId || null
+  });
+
+  if (client?._id) {
+    await Client.updateOne(
+      { _id: client._id },
+      { $inc: { deal_count: 1 }, $set: { updatedAt: new Date(), is_deleted: false } }
+    );
+  }
+
+  await Lead.findByIdAndUpdate(lead._id, {
+    $set: {
+      stage: DEAL_WON_STAGE,
+      converted_to_deal: true,
+      is_existing_client: true,
+      converted_deal_id: deal._id,
+      deal_name: deal.deal_name
+    },
+    $unset: { status: "" }
+  });
+
+  return deal;
+}
+
+async function moveQuotationSourceToStage(quotation, stage, actorId = null) {
+  const quoteType = inferQuoteType(quotation);
+  if (quoteType === "deal" && quotation.dealId) {
+    return moveDealToStage(quotation.dealId, stage, actorId);
+  }
+
+  if (quoteType === "lead" && quotation.leadId) {
+    if (stage === DEAL_WON_STAGE) {
+      return approveLeadQuotationAsWonDeal(quotation, actorId);
+    }
+    await Lead.findByIdAndUpdate(quotation.leadId, {
+      $set: { stage },
+      $unset: { status: "" }
+    });
+  }
+
+  return null;
 }
 
 function getTodayUtcStartDate() {
@@ -491,7 +642,7 @@ exports.getQuotationById = async (req, res) => {
         ? {
             _id: lead._id,
             companyName: lead.company_name || "Untitled Lead",
-            status: lead.status || "-"
+            stage: lead.stage || "-"
           }
         : null,
       client: client
@@ -813,6 +964,8 @@ exports.createQuotation = async (req, res) => {
       }))
     );
 
+    await moveQuotationSourceToStage(quotation, QUOTATION_CREATED_STAGE, req.user?._id || null);
+
     res.status(201).json({
       _id: quotation._id,
       quoteNumber: quotation.quoteNumber,
@@ -856,7 +1009,7 @@ exports.updateQuotationStatus = async (req, res) => {
         is_deleted: false
       })
     )
-      .select("_id dealId leadId quoteType version")
+      .select("_id dealId leadId clientId assignedTo quoteType version")
       .lean();
 
     if (!currentQuotation) {
@@ -909,12 +1062,16 @@ exports.updateQuotationStatus = async (req, res) => {
       {
         returnDocument: "after"
       }
-    ).select("_id status version updatedAt");
+    ).select("_id status version updatedAt dealId leadId clientId assignedTo quoteType grandTotal");
 
     if (!quotation) {
       return res.status(404).json({
         message: "Quotation not found"
       });
+    }
+
+    if (nextStatus === "approved") {
+      await moveQuotationSourceToStage(quotation, DEAL_WON_STAGE, req.user?._id || null);
     }
 
     res.json({

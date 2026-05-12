@@ -754,15 +754,18 @@ export default function TeamDashboard() {
             <div className="team-table-wrap">
               <table className="team-table">
                 <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Leads</th>
-                    <th>Open</th>
-                    <th>Won</th>
-                    <th>Lost</th>
-                    <th>Follow-ups</th>
-                    <th>Win Rate</th>
-                    <th>Actions</th>
+                  <tr className="team-table-group-row">
+                    <th rowSpan={2}>Member</th>
+                    <th rowSpan={2} className="team-lead-column team-group-start">Lead Pipeline</th>
+                    <th colSpan={4} className="team-deal-group">Deals</th>
+                    <th rowSpan={2}>Follow-ups</th>
+                    <th rowSpan={2}>Actions</th>
+                  </tr>
+                  <tr className="team-table-subhead-row">
+                    <th className="team-deal-column team-group-start">Open</th>
+                    <th className="team-deal-column">Won</th>
+                    <th className="team-deal-column">Lost</th>
+                    <th className="team-deal-column">Win Rate</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -780,12 +783,12 @@ export default function TeamDashboard() {
                             <span title={row.user.email}>{row.user.email}</span>
                           </div>
                         </td>
-                        <td>{row.totalLeads || 0}</td>
-                        <td>{row.openDeals}</td>
-                        <td>{row.wonDeals}</td>
-                        <td>{row.lostDeals}</td>
+                        <td className="team-lead-column team-group-start">{row.totalLeads || 0}</td>
+                        <td className="team-deal-column team-group-start">{row.openDeals}</td>
+                        <td className="team-deal-column">{row.wonDeals}</td>
+                        <td className="team-deal-column">{row.lostDeals}</td>
+                        <td className="team-deal-column">{row.winRate}%</td>
                         <td>{row.followupsToday}</td>
-                        <td>{row.winRate}%</td>
                         <td>
                           <button
                             className="team-inline-view-btn"
