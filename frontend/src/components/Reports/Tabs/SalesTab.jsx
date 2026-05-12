@@ -55,6 +55,30 @@ function matchesSalesTableFilter(row, filterValue) {
   }
 }
 
+function normalizeSearchValue(value) {
+  return String(value ?? "").toLowerCase().trim();
+}
+
+function matchesSalesSearch(row, searchValue) {
+  const query = normalizeSearchValue(searchValue);
+  if (!query) return true;
+
+  const haystack = [
+    row.dealName,
+    row.companyName,
+    row.status,
+    row.stage,
+    row.assignedToName,
+    row.dealValue,
+    formatDate(row.createdAt),
+    formatDate(row.closedAt),
+  ]
+    .map(normalizeSearchValue)
+    .join(" ");
+
+  return haystack.includes(query);
+}
+
 function getTrendClass(value) {
   const amount = Number(value || 0);
   if (amount > 0) return "positive";
@@ -172,6 +196,7 @@ function SalesTab({ filters, selectedUser }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [salesTableFilter, setSalesTableFilter] = useState("all");
+  const [salesSearch, setSalesSearch] = useState("");
   const [analytics, setAnalytics] = useState({
     revenueTrend: [],
     revenueByUser: [],
@@ -233,7 +258,9 @@ function SalesTab({ filters, selectedUser }) {
     selectedRoleName === "manager";
   const showIndividualTargetProgress = isSingleUserView && selectedRoleName !== "manager";
   const salesTableRows = analytics.tableRows || [];
-  const filteredSalesTableRows = salesTableRows.filter((row) => matchesSalesTableFilter(row, salesTableFilter));
+  const filteredSalesTableRows = salesTableRows.filter(
+    (row) => matchesSalesTableFilter(row, salesTableFilter) && matchesSalesSearch(row, salesSearch)
+  );
 
   function handleSalesExportExcel() {
     const headers = [
@@ -571,6 +598,13 @@ function SalesTab({ filters, selectedUser }) {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              className="report-filter report-search-input"
+              type="text"
+              placeholder="Search deals..."
+              value={salesSearch}
+              onChange={(event) => setSalesSearch(event.target.value)}
+            />
             <select
               className="report-filter"
               value={salesTableFilter}
@@ -633,7 +667,7 @@ function SalesTab({ filters, selectedUser }) {
               {filteredSalesTableRows.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
-                    No deals match this filter.
+                    No deals match this search or filter.
                   </td>
                 </tr>
               ) : (

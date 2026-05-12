@@ -51,7 +51,7 @@ const EXPENSE_METRICS = new Set(["expense_total", "expense_count", "approved_tot
 const CLIENT_METRICS = new Set(["top_clients_revenue", "inactive_clients"]);
 const FOLLOWUP_METRICS = new Set(["todays_followups", "overdue_followups", "pending_meetings", "completed_meetings", "followup_count"]);
 const USER_METRICS = new Set(["user_count", "active_users", "inactive_users", "deleted_users", "user_list"]);
-const TEAM_METRICS = new Set(["team_targets", "team_count", "team_members"]);
+const TEAM_METRICS = new Set(["team_targets", "team_count", "team_members", "team_list"]);
 
 const DEAL_GROUPS = new Set(["salesperson", "stage", "status", "month", "size"]);
 const LEAD_GROUPS = new Set(["source", "salesperson", "status", "temperature", "month"]);
@@ -340,17 +340,24 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "teams", "team_count");
   }
 
-  if (containsAny(lower, ["show teams", "list teams", "team list", "what are teams", "team members", "members by team"])) {
-    return makePlan(selection, "teams", "team_members", {
+  if (containsAny(lower, ["show all teams", "list all teams", "show teams", "list teams", "team list", "what are teams"])) {
+    return makePlan(selection, "teams", "team_list", {
       chartType: "table",
-      limit: 50,
+      limit: 500,
     });
   }
 
-  if (containsAny(lower, ["show users", "list users", "user list", "employees list"])) {
+  if (containsAny(lower, ["team members", "members by team"])) {
+    return makePlan(selection, "teams", "team_members", {
+      chartType: "table",
+      limit: 500,
+    });
+  }
+
+  if (containsAny(lower, ["show users", "list users", "user list", "employees list", "show all users", "list all users"])) {
     return makePlan(selection, "users", "user_list", {
       chartType: "table",
-      limit: 50,
+      limit: 500,
     });
   }
 
@@ -584,11 +591,14 @@ async function buildDeterministicPlan(question) {
     });
   }
 
-  if (containsAny(lower, ["list this month deals", "list deals this month", "list deals"])) {
+  if (containsAny(lower, ["show all deals", "list all deals", "list this month deals", "list deals this month", "list deals"])) {
     return makePlan(selection, "deals", "list_deals", {
       period: containsAny(lower, ["this month", "month"]) ? "monthly" : selection.period,
       chartType: "table",
-      limit: 25,
+      limit: 500,
+      filters: {
+        all_records: containsAny(lower, ["show all deals", "list all deals"]),
+      },
     });
   }
 
@@ -1052,6 +1062,32 @@ async function getScopedUserIds(user = {}) {
   ].filter(Boolean))];
 }
 
+async function resolveReportUserContext(user = {}) {
+  if (!user?._id || !mongoose.Types.ObjectId.isValid(String(user._id))) {
+    return {
+      _id: user?._id || null,
+      email: user?.email || "",
+      role: String(user?.role || "").toLowerCase(),
+    };
+  }
+
+  const dbUser = await User.findById(user._id)
+    .populate("role", "name")
+    .select("_id email role")
+    .lean();
+
+  const roleName =
+    String(dbUser?.role?.name || user?.role || "")
+      .trim()
+      .toLowerCase();
+
+  return {
+    _id: dbUser?._id || user._id,
+    email: dbUser?.email || user?.email || "",
+    role: roleName,
+  };
+}
+
 async function mapUserLabels(ids = []) {
   const validIds = [...new Set(ids.filter((id) => mongoose.Types.ObjectId.isValid(id)))];
   if (!validIds.length) return new Map();
@@ -1125,6 +1161,7 @@ function buildSummaryValue(metric, rows = []) {
       "user_list",
       "team_targets",
       "team_members",
+      "team_list",
     ].includes(metric)
   ) {
     return rows.length;
@@ -1149,14 +1186,38 @@ async function runDealsReport(plan, user) {
   const sortByValue = String(plan.sort?.by || "").toLowerCase() === "value";
   const sortOrder = String(plan.sort?.order || "").toLowerCase() === "asc" ? 1 : -1;
 
-  if (["list_deals", "biggest_deals", "smallest_deals", "stage_deals", "delayed_deals", "high_value_deals", "risk_deals", "closing_this_month"].includes(plan.metric)) {
-    const findMatch = { ...baseMatch };
+  if (["revenue", "lost_revenue"].includes(plan.metric) && !plan.groupBy) {
+    const detailMatch = { ...baseMatch };
+    detailMatch.status = plan.metric === "lost_revenue" ? "lost" : "won";
 
-    if (plan.metric === "list_deals") {
-      findMatch.createdAt = { $gte: start, $lt: end };
-    } else if (plan.metric === "closing_this_month") {
-      findMatch.expectedCloseDate = { $gte: start, $lt: end };
-      findMatch.status = "open";
+    const rows = await Deal.aggregate([
+      { $match: detailMatch },
+      { $addFields: { reportDate: { $ifNull: ["$actualCloseDate", "$updatedAt"] } } },
+      { $match: { reportDate: { $gte: start, $lt: end } } },
+      { $sort: { reportDate: -1, dealValue: -1, createdAt: -1 } },
+      {
+        $project: {
+          deal_name: 1,
+          stage: 1,
+          dealValue: { $ifNull: ["$dealValue", 0] },
+        },
+      },
+    ]);
+
+    return rows.map((deal) => ({
+      label: `${deal?.deal_name || "Untitled Deal"}${deal?.stage ? ` (${deal.stage})` : ""}`,
+      value: Number(deal?.dealValue || 0),
+    }));
+  }
+
+    if (["list_deals", "biggest_deals", "smallest_deals", "stage_deals", "delayed_deals", "high_value_deals", "risk_deals", "closing_this_month"].includes(plan.metric)) {
+      const findMatch = { ...baseMatch };
+
+    if (plan.metric === "list_deals" && !plan.filters?.all_records) {
+        findMatch.createdAt = { $gte: start, $lt: end };
+      } else if (plan.metric === "closing_this_month") {
+        findMatch.expectedCloseDate = { $gte: start, $lt: end };
+        findMatch.status = "open";
     } else if (plan.metric === "delayed_deals") {
       findMatch.expectedCloseDate = { $lt: new Date() };
       findMatch.status = "open";
@@ -1173,11 +1234,10 @@ async function runDealsReport(plan, user) {
       findMatch.status = "open";
     }
 
-    const rows = await Deal.find(findMatch)
-      .select("deal_name dealValue stage status expectedCloseDate actualCloseDate aiRiskScore createdAt")
-      .sort(plan.metric === "list_deals" ? { createdAt: -1 } : { dealValue: sortOrder, createdAt: -1 })
-      .limit(plan.limit)
-      .lean();
+      const rows = await Deal.find(findMatch)
+        .select("deal_name dealValue stage status expectedCloseDate actualCloseDate aiRiskScore createdAt")
+        .sort(plan.metric === "list_deals" ? { createdAt: -1 } : { dealValue: sortOrder, createdAt: -1 })
+        .lean();
 
     return rows.map((deal) => ({
       label: `${deal?.deal_name || "Untitled Deal"}${deal?.stage ? ` (${deal.stage})` : ""}`,
@@ -1460,6 +1520,36 @@ async function runExpensesReport(plan, user) {
   if (plan.filters?.category) match.category = plan.filters.category;
   if (plan.filters?.reference_type) match.referenceType = plan.filters.reference_type;
 
+  if (["expense_total", "approved_total"].includes(plan.metric) && !plan.groupBy) {
+    const detailMatch = { ...match };
+    if (plan.metric === "approved_total") {
+      detailMatch["approval.status"] = "approved";
+    }
+
+    const rows = await Expense.find(detailMatch)
+      .select("expenseNo vendorName category totalAmount approval expenseDate referenceType")
+      .sort({ expenseDate: -1, createdAt: -1 })
+      .lean();
+
+    return rows.map((expense) => {
+      const expenseDate = expense?.expenseDate
+        ? new Date(expense.expenseDate).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : "--";
+      const vendorLabel =
+        String(expense?.vendorName || "").trim() ||
+        String(expense?.category || "expense").replace(/_/g, " ");
+
+      return {
+        label: `#${expense?.expenseNo || "--"} · ${vendorLabel} · ${expenseDate}`,
+        value: Number(expense?.totalAmount || 0),
+      };
+    });
+  }
+
   const pipeline = [{ $match: match }];
   let groupId = null;
   if (plan.groupBy === "category") groupId = "$category";
@@ -1535,11 +1625,18 @@ async function runClientsReport(plan, user) {
     }));
   }
 
-  const activeClientIds = await Deal.distinct("client_id", {
+  const inactiveClientDealScope = {
     is_deleted: false,
     status: "open",
     client_id: { $ne: null },
-  });
+  };
+  if (scopedIds.length) {
+    inactiveClientDealScope.assignedTo = {
+      $in: scopedIds.map((id) => new mongoose.Types.ObjectId(id)),
+    };
+  }
+
+  const activeClientIds = await Deal.distinct("client_id", inactiveClientDealScope);
   const rows = await Client.find({
     is_deleted: false,
     _id: { $nin: activeClientIds },
@@ -1555,7 +1652,8 @@ async function runClientsReport(plan, user) {
   }));
 }
 
-async function runUsersReport(plan) {
+async function runUsersReport(plan, user) {
+  const scopedIds = await getScopedUserIds(user);
   const match = {};
   if (plan.metric === "deleted_users") {
     match.is_deleted = true;
@@ -1569,6 +1667,14 @@ async function runUsersReport(plan) {
 
   if (plan.metric === "inactive_users") {
     match.is_active = false;
+  }
+
+  if (scopedIds.length) {
+    match._id = {
+      $in: scopedIds
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id)),
+    };
   }
 
   const users = await User.find(match)
@@ -1608,9 +1714,7 @@ async function runUsersReport(plan) {
   }
 
   if (plan.metric === "user_list") {
-    return users
-      .slice(0, plan.limit)
-      .map((entry) => ({
+    return users.map((entry) => ({
         label: entry?.name || entry?.email || "User",
         value: `${roleMap.get(String(entry?.role || "")) || "Role"} / ${userTeamMap.get(String(entry?._id || "")) || "No team"}`,
       }));
@@ -1704,7 +1808,14 @@ async function runTeamsReport(plan, user) {
   const selection = buildPeriodSelection(plan);
   const { start, end } = getSelectionRange(selection);
 
-  const teamFilter = isAdmin(user?.role) ? {} : { "teamLeads.userId": user?._id };
+  const teamFilter = isAdmin(user?.role)
+    ? {}
+    : {
+        $or: [
+          { "teamLeads.userId": user?._id },
+          { "members.userId": user?._id },
+        ],
+      };
   const teams = await Team.find(teamFilter)
     .select("name members teamLeads")
     .lean();
@@ -1725,6 +1836,20 @@ async function runTeamsReport(plan, user) {
       return {
         label: team?.name || "Untitled Team",
         value: uniqueMembers.size,
+      };
+    });
+  }
+
+  if (plan.metric === "team_list") {
+    return teams.map((team) => {
+      const uniqueMembers = new Set([
+        ...(team?.members || []).map((member) => String(member?.userId || "")),
+        ...(team?.teamLeads || []).map((lead) => String(lead?.userId || "")),
+      ].filter(Boolean));
+
+      return {
+        label: team?.name || "Untitled Team",
+        value: `${uniqueMembers.size} members`,
       };
     });
   }
@@ -1806,6 +1931,7 @@ async function runTeamsReport(plan, user) {
       team_targets: "Team Targets",
       team_count: "Team Count",
       team_members: "Team Members",
+      team_list: "Teams",
     };
     return map[metric] || metric;
   }
@@ -1822,6 +1948,20 @@ function buildColumns(plan) {
     return [
       { key: "label", label: "Deal" },
       { key: "value", label: "Deal Value" },
+    ];
+  }
+
+  if (["revenue", "lost_revenue"].includes(plan.metric) && !plan.groupBy) {
+    return [
+      { key: "label", label: "Deal" },
+      { key: "value", label: metricLabel(plan.metric) },
+    ];
+  }
+
+  if (["expense_total", "approved_total"].includes(plan.metric) && !plan.groupBy) {
+    return [
+      { key: "label", label: "Expense" },
+      { key: "value", label: metricLabel(plan.metric) },
     ];
   }
 
@@ -1860,6 +2000,13 @@ function buildColumns(plan) {
     ];
   }
 
+  if (plan.metric === "team_list") {
+    return [
+      { key: "label", label: "Team" },
+      { key: "value", label: "Summary" },
+    ];
+  }
+
   if (plan.metric === "user_list") {
     return [
       { key: "label", label: "User" },
@@ -1887,40 +2034,48 @@ exports.aiQuery = async (req, res) => {
       });
     }
 
-    if (deterministicPlan?.unsupported) {
-      return res.status(400).json({
-        message: deterministicPlan.reason || "Unsupported or ambiguous question.",
+      if (deterministicPlan?.unsupported) {
+        return res.status(400).json({
+          message: deterministicPlan.reason || "Unsupported or ambiguous question.",
+        });
+      }
+      const reportUser = await resolveReportUserContext(req.user);
+      const plan = normalizePlan(deterministicPlan, question);
+      console.log("[Custom Report] User:", {
+        id: String(reportUser?._id || ""),
+        email: reportUser?.email || "",
+        role: reportUser?.role || "",
       });
-    }
-    const plan = normalizePlan(deterministicPlan, question);
+      console.log("[Custom Report] Question:", question);
+      console.log("[Custom Report] Interpreted Query:", JSON.stringify(plan, null, 2));
 
-    let rows = [];
-      if (plan.module === "deals") rows = await runDealsReport(plan, req.user);
-      if (plan.module === "leads") rows = await runLeadsReport(plan, req.user);
-      if (plan.module === "expenses") rows = await runExpensesReport(plan, req.user);
-      if (plan.module === "clients") rows = await runClientsReport(plan, req.user);
-      if (plan.module === "followups") rows = await runFollowupsReport(plan, req.user);
-      if (plan.module === "users") rows = await runUsersReport(plan, req.user);
-      if (plan.module === "teams") rows = await runTeamsReport(plan, req.user);
+      let rows = [];
+      if (plan.module === "deals") rows = await runDealsReport(plan, reportUser);
+      if (plan.module === "leads") rows = await runLeadsReport(plan, reportUser);
+      if (plan.module === "expenses") rows = await runExpensesReport(plan, reportUser);
+      if (plan.module === "clients") rows = await runClientsReport(plan, reportUser);
+      if (plan.module === "followups") rows = await runFollowupsReport(plan, reportUser);
+      if (plan.module === "users") rows = await runUsersReport(plan, reportUser);
+      if (plan.module === "teams") rows = await runTeamsReport(plan, reportUser);
 
-    const summaryValue = buildSummaryValue(plan.metric, rows);
+      const summaryValue = buildSummaryValue(plan.metric, rows);
 
-    res.json({
-      question,
-      title: `${metricLabel(plan.metric)} Report`,
-      chartType: plan.chartType,
-      module: plan.module,
-      metric: plan.metric,
-      groupBy: plan.groupBy,
+      res.json({
+        question,
+        title: `${metricLabel(plan.metric)} Report`,
+        chartType: plan.chartType,
+        module: plan.module,
+        metric: plan.metric,
+        groupBy: plan.groupBy,
       selection: buildPeriodSelection(plan),
       interpretedQuery: plan,
       provider: "deterministic",
       parserWarning: "",
-      summary: {
-        label: metricLabel(plan.metric),
-        value: Number(summaryValue.toFixed(2)),
-        rowCount: rows.length,
-      },
+        summary: {
+          label: metricLabel(plan.metric),
+          value: typeof summaryValue === "number" ? Number(summaryValue.toFixed(2)) : summaryValue,
+          rowCount: rows.length,
+        },
       columns: buildColumns(plan),
       data: rows.length ? rows : [{ label: "No data", value: 0 }],
     });

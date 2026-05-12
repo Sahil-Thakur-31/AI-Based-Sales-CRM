@@ -22,6 +22,8 @@
   align-items: center;
   border-bottom: 1px solid #e6ebf5;
   padding-bottom: 6px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .report-type-row {
@@ -34,6 +36,15 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.report-header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 /* Tabs */
@@ -97,9 +108,48 @@
 }
 
 .report-filter-input {
-  min-width: 110px;
+  width: 92px;
+  min-width: 92px;
   background-image: none;
   padding-right: 12px;
+  text-align: center;
+}
+
+.report-search-input {
+  min-width: 220px;
+  background-image: none;
+  padding-right: 12px;
+  font-weight: 500;
+  cursor: text;
+}
+
+.report-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-export-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid #dc2626;
+  background: #ffffff;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.report-export-btn:hover {
+  background: #fef2f2;
+  border-color: #b91c1c;
+  color: #b91c1c;
 }
 
 
@@ -391,7 +441,31 @@
     width: 100%;
   }
 
+  .report-header-controls {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .report-actions-row {
+    width: 100%;
+  }
+
   .report-filter {
+    width: 100%;
+  }
+
+  .report-filter-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .report-search-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .report-export-btn {
     width: 100%;
   }
 

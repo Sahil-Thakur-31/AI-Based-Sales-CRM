@@ -5,6 +5,7 @@ import CustomTab from "./tabs/CustomTab";
 import SalesTab from "./tabs/SalesTab";
 import LeadsTab from "./tabs/LeadsTab";
 import ExpenseTab from "./tabs/ExpenseTab";
+import { exportReportElementAsPdf } from "./utils/exportPdf";
 import "./styles/Reports.css";
 
 const REPORT_TYPES = [
@@ -41,6 +42,20 @@ function createDefaultPeriodFilters() {
 
 function normalizeRoleName(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function getReportSelector(activeType) {
+  if (activeType === "sales") return ".sales-tab";
+  if (activeType === "leads") return ".leads-tab";
+  if (activeType === "expense") return ".expense-tab";
+  return ".custom-tab";
+}
+
+function getReportTitle(activeType) {
+  if (activeType === "sales") return "Sales Report";
+  if (activeType === "leads") return "Leads Report";
+  if (activeType === "expense") return "Expense Report";
+  return "Custom Report";
 }
 
 function Reports() {
@@ -176,6 +191,17 @@ function Reports() {
     }
   };
 
+  function handleExportPdf() {
+    const selector = getReportSelector(activeType);
+    const element = document.querySelector(selector);
+    if (!element) return;
+
+    exportReportElementAsPdf({
+      element,
+      title: getReportTitle(activeType),
+    });
+  }
+
   return (
     <div className="reports-page">
       <ReportsHeader
@@ -191,6 +217,7 @@ function Reports() {
         expenseFilters={expenseFilters}
         setExpenseFilters={setExpenseFilters}
         reportTypes={REPORT_TYPES}
+        onExportPdf={handleExportPdf}
       />
       {renderContent()}
     </div>
