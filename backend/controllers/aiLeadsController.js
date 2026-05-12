@@ -81,13 +81,30 @@ function buildExistingLeadQuery(aiLead) {
 
 exports.getAiLeads = async (req, res) => {
   try {
-    const [aiLeads, importedCount, lastRun] = await Promise.all([
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const todayFetchFilter = {
+      $or: [
+        { scraped_at: { $gte: startOfToday, $lt: startOfTomorrow } },
+        {
+          $and: [
+            { $or: [{ scraped_at: { $exists: false } }, { scraped_at: null }] },
+            { created_at: { $gte: startOfToday, $lt: startOfTomorrow } },
+          ],
+        },
+      ],
+    };
+
+    const [aiLeads, importedCount, todayFetchedCount, lastRun] = await Promise.all([
       AiGeneratedLead.find({ is_deleted: { $ne: true } })
         .sort({ scraped_at: -1, created_at: -1 })
         .populate("source", "name")
         .populate("location", "city district State state country")
         .lean(),
       AiGeneratedLead.countDocuments({ status: "imported" }),
+      AiGeneratedLead.countDocuments(todayFetchFilter),
       LeadScraperRun.findOne({})
         .sort({ startedAt: -1 })
         .lean(),
@@ -155,6 +172,7 @@ exports.getAiLeads = async (req, res) => {
         total: activeItems.length,
         imported: importedCount,
         industries: industries.length,
+        todayFetchedCount,
         lastRunAt: lastRun?.finishedAt || lastRun?.startedAt || null,
         lastRunStatus: lastRun?.status || "",
         lastImportedCount: Number(lastRun?.syncResult?.importedCount || 0),
@@ -193,6 +211,7 @@ exports.importAiLead = async (req, res) => {
         lead_temperature: getLeadTemperature(aiLead.similarity_score),
         deal_value_estimate: 0,
         assigned_to: req.user?._id || null,
+        stage: "P3",
         status: "new",
         is_active: true,
         location: aiLead.location || null,
@@ -217,6 +236,16 @@ exports.importAiLead = async (req, res) => {
           }))
         );
       }
+    } else {
+      await Lead.updateOne(
+        { _id: targetLeadId },
+        {
+          $set: {
+            stage: "P3",
+            updated_at: new Date(),
+          },
+        }
+      );
     }
 
     await AiGeneratedLead.updateOne(

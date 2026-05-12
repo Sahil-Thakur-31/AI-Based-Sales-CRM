@@ -45,7 +45,7 @@ async function resolveSourceId(sourceKey) {
         is_deleted: false,
       },
     },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   ).lean();
   return source?._id || null;
 }
@@ -78,7 +78,7 @@ async function resolveLocationId(row) {
         updatedAt: now,
       },
     },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   ).lean();
   return location?._id || null;
 }
@@ -221,7 +221,7 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
           created_at: row.createdAt || new Date(),
         },
       },
-      { new: true, upsert: true }
+      { returnDocument: "after", upsert: true }
     ).lean();
 
     if (existing) {

@@ -97,7 +97,7 @@ function startLeadScraperScheduler() {
   console.log("[lead-scheduler] Scheduler initialized. Running lead scraper immediately...");
   void runScheduledLeadScrape();
 
-  cronJob = cron.schedule("0 0 * * *", () => {
+  cronJob = cron.schedule("0 */2 * * *", () => {
     console.log(`[lead-scheduler] Scheduled run triggered at ${new Date().toISOString()}`);
     void runScheduledLeadScrape();
   });
@@ -106,7 +106,7 @@ function startLeadScraperScheduler() {
     cronJob.start();
   }
 
-  console.log("[lead-scheduler] Enabled automatic lead scrape schedule (run on server start, then daily at 12:00 AM).");
+  console.log("[lead-scheduler] Enabled automatic lead scrape schedule (run on server start, then every 2 hours).");
 }
 
 function stopLeadScraperScheduler() {

@@ -120,9 +120,15 @@ function App() {
   }, [authToken]);
 
   useEffect(() => {
-    document.title = buildDocumentTitle(pageTitle, organizationBrand.companyName);
-    setDocumentFavicon(organizationBrand.logoUrl);
-  }, [pageTitle, organizationBrand.companyName, organizationBrand.logoUrl]);
+    document.title = buildDocumentTitle(pageTitle, organizationBrand.shortName || organizationBrand.companyName);
+    setDocumentFavicon(organizationBrand.iconUrl || organizationBrand.logoUrl);
+  }, [
+    pageTitle,
+    organizationBrand.companyName,
+    organizationBrand.shortName,
+    organizationBrand.logoUrl,
+    organizationBrand.iconUrl
+  ]);
 
   return (
     <div className="App">
@@ -140,7 +146,7 @@ function App() {
         {/* Protected routes with Layout */}
         <Route element={
           <ProtectedRoute allowedRoles={["Admin", "Manager", "User", null]}>
-            <Layout organizationLogoUrl={organizationBrand.logoUrl} />
+              <Layout organizationLogoUrl={organizationBrand.logoUrl} organizationIconUrl={organizationBrand.iconUrl} />
           </ProtectedRoute>
         }>
 

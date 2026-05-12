@@ -98,6 +98,10 @@ const EventRegistration = () => {
   const [currentRealizedRoi, setCurrentRealizedRoi] = useState(null);
   const [currentEventStatus, setCurrentEventStatus] = useState("registered");
   const [currentMissedReason, setCurrentMissedReason] = useState("");
+  const [missedReasonDraft, setMissedReasonDraft] = useState("");
+  const [missedReasonSaving, setMissedReasonSaving] = useState(false);
+  const [missedReasonError, setMissedReasonError] = useState("");
+  const [missedReasonSuccess, setMissedReasonSuccess] = useState("");
   const [registrationConfirmOpen, setRegistrationConfirmOpen] = useState(false);
   const [registrationSavedPopupOpen, setRegistrationSavedPopupOpen] = useState(false);
   const usersLoadedRef = useRef(false);
@@ -120,7 +124,11 @@ const EventRegistration = () => {
     const eventData = eventInput || {};
     const hasAttendance = Array.isArray(eventData.attendedBy) && eventData.attendedBy.length > 0;
     if (hasAttendance || Boolean(eventData.isAttending)) return "attended";
-    const markedMissed = Boolean(eventData.isMissed || String(eventData.missedReason || "").trim());
+    const markedMissed = Boolean(
+      eventData.isMissed ||
+      String(eventData.currentTab || "").toLowerCase() === "missed" ||
+      String(eventData.missedReason || "").trim()
+    );
     if (markedMissed) return "missed";
     return "registered";
   };
@@ -261,6 +269,7 @@ const EventRegistration = () => {
       applyOutcomeToForm(data || {});
       setCurrentEventStatus(resolveEventStatus(data || {}));
       setCurrentMissedReason(String(data?.missedReason || ""));
+      setMissedReasonDraft(String(data?.missedReason || ""));
       setRegistrationSuccess("Registration details saved.");
       setRegistrationSavedPopupOpen(true);
     } catch (err) {
@@ -403,9 +412,11 @@ const EventRegistration = () => {
         setCurrentEventStatus(resolveEventStatus({
           isAttending: state?.isAttending,
           isMissed: state?.isMissed,
+          currentTab: state?.currentTab,
           missedReason: state?.missedReason,
         }));
         setCurrentMissedReason(String(state?.missedReason || ""));
+        setMissedReasonDraft(String(state?.missedReason || ""));
         return;
       }
 
@@ -421,6 +432,7 @@ const EventRegistration = () => {
         applyRegistrationToForm(data?.registration || {});
         setCurrentEventStatus(resolveEventStatus(data || {}));
         setCurrentMissedReason(String(data?.missedReason || ""));
+        setMissedReasonDraft(String(data?.missedReason || ""));
       } catch (err) {
         if (err?.response?.status !== 404) {
           setError(err?.response?.data?.message || "Failed to load saved registration");
@@ -442,6 +454,7 @@ const EventRegistration = () => {
         applyOutcomeToForm(data || {});
         setCurrentEventStatus(resolveEventStatus(data || {}));
         setCurrentMissedReason(String(data?.missedReason || ""));
+        setMissedReasonDraft(String(data?.missedReason || ""));
       } catch (err) {
         if (err?.response?.status !== 404) {
           setError((prev) => prev || err?.response?.data?.message || "Failed to load event details");
@@ -450,6 +463,32 @@ const EventRegistration = () => {
     };
     loadEventDetails();
   }, [canSubmitEvent, eventDetails.eventId]);
+
+  const saveMissedReason = async (event) => {
+    event.preventDefault();
+    setMissedReasonError("");
+    setMissedReasonSuccess("");
+
+    const reason = String(missedReasonDraft || "").trim();
+    if (!reason) {
+      setMissedReasonError("Missed reason is required.");
+      return;
+    }
+
+    setMissedReasonSaving(true);
+    try {
+      const { data } = await API.put(`/events/${eventDetails.eventId}/missed`, { reason });
+      const nextReason = String(data?.missedReason || reason);
+      setCurrentMissedReason(nextReason);
+      setMissedReasonDraft(nextReason);
+      setCurrentEventStatus(resolveEventStatus(data || { isMissed: true, missedReason: nextReason }));
+      setMissedReasonSuccess("Missed reason updated.");
+    } catch (err) {
+      setMissedReasonError(err?.response?.data?.message || "Failed to update missed reason.");
+    } finally {
+      setMissedReasonSaving(false);
+    }
+  };
 
   const formatRoiPercent = (value) => {
     if (value === null || value === undefined || !Number.isFinite(Number(value))) return "N/A";
@@ -795,17 +834,38 @@ const EventRegistration = () => {
         </section>
       )}
 
-      {currentEventStatus === "missed" && (
+      {(currentEventStatus === "missed" || String(state?.currentTab || "").toLowerCase() === "missed") && (
         <section className="event-form-card">
-          <section className="form-section">
-            <h4 className="section-title">Missed Reason</h4>
+          <form className="registration-form" onSubmit={saveMissedReason}>
+            <section className="form-section">
+            <h4 className="section-title">Outcome Details</h4>
             <p className="section-note">
-              This event is marked as missed.
+              This event is marked as missed. You can update the missed reason from here.
             </p>
-            <div className="event-missed-reason-display">
-              {String(currentMissedReason || "").trim() || "No reason captured."}
+            <label className="full-width">
+              Missed Reason
+              <textarea
+                rows="4"
+                value={missedReasonDraft}
+                onChange={(event) => {
+                  setMissedReasonDraft(event.target.value);
+                  setMissedReasonError("");
+                  setMissedReasonSuccess("");
+                }}
+                placeholder="Why was this event missed?"
+              />
+            </label>
+
+            <FormErrorSlot message={missedReasonError} className="form-error-slot-global" />
+            {missedReasonSuccess && <p className="success-note">{missedReasonSuccess}</p>}
+
+            <div className="submit-row">
+              <button className="submit-btn" type="submit" disabled={missedReasonSaving || !canSubmitEvent}>
+                {missedReasonSaving ? "Saving..." : "Save Missed Reason"}
+              </button>
             </div>
-          </section>
+            </section>
+          </form>
         </section>
       )}
 
