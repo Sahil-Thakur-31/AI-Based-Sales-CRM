@@ -14,13 +14,6 @@ const DEAL_PIPELINE_STAGES = ["P1", "P2", "P3", "P6", "P7"];
 const DEAL_WON_STAGE = "P7";
 const DEAL_LOST_STAGE = "P6";
 
-function dealStatusFromStage(stage = "P3") {
-  const normalized = String(stage || "P3").trim().toUpperCase();
-  if (normalized === DEAL_WON_STAGE) return "won";
-  if (normalized === DEAL_LOST_STAGE) return "lost";
-  return "open";
-}
-
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -309,7 +302,6 @@ function formatMemberDealRow(dealDoc = {}) {
   return {
     _id: dealDoc._id,
     companyName: lead?.company_name || client?.name || "Untitled Deal",
-    status: dealStatusFromStage(dealDoc.stage),
     stage: dealDoc.stage || "",
     dealValue: Number(dealDoc.dealValue) || 0,
     probability: Number(dealDoc.probability) || 0,
@@ -385,18 +377,16 @@ function formatDashboardFollowupRow(followupDoc = {}) {
 }
 
 function formatMemberLeadRow(leadDoc = {}) {
-  const status = leadDoc.converted_to_deal || String(leadDoc.stage || "").toUpperCase() === "P7"
-    ? "converted"
-    : "active";
+  const convertedToDeal = Boolean(leadDoc.converted_to_deal) || String(leadDoc.stage || "").toUpperCase() === "P7";
   return {
     _id: leadDoc._id || null,
     companyName: leadDoc.company_name || "Unknown company",
-    status,
+    stage: leadDoc.stage || "",
     temperature: leadDoc.lead_temperature || "cold",
     estimatedValue: Number(leadDoc.deal_value_estimate || 0),
     nextAction: leadDoc.next_action || "",
     lastContactDate: leadDoc.last_contact_date || null,
-    convertedToDeal: status === "converted" || Boolean(leadDoc.converted_to_deal),
+    convertedToDeal,
     updatedAt: leadDoc.updated_at || leadDoc.created_at || null
   };
 }
@@ -433,7 +423,6 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
   let totalValue = 0;
 
   for (const deal of deals) {
-    const status = dealStatusFromStage(deal.stage);
     const rawStage = String(deal.stage || "");
     const displayStage = rawStage;
     const stage = stageOrder.includes(displayStage) ? displayStage : null;
@@ -450,7 +439,6 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
       _id: deal._id,
       companyName: deal.companyName || "Untitled Deal",
       stage,
-      status,
       dealValue,
       probability: Number(deal.probability || 0),
       expectedCloseDate: deal.expectedCloseDate || null,
@@ -507,13 +495,11 @@ function summarizeLeadPipeline({
       leadId: lead._id,
       companyName: lead?.company_name || "Untitled Lead",
       stage,
-      status: lead?.converted_to_deal || stage === "P7" ? "converted" : "active",
       actionType: lead.next_action || "",
       title: lead.next_action || "",
       dueDateTime: lead.last_contact_date || null,
       updatedAt: lead.updated_at || lead.created_at || null,
       estimatedValue,
-      leadStatus: lead?.converted_to_deal || stage === "P7" ? "converted" : "active",
       temperature: lead?.lead_temperature || "cold",
       assignedTo: assignedUser ? mapUserForApi(assignedUser) : null
     });
@@ -1355,7 +1341,6 @@ exports.getTeamDashboard = async (req, res) => {
     const dealPipelineRows = (activeDealRows || []).map((deal) => ({
       _id: deal._id,
       stage: deal.stage || "",
-      status: dealStatusFromStage(deal.stage),
       dealValue: Number(deal.dealValue || 0),
       probability: Number(deal.probability || 0),
       expectedCloseDate: deal.expectedCloseDate || null,
@@ -1627,8 +1612,9 @@ exports.getTeamMemberDetail = async (req, res) => {
 
     for (const deal of deals) {
       const row = formatMemberDealRow(deal);
-      if (row.status === "won") groupedDeals.won.push(row);
-      else if (row.status === "lost") groupedDeals.lost.push(row);
+      const stage = String(row.stage || "").toUpperCase();
+      if (stage === DEAL_WON_STAGE) groupedDeals.won.push(row);
+      else if (stage === DEAL_LOST_STAGE) groupedDeals.lost.push(row);
       else groupedDeals.open.push(row);
     }
 
@@ -1705,7 +1691,7 @@ exports.getTeamMemberDetail = async (req, res) => {
     const leadSummary = leads.reduce(
       (acc, lead) => {
         acc.total += 1;
-        if (lead.status === "converted") acc.converted += 1;
+        if (lead.convertedToDeal) acc.converted += 1;
         else acc.new += 1;
         if (lead.temperature === "hot") acc.hot += 1;
         if (lead.temperature === "warm") acc.warm += 1;
@@ -1813,7 +1799,6 @@ exports.getTeamPipelineDetail = async (req, res) => {
       const dealRows = (deals || []).map((deal) => ({
         _id: deal._id,
         stage: deal.stage || "",
-        status: dealStatusFromStage(deal.stage),
         dealValue: Number(deal.dealValue || 0),
         probability: Number(deal.probability || 0),
         expectedCloseDate: deal.expectedCloseDate || null,

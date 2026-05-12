@@ -411,7 +411,7 @@ exports.getQuotations = async (req, res) => {
       Lead.find({
         _id: { $in: leadIds }
       })
-        .select("company_name status")
+        .select("company_name stage")
         .lean(),
       QuotationItem.aggregate([
         {
@@ -479,7 +479,7 @@ exports.getQuotations = async (req, res) => {
         sourceId: quoteType === "lead" ? quote.leadId || null : quote.dealId || null,
         dealId: quote.dealId || null,
         leadId: quote.leadId || null,
-        refCode: quoteType === "lead" ? lead?.status || "-" : deal?.stage || "-",
+        refCode: quoteType === "lead" ? lead?.stage || "-" : deal?.stage || "-",
         sourceLabel:
           quoteType === "lead"
             ? lead?.company_name || "Untitled Lead"
@@ -542,7 +542,7 @@ exports.getQuotationById = async (req, res) => {
 
     const resolvedClientId = quotation.clientId || deal?.client_id || null;
     const [lead, client, items, latestQuoteForSource, globalPaymentTerms, createdBy] = await Promise.all([
-      leadId ? Lead.findById(leadId).select("company_name status industry").lean() : null,
+      leadId ? Lead.findById(leadId).select("company_name stage industry").lean() : null,
       resolvedClientId
         ? Client.findById(resolvedClientId).select("name website GST_no Address industry").lean()
         : null,

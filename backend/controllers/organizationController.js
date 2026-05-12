@@ -140,8 +140,8 @@ async function buildStats() {
   const [employeesCount, clientsCount, activeDealsCount, wonDealsCount] = await Promise.all([
     User.countDocuments({ is_deleted: { $ne: true } }),
     Client.countDocuments({ is_deleted: { $ne: true } }),
-    Deal.countDocuments({ ...dealBaseFilter, status: "open" }),
-    Deal.countDocuments({ ...dealBaseFilter, status: "won" })
+    Deal.countDocuments({ ...dealBaseFilter, stage: { $nin: ["P6", "P7"] } }),
+    Deal.countDocuments({ ...dealBaseFilter, stage: "P7" })
   ]);
 
   return {

@@ -14,13 +14,6 @@ const Team = require("../models/teams");
 const DEAL_WON_STAGE = "P7";
 const DEAL_LOST_STAGE = "P6";
 
-function dealStatusFromStage(stage = "P3") {
-  const normalized = String(stage || "P3").trim().toUpperCase();
-  if (normalized === DEAL_WON_STAGE) return "won";
-  if (normalized === DEAL_LOST_STAGE) return "lost";
-  return "open";
-}
-
 function mapTemperatureFromLead(lead) {
   const temp = (lead?.lead_temperature || "").toLowerCase();
   if (temp === "hot") return { ai_score: 90, lead_temperature: "hot" };
@@ -917,7 +910,6 @@ exports.getDeals = async (req, res) => {
         last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
         next_action: lead?.next_action || "",
         next_action_date: null,
-        status: dealStatusFromStage(deal.stage),
         stage: deal.stage || "",
         converted_to_deal: true,
         primary_contact:
@@ -1180,7 +1172,6 @@ exports.getDealById = async (req, res) => {
           : lead?.deal_value_estimate || 0,
       assigned_to: deal.assignedTo || lead?.assigned_to || "",
       lead_temperature: lead?.lead_temperature || "",
-      status: dealStatusFromStage(deal.stage),
       stage: deal.stage || "",
       last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
       next_action:
@@ -1276,27 +1267,6 @@ exports.updateDeal = async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(update, "deal_value_estimate") || Object.prototype.hasOwnProperty.call(update, "dealValue")) {
       const amount = Number(update.dealValue ?? update.deal_value_estimate);
       dealUpdate.dealValue = Number.isFinite(amount) ? amount : 0;
-    }
-    if (Object.prototype.hasOwnProperty.call(update, "status")) {
-      const status = String(update.status || "open").trim().toLowerCase();
-      if (status === "won") {
-        dealUpdate.stage = "P7";
-        dealUpdate.isActive = false;
-        if (!existingDeal.actualCloseDate) {
-          dealUpdate.actualCloseDate = new Date();
-        }
-      } else if (status === "lost") {
-        dealUpdate.stage = "P6";
-        dealUpdate.isActive = false;
-        if (!existingDeal.actualCloseDate) {
-          dealUpdate.actualCloseDate = new Date();
-        }
-      } else if (status === "open") {
-        dealUpdate.stage = ["P6", "P7"].includes(String(existingDeal.stage || "").toUpperCase())
-          ? "P3"
-          : existingDeal.stage || "P3";
-        dealUpdate.isActive = true;
-      }
     }
     if (Object.prototype.hasOwnProperty.call(update, "probability")) {
       const probability = Number(update.probability);
@@ -1709,7 +1679,6 @@ exports.getSalesAnalytics = async (req, res) => {
         createdAt: deal?.createdAt || null,
         closedAt: deal?.actualCloseDate || null,
         dealValue: Number(deal?.dealValue || 0),
-        status: dealStatusFromStage(deal?.stage),
         stage: String(deal?.stage || ""),
         assignedToName: assignee?.name || assignee?.email || "Unassigned",
         isActive: deal?.isActive !== false,
