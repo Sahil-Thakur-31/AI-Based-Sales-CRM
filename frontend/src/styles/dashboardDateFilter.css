@@ -51,14 +51,25 @@
 @media (max-width: 900px) {
   .dashboard-report-filter-row {
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
   }
 
   .dashboard-report-filter,
   .dashboard-report-filter-input {
     width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard-report-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .dashboard-report-filter-input {
-    min-width: 0;
+  .dashboard-report-filter-input:only-child,
+  .dashboard-report-filter:only-child {
+    grid-column: 1 / -1;
   }
 }
