@@ -1137,7 +1137,7 @@ exports.getTeamDashboard = async (req, res) => {
     const leadDateMatch = dateRangeMatch("created_at", selectedRange);
 
     const [
-      dealStatusAgg,
+      dealStageAgg,
       memberDealAgg,
       activeDealRows,
       followupsToday,
@@ -1312,20 +1312,20 @@ exports.getTeamDashboard = async (req, res) => {
         .lean()
     ]);
 
-    const dealStatusMap = new Map(dealStatusAgg.map((item) => [String(item._id), item]));
-    const wonDeals = dealStatusMap.get(DEAL_WON_STAGE)?.count || 0;
-    const lostDeals = dealStatusMap.get(DEAL_LOST_STAGE)?.count || 0;
-    const openDeals = (dealStatusAgg || []).reduce((sum, item) => {
+    const dealStageMap = new Map(dealStageAgg.map((item) => [String(item._id), item]));
+    const wonDeals = dealStageMap.get(DEAL_WON_STAGE)?.count || 0;
+    const lostDeals = dealStageMap.get(DEAL_LOST_STAGE)?.count || 0;
+    const openDeals = (dealStageAgg || []).reduce((sum, item) => {
       const stage = String(item?._id || "");
       return [DEAL_WON_STAGE, DEAL_LOST_STAGE].includes(stage) ? sum : sum + Number(item?.count || 0);
     }, 0);
     const closedDeals = wonDeals + lostDeals;
     const winRate = closedDeals ? Math.round((wonDeals / closedDeals) * 100) : 0;
-    const pipelineValue = (dealStatusAgg || []).reduce((sum, item) => {
+    const pipelineValue = (dealStageAgg || []).reduce((sum, item) => {
       const stage = String(item?._id || "");
       return [DEAL_WON_STAGE, DEAL_LOST_STAGE].includes(stage) ? sum : sum + Number(item?.value || 0);
     }, 0);
-    const wonRevenue = dealStatusMap.get(DEAL_WON_STAGE)?.value || 0;
+    const wonRevenue = dealStageMap.get(DEAL_WON_STAGE)?.value || 0;
 
     const followupByMemberMap = new Map(
       followupByMemberAgg.map((item) => [String(item._id), item.count])

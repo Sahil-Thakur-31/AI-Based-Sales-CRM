@@ -1155,7 +1155,7 @@ const ExpenseDashboard = () => {
         </div>
         <FormErrorSlot message={pageError} className="form-error-slot-global" />
 
-        <table>
+        <table className="crm-auto-responsive-table">
           <thead>
             <tr>
               <th>Category</th>

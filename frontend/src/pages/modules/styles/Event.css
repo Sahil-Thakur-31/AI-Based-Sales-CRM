@@ -59,6 +59,24 @@
   box-shadow: 0 10px 20px rgba(22, 132, 70, 0.26);
 }
 
+.pending-invitations-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(31, 41, 55, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pending-invitations-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(31, 41, 55, 0.24);
+}
+
 /* =========================================
    SUMMARY CARDS
 ========================================= */
@@ -71,7 +89,7 @@
 }
 
 .event-summary-cards-user {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .event-card {
@@ -765,6 +783,115 @@
   color: #b91c1c;
 }
 
+.event-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.event-invitations-modal {
+  width: min(720px, 100%);
+  max-height: min(680px, calc(100vh - 40px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid #dbe4f2;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+}
+
+.event-invitations-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e8edf5;
+}
+
+.event-invitations-head h3 {
+  margin: 0 0 4px;
+  color: #111827;
+  font-size: 18px;
+}
+
+.event-invitations-head p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.event-modal-close,
+.accept-invitation-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.event-modal-close {
+  background: #eef2f7;
+  color: #111827;
+}
+
+.event-invitations-list {
+  overflow: auto;
+  padding: 14px 20px 20px;
+}
+
+.event-invitation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e6edf7;
+  border-radius: 10px;
+  background: #fbfdff;
+  margin-bottom: 10px;
+}
+
+.event-invitation-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.event-invitation-row strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.event-invitation-row span,
+.event-invitation-row small {
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.accept-invitation-btn {
+  background: #1f7aec;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.accept-invitation-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.event-invitation-empty {
+  margin-bottom: 0;
+}
+
 /* =========================================
    RESPONSIVE DESIGN
 ========================================= */
@@ -839,5 +966,14 @@
   .event-right {
     text-align: left;
     min-width: 100%;
+  }
+
+  .event-invitation-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .accept-invitation-btn {
+    width: 100%;
   }
 }

@@ -318,7 +318,7 @@ export default function QuotationClauses() {
         {loading ? (
           <div className="admin-config-empty">Loading quotation clauses...</div>
         ) : (
-          <table className="admin-config-table qc-table">
+          <table className="admin-config-table qc-table crm-auto-responsive-table">
             <thead>
               <tr>
                 <th>Scope</th>

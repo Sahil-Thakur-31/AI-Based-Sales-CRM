@@ -742,7 +742,7 @@ export default function TeamDashboard() {
               {loadingDashboard ? <small>Loading...</small> : null}
             </div>
             <div className="team-table-wrap">
-              <table className="team-table">
+              <table className="team-table crm-auto-responsive-table">
                 <thead>
                   <tr className="team-table-group-row">
                     <th rowSpan={2}>Member</th>
@@ -1090,7 +1090,7 @@ export default function TeamDashboard() {
 
                   {filteredPipelineStageSummary.length ? (
                     <div className="team-modal-table-wrap">
-                      <table className="team-modal-table">
+                      <table className="team-modal-table crm-auto-responsive-table">
                         <thead>
                           <tr>
                             <th>Stage</th>
@@ -1115,7 +1115,7 @@ export default function TeamDashboard() {
 
                   {filteredPipelineRecords.length ? (
                     <div className="team-modal-table-wrap">
-                      <table className="team-modal-table">
+                      <table className="team-modal-table crm-auto-responsive-table">
                         <thead>
                           {pipelineDetailType === "deal" ? (
                             <tr>
@@ -1309,7 +1309,7 @@ export default function TeamDashboard() {
                   </div>
                   {hasMemberDeals ? (
                     <div className="team-modal-table-wrap">
-                      <table className="team-modal-table team-modal-table-compact">
+                      <table className="team-modal-table team-modal-table-compact crm-auto-responsive-table">
                         <thead>
                           <tr>
                             <th>Company</th>
@@ -1393,7 +1393,7 @@ export default function TeamDashboard() {
                       </div>
 
                       <div className="team-modal-table-wrap">
-                        <table className="team-modal-table team-modal-table-compact">
+                        <table className="team-modal-table team-modal-table-compact crm-auto-responsive-table">
                           <thead>
                             <tr>
                               <th>Company</th>
@@ -1507,7 +1507,7 @@ export default function TeamDashboard() {
                       </div>
 
                       <div className="team-modal-table-wrap">
-                        <table className="team-modal-table team-modal-table-compact">
+                        <table className="team-modal-table team-modal-table-compact crm-auto-responsive-table">
                           <thead>
                             <tr>
                               <th>Title</th>

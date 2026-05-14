@@ -215,9 +215,12 @@ const formatEvent = (eventDoc, userId) => {
   );
   const isRegisteredInRegistration = registrationRows.some(
     (registration) =>
-      String(registration?.user?._id || registration?.user) === currentUserId ||
-      (Array.isArray(registration?.attendeeUsers) &&
-        registration.attendeeUsers.some((entry) => String(entry?._id || entry) === currentUserId))
+      String(registration?.user?._id || registration?.user) === currentUserId
+  );
+  const isPendingInvitation = registrationRows.some(
+    (registration) =>
+      Array.isArray(registration?.attendeeUsers) &&
+      registration.attendeeUsers.some((entry) => String(entry?._id || entry) === currentUserId)
   );
   const isAttendingInLegacy = event.attendedBy?.some(
     (id) => String(id?._id || id) === currentUserId
@@ -237,6 +240,7 @@ const formatEvent = (eventDoc, userId) => {
     ...event,
     registrationFee: normalizeEventRegistrationFeeForDisplay(event),
     isRegistered: Boolean(isRegisteredInLegacy || isRegisteredInRegistration),
+    isPendingInvitation: Boolean(isPendingInvitation && !isRegisteredInLegacy && !isRegisteredInRegistration && !isAttendingInLegacy),
     isAttending: Boolean(isAttendingInLegacy),
     isMissed,
     myRegistration,
@@ -617,7 +621,6 @@ exports.getEventSummary = async (req, res) => {
         $or: [
           { registeredBy: userId },
           { "registrations.user": userId },
-          { "registrations.attendeeUsers": userId },
         ],
       }
       : {
@@ -1197,6 +1200,52 @@ exports.getMyEventRegistration = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to fetch registration details" });
+  }
+};
+
+exports.acceptEventInvitation = async (req, res) => {
+  try {
+    const currentUserId = String(req.user?._id || "");
+    if (!currentUserId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const event = await Event.findOne({
+      _id: req.params.id,
+      is_deleted: false,
+      "registrations.attendeeUsers": req.user._id,
+    });
+
+    if (!event) {
+      return res.status(404).json({ message: "Pending invitation not found" });
+    }
+
+    const isAlreadyRegistered =
+      event.registeredBy.some((id) => String(id) === currentUserId) ||
+      (event.registrations || []).some((reg) => String(reg.user) === currentUserId);
+
+    if (!isAlreadyRegistered) {
+      event.registeredBy.push(req.user._id);
+    }
+
+    event.missedReason = "";
+    event.missedAt = null;
+    event.missedBy = null;
+    event.engagementLabel = "positive";
+    await event.save();
+
+    const populated = await populateEventQuery(Event.findById(event._id));
+    const attendeesList = [
+      ...(populated.registeredBy || []),
+      ...(populated.attendedBy || []),
+      ...(populated.registrations || []).flatMap((r) => r.attendeeUsers || [])
+    ];
+    await syncEventToGoogleForAttendees(populated, attendeesList);
+
+    return res.json(formatEvent(populated, req.user?._id));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to accept event invitation" });
   }
 };
 

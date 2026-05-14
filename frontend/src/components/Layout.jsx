@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./sideBar";
 import Navbar from "./navBar.jsx";
 import "./layout.css"
+import "./responsiveTables.css";
+import { decorateResponsiveTables } from "../utils/responsiveTables";
 
 const MOBILE_LAYOUT_QUERY = "(max-width: 900px)";
 
 function Layout({ organizationLogoUrl = "", organizationIconUrl = "" }) {
   const location = useLocation();
+  const pageContentRef = useRef(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved === null ? false : saved === "true";
@@ -60,6 +63,43 @@ function Layout({ organizationLogoUrl = "", organizationIconUrl = "" }) {
     };
   }, [isMobileSidebarOpen, isMobileViewport]);
 
+  useEffect(() => {
+    const container = pageContentRef.current;
+    if (!container) return undefined;
+
+    let frameId = 0;
+    const decorate = () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        decorateResponsiveTables(container);
+      });
+    };
+
+    decorate();
+
+    const observer = new MutationObserver(() => {
+      decorate();
+    });
+
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+    });
+
+    window.addEventListener("resize", decorate);
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+      observer.disconnect();
+      window.removeEventListener("resize", decorate);
+    };
+  }, [location.pathname, location.search]);
+
   return (
     <div
       className={`layout-container ${
@@ -91,7 +131,7 @@ function Layout({ organizationLogoUrl = "", organizationIconUrl = "" }) {
           onOpenSidebar={() => setIsMobileSidebarOpen(true)}
         />
 
-        <div className="page-content">
+        <div className="page-content" ref={pageContentRef}>
           <Outlet />
         </div>
 

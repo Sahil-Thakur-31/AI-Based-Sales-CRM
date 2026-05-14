@@ -1,29 +1,4 @@
 {
-  "receivedCount": 6,
-  "passingNormalize": [
-    {
-      "title": "GreenLeaf requirement gathering",
-      "start": "2026-04-01T08:30:57.294Z"
-    },
-    {
-      "title": "Proposal sent to Pinnacle",
-      "start": "2026-02-01T08:30:57.294Z"
-    },
-    {
-      "title": "Vertex initial contact",
-      "start": "2026-05-01T08:30:57.294Z"
-    },
-    {
-      "title": "GreenLeaf negotiation call",
-      "start": "2026-05-01T08:30:57.294Z"
-    },
-    {
-      "title": "Vertex automation proposal",
-      "start": "2026-06-01T08:30:57.294Z"
-    },
-    {
-      "title": "Daily Closing Task",
-      "start": "2026-03-20T00:00:00.000Z"
-    }
-  ]
+  "receivedCount": 0,
+  "passingNormalize": []
 }

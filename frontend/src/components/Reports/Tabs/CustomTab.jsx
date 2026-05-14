@@ -444,7 +444,7 @@ function CustomTab() {
             </div>
 
             <div style={{ marginTop: 18, overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+              <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
                 <thead>
                   <tr style={{ background: "#f8fafc" }}>
                     {result.columns?.map((column) => (
