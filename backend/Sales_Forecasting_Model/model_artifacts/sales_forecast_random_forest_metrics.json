@@ -43,8 +43,8 @@
       "support": 275.0
     }
   },
-  "expected_win_rate_on_test": 0.11645735117407846,
-  "forecast_revenue_on_test": 9203295.195790477,
+  "expected_win_rate_on_test": 0.11715929004329005,
+  "forecast_revenue_on_test": 4129746.4962904765,
   "feature_columns": [
     "deal_stage",
     "overdue_meeting_count",

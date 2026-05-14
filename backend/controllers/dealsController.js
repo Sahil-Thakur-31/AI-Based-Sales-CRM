@@ -13,6 +13,7 @@ const Team = require("../models/teams");
 
 const DEAL_WON_STAGE = "P7";
 const DEAL_LOST_STAGE = "P6";
+const INACTIVE_DEAL_STAGES = new Set([DEAL_LOST_STAGE, DEAL_WON_STAGE]);
 
 function mapTemperatureFromLead(lead) {
   const temp = (lead?.lead_temperature || "").toLowerCase();
@@ -1288,6 +1289,10 @@ exports.updateDeal = async (req, res) => {
         update.isActive === "true" ||
         update.is_active === true ||
         update.is_active === "true";
+    }
+
+    if (dealUpdate.stage && INACTIVE_DEAL_STAGES.has(dealUpdate.stage)) {
+      dealUpdate.isActive = false;
     }
 
     const leadUpdate = buildLeadUpdatePayload(update);

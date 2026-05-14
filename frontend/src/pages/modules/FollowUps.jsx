@@ -194,6 +194,7 @@ function mapDocToFollowup(doc) {
     notes: doc.notes || "",
     agenda: doc.agenda || "",
     aiPriority: doc.aiPriority || "",
+    mob: doc.mob || "",
     reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
     completedAt: doc.completedAt || null,
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
@@ -1247,6 +1248,7 @@ export default function Followups() {
                         <div className="fuItemMeta">
                           <span className="fuMetaChip">{String(f.actionType || "").replace(/^follow\s*up\s*/i, "").trim() || "Phone Call"}</span>
                           <span className="fuMetaChip">Time: {f.time || "--:--"}</span>
+                          <span className="fuMetaChip">Mob: {f.mob || "-"}</span>
                           {f.aiPriority ? (
                             <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(f.aiPriority))}>AI: {f.aiPriority}</span>
                           ) : null}
