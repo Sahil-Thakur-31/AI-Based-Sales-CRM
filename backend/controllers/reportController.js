@@ -46,7 +46,7 @@ const DEAL_METRICS = new Set([
   "inactive_deal_value",
   "list_deals",
 ]);
-const LEAD_METRICS = new Set(["lead_count", "converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
+const LEAD_METRICS = new Set(["lead_count", "converted_count", "non_converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
 const EXPENSE_METRICS = new Set(["expense_total", "expense_count", "approved_total", "pending_count", "rejected_count"]);
 const CLIENT_METRICS = new Set(["top_clients_revenue", "inactive_clients"]);
 const FOLLOWUP_METRICS = new Set(["todays_followups", "overdue_followups", "pending_meetings", "completed_meetings", "followup_count"]);
@@ -686,6 +686,10 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "leads", "uncontacted_count");
   }
 
+  if (containsAny(lower, ["non converted leads", "non converted lead", "not converted leads", "not converted lead", "unconverted leads", "unconverted lead"])) {
+    return makePlan(selection, "leads", "non_converted_count");
+  }
+
   if (containsAny(lower, ["lead conversion rate", "converted leads", "converted lead"])) {
     return makePlan(selection, "leads", lower.includes("conversion rate") ? "conversion_rate" : "converted_count");
   }
@@ -905,7 +909,7 @@ function buildHeuristicPlan(question) {
   let module = "deals";
   if (/(expense|spend|approved expense|pending expense|rejected expense)/.test(lower)) {
     module = "expenses";
-  } else if (/(lead|source|uncontacted|qualified|converted lead|temperature|hot|warm|cold)/.test(lower)) {
+  } else if (/(lead|source|uncontacted|qualified|converted lead|non converted|not converted|unconverted|temperature|hot|warm|cold)/.test(lower)) {
     module = "leads";
   } else if (/(follow[-\s]?up|followup|follows|meeting)/.test(lower)) {
     module = "followups";
@@ -959,6 +963,9 @@ function buildHeuristicPlan(question) {
   if (module === "leads") {
     if (lower.includes("uncontacted")) {
       metric = "uncontacted_count";
+      groupBy = lower.includes("source") ? "source" : lower.includes("salesperson") ? "salesperson" : null;
+    } else if (lower.includes("non converted") || lower.includes("not converted") || lower.includes("unconverted")) {
+      metric = "non_converted_count";
       groupBy = lower.includes("source") ? "source" : lower.includes("salesperson") ? "salesperson" : null;
     } else if (lower.includes("conversion")) {
       metric = "conversion_rate";
@@ -1135,6 +1142,7 @@ Deals:
 Leads:
 - lead_count
 - converted_count
+- non_converted_count
 - uncontacted_count
 - conversion_rate
 - qualified_count
@@ -1233,6 +1241,7 @@ Rules:
 - Do not return explanation text.
 - If the user asks for top performers, default to module=deals, metric=revenue, groupBy=salesperson, filters.stage=P7.
 - If the user asks for conversion, use leads unless they clearly mention deals.
+- If the user asks for non-converted leads, not-converted leads, or unconverted leads, use module=leads and metric=non_converted_count.
 - If the user asks for revenue, use deals and filters.stage=P7.
 - If the user asks for expenses/spend, use expenses.
 - If the user asks for follow-ups, followups, follows, or meetings, use followups.
@@ -1715,6 +1724,9 @@ async function runLeadsReport(plan, user) {
   }
   if (plan.filters?.status) match.status = plan.filters.status;
   if (plan.filters?.temperature) match.lead_temperature = plan.filters.temperature;
+  if (plan.metric === "non_converted_count") {
+    match.converted_to_deal = false;
+  }
   if (plan.metric === "inactive_leads") {
     match.is_active = false;
     match.is_deleted = { $ne: true };
@@ -1820,6 +1832,7 @@ async function runLeadsReport(plan, user) {
   const groupStage = { _id: groupId };
   if (plan.metric === "lead_count") groupStage.value = { $sum: 1 };
   if (plan.metric === "converted_count") groupStage.value = { $sum: { $cond: [{ $eq: ["$converted_to_deal", true] }, 1, 0] } };
+  if (plan.metric === "non_converted_count") groupStage.value = { $sum: { $cond: [{ $eq: ["$converted_to_deal", false] }, 1, 0] } };
   if (plan.metric === "qualified_count") groupStage.value = { $sum: { $cond: [{ $eq: ["$status", "qualified"] }, 1, 0] } };
   if (plan.metric === "conversion_rate") {
     groupStage.totalCount = { $sum: 1 };
@@ -2312,6 +2325,7 @@ async function runTeamsReport(plan, user) {
     list_deals: "Deals List",
     lead_count: "Lead Count",
     converted_count: "Converted Leads",
+    non_converted_count: "Non-Converted Leads",
     uncontacted_count: "Uncontacted Leads",
     conversion_rate: "Lead Conversion Rate",
     qualified_count: "Qualified Leads",
