@@ -212,7 +212,7 @@ export default function Quotations() {
           <div className="quotes-empty">No quotations match your search.</div>
         ) : (
           <div className="quotes-table-scroll">
-            <table className="quotes-table">
+            <table className="quotes-table crm-auto-responsive-table">
               <thead>
                 <tr>
                   <th>Quote #</th>

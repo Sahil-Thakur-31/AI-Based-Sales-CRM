@@ -254,7 +254,7 @@ async function fetchDashboard(range, pipelineType, signal) {
 
 export default function AdminHome() {
   const DEALS_PER_PAGE = 4;
-  const FOLLOWUPS_PER_PAGE = 2;
+  const FOLLOWUPS_PER_PAGE = 5;
 
   const [range, setRange] = useState("month");
   const [pipelineType, setPipelineType] = useState("deal");
@@ -618,7 +618,7 @@ export default function AdminHome() {
                   </div>
                 </CCardHeader>
 
-                <CCardBody>
+                <CCardBody className="followupsPanelBody">
                   <div className="followList">
                     {visibleFollowups.map((f) => (
                       <div key={f.id} className="followItem">
@@ -630,8 +630,12 @@ export default function AdminHome() {
                             <span className="muted">{f.itemType || "Follow-up"}</span>
                             <span className="dot" />
                             <span className="muted">{f.title}</span>
-                            <span className="dot" />
-                            <span className="muted">Score: {f.score}</span>
+                            {f.itemType !== "Meeting" && f.contactPhone ? (
+                              <>
+                                <span className="dot" />
+                                <span className="muted">Mob: {f.contactPhone}</span>
+                              </>
+                            ) : null}
                           </div>
                         </div>
 
@@ -691,7 +695,7 @@ export default function AdminHome() {
                         <CTableHeaderCell>Deal</CTableHeaderCell>
                         <CTableHeaderCell>Stage</CTableHeaderCell>
                         <CTableHeaderCell>Value</CTableHeaderCell>
-                        <CTableHeaderCell>Close Date</CTableHeaderCell>
+                        <CTableHeaderCell>Expected Close Date</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
 
@@ -708,7 +712,7 @@ export default function AdminHome() {
                             {formatINR(d.value)}
                           </CTableDataCell>
                           <CTableDataCell className="muted">
-                            {d.closeDate}
+                            {d.expectedCloseDate}
                           </CTableDataCell>
                         </CTableRow>
                       ))}

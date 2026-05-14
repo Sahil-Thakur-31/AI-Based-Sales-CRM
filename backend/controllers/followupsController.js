@@ -4,11 +4,14 @@ const FollowupHistory = require("../models/followUpHistory");
 const Meeting = require("../models/meetings");
 const Lead = require("../models/leads");
 const Deal = require("../models/deals");
+const LeadContacts = require("../models/leadContacts");
+const ClientContact = require("../models/client_contact");
 const Notification = require("../models/notifications");
 const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const CRMSettings = require("../models/crmSettings");
+const { TEMPLATE_KEYS } = require("../services/emailTemplates");
 const { syncSingleMeetingToGoogle, deleteSingleMeetingFromGoogle } = require("../services/googleCalendarSync");
 const { refreshPrioritiesForFollowupAndMeeting } = require("../services/followupPriorityAiService");
 
@@ -208,6 +211,115 @@ function getStageFromLinkedMaps(doc, { leadStageMap, dealStageMap }) {
   return dealStageMap.get(dealId) || leadStageMap.get(leadId) || "";
 }
 
+function getPrimaryPhone(value) {
+  if (typeof value === "string") return value.split(",")[0].trim();
+  if (Array.isArray(value)) return String(value[0] || "").trim();
+  return "";
+}
+
+async function buildFollowupPhoneMap(docs = []) {
+  const followupLeadIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.leadId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+  const dealIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.dealId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+  const followupClientIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.clientId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+
+  const deals = dealIds.length
+    ? await Deal.find({ _id: { $in: dealIds } }).select("_id lead_id client_id").lean()
+    : [];
+  const dealMap = new Map(deals.map((deal) => [String(deal._id), deal]));
+
+  const derivedLeadIds = [
+    ...new Set(
+      deals
+        .map((deal) => String(deal?.lead_id || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+  const derivedClientIds = [
+    ...new Set(
+      deals
+        .map((deal) => String(deal?.client_id || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+
+  const leadIds = [...new Set([...followupLeadIds, ...derivedLeadIds])];
+  const clientIds = [...new Set([...followupClientIds, ...derivedClientIds])];
+
+  const [leadContacts, clientContacts] = await Promise.all([
+    leadIds.length
+      ? LeadContacts.find({ lead_id: { $in: leadIds } })
+        .sort({ is_primary: -1, created_at: 1 })
+        .select("lead_id phone")
+        .lean()
+      : [],
+    clientIds.length
+      ? ClientContact.find({ client_id: { $in: clientIds }, is_active: true })
+        .sort({ is_primary: -1, createdAt: 1 })
+        .select("client_id phone")
+        .lean()
+      : [],
+  ]);
+
+  const leadPhoneMap = new Map();
+  for (const contact of leadContacts) {
+    const leadId = String(contact?.lead_id || "");
+    const phone = getPrimaryPhone(contact?.phone);
+    if (!leadId || !phone || leadPhoneMap.has(leadId)) continue;
+    leadPhoneMap.set(leadId, phone);
+  }
+
+  const clientPhoneMap = new Map();
+  for (const contact of clientContacts) {
+    const clientId = String(contact?.client_id || "");
+    const phone = getPrimaryPhone(contact?.phone);
+    if (!clientId || !phone || clientPhoneMap.has(clientId)) continue;
+    clientPhoneMap.set(clientId, phone);
+  }
+
+  const phoneMap = new Map();
+  for (const doc of docs) {
+    const docId = String(doc?._id || "");
+    const deal = dealMap.get(String(doc?.dealId || ""));
+    const leadId = String(doc?.leadId || deal?.lead_id || "");
+    const clientId = String(doc?.clientId || deal?.client_id || "");
+    const phone = leadPhoneMap.get(leadId) || clientPhoneMap.get(clientId) || "";
+    if (docId && phone) phoneMap.set(docId, phone);
+  }
+
+  return phoneMap;
+}
+
+async function serializeFollowupDocs(docs = []) {
+  const stageMaps = await buildLinkedStageMaps(docs);
+  const phoneMap = await buildFollowupPhoneMap(docs);
+
+  return docs.map((doc) => {
+    const plain = typeof doc?.toObject === "function" ? doc.toObject() : { ...doc };
+    const linkedStage = getStageFromLinkedMaps(doc, stageMaps);
+    if (linkedStage) plain.stage = linkedStage;
+    plain.mob = phoneMap.get(String(doc?._id || "")) || "";
+    return plain;
+  });
+}
+
 async function appendHistory({ followupId, actionType, notes, performedBy }) {
   const historyDoc = await FollowupHistory.create({
     followupId,
@@ -283,6 +395,7 @@ async function ensureNoMeetingTimeConflict({
   assignedTo,
   dueDateTime,
   durationMinutes,
+  kind = "followup",
   excludeFollowupId = null,
 }) {
   const assigneeId = String(assignedTo || "").trim();
@@ -290,15 +403,21 @@ async function ensureNoMeetingTimeConflict({
 
   const start = new Date(dueDateTime);
   if (Number.isNaN(start.getTime())) return;
-  const end = new Date(start.getTime() + getDurationMinutes(durationMinutes) * 60 * 1000);
+  
+  // Determine time window based on kind: meetings 45 min, followups 15 min
+  const windowDuration = kind === "meeting" ? 45 : 15;
+  
+  // New event's actual duration time slot
+  const newEnd = new Date(start.getTime() + windowDuration * 60 * 1000);
 
   const query = {
     is_deleted: { $ne: true },
     assignedTo: new mongoose.Types.ObjectId(assigneeId),
     status: { $nin: ["cancelled", "completed"] },
+    // Find existing records that might overlap with our new event
     dueDateTime: {
-      $gte: new Date(start.getTime() - 24 * 60 * 60 * 1000),
-      $lt: new Date(end.getTime() + 24 * 60 * 60 * 1000),
+      $gte: new Date(start.getTime() - windowDuration * 2 * 60 * 1000),
+      $lt: new Date(start.getTime() + windowDuration * 2 * 60 * 1000),
     },
   };
 
@@ -310,17 +429,25 @@ async function ensureNoMeetingTimeConflict({
     .select("_id title dueDateTime durationMinutes kind actionType status")
     .lean();
 
+  // Check for conflicts: new event's actual time must not overlap with existing event's actual time
   const conflict = candidates.find((row) => {
     const rowStart = new Date(row.dueDateTime);
     if (Number.isNaN(rowStart.getTime())) return false;
-    const rowEnd = new Date(rowStart.getTime() + getDurationMinutes(row.durationMinutes) * 60 * 1000);
-    return intervalsOverlap(start, end, rowStart, rowEnd);
+    
+    // Existing event's actual duration: 45 min for meeting, 15 min for followup
+    const existingDuration = row.kind === "meeting" ? 45 : 15;
+    const rowEnd = new Date(rowStart.getTime() + existingDuration * 60 * 1000);
+    
+    // Check if new event [start, newEnd] overlaps with existing event [rowStart, rowEnd]
+    // NO lookback applied to existing events
+    return intervalsOverlap(start, newEnd, rowStart, rowEnd);
   });
 
   if (conflict) {
     const when = new Date(conflict.dueDateTime).toLocaleString("en-IN");
+    const typeLabel = kind === "meeting" ? "meeting" : "followup";
     const err = new Error(
-      `You cant schedule this! Assignee already has an event at this time (${conflict.title || "Meeting"} on ${when}).`
+      `Cannot schedule this ${typeLabel}! Assignee already has a ${conflict.kind} at this time (${conflict.title || conflict.kind} on ${when}).`
     );
     err.statusCode = 409;
     throw err;
@@ -464,7 +591,9 @@ async function createFollowupNotification(doc, userId, eventType) {
   if (!doc || !userId) return;
   if (doc.reminderEnabled === false && eventType === "created") return;
   const settings = await CRMSettings.findOne({ userId }).lean();
-  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) return;
+  // Check if smart reminders are enabled and at least one method (inApp OR email) is enabled
+  if (!settings?.smartFollowupRemindersEnabled) return;
+  if (!settings?.reminderMethodInApp && !settings?.reminderMethodEmail) return;
 
   const isMeeting = doc.kind === "meeting";
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
@@ -506,7 +635,9 @@ async function createFollowupAssignmentNotification(doc) {
   if (!userId) return;
 
   const settings = await CRMSettings.findOne({ userId }).lean();
-  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) return;
+  // Check if smart reminders are enabled and at least one method (inApp OR email) is enabled
+  if (!settings?.smartFollowupRemindersEnabled) return;
+  if (!settings?.reminderMethodInApp && !settings?.reminderMethodEmail) return;
 
   const isMeeting = doc.kind === "meeting";
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
@@ -521,6 +652,7 @@ async function createFollowupAssignmentNotification(doc) {
     type: "info",
     relatedId: doc._id,
     relatedType: "Followup",
+    templateKey: isMeeting ? TEMPLATE_KEYS.MEETING_ASSIGNED : TEMPLATE_KEYS.FOLLOWUP_ASSIGNED,
   });
 }
 
@@ -548,14 +680,6 @@ exports.list = async (req, res) => {
 
     const docs = await Followup.find(q).sort({ dueDateTime: 1, createdAt: -1 }).populate("assignedTo", "name email");
 
-    const stageMaps = await buildLinkedStageMaps(docs);
-    docs.forEach((doc) => {
-      const linkedStage = getStageFromLinkedMaps(doc, stageMaps);
-      if (linkedStage) {
-        doc.stage = linkedStage;
-      }
-    });
-
     if (req.query.kind === "meeting") {
       await Promise.all(
         docs
@@ -570,9 +694,10 @@ exports.list = async (req, res) => {
       );
     }
 
+    const serializedDocs = await serializeFollowupDocs(docs);
     const responseDocs = requestedStage
-      ? docs.filter((doc) => normalizeStageValue(doc?.stage) === requestedStage)
-      : docs;
+      ? serializedDocs.filter((doc) => normalizeStageValue(doc?.stage) === requestedStage)
+      : serializedDocs;
 
     res.json(responseDocs);
   } catch (err) {
@@ -685,7 +810,8 @@ exports.getOne = async (req, res) => {
     }).populate("assignedTo", "name email");
 
     if (!doc) return res.status(404).json({ message: "Followup not found" });
-    res.json(doc);
+    const [serializedDoc] = await serializeFollowupDocs([doc]);
+    res.json(serializedDoc);
   } catch (err) {
     console.error("followups.getOne error:", err);
     res.status(500).json({ message: "Failed to fetch followup" });
@@ -758,6 +884,7 @@ exports.create = async (req, res) => {
       assignedTo,
       dueDateTime: payload.dueDateTime,
       durationMinutes: payload.durationMinutes,
+      kind: payload.kind,
     });
 
     const doc = await Followup.create(payload);
@@ -806,7 +933,9 @@ exports.create = async (req, res) => {
     }
 
     try {
-      await createFollowupNotification(doc, req.user._id, "created");
+      // Send reminder notification to the assigned user, not the creator
+      const assigneeId = created?.assignedTo?._id || created?.assignedTo || assignedTo;
+      await createFollowupNotification(doc, assigneeId, "created");
     } catch (notificationErr) {
       console.error("followups.create notification error:", notificationErr);
     }
@@ -820,7 +949,8 @@ exports.create = async (req, res) => {
       }
     }
 
-    res.status(201).json(created);
+    const [serializedCreated] = await serializeFollowupDocs(created ? [created] : []);
+    res.status(201).json(serializedCreated || created);
   } catch (err) {
     console.error("followups.create error:", err);
     if (err?.statusCode === 409) {
@@ -903,6 +1033,7 @@ exports.update = async (req, res) => {
       assignedTo: nextAssigned,
       dueDateTime: merged.dueDateTime,
       durationMinutes: merged.durationMinutes,
+      kind: merged.kind,
       excludeFollowupId: current._id,
     });
 
@@ -974,7 +1105,8 @@ exports.update = async (req, res) => {
       }
     }
 
-    res.json(updated);
+    const [serializedUpdated] = await serializeFollowupDocs(updated ? [updated] : []);
+    res.json(serializedUpdated || updated);
   } catch (err) {
     console.error("followups.update error:", err);
     if (err?.statusCode === 409) {
@@ -1090,7 +1222,8 @@ exports.updateStatus = async (req, res) => {
     }
 
     const refreshed = await Followup.findById(updated._id).populate("assignedTo", "name email");
-    res.json(refreshed);
+    const [serializedRefreshed] = await serializeFollowupDocs(refreshed ? [refreshed] : []);
+    res.json(serializedRefreshed || refreshed);
   } catch (err) {
     console.error("followups.updateStatus error:", err);
     res.status(500).json({ message: "Failed to update status" });

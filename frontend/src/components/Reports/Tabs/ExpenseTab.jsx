@@ -558,7 +558,7 @@ function ExpenseTab({ filters }) {
         </div>
 
         <div style={{ marginTop: 18, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+          <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 {["Expense No", "Date", "Vendor", "Category", "Reference", "Amount", "GST", "Status", "User"].map((header) => (

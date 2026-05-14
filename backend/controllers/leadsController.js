@@ -16,6 +16,7 @@ const { processPendingNotificationEmails } = require("../services/notificationEm
 const { normalizePhone } = require("../utils/phoneUtils");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
+const INACTIVE_LEAD_STAGES = new Set(["P4", "P6", "P7"]);
 
 function getRoleName(user = {}) {
   return String(user?.role || "").trim().toLowerCase();
@@ -131,6 +132,14 @@ function applyLeadDerivations(payload) {
     const amount = Number(normalized.deal_value_estimate);
     if (!Number.isNaN(amount)) {
       normalized.deal_value_estimate = amount;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalized, "stage")) {
+    const stage = String(normalized.stage || "").trim().toUpperCase();
+    if (["P1", "P2", "P3", "P4", "P5", "P6", "P7"].includes(stage)) {
+      normalized.stage = stage;
+      normalized.is_active = !INACTIVE_LEAD_STAGES.has(stage);
     }
   }
 
@@ -1141,6 +1150,7 @@ exports.convertLeadToDeal = async (req, res) => {
     lead.converted_to_deal = true;
     lead.is_existing_client = true;
     lead.stage = "P7";
+    lead.is_active = false;
     lead.converted_deal_id = deal._id;
     lead.deal_name = requestedDealName;
     await lead.save();
