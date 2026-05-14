@@ -96,7 +96,7 @@ function getUserScopedQuotationFilter(user = {}, baseFilter = {}) {
 
 async function moveDealToStage(dealId, stage, actorId = null) {
   if (!dealId) return null;
-  const existingDeal = await Deal.findById(dealId).select("_id stage actualCloseDate").lean();
+  const existingDeal = await Deal.findById(dealId).select("_id stage actualCloseDate lead_id").lean();
   if (!existingDeal) return null;
 
   const update = {
@@ -120,6 +120,13 @@ async function moveDealToStage(dealId, stage, actorId = null) {
       movedAt: new Date(),
       movedBy: actorId || null
     });
+  }
+
+  if (existingDeal.lead_id && stage === DEAL_WON_STAGE) {
+    await Lead.updateOne(
+      { _id: existingDeal.lead_id },
+      { $set: { stage }, $unset: { status: "" } }
+    );
   }
 
   return deal;
@@ -965,6 +972,12 @@ exports.createQuotation = async (req, res) => {
     );
 
     await moveQuotationSourceToStage(quotation, QUOTATION_CREATED_STAGE, req.user?._id || null);
+    if (quoteType === "lead" && resolvedLeadId) {
+      await Lead.updateOne(
+        { _id: resolvedLeadId },
+        { $set: { stage: QUOTATION_CREATED_STAGE }, $unset: { status: "" } }
+      );
+    }
 
     res.status(201).json({
       _id: quotation._id,
