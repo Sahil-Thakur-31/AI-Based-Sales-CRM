@@ -76,6 +76,13 @@ function normalizePeriod(period) {
   return "monthly";
 }
 
+function normalizeOptionalPeriod(period) {
+  if (period === null || period === undefined) return null;
+  const value = String(period).trim();
+  if (!value) return null;
+  return normalizePeriod(value);
+}
+
 function currentQuarterValue(date = new Date()) {
   const month = date.getMonth();
   if (month < 3) return "q1";
@@ -110,6 +117,15 @@ function addMonths(date, count) {
   return new Date(date.getFullYear(), date.getMonth() + count, 1);
 }
 
+function buildCurrentSelection(now = new Date()) {
+  return {
+    period: "monthly",
+    month: String(now.getMonth() + 1),
+    year: String(now.getFullYear()),
+    quarter: currentQuarterValue(now),
+  };
+}
+
 function getSelectionRange(selection) {
   if (selection.period === "quarterly") {
     const quarterStartMap = { q1: 0, q2: 3, q3: 6, q4: 9 };
@@ -126,7 +142,8 @@ function getSelectionRange(selection) {
   return { start, end: addMonths(start, 1) };
 }
 
-function detectSelectionFromQuestion(question) {
+function detectSelectionFromQuestion(question, options = {}) {
+  const { allowFallback = true } = options;
   const now = new Date();
   const lower = String(question || "").toLowerCase();
 
@@ -164,7 +181,11 @@ function detectSelectionFromQuestion(question) {
     };
   }
 
-  if (lower.includes("this quarter")) {
+  if (lower.includes("this month") || lower.includes("current month")) {
+    return buildCurrentSelection(now);
+  }
+
+  if (lower.includes("this quarter") || lower.includes("current quarter")) {
     return {
       period: "quarterly",
       quarter: currentQuarterValue(now),
@@ -201,7 +222,7 @@ function detectSelectionFromQuestion(question) {
     };
   }
 
-  if (lower.includes("this year")) {
+  if (lower.includes("this year") || lower.includes("current year")) {
     return {
       period: "yearly",
       year: String(now.getFullYear()),
@@ -220,20 +241,11 @@ function detectSelectionFromQuestion(question) {
   }
 
   if (lower.includes("monthly")) {
-    return {
-      period: "monthly",
-      month: String(now.getMonth() + 1),
-      year: String(now.getFullYear()),
-      quarter: currentQuarterValue(now),
-    };
+    return buildCurrentSelection(now);
   }
 
-  return {
-    period: "monthly",
-    month: String(now.getMonth() + 1),
-    year: String(now.getFullYear()),
-    quarter: currentQuarterValue(now),
-  };
+  if (!allowFallback) return null;
+  return buildCurrentSelection(now);
 }
 
 function normalizeMatchText(value) {
@@ -242,6 +254,95 @@ function normalizeMatchText(value) {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function canonicalizeIntentText(value) {
+  let text = normalizeMatchText(value);
+  if (!text) return "";
+
+  const replacements = [
+    [/\bfollow[\s-]*ups?\b/g, "followup"],
+    [/\bfollowups?\b/g, "followup"],
+    [/\bfollows?\b/g, "followup"],
+    [/\bfolowups?\b/g, "followup"],
+    [/\bfolows?\b/g, "followup"],
+    [/\bmeetings?\b/g, "meeting"],
+    [/\bemployees?\b/g, "user"],
+    [/\bsales people\b/g, "salesperson"],
+    [/\bsalespeople\b/g, "salesperson"],
+    [/\bsales persons?\b/g, "salesperson"],
+    [/\bsales reps?\b/g, "salesperson"],
+    [/\breps?\b/g, "salesperson"],
+  ];
+
+  for (const [pattern, replacement] of replacements) {
+    text = text.replace(pattern, replacement);
+  }
+
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function tokenizeIntentText(value) {
+  return canonicalizeIntentText(value)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function levenshteinDistance(a = "", b = "") {
+  const left = String(a);
+  const right = String(b);
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+
+  const dp = Array.from({ length: left.length + 1 }, () => new Array(right.length + 1).fill(0));
+  for (let i = 0; i <= left.length; i += 1) dp[i][0] = i;
+  for (let j = 0; j <= right.length; j += 1) dp[0][j] = j;
+
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  return dp[left.length][right.length];
+}
+
+function areSimilarIntentTokens(left, right) {
+  const a = String(left || "").trim();
+  const b = String(right || "").trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length <= 4 || b.length <= 4) return false;
+  if (a.startsWith(b) || b.startsWith(a)) {
+    return Math.min(a.length, b.length) >= 5;
+  }
+
+  const distance = levenshteinDistance(a, b);
+  if (Math.min(a.length, b.length) >= 7) return distance <= 2;
+  if (Math.min(a.length, b.length) >= 5) return distance <= 1;
+  return false;
+}
+
+function semanticIncludes(text, pattern) {
+  const canonicalText = canonicalizeIntentText(text);
+  const canonicalPattern = canonicalizeIntentText(pattern);
+  if (!canonicalText || !canonicalPattern) return false;
+  if (canonicalText.includes(canonicalPattern)) return true;
+
+  const questionTokens = tokenizeIntentText(canonicalText);
+  const patternTokens = tokenizeIntentText(canonicalPattern);
+  if (!questionTokens.length || !patternTokens.length) return false;
+
+  return patternTokens.every((patternToken) =>
+    questionTokens.some((questionToken) => areSimilarIntentTokens(questionToken, patternToken))
+  );
 }
 
 function detectUnsupportedReason(question) {
@@ -279,10 +380,41 @@ function detectUnsupportedReason(question) {
 }
 
 function hasSupportedIntent(question) {
-  const lower = String(question || "").toLowerCase();
-  return /\b(top performer|best performer|top rep|revenue|sales|win rate|average deal|won deal|lost deal|pipeline|stage|deal count|deals?|lead count|leads?|uncontacted|qualified|converted lead|conversion|expenses|expense|spend|approved|pending|rejected|category|source|users?|employees?|teams?)\b/.test(
-    lower
-  );
+  return containsAny(question, [
+    "top performer",
+    "best performer",
+    "top rep",
+    "revenue",
+    "sales",
+    "win rate",
+    "average deal",
+    "won deal",
+    "lost deal",
+    "pipeline",
+    "stage",
+    "deal count",
+    "lead count",
+    "lead",
+    "uncontacted",
+    "qualified",
+    "converted lead",
+    "conversion",
+    "expense",
+    "spend",
+    "approved",
+    "pending",
+    "rejected",
+    "category",
+    "source",
+    "followup",
+    "meeting",
+    "client",
+    "user",
+    "employee",
+    "role",
+    "team",
+    "target",
+  ]);
 }
 
 async function detectSourceFilter(question) {
@@ -300,7 +432,43 @@ async function detectSourceFilter(question) {
 }
 
 function containsAny(text, patterns = []) {
-  return patterns.some((pattern) => text.includes(pattern));
+  return patterns.some((pattern) => semanticIncludes(text, pattern));
+}
+
+function wantsAllRows(text) {
+  return containsAny(text, [
+    "all",
+    "show all",
+    "list all",
+    "all rows",
+    "all records",
+  ]);
+}
+
+function hasRankingIntent(question) {
+  const text = canonicalizeIntentText(question);
+  return containsAny(text, [
+    "top performer",
+    "best performer",
+    "lowest performing",
+    "biggest deal",
+    "smallest deal",
+    "high value deal",
+    "top client",
+    "top clients",
+  ]);
+}
+
+function shouldExpandAllTimeLimit(question, plan = {}) {
+  if (plan?.period) return false;
+  if (hasRankingIntent(question)) return false;
+  return true;
+}
+
+function minDate(left, right) {
+  const leftDate = left instanceof Date ? left : new Date(left);
+  const rightDate = right instanceof Date ? right : new Date(right);
+  return leftDate.getTime() <= rightDate.getTime() ? leftDate : rightDate;
 }
 
 function makePlan(selection, module, metric, overrides = {}) {
@@ -308,10 +476,10 @@ function makePlan(selection, module, metric, overrides = {}) {
     module,
     metric,
     groupBy: null,
-    period: selection.period,
-    month: selection.month,
-    quarter: selection.quarter,
-    year: selection.year,
+    period: selection?.period || null,
+    month: selection?.month || null,
+    quarter: selection?.quarter || null,
+    year: selection?.year || null,
     filters: {},
     sort: { by: "label", order: "asc" },
     limit: 25,
@@ -326,8 +494,8 @@ async function buildDeterministicPlan(question) {
     return { unsupported: true, reason: unsupportedReason, hardUnsupported: true };
   }
 
-  const lower = String(question || "").toLowerCase();
-  const selection = detectSelectionFromQuestion(question);
+  const lower = canonicalizeIntentText(question);
+  const selection = detectSelectionFromQuestion(question, { allowFallback: false });
 
   if (containsAny(lower, ["teams and their targets", "team targets", "teams targets", "what are teams and their targets"])) {
     return makePlan(selection, "teams", "team_targets", {
@@ -392,19 +560,27 @@ async function buildDeterministicPlan(question) {
   }
 
   if (containsAny(lower, ["today's follow", "todays follow", "today follow"])) {
-    return makePlan(selection, "followups", "todays_followups");
+    return makePlan(selection, "followups", "todays_followups", {
+      limit: wantsAllRows(lower) ? 500 : 25,
+    });
   }
 
   if (lower.includes("overdue follow")) {
-    return makePlan(selection, "followups", "overdue_followups");
+    return makePlan(selection, "followups", "overdue_followups", {
+      limit: wantsAllRows(lower) ? 500 : 25,
+    });
   }
 
   if (lower.includes("pending meeting")) {
-    return makePlan(selection, "followups", "pending_meetings");
+    return makePlan(selection, "followups", "pending_meetings", {
+      limit: wantsAllRows(lower) ? 500 : 25,
+    });
   }
 
   if (lower.includes("completed meeting")) {
-    return makePlan(selection, "followups", "completed_meetings");
+    return makePlan(selection, "followups", "completed_meetings", {
+      limit: wantsAllRows(lower) ? 500 : 25,
+    });
   }
 
   if (containsAny(lower, ["follow-ups by employee", "followups by employee", "follow up by employee"])) {
@@ -412,6 +588,10 @@ async function buildDeterministicPlan(question) {
       groupBy: "employee",
       chartType: "bar",
     });
+  }
+
+  if (containsAny(lower, ["follow-up count", "followup count", "follow ups", "follow-ups", "followups", "follows"])) {
+    return makePlan(selection, "followups", "followup_count");
   }
 
   if (containsAny(lower, ["top clients", "top client"])) {
@@ -506,15 +686,19 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "leads", lower.includes("conversion rate") ? "conversion_rate" : "converted_count");
   }
 
-  if (containsAny(lower, ["new leads this month", "new leads"])) {
+  if (containsAny(lower, ["new leads this month"])) {
     return makePlan(
       {
-        ...selection,
+        ...(selection || buildCurrentSelection()),
         period: "monthly",
       },
       "leads",
       "lead_count"
     );
+  }
+
+  if (containsAny(lower, ["new leads"])) {
+    return makePlan(selection, "leads", "lead_count");
   }
 
   if (containsAny(lower, ["total leads", "lead count", "show leads"])) {
@@ -537,7 +721,7 @@ async function buildDeterministicPlan(question) {
   if (containsAny(lower, ["yearly revenue growth"])) {
     return makePlan(
       {
-        ...selection,
+        ...(selection || buildCurrentSelection()),
         period: "yearly",
       },
       "deals",
@@ -593,7 +777,6 @@ async function buildDeterministicPlan(question) {
 
   if (containsAny(lower, ["show all deals", "list all deals", "list this month deals", "list deals this month", "list deals"])) {
     return makePlan(selection, "deals", "list_deals", {
-      period: containsAny(lower, ["this month", "month"]) ? "monthly" : selection.period,
       chartType: "table",
       limit: 500,
       filters: {
@@ -703,19 +886,31 @@ async function buildDeterministicPlan(question) {
     });
   }
 
-  return { unsupported: true, reason: "Unsupported or ambiguous question.", hardUnsupported: true };
+  return { unsupported: true, reason: "Unsupported or ambiguous question." };
 }
 
 function buildHeuristicPlan(question) {
-  const lower = String(question || "").toLowerCase();
-  const selection = detectSelectionFromQuestion(question);
-  const topPerformerIntent = lower.includes("top performer") || lower.includes("best performer") || lower.includes("top rep");
+  const lower = canonicalizeIntentText(question);
+  const selection = detectSelectionFromQuestion(question, { allowFallback: false });
+  const topPerformerIntent =
+    lower.includes("top performer") ||
+    lower.includes("best performer") ||
+    lower.includes("top rep") ||
+    lower.includes("top salesperson");
 
   let module = "deals";
   if (/(expense|spend|approved expense|pending expense|rejected expense)/.test(lower)) {
     module = "expenses";
   } else if (/(lead|source|uncontacted|qualified|converted lead|temperature|hot|warm|cold)/.test(lower)) {
     module = "leads";
+  } else if (/(follow[-\s]?up|followup|follows|meeting)/.test(lower)) {
+    module = "followups";
+  } else if (/(team|target)/.test(lower)) {
+    module = "teams";
+  } else if (/(user|employee|role)/.test(lower)) {
+    module = "users";
+  } else if (/(client)/.test(lower)) {
+    module = "clients";
   }
 
   const filters = {};
@@ -810,17 +1005,75 @@ function buildHeuristicPlan(question) {
     else if (lower.includes("trend") || lower.includes("month")) groupBy = "month";
   }
 
+  if (module === "clients") {
+    metric = lower.includes("inactive") ? "inactive_clients" : "top_clients_revenue";
+    if (lower.includes("month") || lower.includes("trend")) groupBy = "month";
+    else if (lower.includes("client") && lower.includes("top")) groupBy = "client";
+  }
+
+  if (module === "followups") {
+    if (lower.includes("today")) {
+      metric = "todays_followups";
+    } else if (lower.includes("overdue")) {
+      metric = "overdue_followups";
+    } else if (lower.includes("pending") && lower.includes("meeting")) {
+      metric = "pending_meetings";
+    } else if (lower.includes("completed") && lower.includes("meeting")) {
+      metric = "completed_meetings";
+    } else {
+      metric = "followup_count";
+    }
+
+    if (lower.includes("employee")) groupBy = "employee";
+    else if (lower.includes("stage")) groupBy = "stage";
+    else if (lower.includes("status")) groupBy = "status";
+    else if (lower.includes("trend") || lower.includes("month")) groupBy = "month";
+  }
+
+  if (module === "users") {
+    if (lower.includes("list") || lower.includes("show users") || lower.includes("show employees")) {
+      metric = "user_list";
+    } else if (lower.includes("active")) {
+      metric = "active_users";
+    } else if (lower.includes("inactive")) {
+      metric = "inactive_users";
+    } else if (lower.includes("deleted")) {
+      metric = "deleted_users";
+    } else {
+      metric = "user_count";
+    }
+
+    if (metric === "user_count") {
+      if (lower.includes("role")) groupBy = "role";
+      else if (lower.includes("team")) groupBy = "team";
+    }
+  }
+
+  if (module === "teams") {
+    if (lower.includes("member")) {
+      metric = "team_members";
+    } else if (lower.includes("list") || lower.includes("show teams")) {
+      metric = "team_list";
+    } else if (lower.includes("count") || lower.includes("total teams")) {
+      metric = "team_count";
+    } else {
+      metric = "team_targets";
+    }
+
+    if (lower.includes("by team")) groupBy = "team";
+  }
+
   return {
     module,
     metric,
     groupBy,
-    period: selection.period,
-    month: selection.month,
-    quarter: selection.quarter,
-    year: selection.year,
+    period: selection?.period || null,
+    month: selection?.month || null,
+    quarter: selection?.quarter || null,
+    year: selection?.year || null,
     filters,
     sort: topPerformerIntent ? { by: "value", order: "desc" } : { by: "label", order: "asc" },
-    limit: topPerformerIntent ? 10 : 25,
+    limit: wantsAllRows(lower) ? 500 : topPerformerIntent ? 10 : 25,
     chartType: groupBy === "month" ? "line" : groupBy ? "bar" : "table",
   };
 }
@@ -860,8 +1113,20 @@ Deals:
 - deal_count
 - won_deals
 - lost_deals
+- lost_revenue
 - win_rate
 - avg_deal_size
+- average_sales_cycle
+- active_deals
+- biggest_deals
+- smallest_deals
+- delayed_deals
+- high_value_deals
+- risk_deals
+- stage_deals
+- closing_this_month
+- inactive_deal_value
+- list_deals
 
 Leads:
 - lead_count
@@ -869,6 +1134,8 @@ Leads:
 - uncontacted_count
 - conversion_rate
 - qualified_count
+- deleted_leads
+- inactive_leads
 
 Expenses:
 - expense_total
@@ -876,6 +1143,17 @@ Expenses:
 - approved_total
 - pending_count
 - rejected_count
+
+Clients:
+- top_clients_revenue
+- inactive_clients
+
+Followups:
+- todays_followups
+- overdue_followups
+- pending_meetings
+- completed_meetings
+- followup_count
 
 Users:
 - user_count
@@ -888,6 +1166,7 @@ Teams:
 - team_targets
 - team_count
 - team_members
+- team_list
 
 Allowed groupBy values:
 Deals:
@@ -895,6 +1174,7 @@ Deals:
 - stage
 - status
 - month
+- size
 
 Leads:
 - source
@@ -910,8 +1190,21 @@ Expenses:
 - user
 - month
 
+Clients:
+- client
+- month
+
+Followups:
+- employee
+- stage
+- status
+- month
+
 Users:
 - role
+- team
+
+Teams:
 - team
 
 Allowed period values:
@@ -928,6 +1221,9 @@ Allowed filters:
 - category
 - approval_status
 - reference_type
+- assigned_to_me
+- sourceIds
+- all_records
 
 Rules:
 - Return JSON only.
@@ -936,11 +1232,33 @@ Rules:
 - If the user asks for conversion, use leads unless they clearly mention deals.
 - If the user asks for revenue, use deals and filters.status=won.
 - If the user asks for expenses/spend, use expenses.
+- If the user asks for follow-ups, followups, follows, or meetings, use followups.
+- If the user asks for users or employees, use users.
+- If the user asks for teams or targets, use teams.
+- If the user asks for clients, use clients.
+- If the user asks only for a module plus a time period, infer the default count/list metric for that module.
+- Default metrics by simple question:
+  leads -> lead_count
+  deals -> deal_count
+  expenses -> expense_total
+  followups -> followup_count
+  users -> user_count
+  teams -> team_count
+  clients -> top_clients_revenue
+- If the question says "this month", "current month", "this quarter", or "this year", include the correct period.
+- Period is optional. Omit period/month/quarter/year when the user did not ask for a time range.
 - If the question is unsupported, return:
   {"unsupported": true, "reason": "short reason"}
 
+Examples:
+{"question":"leads this month","module":"leads","metric":"lead_count","period":"monthly"}
+{"question":"this month follows","module":"followups","metric":"followup_count","period":"monthly"}
+{"question":"show users","module":"users","metric":"user_list"}
+{"question":"teams this year","module":"teams","metric":"team_count","period":"yearly"}
+{"question":"top clients this quarter","module":"clients","metric":"top_clients_revenue","period":"quarterly"}
+
 User question:
-"{{question}}"
+"${String(question || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"
 `.trim();
 
   const responseSchema = {
@@ -948,12 +1266,12 @@ User question:
     properties: {
       unsupported: { type: "boolean" },
       reason: { type: "string" },
-      module: { type: "string", enum: ["deals", "leads", "expenses"] },
+      module: { type: "string", enum: ["deals", "leads", "expenses", "users", "teams", "clients", "followups"] },
       metric: { type: "string" },
       groupBy: { type: "string" },
-      period: { type: "string", enum: ["monthly", "quarterly", "yearly"] },
+      period: { type: "string" },
       month: { type: "string" },
-      quarter: { type: "string", enum: ["q1", "q2", "q3", "q4"] },
+      quarter: { type: "string" },
       year: { type: "string" },
       filters: {
         type: "object",
@@ -970,7 +1288,7 @@ User question:
       limit: { type: "integer" },
       chartType: { type: "string" },
     },
-    required: ["module", "metric", "period", "filters"],
+    required: ["module", "metric"],
     additionalProperties: false,
   };
 
@@ -1008,14 +1326,17 @@ User question:
 function normalizePlan(rawPlan, fallbackQuestion) {
   const fallback = buildHeuristicPlan(fallbackQuestion);
   const plan = rawPlan && typeof rawPlan === "object" ? rawPlan : {};
+  const normalizedPeriod = normalizeOptionalPeriod(
+    plan.period !== undefined ? plan.period : fallback.period
+  );
   const normalized = {
     module: ["deals", "leads", "expenses", "clients", "followups", "teams", "users"].includes(plan.module) ? plan.module : fallback.module,
     metric: String(plan.metric || fallback.metric),
     groupBy: plan.groupBy || fallback.groupBy || null,
-    period: normalizePeriod(plan.period || fallback.period),
-    month: String(normalizeMonth(plan.month || fallback.month)),
-    quarter: normalizeQuarter(plan.quarter || fallback.quarter),
-    year: String(normalizeYear(plan.year || fallback.year)),
+    period: normalizedPeriod,
+    month: normalizedPeriod ? String(normalizeMonth(plan.month || fallback.month)) : null,
+    quarter: normalizedPeriod ? normalizeQuarter(plan.quarter || fallback.quarter) : null,
+    year: normalizedPeriod ? String(normalizeYear(plan.year || fallback.year)) : null,
     filters: plan.filters && typeof plan.filters === "object" ? plan.filters : fallback.filters,
     sort: plan.sort && typeof plan.sort === "object" ? plan.sort : fallback.sort,
     limit: Number.isFinite(Number(plan.limit)) ? Number(plan.limit) : fallback.limit,
@@ -1038,7 +1359,11 @@ function normalizePlan(rawPlan, fallbackQuestion) {
     if (normalized.module === "users" && normalized.groupBy && !USER_GROUPS.has(normalized.groupBy)) normalized.groupBy = null;
     if (normalized.module === "teams" && normalized.groupBy && !TEAM_GROUPS.has(normalized.groupBy)) normalized.groupBy = null;
 
-  normalized.limit = Math.max(1, Math.min(normalized.limit || 25, 50));
+  const expandAllTimeLimit = shouldExpandAllTimeLimit(fallbackQuestion, normalized);
+  if (expandAllTimeLimit && Number(normalized.limit || 0) === 25) {
+    normalized.limit = 1000;
+  }
+  normalized.limit = Math.max(1, Math.min(normalized.limit || 25, expandAllTimeLimit ? 1000 : 50));
   normalized.chartType = normalized.groupBy === "month" ? "line" : normalized.groupBy ? "bar" : "table";
 
   return normalized;
@@ -1133,6 +1458,7 @@ function formatDateTimeLabel(value) {
 }
 
 function buildPeriodSelection(plan) {
+  if (!plan?.period) return null;
   return {
     period: normalizePeriod(plan.period),
     month: String(normalizeMonth(plan.month)),
@@ -1174,7 +1500,9 @@ function buildSummaryValue(metric, rows = []) {
 
 async function runDealsReport(plan, user) {
   const selection = buildPeriodSelection(plan);
-  const { start, end } = getSelectionRange(selection);
+  const range = selection ? getSelectionRange(selection) : null;
+  const start = range?.start;
+  const end = range?.end;
   const scopedIds = await getScopedUserIds(user);
   const baseMatch = { is_deleted: false };
   if (scopedIds.length) {
@@ -1190,10 +1518,14 @@ async function runDealsReport(plan, user) {
     const detailMatch = { ...baseMatch };
     detailMatch.status = plan.metric === "lost_revenue" ? "lost" : "won";
 
-    const rows = await Deal.aggregate([
+    const pipeline = [
       { $match: detailMatch },
       { $addFields: { reportDate: { $ifNull: ["$actualCloseDate", "$updatedAt"] } } },
-      { $match: { reportDate: { $gte: start, $lt: end } } },
+    ];
+    if (range) {
+      pipeline.push({ $match: { reportDate: { $gte: start, $lt: end } } });
+    }
+    pipeline.push(
       { $sort: { reportDate: -1, dealValue: -1, createdAt: -1 } },
       {
         $project: {
@@ -1201,8 +1533,10 @@ async function runDealsReport(plan, user) {
           stage: 1,
           dealValue: { $ifNull: ["$dealValue", 0] },
         },
-      },
-    ]);
+      }
+    );
+
+    const rows = await Deal.aggregate(pipeline);
 
     return rows.map((deal) => ({
       label: `${deal?.deal_name || "Untitled Deal"}${deal?.stage ? ` (${deal.stage})` : ""}`,
@@ -1213,17 +1547,25 @@ async function runDealsReport(plan, user) {
     if (["list_deals", "biggest_deals", "smallest_deals", "stage_deals", "delayed_deals", "high_value_deals", "risk_deals", "closing_this_month"].includes(plan.metric)) {
       const findMatch = { ...baseMatch };
 
-    if (plan.metric === "list_deals" && !plan.filters?.all_records) {
+    if (plan.metric === "list_deals") {
+      if (range) {
         findMatch.createdAt = { $gte: start, $lt: end };
+      }
       } else if (plan.metric === "closing_this_month") {
         findMatch.expectedCloseDate = { $gte: start, $lt: end };
         findMatch.status = "open";
     } else if (plan.metric === "delayed_deals") {
-      findMatch.expectedCloseDate = { $lt: new Date() };
+      const delayedUpperBound = range ? minDate(end, new Date()) : new Date();
+      findMatch.expectedCloseDate = range
+        ? { $gte: start, $lt: delayedUpperBound }
+        : { $lt: delayedUpperBound };
       findMatch.status = "open";
     } else if (plan.metric === "stage_deals") {
       findMatch.status = "open";
-    } else {
+      if (range) {
+        findMatch.createdAt = { $gte: start, $lt: end };
+      }
+    } else if (range) {
       findMatch.createdAt = { $gte: start, $lt: end };
     }
 
@@ -1256,15 +1598,25 @@ async function runDealsReport(plan, user) {
     pipeline.push({ $match: { expectedCloseDate: { $gte: start, $lt: end }, status: "open" } });
   } else if (plan.metric === "active_deals") {
     pipeline.push({ $match: { status: "open", isActive: true } });
+    if (range) {
+      pipeline.push({ $match: { createdAt: { $gte: start, $lt: end } } });
+    }
     pipeline.push({ $addFields: { reportDate: "$createdAt" } });
   } else if (plan.metric === "inactive_deal_value") {
     pipeline.push({ $match: { isActive: false } });
+    if (range) {
+      pipeline.push({ $match: { createdAt: { $gte: start, $lt: end } } });
+    }
     pipeline.push({ $addFields: { reportDate: "$createdAt" } });
   } else if (closedMetrics.has(plan.metric)) {
     pipeline.push({ $addFields: { reportDate: { $ifNull: ["$actualCloseDate", "$updatedAt"] } } });
-    pipeline.push({ $match: { reportDate: { $gte: start, $lt: end } } });
+    if (range) {
+      pipeline.push({ $match: { reportDate: { $gte: start, $lt: end } } });
+    }
   } else {
-    pipeline.push({ $match: { createdAt: { $gte: start, $lt: end } } });
+    if (range) {
+      pipeline.push({ $match: { createdAt: { $gte: start, $lt: end } } });
+    }
     pipeline.push({ $addFields: { reportDate: "$createdAt" } });
   }
 
@@ -1343,9 +1695,15 @@ async function runDealsReport(plan, user) {
 
 async function runLeadsReport(plan, user) {
   const selection = buildPeriodSelection(plan);
-  const { start, end } = getSelectionRange(selection);
+  const range = selection ? getSelectionRange(selection) : null;
+  const start = range?.start;
+  const end = range?.end;
   const scopedIds = await getScopedUserIds(user);
-  const match = { created_at: { $gte: start, $lt: end } };
+  const match = {};
+
+  if (range) {
+    match.created_at = { $gte: start, $lt: end };
+  }
 
   if (plan.metric === "deleted_leads") {
     match.is_deleted = true;
@@ -1507,9 +1865,15 @@ async function runLeadsReport(plan, user) {
 
 async function runExpensesReport(plan, user) {
   const selection = buildPeriodSelection(plan);
-  const { start, end } = getSelectionRange(selection);
+  const range = selection ? getSelectionRange(selection) : null;
+  const start = range?.start;
+  const end = range?.end;
   const scopedIds = await getScopedUserIds(user);
-  const match = { is_deleted: false, expenseDate: { $gte: start, $lt: end } };
+  const match = { is_deleted: false };
+
+  if (range) {
+    match.expenseDate = { $gte: start, $lt: end };
+  }
 
   if (scopedIds.length) {
     match.userId = {
@@ -1586,7 +1950,9 @@ async function runExpensesReport(plan, user) {
 
 async function runClientsReport(plan, user) {
   const selection = buildPeriodSelection(plan);
-  const { start, end } = getSelectionRange(selection);
+  const range = selection ? getSelectionRange(selection) : null;
+  const start = range?.start;
+  const end = range?.end;
   const scopedIds = await getScopedUserIds(user);
 
   if (plan.metric === "top_clients_revenue") {
@@ -1601,14 +1967,20 @@ async function runClientsReport(plan, user) {
       };
     }
 
-    const rows = await Deal.aggregate([
+    const pipeline = [
       { $match: match },
       { $addFields: { reportDate: { $ifNull: ["$actualCloseDate", "$updatedAt"] } } },
-      { $match: { reportDate: { $gte: start, $lt: end } } },
+    ];
+    if (range) {
+      pipeline.push({ $match: { reportDate: { $gte: start, $lt: end } } });
+    }
+    pipeline.push(
       { $group: { _id: "$client_id", value: { $sum: { $ifNull: ["$dealValue", 0] } } } },
       { $sort: { value: -1 } },
-      { $limit: plan.limit },
-    ]);
+      { $limit: plan.limit }
+    );
+
+    const rows = await Deal.aggregate(pipeline);
 
     const clientIds = rows
       .map((row) => String(row?._id || ""))
@@ -1635,12 +2007,20 @@ async function runClientsReport(plan, user) {
       $in: scopedIds.map((id) => new mongoose.Types.ObjectId(id)),
     };
   }
+  if (range) {
+    inactiveClientDealScope.createdAt = { $gte: start, $lt: end };
+  }
 
   const activeClientIds = await Deal.distinct("client_id", inactiveClientDealScope);
-  const rows = await Client.find({
+  const clientMatch = {
     is_deleted: false,
     _id: { $nin: activeClientIds },
-  })
+  };
+  if (range) {
+    clientMatch.createdAt = { $gte: start, $lt: end };
+  }
+
+  const rows = await Client.find(clientMatch)
     .select("name deal_count")
     .sort({ deal_count: 1, name: 1 })
     .limit(plan.limit)
@@ -1653,6 +2033,10 @@ async function runClientsReport(plan, user) {
 }
 
 async function runUsersReport(plan, user) {
+  const selection = buildPeriodSelection(plan);
+  const range = selection ? getSelectionRange(selection) : null;
+  const start = range?.start;
+  const end = range?.end;
   const scopedIds = await getScopedUserIds(user);
   const match = {};
   if (plan.metric === "deleted_users") {
@@ -1675,6 +2059,9 @@ async function runUsersReport(plan, user) {
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
         .map((id) => new mongoose.Types.ObjectId(id)),
     };
+  }
+  if (range) {
+    match.createdAt = { $gte: start, $lt: end };
   }
 
   const users = await User.find(match)
@@ -1745,11 +2132,17 @@ async function runUsersReport(plan, user) {
 
 async function runFollowupsReport(plan, user) {
   const selection = buildPeriodSelection(plan);
-  const { start, end } = getSelectionRange(selection);
+  const range = selection ? getSelectionRange(selection) : null;
+  const start = range?.start;
+  const end = range?.end;
   const scopedIds = await getScopedUserIds(user);
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const returnAllRows =
+    !plan?.groupBy &&
+    !selection &&
+    ["todays_followups", "overdue_followups", "pending_meetings", "completed_meetings"].includes(plan.metric);
 
   const match = { is_deleted: false };
   if (scopedIds.length) {
@@ -1764,17 +2157,25 @@ async function runFollowupsReport(plan, user) {
     match.status = { $in: ["pending", "overdue", "completed"] };
   } else if (plan.metric === "overdue_followups") {
     match.kind = "followup";
-    match.dueDateTime = { $lt: now };
+    if (range) {
+      match.dueDateTime = { $gte: start, $lt: minDate(end, now) };
+    } else {
+      match.dueDateTime = { $lt: now };
+    }
     match.status = { $in: ["pending", "overdue"] };
   } else if (plan.metric === "pending_meetings") {
     match.kind = "meeting";
     match.status = { $in: ["pending", "overdue"] };
-    match.dueDateTime = { $gte: start, $lt: end };
+    if (range) {
+      match.dueDateTime = { $gte: start, $lt: end };
+    }
   } else if (plan.metric === "completed_meetings") {
     match.kind = "meeting";
     match.status = "completed";
-    match.completedAt = { $gte: start, $lt: end };
-  } else {
+    if (range) {
+      match.completedAt = { $gte: start, $lt: end };
+    }
+  } else if (range) {
     match.dueDateTime = { $gte: start, $lt: end };
   }
 
@@ -1795,10 +2196,11 @@ async function runFollowupsReport(plan, user) {
   const rows = await Followup.find(match)
     .select("title clientName dueDateTime status assignedTo")
     .sort({ dueDateTime: 1, createdAt: -1 })
-    .limit(plan.limit)
     .lean();
 
-  return rows.map((followup) => ({
+  const limitedRows = returnAllRows ? rows : rows.slice(0, plan.limit);
+
+  return limitedRows.map((followup) => ({
     label: followup?.title || followup?.clientName || "Follow-up",
     value: formatDateTimeLabel(followup?.dueDateTime || now),
   }));
@@ -1806,7 +2208,9 @@ async function runFollowupsReport(plan, user) {
 
 async function runTeamsReport(plan, user) {
   const selection = buildPeriodSelection(plan);
-  const { start, end } = getSelectionRange(selection);
+  const range = selection ? getSelectionRange(selection) : null;
+  const start = range?.start;
+  const end = range?.end;
 
   const teamFilter = isAdmin(user?.role)
     ? {}
@@ -1816,6 +2220,9 @@ async function runTeamsReport(plan, user) {
           { "members.userId": user?._id },
         ],
       };
+  if (range) {
+    teamFilter.createdAt = { $gte: start, $lt: end };
+  }
   const teams = await Team.find(teamFilter)
     .select("name members teamLeads")
     .lean();
@@ -1855,15 +2262,19 @@ async function runTeamsReport(plan, user) {
   }
 
   const teamIds = teams.map((team) => team._id);
-  const targetDocs = await SalesTarget.find({
+  const targetMatch = {
     scope_type: "team",
     team_id: { $in: teamIds },
-    period_start: start,
-    period_end: end,
-    period_type: selection.period === "yearly" ? "quarterly" : selection.period,
     status: { $ne: "archived" },
-  })
-    .sort({ updated_at: -1, created_at: -1 })
+  };
+  if (range && selection) {
+    targetMatch.period_start = start;
+    targetMatch.period_end = end;
+    targetMatch.period_type = selection.period === "yearly" ? "quarterly" : selection.period;
+  }
+
+  const targetDocs = await SalesTarget.find(targetMatch)
+    .sort(range ? { updated_at: -1, created_at: -1 } : { period_end: -1, updated_at: -1, created_at: -1 })
     .lean();
 
   const targetMap = new Map();
@@ -2034,13 +2445,60 @@ exports.aiQuery = async (req, res) => {
       });
     }
 
-      if (deterministicPlan?.unsupported) {
-        return res.status(400).json({
-          message: deterministicPlan.reason || "Unsupported or ambiguous question.",
+      const geminiConfigured = Boolean(
+        process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_API_KEY ||
+        process.env.OPENAI_API_KEY
+      );
+
+      let rawPlan = deterministicPlan;
+      let provider = "deterministic";
+      let parserWarning = "";
+
+      if (geminiConfigured) {
+        const geminiPlan = await askGeminiForPlan(question).catch((error) => {
+          console.error("askGeminiForPlan error:", error?.response?.data || error);
+          return null;
         });
+
+        if (geminiPlan && !geminiPlan.unsupported) {
+          rawPlan = geminiPlan;
+          provider = "gemini";
+        } else if (deterministicPlan?.unsupported) {
+          if (geminiPlan?.unsupported) {
+            console.log("[Custom Report] Gemini unsupported:", geminiPlan.reason || "");
+          }
+
+          if (hasSupportedIntent(question)) {
+            rawPlan = buildHeuristicPlan(question);
+            provider = "heuristic";
+            parserWarning = geminiPlan?.reason
+              ? `Gemini could not classify this question (${geminiPlan.reason}). Used fallback intent parsing instead.`
+              : "Gemini could not classify this question. Used fallback intent parsing instead.";
+          } else {
+            return res.status(400).json({
+              message: geminiPlan?.reason || deterministicPlan.reason || "Unsupported or ambiguous question.",
+            });
+          }
+        } else if (geminiPlan?.unsupported) {
+          console.log("[Custom Report] Gemini unsupported:", geminiPlan.reason || "");
+          parserWarning = geminiPlan.reason
+            ? `Gemini could not classify this question (${geminiPlan.reason}). Used deterministic parsing instead.`
+            : "Gemini could not classify this question. Used deterministic parsing instead.";
+        }
+      } else if (deterministicPlan?.unsupported) {
+        if (hasSupportedIntent(question)) {
+          rawPlan = buildHeuristicPlan(question);
+          provider = "heuristic";
+          parserWarning = "Used fallback intent parsing because the AI planner is not configured.";
+        } else {
+          return res.status(400).json({
+            message: deterministicPlan.reason || "Unsupported or ambiguous question.",
+          });
+        }
       }
       const reportUser = await resolveReportUserContext(req.user);
-      const plan = normalizePlan(deterministicPlan, question);
+      const plan = normalizePlan(rawPlan, question);
       console.log("[Custom Report] User:", {
         id: String(reportUser?._id || ""),
         email: reportUser?.email || "",
@@ -2069,8 +2527,8 @@ exports.aiQuery = async (req, res) => {
         groupBy: plan.groupBy,
       selection: buildPeriodSelection(plan),
       interpretedQuery: plan,
-      provider: "deterministic",
-      parserWarning: "",
+      provider,
+      parserWarning,
         summary: {
           label: metricLabel(plan.metric),
           value: typeof summaryValue === "number" ? Number(summaryValue.toFixed(2)) : summaryValue,

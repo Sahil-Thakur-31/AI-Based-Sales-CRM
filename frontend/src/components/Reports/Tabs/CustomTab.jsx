@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { FaSyncAlt } from "react-icons/fa";
 import API from "../../../api";
 
 function formatValue(metric, value) {
@@ -34,6 +35,45 @@ function formatValue(metric, value) {
 
 function normalizeSearchValue(value) {
   return String(value ?? "").toLowerCase().trim();
+}
+
+function formatSelection(selection) {
+  if (!selection?.period) return "All time";
+  if (selection.period === "monthly") return `${selection.month}/${selection.year}`;
+  if (selection.period === "quarterly") return `${String(selection.quarter || "").toUpperCase()} ${selection.year}`;
+  return String(selection.year || "All time");
+}
+
+function formatProviderLabel(provider) {
+  const value = String(provider || "").toLowerCase();
+  if (value === "gemini") return "Gemini";
+  if (value === "heuristic") return "Heuristic";
+  return "Deterministic";
+}
+
+function getProviderBadgeStyle(provider) {
+  const value = String(provider || "").toLowerCase();
+  if (value === "gemini") {
+    return {
+      background: "#ecfeff",
+      color: "#155e75",
+      border: "1px solid #a5f3fc",
+    };
+  }
+
+  if (value === "heuristic") {
+    return {
+      background: "#fffbeb",
+      color: "#92400e",
+      border: "1px solid #fde68a",
+    };
+  }
+
+  return {
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    border: "1px solid #bfdbfe",
+  };
 }
 
 function CustomTab() {
@@ -206,12 +246,24 @@ function CustomTab() {
     }
   }
 
+  function resetQuestion() {
+    setQuestion("");
+    setError("");
+    setResult(null);
+    setTableSearch("");
+  }
+
   const filteredCustomRows = (result?.data || []).filter((row) => {
     const query = normalizeSearchValue(tableSearch);
     if (!query) return true;
     const haystack = [row?.label, row?.value].map(normalizeSearchValue).join(" ");
     return haystack.includes(query);
   });
+
+  const shouldShowSuggestions =
+    suggestedQuestions.length > 0 &&
+    !loading &&
+    normalizeText(question) !== normalizeText(result?.question || "");
 
   return (
     <div className="custom-tab">
@@ -220,20 +272,56 @@ function CustomTab() {
         <div className="assistant-box">
           <label className="assistant-label">Ask a question in natural language:</label>
 
-          <input
-            type="text"
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Show top performers this month, Show uncontacted leads this quarter, Show expenses by category this year"
-            className="assistant-input"
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                generateReport();
-              }
-            }}
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Show top performers this month, Show uncontacted leads this quarter, Show expenses by category this year"
+              className="assistant-input"
+              style={{ paddingRight: question ? 52 : undefined }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  generateReport();
+                }
+              }}
+            />
 
-          {!!suggestedQuestions.length && (
+            {(question || result || error) && (
+              <span
+                role="button"
+                tabIndex={loading ? -1 : 0}
+                onClick={() => {
+                  if (!loading) resetQuestion();
+                }}
+                onKeyDown={(event) => {
+                  if (loading) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    resetQuestion();
+                  }
+                }}
+                aria-label="Reset question"
+                title="Reset question"
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  right: 16,
+                  transform: "translateY(-50%)",
+                  color: "#64748b",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  opacity: loading ? 0.45 : 1,
+                }}
+              >
+                <FaSyncAlt size={16} />
+              </span>
+            )}
+          </div>
+
+          {shouldShowSuggestions && (
             <div
               style={{
                 marginTop: 12,
@@ -268,12 +356,14 @@ function CustomTab() {
             </div>
           )}
 
-          <button className="primary-gradient-btn" onClick={() => generateReport()} disabled={loading}>
-            {loading ? "Generating..." : "Generate Report"}
-          </button>
+          <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <button className="primary-gradient-btn" onClick={() => generateReport()} disabled={loading}>
+              {loading ? "Generating..." : "Generate Report"}
+            </button>
+          </div>
 
           <p style={{ marginTop: 16, fontSize: 13, color: "#64748b" }}>
-            Supported modules: Sales, Deals, Leads, Expenses, Clients, Follow-ups, Users, Teams. Use monthly, quarterly, yearly, or today-based report questions.
+            Supported modules: Sales, Deals, Leads, Expenses, Clients, Follow-ups, Users, Teams. Time period is optional, so you can ask overall questions or monthly, quarterly, yearly, and today-based ones.
           </p>
 
           {error && (
@@ -293,12 +383,25 @@ function CustomTab() {
                 <p style={{ margin: 0, color: "#64748b", fontSize: 14 }}>
                   {String(result.module || "--").toUpperCase()} report
                   {" · "}
-                  {result.selection?.period === "monthly"
-                    ? `${result.selection?.month}/${result.selection?.year}`
-                    : result.selection?.period === "quarterly"
-                      ? `${String(result.selection?.quarter || "").toUpperCase()} ${result.selection?.year}`
-                      : result.selection?.year}
+                  {formatSelection(result.selection)}
                 </p>
+                <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                      textTransform: "uppercase",
+                      ...getProviderBadgeStyle(result.provider),
+                    }}
+                  >
+                    {formatProviderLabel(result.provider)}
+                  </span>
+                </div>
               </div>
               <div
                 style={{
