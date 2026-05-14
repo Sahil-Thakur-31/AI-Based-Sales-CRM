@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
+import DashboardDateFilter from "../../components/DashboardDateFilter";
 import Pagination from "../../components/Pagination";
 import "./styles/teamDashboard.css";
 
@@ -130,17 +131,15 @@ function emptyPipelineDetail() {
   };
 }
 
-const DASHBOARD_RANGE_OPTIONS = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "quarter", label: "This Quarter" },
-  { value: "year", label: "This Year" },
-  { value: "lifetime", label: "Lifetime" }
+const TEAM_DASHBOARD_PERIOD_OPTIONS = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" }
 ];
 
 export default function TeamDashboard() {
   const navigate = useNavigate();
+  const today = new Date();
   const roleName = localStorage.getItem("RoleName") || "";
   const normalizedRoleName = String(roleName).trim().toLowerCase();
   const isAdminUser = normalizedRoleName === "admin";
@@ -148,7 +147,10 @@ export default function TeamDashboard() {
 
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
-  const [selectedRange, setSelectedRange] = useState("month");
+  const [period, setPeriod] = useState("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
+  const [selectedYear, setSelectedYear] = useState(String(today.getFullYear()));
   const [dashboardData, setDashboardData] = useState(emptyDashboard());
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
@@ -195,6 +197,15 @@ export default function TeamDashboard() {
     isAdminUser
       ? `/team-targets/admin?teamId=${selectedTeamId}`
       : `/team-targets/manage?teamId=${selectedTeamId}`;
+  const dashboardFilters = useMemo(
+    () => ({
+      period,
+      month: selectedMonth + 1,
+      quarter: selectedQuarter,
+      year: selectedYear
+    }),
+    [period, selectedMonth, selectedQuarter, selectedYear]
+  );
 
   const loadTeams = useCallback(async () => {
     try {
@@ -226,7 +237,7 @@ export default function TeamDashboard() {
     }
   }, [selectedTeamId]);
 
-  const loadDashboard = useCallback(async (teamId, range = selectedRange) => {
+  const loadDashboard = useCallback(async (teamId, filters = dashboardFilters) => {
     if (!teamId) return;
 
     try {
@@ -236,7 +247,7 @@ export default function TeamDashboard() {
       const res = await API.get("/teams/dashboard", {
         params: {
           teamId,
-          range
+          ...filters
         }
       });
       setDashboardData(res.data || emptyDashboard());
@@ -247,7 +258,7 @@ export default function TeamDashboard() {
     } finally {
       setLoadingDashboard(false);
     }
-  }, [selectedRange, selectedTeam]);
+  }, [dashboardFilters, selectedTeam]);
 
   useEffect(() => {
     loadTeams();
@@ -255,13 +266,13 @@ export default function TeamDashboard() {
 
   useEffect(() => {
     if (selectedTeamId) {
-      loadDashboard(selectedTeamId, selectedRange);
+      loadDashboard(selectedTeamId, dashboardFilters);
       setPerformancePage(1);
       setFollowupPage(1);
       setFollowupViewType("lead");
       setPipelineViewType("deal");
     }
-  }, [selectedTeamId, selectedRange, loadDashboard]);
+  }, [selectedTeamId, dashboardFilters, loadDashboard]);
 
   const closeMemberDetail = () => {
     setSelectedPerformanceRow(null);
@@ -287,9 +298,13 @@ export default function TeamDashboard() {
     setMemberLeadFilters({ query: "", temperature: "all" });
 
     try {
-      const res = await API.get(
-        `/teams/member-detail?teamId=${selectedTeamId}&memberId=${row.user._id}&range=${selectedRange}`
-      );
+      const res = await API.get("/teams/member-detail", {
+        params: {
+          teamId: selectedTeamId,
+          memberId: row.user._id,
+          ...dashboardFilters
+        }
+      });
       const payload = res.data || {};
 
       setMemberDetailData({
@@ -339,9 +354,13 @@ export default function TeamDashboard() {
       setPipelineFilters({ query: "", stage: "all" });
 
       try {
-        const res = await API.get(
-          `/teams/pipeline-detail?teamId=${selectedTeamId}&pipelineType=${type}&range=${selectedRange}`
-        );
+        const res = await API.get("/teams/pipeline-detail", {
+          params: {
+            teamId: selectedTeamId,
+            pipelineType: type,
+            ...dashboardFilters
+          }
+        });
         const payload = res.data || {};
         setPipelineDetailData({
           pipelineType: String(payload?.pipelineType || type || "deal"),
@@ -358,7 +377,7 @@ export default function TeamDashboard() {
         setPipelineDetailLoading(false);
       }
     },
-    [selectedRange, selectedTeamId]
+    [dashboardFilters, selectedTeamId]
   );
 
   const openPipelineDetail = async (type = pipelineViewType) => {
@@ -382,7 +401,7 @@ export default function TeamDashboard() {
       value: dashboardData.kpis.totalLeads ?? dashboardData.leads?.total ?? 0
     },
     {
-      label: selectedRange === "today" ? "Follow-ups Today" : "Follow-ups",
+      label: "Follow-ups",
       value: dashboardData.kpis.followupsToday
     },
     {
@@ -690,18 +709,19 @@ export default function TeamDashboard() {
         </div>
 
         <div className="team-toolbar-right">
-          <select
-            className="team-dashboard-select team-dashboard-range-select"
-            value={selectedRange}
-            onChange={(e) => setSelectedRange(e.target.value)}
-            aria-label="Dashboard period"
-          >
-            {DASHBOARD_RANGE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <DashboardDateFilter
+            period={period}
+            periodOptions={TEAM_DASHBOARD_PERIOD_OPTIONS}
+            month={selectedMonth}
+            quarter={selectedQuarter}
+            year={selectedYear}
+            onPeriodChange={setPeriod}
+            onMonthChange={setSelectedMonth}
+            onQuarterChange={setSelectedQuarter}
+            onYearChange={setSelectedYear}
+            disabled={loadingDashboard}
+            className="team-dashboard-date-filter"
+          />
 
           {isAdminUser ? (
             <select

@@ -190,8 +190,59 @@ function startOfToday() {
   return date;
 }
 
-function getTeamDashboardRange(value) {
-  const normalized = String(value || "month").trim().toLowerCase();
+function clampDashboardYear(value) {
+  const numeric = Number.parseInt(String(value || "").trim(), 10);
+  if (!Number.isFinite(numeric)) return new Date().getFullYear();
+  return Math.min(2060, Math.max(2020, numeric));
+}
+
+function getTeamDashboardRange(input = {}) {
+  const query = typeof input === "object" && input !== null ? input : { range: input };
+  const requestedPeriod = String(query.period || "").trim().toLowerCase();
+
+  if (["monthly", "quarterly", "yearly"].includes(requestedPeriod)) {
+    const year = clampDashboardYear(query.year);
+    let start;
+    let end;
+    let label;
+    let range;
+
+    if (requestedPeriod === "yearly") {
+      start = new Date(year, 0, 1, 0, 0, 0, 0);
+      end = new Date(year, 11, 31, 23, 59, 59, 999);
+      label = String(year);
+      range = "year";
+    } else if (requestedPeriod === "quarterly") {
+      const quarterValue = String(query.quarter || "q1").trim().toLowerCase();
+      const quarterNumber = ["q1", "q2", "q3", "q4"].includes(quarterValue)
+        ? Number(quarterValue.slice(1))
+        : 1;
+      const quarterStartMonth = (quarterNumber - 1) * 3;
+      start = new Date(year, quarterStartMonth, 1, 0, 0, 0, 0);
+      end = new Date(year, quarterStartMonth + 3, 0, 23, 59, 59, 999);
+      label = `Q${quarterNumber} ${year}`;
+      range = "quarter";
+    } else {
+      const monthNumber = Number.parseInt(String(query.month || "").trim(), 10);
+      const monthIndex = Number.isInteger(monthNumber) && monthNumber >= 1 && monthNumber <= 12
+        ? monthNumber - 1
+        : new Date().getMonth();
+      start = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+      end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+      label = start.toLocaleString("en-IN", { month: "long", year: "numeric" });
+      range = "month";
+    }
+
+    return {
+      range,
+      period: requestedPeriod,
+      label,
+      start,
+      end
+    };
+  }
+
+  const normalized = String(query.range || "month").trim().toLowerCase();
   const range = ["today", "week", "month", "quarter", "year", "lifetime"].includes(normalized)
     ? normalized
     : "month";
@@ -199,6 +250,7 @@ function getTeamDashboardRange(value) {
   if (range === "lifetime") {
     return {
       range,
+      period: "lifetime",
       label: "Lifetime",
       start: null,
       end: null
@@ -234,6 +286,7 @@ function getTeamDashboardRange(value) {
 
   return {
     range,
+    period: range,
     label: labels[range] || "This Month",
     start,
     end
@@ -1046,7 +1099,7 @@ exports.getTeamDashboard = async (req, res) => {
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    const selectedRange = getTeamDashboardRange(req.query?.range);
+    const selectedRange = getTeamDashboardRange(req.query);
 
     const leadIds = (team.teamLeads || []).map((lead) => String(lead.userId));
     const memberIds = (team.members || []).map((member) => String(member.userId));
@@ -1540,7 +1593,7 @@ exports.getTeamMemberDetail = async (req, res) => {
     if (!teamContainsUser(team, memberId)) {
       return res.status(403).json({ message: "Selected user is not part of this team" });
     }
-    const selectedRange = getTeamDashboardRange(req.query?.range);
+    const selectedRange = getTeamDashboardRange(req.query);
 
     const user = await User.findOne({
       _id: memberId,
@@ -1749,7 +1802,7 @@ exports.getTeamPipelineDetail = async (req, res) => {
       ? "lead"
       : "deal";
     const stageOrder = pipelineType === "lead" ? LEAD_PIPELINE_STAGES : DEAL_PIPELINE_STAGES;
-    const selectedRange = getTeamDashboardRange(req.query?.range);
+    const selectedRange = getTeamDashboardRange(req.query);
 
     const team = await resolveTeamForDashboard(req.user, teamId);
     if (!team) {
