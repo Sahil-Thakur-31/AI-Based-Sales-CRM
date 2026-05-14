@@ -96,7 +96,8 @@ async function processNotification(notificationDoc) {
 
   if (isReminderTemplate(templateKey)) {
     const settings = await CRMSettings.findOne({ userId: notification.userId }).lean();
-    if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) {
+    // Only send email if smart reminders are enabled AND email method is enabled
+    if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodEmail) {
       return;
     }
 

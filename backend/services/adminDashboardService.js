@@ -6,6 +6,8 @@
 const Deal = require("../models/deals");
 const Lead = require("../models/leads");
 const Followup = require("../models/followUp");
+const LeadContacts = require("../models/leadContacts");
+const ClientContact = require("../models/client_contact");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const Role = require("../models/roles");
@@ -62,6 +64,12 @@ function iconFromActionType(actionType = "") {
   if (a.includes("meeting") || a.includes("demo")) return "🤝";
   if (a.includes("doc") || a.includes("contract")) return "📄";
   return "🔔";
+}
+
+function pickPrimaryPhone(value) {
+  if (Array.isArray(value)) return String(value[0] || "").trim();
+  if (typeof value === "string") return value.split(",")[0].trim();
+  return "";
 }
 
 /**
@@ -392,6 +400,10 @@ async function getFollowups(range, viewerUserId = null) {
       clientName: 1,
       kind: 1,
       actionType: 1,
+      leadId: 1,
+      dealId: 1,
+      clientId: 1,
+      contactId: 1,
       assignedTo: 1,
       aiScore: 1,
       priority: 1,
@@ -407,6 +419,61 @@ async function getFollowups(range, viewerUserId = null) {
   const users = await User.find({ _id: { $in: userIds } }, { name: 1 }).lean();
   const nameMap = new Map(users.map((u) => [String(u._id), u.name]));
 
+  const dealIds = [...new Set(list.map((f) => String(f.dealId || "")).filter(Boolean))];
+  const linkedDeals = dealIds.length
+    ? await Deal.find({ _id: { $in: dealIds } }, { lead_id: 1, client_id: 1 }).lean()
+    : [];
+  const dealMap = new Map(linkedDeals.map((deal) => [String(deal._id), deal]));
+
+  const leadIds = [...new Set([
+    ...list.map((f) => String(f.leadId || "")).filter(Boolean),
+    ...linkedDeals.map((deal) => String(deal.lead_id || "")).filter(Boolean),
+  ])];
+  const clientIds = [...new Set([
+    ...list.map((f) => String(f.clientId || "")).filter(Boolean),
+    ...linkedDeals.map((deal) => String(deal.client_id || "")).filter(Boolean),
+  ])];
+  const contactIds = [...new Set(list.map((f) => String(f.contactId || "")).filter(Boolean))];
+
+  const [leadContacts, clientContacts] = await Promise.all([
+    leadIds.length
+      ? LeadContacts.find({ lead_id: { $in: leadIds } })
+          .sort({ is_primary: -1, created_at: 1 })
+          .lean()
+      : [],
+    clientIds.length || contactIds.length
+      ? ClientContact.find({
+          $or: [
+            ...(clientIds.length ? [{ client_id: { $in: clientIds }, is_active: true }] : []),
+            ...(contactIds.length ? [{ _id: { $in: contactIds } }] : []),
+          ],
+        })
+          .sort({ is_primary: -1, createdAt: 1 })
+          .lean()
+      : [],
+  ]);
+
+  const leadPhoneMap = new Map();
+  const clientPhoneMap = new Map();
+  const contactPhoneMap = new Map();
+
+  for (const contact of leadContacts) {
+    const leadId = String(contact.lead_id || "");
+    if (!leadId || leadPhoneMap.has(leadId)) continue;
+    leadPhoneMap.set(leadId, pickPrimaryPhone(contact.phone));
+  }
+
+  for (const contact of clientContacts) {
+    const contactId = String(contact._id || "");
+    if (contactId && !contactPhoneMap.has(contactId)) {
+      contactPhoneMap.set(contactId, pickPrimaryPhone(contact.phone));
+    }
+
+    const clientId = String(contact.client_id || "");
+    if (!clientId || clientPhoneMap.has(clientId)) continue;
+    clientPhoneMap.set(clientId, pickPrimaryPhone(contact.phone));
+  }
+
   const priorityRank = { urgent: 4, high: 3, medium: 2, low: 1 };
   const comparePriority = (a, b) => {
     const pa = priorityRank[String(a.priority || "").toLowerCase()] || 0;
@@ -415,20 +482,36 @@ async function getFollowups(range, viewerUserId = null) {
     return Number(b.score || 0) - Number(a.score || 0);
   };
 
-  const mapped = list.map((f) => ({
+  const mapped = list.map((f) => {
+      const deal = dealMap.get(String(f.dealId || ""));
+      const leadId = String(f.leadId || deal?.lead_id || "");
+      const clientId = String(f.clientId || deal?.client_id || "");
+      const contactId = String(f.contactId || "");
+      const itemType = f.kind === "meeting" ? "Meeting" : "Follow-up";
+      const contactPhone =
+        itemType === "Meeting"
+          ? ""
+          : contactPhoneMap.get(contactId) ||
+            leadPhoneMap.get(leadId) ||
+            clientPhoneMap.get(clientId) ||
+            "";
+
+      return {
       id: String(f._id),
       title: f.title,
       companyName: f.clientName || "",
-      itemType: f.kind === "meeting" ? "Meeting" : "Follow-up",
+      itemType,
       actionType: f.actionType || "",
       owner: nameMap.get(String(f.assignedTo)) || "Unknown",
       score: Number(f.aiScore || 0),
+      contactPhone,
       date: f.dueDateTime ? new Date(f.dueDateTime).toLocaleDateString("en-IN") : "",
       dueDateTime: f.dueDateTime ? new Date(f.dueDateTime).toISOString() : "",
       status: String(f.status || "").toLowerCase(),
       priority: f.priority || "medium",
       icon: iconFromActionType(f.actionType),
-  }));
+    };
+  });
 
   const upcoming = mapped
     .filter((item) => item.status === "pending" && new Date(item.dueDateTime || 0) >= now)
@@ -464,12 +547,12 @@ async function getRecentDeals(range) {
     {
       is_deleted: { $ne: true },
       assignedTo: { $in: nonAdminUserIds },
+      stage: { $in: ["P1", "P2", "P3"] },
       createdAt: { $gte: start, $lte: end },
     },
     { deal_name: 1, stage: 1, dealValue: 1, expectedCloseDate: 1, actualCloseDate: 1, createdAt: 1 }
   )
     .sort({ createdAt: -1 })
-    .limit(4)
     .lean();
 
   return deals.map((d) => ({
@@ -477,10 +560,8 @@ async function getRecentDeals(range) {
     dealName: d.deal_name || "Unnamed Deal",
     stage: d.stage || "P1",
     value: Number(d.dealValue || 0),
-    closeDate: d.expectedCloseDate
+    expectedCloseDate: d.expectedCloseDate
       ? new Date(d.expectedCloseDate).toLocaleDateString("en-IN")
-      : d.actualCloseDate
-      ? new Date(d.actualCloseDate).toLocaleDateString("en-IN")
       : "",
   }));
 }
