@@ -656,6 +656,252 @@ async function createFollowupAssignmentNotification(doc) {
   });
 }
 
+async function runCreateSideEffects({
+  doc,
+  created,
+  payload,
+  actorId,
+  assignedTo,
+}) {
+  try {
+    await syncStageToLinkedEntity(payload.stage, payload);
+  } catch (stageSyncErr) {
+    console.error("followups.create stage sync error:", stageSyncErr);
+  }
+
+  try {
+    await appendHistory({
+      followupId: doc._id,
+      actionType: "created",
+      notes: `Created ${payload.kind}`,
+      performedBy: actorId,
+    });
+  } catch (historyErr) {
+    console.error("followups.create history error:", historyErr);
+  }
+
+  let mirrorReady = false;
+  try {
+    await syncMeetingMirrorFromFollowup(doc, actorId);
+    mirrorReady = true;
+  } catch (syncErr) {
+    console.error("followups.create syncMeetingMirror error:", syncErr);
+  }
+
+  try {
+    await syncAiPriorityForDoc(doc);
+  } catch (aiErr) {
+    console.error("followups.create ai priority error:", aiErr);
+  }
+
+  try {
+    await createFollowupAssignmentNotification(created || doc);
+  } catch (notifErr) {
+    console.error("followups.create notification error:", notifErr);
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: doc._id,
+      activityStatus: payload.status,
+      title: payload.title,
+      description: `Created ${payload.kind}`,
+    });
+  } catch (activityErr) {
+    console.error("followups.create activity log error:", activityErr);
+  }
+
+  try {
+    const assigneeId = created?.assignedTo?._id || created?.assignedTo || assignedTo;
+    await createFollowupNotification(doc, assigneeId, "created");
+  } catch (notificationErr) {
+    console.error("followups.create notification error:", notificationErr);
+  }
+
+  if (mirrorReady && isMeetingLikeFollowup(created || doc)) {
+    try {
+      await syncSingleMeetingToGoogle(created || doc, created?.assignedTo?._id || created?.assignedTo || assignedTo);
+    } catch (gcalErr) {
+      console.error("followups.create gcal sync error:", gcalErr);
+    }
+  }
+}
+
+async function runUpdateSideEffects({
+  current,
+  updatedDoc,
+  updated,
+  merged,
+  actorId,
+}) {
+  try {
+    await syncStageToLinkedEntity(merged.stage, merged);
+  } catch (stageSyncErr) {
+    console.error("followups.update stage sync error:", stageSyncErr);
+  }
+
+  try {
+    await appendHistory({
+      followupId: current._id,
+      actionType: "details_updated",
+      notes: `Updated ${merged.kind} details`,
+      performedBy: actorId,
+    });
+  } catch (historyErr) {
+    console.error("followups.update history error:", historyErr);
+  }
+
+  try {
+    await syncMeetingMirrorFromFollowup(updatedDoc, actorId);
+  } catch (syncErr) {
+    console.error("followups.update syncMeetingMirror error:", syncErr);
+  }
+
+  try {
+    await syncAiPriorityForDoc(updatedDoc);
+  } catch (aiErr) {
+    console.error("followups.update ai priority error:", aiErr);
+  }
+
+  const oldAssignee = String(current.assignedTo || "");
+  const newAssignee = String(merged.assignedTo || "");
+  const dueDateChanged =
+    new Date(current.dueDateTime || 0).getTime() !== new Date(merged.dueDateTime || 0).getTime();
+  if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged)) {
+    try {
+      await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id });
+    } catch (notifErr) {
+      console.error("followups.update notification error:", notifErr);
+    }
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: current._id,
+      activityStatus: merged.status,
+      title: merged.title,
+      description: `Updated ${merged.kind} details`,
+    });
+  } catch (activityErr) {
+    console.error("followups.update activity log error:", activityErr);
+  }
+
+  if (isMeetingLikeFollowup(updated)) {
+    try {
+      const assigneeId = updated.assignedTo?._id || updated.assignedTo;
+      if (String(updated.status || "").toLowerCase() === "cancelled") {
+        await deleteSingleMeetingFromGoogle(updated, assigneeId);
+      } else {
+        await syncSingleMeetingToGoogle(updated, assigneeId);
+      }
+    } catch (gcalErr) {
+      console.error("followups.update gcal sync error:", gcalErr);
+    }
+  }
+}
+
+async function runUpdateStatusSideEffects({
+  updated,
+  status,
+  actorId,
+}) {
+  try {
+    await appendHistory({
+      followupId: updated._id,
+      actionType: "status_changed",
+      notes:
+        status === "completed"
+          ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
+          : status === "cancelled"
+            ? `Status changed to cancelled${updated.cancelReason ? ` | Reason: ${updated.cancelReason}` : ""}`
+            : `Status changed to ${status}`,
+      performedBy: actorId,
+    });
+  } catch (historyErr) {
+    console.error("followups.updateStatus history error:", historyErr);
+  }
+
+  try {
+    await syncMeetingMirrorFromFollowup(updated, actorId);
+  } catch (syncErr) {
+    console.error("followups.updateStatus syncMeetingMirror error:", syncErr);
+  }
+
+  try {
+    await syncAiPriorityForDoc(updated);
+  } catch (aiErr) {
+    console.error("followups.updateStatus ai priority error:", aiErr);
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: updated._id,
+      activityStatus: updated.status,
+      title: updated.title,
+      description: `Changed status to ${status}`,
+    });
+  } catch (activityErr) {
+    console.error("followups.updateStatus activity log error:", activityErr);
+  }
+
+  if (status === "completed") {
+    try {
+      await createFollowupNotification(updated, actorId, "completed");
+    } catch (notificationErr) {
+      console.error("followups.updateStatus notification error:", notificationErr);
+    }
+  }
+
+  if (isMeetingLikeFollowup(updated)) {
+    try {
+      const assigneeId = updated.assignedTo?._id || updated.assignedTo;
+      if (status === "cancelled") {
+        await deleteSingleMeetingFromGoogle(updated, assigneeId);
+      } else {
+        await syncSingleMeetingToGoogle(updated, assigneeId);
+      }
+    } catch (gcalErr) {
+      console.error("followups.updateStatus gcal sync error:", gcalErr);
+    }
+  }
+}
+
+async function runRemoveSideEffects({
+  existing,
+  actorId,
+}) {
+  if (existing.kind === "meeting") {
+    try {
+      await softDeleteMeetingMirror(existing._id);
+    } catch (mirrorErr) {
+      console.error("followups.remove mirror delete error:", mirrorErr);
+    }
+  }
+
+  if (isMeetingLikeFollowup(existing)) {
+    try {
+      await deleteSingleMeetingFromGoogle(existing, existing.assignedTo);
+    } catch (gcalErr) {
+      console.error("followups.remove gcal delete error:", gcalErr);
+    }
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: existing._id,
+      activityStatus: "cancelled",
+      title: existing.title,
+      description: `Deleted ${existing.kind}`,
+    });
+  } catch (activityErr) {
+    console.error("followups.remove activity log error:", activityErr);
+  }
+}
+
 exports.list = async (req, res) => {
   try {
     const mineOnly =
@@ -889,68 +1135,17 @@ exports.create = async (req, res) => {
 
     const doc = await Followup.create(payload);
 
-    try {
-      await syncStageToLinkedEntity(payload.stage, payload);
-    } catch (stageSyncErr) {
-      console.error("followups.create stage sync error:", stageSyncErr);
-    }
-
-    await appendHistory({
-      followupId: doc._id,
-      actionType: "created",
-      notes: `Created ${payload.kind}`,
-      performedBy: req.user._id,
-    });
-
-    try {
-      await syncMeetingMirrorFromFollowup(doc, req.user._id);
-    } catch (syncErr) {
-      console.error("followups.create syncMeetingMirror error:", syncErr);
-    }
-
-    try {
-      await syncAiPriorityForDoc(doc);
-    } catch (aiErr) {
-      console.error("followups.create ai priority error:", aiErr);
-    }
-
     const created = await Followup.findById(doc._id).populate("assignedTo", "name email");
-    try {
-      await createFollowupAssignmentNotification(doc);
-    } catch (notifErr) {
-      console.error("followups.create notification error:", notifErr);
-    }
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: doc._id,
-        activityStatus: payload.status,
-        title: payload.title,
-        description: `Created ${payload.kind}`,
-      });
-    } catch (activityErr) {
-      console.error("followups.create activity log error:", activityErr);
-    }
-
-    try {
-      // Send reminder notification to the assigned user, not the creator
-      const assigneeId = created?.assignedTo?._id || created?.assignedTo || assignedTo;
-      await createFollowupNotification(doc, assigneeId, "created");
-    } catch (notificationErr) {
-      console.error("followups.create notification error:", notificationErr);
-    }
-
-    if (isMeetingLikeFollowup(created)) {
-      try {
-        // Sync only newly created meetings to Google Calendar.
-        await syncSingleMeetingToGoogle(created, created.assignedTo._id || created.assignedTo);
-      } catch (gcalErr) {
-        console.error("followups.create gcal sync error:", gcalErr);
-      }
-    }
-
     const [serializedCreated] = await serializeFollowupDocs(created ? [created] : []);
     res.status(201).json(serializedCreated || created);
+
+    void runCreateSideEffects({
+      doc,
+      created,
+      payload,
+      actorId: req.user._id,
+      assignedTo,
+    });
   } catch (err) {
     console.error("followups.create error:", err);
     if (err?.statusCode === 409) {
@@ -1039,74 +1234,17 @@ exports.update = async (req, res) => {
 
     await Followup.updateOne({ _id: current._id }, { $set: merged });
     const updatedDoc = await Followup.findById(current._id);
-
-    try {
-      await syncStageToLinkedEntity(merged.stage, merged);
-    } catch (stageSyncErr) {
-      console.error("followups.update stage sync error:", stageSyncErr);
-    }
-
-    await appendHistory({
-      followupId: current._id,
-      actionType: "details_updated",
-      notes: `Updated ${merged.kind} details`,
-      performedBy: req.user._id,
-    });
-
-    try {
-      await syncMeetingMirrorFromFollowup(updatedDoc, req.user._id);
-    } catch (syncErr) {
-      console.error("followups.update syncMeetingMirror error:", syncErr);
-    }
-
-    try {
-      await syncAiPriorityForDoc(updatedDoc);
-    } catch (aiErr) {
-      console.error("followups.update ai priority error:", aiErr);
-    }
-
     const updated = await Followup.findById(current._id).populate("assignedTo", "name email");
-
-    const oldAssignee = String(current.assignedTo || "");
-    const newAssignee = String(merged.assignedTo || "");
-    const dueDateChanged =
-      new Date(current.dueDateTime || 0).getTime() !== new Date(merged.dueDateTime || 0).getTime();
-    if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged)) {
-      try {
-        await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id });
-      } catch (notifErr) {
-        console.error("followups.update notification error:", notifErr);
-      }
-    }
-
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: current._id,
-        activityStatus: merged.status,
-        title: merged.title,
-        description: `Updated ${merged.kind} details`,
-      });
-    } catch (activityErr) {
-      console.error("followups.update activity log error:", activityErr);
-    }
-
-    if (isMeetingLikeFollowup(updated)) {
-      try {
-        const assigneeId = updated.assignedTo?._id || updated.assignedTo;
-        if (String(updated.status || "").toLowerCase() === "cancelled") {
-          await deleteSingleMeetingFromGoogle(updated, assigneeId);
-        } else {
-          // Sync only updated meetings to Google Calendar.
-          await syncSingleMeetingToGoogle(updated, assigneeId);
-        }
-      } catch (gcalErr) {
-        console.error("followups.update gcal sync error:", gcalErr);
-      }
-    }
-
     const [serializedUpdated] = await serializeFollowupDocs(updated ? [updated] : []);
     res.json(serializedUpdated || updated);
+
+    void runUpdateSideEffects({
+      current,
+      updatedDoc,
+      updated,
+      merged,
+      actorId: req.user._id,
+    });
   } catch (err) {
     console.error("followups.update error:", err);
     if (err?.statusCode === 409) {
@@ -1163,67 +1301,15 @@ exports.updateStatus = async (req, res) => {
     ).populate("assignedTo", "name email");
 
     if (!updated) return res.status(404).json({ message: "Followup not found" });
-
-    await appendHistory({
-      followupId: updated._id,
-      actionType: "status_changed",
-      notes:
-        status === "completed"
-          ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
-          : status === "cancelled"
-            ? `Status changed to cancelled${updated.cancelReason ? ` | Reason: ${updated.cancelReason}` : ""}`
-            : `Status changed to ${status}`,
-      performedBy: req.user._id,
-    });
-
-    try {
-      await syncMeetingMirrorFromFollowup(updated, req.user._id);
-    } catch (syncErr) {
-      console.error("followups.updateStatus syncMeetingMirror error:", syncErr);
-    }
-
-    try {
-      await syncAiPriorityForDoc(updated);
-    } catch (aiErr) {
-      console.error("followups.updateStatus ai priority error:", aiErr);
-    }
-
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: updated._id,
-        activityStatus: updated.status,
-        title: updated.title,
-        description: `Changed status to ${status}`,
-      });
-    } catch (activityErr) {
-      console.error("followups.updateStatus activity log error:", activityErr);
-    }
-
-    if (status === "completed") {
-      try {
-        await createFollowupNotification(updated, req.user._id, "completed");
-      } catch (notificationErr) {
-        console.error("followups.updateStatus notification error:", notificationErr);
-      }
-    }
-
-    if (isMeetingLikeFollowup(updated)) {
-      try {
-        const assigneeId = updated.assignedTo?._id || updated.assignedTo;
-        if (status === "cancelled") {
-          await deleteSingleMeetingFromGoogle(updated, assigneeId);
-        } else {
-          await syncSingleMeetingToGoogle(updated, assigneeId);
-        }
-      } catch (gcalErr) {
-        console.error("followups.updateStatus gcal sync error:", gcalErr);
-      }
-    }
-
     const refreshed = await Followup.findById(updated._id).populate("assignedTo", "name email");
     const [serializedRefreshed] = await serializeFollowupDocs(refreshed ? [refreshed] : []);
     res.json(serializedRefreshed || refreshed);
+
+    void runUpdateStatusSideEffects({
+      updated,
+      status,
+      actorId: req.user._id,
+    });
   } catch (err) {
     console.error("followups.updateStatus error:", err);
     res.status(500).json({ message: "Failed to update status" });
@@ -1248,32 +1334,12 @@ exports.remove = async (req, res) => {
       { is_deleted: true },
       { returnDocument: "after" }
     );
-
-    if (existing.kind === "meeting") {
-      await softDeleteMeetingMirror(existing._id);
-    }
-
-    if (isMeetingLikeFollowup(existing)) {
-      try {
-        await deleteSingleMeetingFromGoogle(existing, existing.assignedTo);
-      } catch (gcalErr) {
-        console.error("followups.remove gcal delete error:", gcalErr);
-      }
-    }
-
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: existing._id,
-        activityStatus: "cancelled",
-        title: existing.title,
-        description: `Deleted ${existing.kind}`,
-      });
-    } catch (activityErr) {
-      console.error("followups.remove activity log error:", activityErr);
-    }
-
     res.json({ message: "Followup deleted" });
+
+    void runRemoveSideEffects({
+      existing: updated || existing,
+      actorId: req.user._id,
+    });
   } catch (err) {
     console.error("followups.remove error:", err);
     res.status(500).json({ message: "Failed to delete followup" });
