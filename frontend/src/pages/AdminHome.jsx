@@ -16,10 +16,10 @@ import {
   CProgress,
   CSpinner,
   CAlert,
-  CFormSelect,
   CButton,
 } from "@coreui/react";
 import Pagination from "../components/Pagination";
+import DashboardDateFilter from "../components/DashboardDateFilter";
 import "../styles/AdminHome.css";
 
 // ✅ Switch this to true only if you want mock data
@@ -89,17 +89,42 @@ function StagePill({ stage }) {
   );
 }
 
-const DASHBOARD_RANGE_OPTIONS = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "quarter", label: "This Quarter" },
-  { value: "year", label: "This Year" },
-  { value: "lifetime", label: "Lifetime" },
+const DASHBOARD_PERIOD_OPTIONS = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" }
 ];
 
-function getRangeLabel(range) {
-  return DASHBOARD_RANGE_OPTIONS.find((item) => item.value === range)?.label || "This Month";
+const QUARTER_LABELS = {
+  q1: "Q1 (Jan-Mar)",
+  q2: "Q2 (Apr-Jun)",
+  q3: "Q3 (Jul-Sep)",
+  q4: "Q4 (Oct-Dec)"
+};
+
+function mapPeriodToRange(period) {
+  if (period === "quarterly") return "quarter";
+  if (period === "yearly") return "year";
+  return "month";
+}
+
+function getMonthYearLabel(month, year) {
+  const normalizedYear = Number.parseInt(year, 10);
+  const safeYear = Number.isFinite(normalizedYear) ? normalizedYear : new Date().getFullYear();
+  return new Date(safeYear, month, 1).toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function getQuarterYearLabel(quarter, year) {
+  return `${QUARTER_LABELS[quarter] || QUARTER_LABELS.q1} ${year}`;
+}
+
+function getPeriodLabel(period, month, quarter, year) {
+  if (period === "quarterly") return getQuarterYearLabel(quarter, year);
+  if (period === "yearly") return String(year);
+  return getMonthYearLabel(month, year);
 }
 
 async function apiGet(path, params = {}, signal) {
@@ -234,13 +259,13 @@ function getMockDashboard(range = "month", pipelineType = "deal") {
 }
 
 /* ---------------- BACKEND ---------------- */
-async function fetchDashboard(range, pipelineType, signal) {
+async function fetchDashboard(range, pipelineType, filters, signal) {
   const [sum, pipe, team, fu, deals] = await Promise.all([
-    apiGet("/api/admin/dashboard/summary", { range }, signal),
-    apiGet("/api/admin/dashboard/pipeline", { range, pipelineType }, signal),
-    apiGet("/api/admin/dashboard/team-performance", { range }, signal),
-    apiGet("/api/admin/dashboard/followups", { range }, signal),
-    apiGet("/api/admin/dashboard/recent-deals", { range }, signal),
+    apiGet("/api/admin/dashboard/summary", { range, ...filters }, signal),
+    apiGet("/api/admin/dashboard/pipeline", { range, pipelineType, ...filters }, signal),
+    apiGet("/api/admin/dashboard/team-performance", { range, ...filters }, signal),
+    apiGet("/api/admin/dashboard/followups", { range, ...filters }, signal),
+    apiGet("/api/admin/dashboard/recent-deals", { range, ...filters }, signal),
   ]);
 
   return {
@@ -255,8 +280,12 @@ async function fetchDashboard(range, pipelineType, signal) {
 export default function AdminHome() {
   const DEALS_PER_PAGE = 4;
   const FOLLOWUPS_PER_PAGE = 5;
+  const today = new Date();
 
-  const [range, setRange] = useState("month");
+  const [period, setPeriod] = useState("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
+  const [selectedYear, setSelectedYear] = useState(String(today.getFullYear()));
   const [pipelineType, setPipelineType] = useState("deal");
   const [recentDealsPage, setRecentDealsPage] = useState(1);
   const [followupsPage, setFollowupsPage] = useState(1);
@@ -288,7 +317,17 @@ export default function AdminHome() {
   const [recentDeals, setRecentDeals] = useState([]);
 
   const navigate = useNavigate();
-  const rangeLabel = getRangeLabel(range);
+  const range = mapPeriodToRange(period);
+  const rangeLabel = getPeriodLabel(period, selectedMonth, selectedQuarter, selectedYear);
+  const dashboardFilters = useMemo(
+    () => ({
+      period,
+      month: selectedMonth + 1,
+      quarter: selectedQuarter,
+      year: selectedYear,
+    }),
+    [period, selectedMonth, selectedQuarter, selectedYear]
+  );
 
   const totalPipelineCount = useMemo(
     () => pipeline.reduce((acc, p) => acc + (p.count || 0), 0),
@@ -326,7 +365,7 @@ export default function AdminHome() {
   useEffect(() => {
     setRecentDealsPage(1);
     setFollowupsPage(1);
-  }, [range, pipelineType]);
+  }, [period, pipelineType, selectedMonth, selectedQuarter, selectedYear]);
 
   useEffect(() => {
     setRecentDealsPage((current) => Math.min(current, totalRecentDealsPages));
@@ -361,7 +400,7 @@ export default function AdminHome() {
           setFollowups(mock.followups);
           setRecentDeals(mock.recentDeals);
         } else {
-          const data = await fetchDashboard(range, pipelineType, controller.signal);
+          const data = await fetchDashboard(range, pipelineType, dashboardFilters, controller.signal);
           setSummary(data.summary);
           setPipeline(data.pipeline);
           setTeamPerf(data.teamPerformance);
@@ -380,7 +419,7 @@ export default function AdminHome() {
     load();
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, pipelineType]);
+  }, [dashboardFilters, pipelineType, range]);
 
   const kpis = [
     {
@@ -437,18 +476,18 @@ export default function AdminHome() {
       {/* Top Bar */}
       <div className="topBar">
         <div className="topActions">
-          <CFormSelect
-            className="select"
-            value={range}
+          <DashboardDateFilter
+            period={period}
+            periodOptions={DASHBOARD_PERIOD_OPTIONS}
+            month={selectedMonth}
+            quarter={selectedQuarter}
+            year={selectedYear}
+            onPeriodChange={setPeriod}
+            onMonthChange={setSelectedMonth}
+            onQuarterChange={setSelectedQuarter}
+            onYearChange={setSelectedYear}
             disabled={refreshing}
-            onChange={(e) => setRange(e.target.value)}
-          >
-            {DASHBOARD_RANGE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </CFormSelect>
+          />
         </div>
       </div>
 
