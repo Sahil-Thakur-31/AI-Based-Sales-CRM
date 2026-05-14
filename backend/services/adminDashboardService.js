@@ -83,8 +83,8 @@ function pickPrimaryPhone(value) {
  *  openLeads, openLeadsFromAI
  * }
  */
-async function getSummary(range) {
-  const { start, end, prevStart, prevEnd } = getRangeDates(range);
+async function getSummary(filters = {}) {
+  const { start, end, prevStart, prevEnd } = getRangeDates(filters.range, filters);
   const nonAdminUserIds = await getNonAdminUserIds();
 
   // Won revenue in current range
@@ -215,7 +215,7 @@ async function getSummary(range) {
  * Shape must match frontend:
  * [{ code, label, count, amount }, ...]
  */
-async function getPipeline(range, pipelineType = "deal") {
+async function getPipeline(filters = {}, pipelineType = "deal") {
   const normalizedType = String(pipelineType || "deal").toLowerCase() === "lead" ? "lead" : "deal";
   const nonAdminUserIds = await getNonAdminUserIds();
   const stages = normalizedType === "deal"
@@ -313,8 +313,8 @@ async function getPipeline(range, pipelineType = "deal") {
  * Shape must match frontend:
  * [{ id, name, value, pct, color }, ...]
  */
-async function getTeamPerformance(range) {
-  const { start, end } = getRangeDates(range);
+async function getTeamPerformance(filters = {}) {
+  const { start, end } = getRangeDates(filters.range, filters);
   const nonAdminUserIds = await getNonAdminUserIds();
 
   // Won revenue per salesperson in range
@@ -380,8 +380,8 @@ async function getTeamPerformance(range) {
  * Shape must match frontend:
  * [{ id, title, owner, score, date, priority, icon }, ...]
  */
-async function getFollowups(range, viewerUserId = null) {
-  const { start, end } = getRangeDates(range);
+async function getFollowups(filters = {}, viewerUserId = null) {
+  const { start, end } = getRangeDates(filters.range, filters);
   const now = new Date();
 
   const baseMatch = {
@@ -539,8 +539,8 @@ async function getFollowups(range, viewerUserId = null) {
  * Shape must match frontend:
  * [{ id, dealName, stage, value, closeDate }, ...]
  */
-async function getRecentDeals(range) {
-  const { start, end } = getRangeDates(range);
+async function getRecentDeals(filters = {}) {
+  const { start, end } = getRangeDates(filters.range, filters);
   const nonAdminUserIds = await getNonAdminUserIds();
 
   const deals = await Deal.find(

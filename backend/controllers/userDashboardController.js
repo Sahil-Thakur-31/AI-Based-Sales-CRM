@@ -104,36 +104,93 @@ function normalizeRange(range) {
   return "month";
 }
 
-function getRangeDates(range, now = new Date()) {
-  const normalizedRange = normalizeRange(range);
+function normalizeMonth(month, fallbackMonth) {
+  const numericMonth = Number(month);
+  if (!Number.isInteger(numericMonth)) return fallbackMonth;
+  if (numericMonth >= 1 && numericMonth <= 12) return numericMonth - 1;
+  if (numericMonth >= 0 && numericMonth <= 11) return numericMonth;
+  return fallbackMonth;
+}
+
+function normalizeYear(year, fallbackYear) {
+  const numericYear = Number(year);
+  if (!Number.isInteger(numericYear)) return fallbackYear;
+  if (numericYear < 2000 || numericYear > 2100) return fallbackYear;
+  return numericYear;
+}
+
+function normalizeQuarter(quarter, fallbackQuarter = "q1") {
+  const value = String(quarter || fallbackQuarter).toLowerCase();
+  return ["q1", "q2", "q3", "q4"].includes(value) ? value : fallbackQuarter;
+}
+
+function quarterStartMonthFromValue(quarter) {
+  if (quarter === "q2") return 3;
+  if (quarter === "q3") return 6;
+  if (quarter === "q4") return 9;
+  return 0;
+}
+
+function getRangeDates(range, options = {}) {
+  const now = options.now instanceof Date ? new Date(options.now) : new Date();
+  const period = String(options.period || "").toLowerCase();
+  const normalizedRange = period === "quarterly"
+    ? "quarter"
+    : period === "yearly"
+      ? "year"
+      : normalizeRange(range);
+  const selectedMonth = normalizeMonth(options.month, now.getMonth());
+  const selectedYear = normalizeYear(options.year, now.getFullYear());
+  const selectedQuarter = normalizeQuarter(options.quarter, `q${Math.floor(now.getMonth() / 3) + 1}`);
+  const selectedMonthDate = new Date(selectedYear, selectedMonth, 1);
+  const selectedQuarterDate = new Date(selectedYear, quarterStartMonthFromValue(selectedQuarter), 1);
 
   if (normalizedRange === "week") {
     return {
       range: normalizedRange,
       start: startOfWeek(now),
       end: nextDay(now),
-      targetPeriodType: "monthly"
+      targetPeriodType: "monthly",
+      label: "This Week"
     };
   }
 
   if (normalizedRange === "quarter") {
+    const label = `${selectedQuarter.toUpperCase()} (${selectedQuarter === "q1" ? "Jan-Mar" : selectedQuarter === "q2" ? "Apr-Jun" : selectedQuarter === "q3" ? "Jul-Sep" : "Oct-Dec"}) ${selectedYear}`;
     return {
       range: normalizedRange,
-      start: startOfQuarter(now),
-      end: nextQuarter(now),
-      targetPeriodType: "quarterly"
+      start: startOfQuarter(selectedQuarterDate),
+      end: nextQuarter(selectedQuarterDate),
+      targetPeriodType: "quarterly",
+      label
     };
   }
 
+  if (normalizedRange === "year") {
+    return {
+      range: normalizedRange,
+      start: new Date(selectedYear, 0, 1),
+      end: new Date(selectedYear + 1, 0, 1),
+      targetPeriodType: "yearly",
+      label: String(selectedYear)
+    };
+  }
+
+  const label = selectedMonthDate.toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric"
+  });
+
   return {
     range: "month",
-    start: startOfMonth(now),
-    end: nextMonth(now),
-    targetPeriodType: "monthly"
+    start: startOfMonth(selectedMonthDate),
+    end: nextMonth(selectedMonthDate),
+    targetPeriodType: "monthly",
+    label
   };
 }
 
-function getRangeLabels(range) {
+function getRangeLabels(range, label = "") {
   if (range === "week") {
     return {
       followupsHeading: "This Week's Follow-ups & Meetings"
@@ -142,12 +199,18 @@ function getRangeLabels(range) {
 
   if (range === "quarter") {
     return {
-      followupsHeading: "This Quarter's Follow-ups & Meetings"
+      followupsHeading: label ? `${label} Follow-ups & Meetings` : "This Quarter's Follow-ups & Meetings"
+    };
+  }
+
+  if (range === "year") {
+    return {
+      followupsHeading: label ? `${label} Follow-ups & Meetings` : "This Year's Follow-ups & Meetings"
     };
   }
 
   return {
-    followupsHeading: "This Month's Follow-ups & Meetings"
+    followupsHeading: label ? `${label} Follow-ups & Meetings` : "This Month's Follow-ups & Meetings"
   };
 }
 
@@ -250,9 +313,16 @@ exports.getDashboard = async (req, res) => {
     const now = new Date();
     const todayStart = startOfDay(now);
     const tomorrow = nextDay(now);
-    const selectedRange = getRangeDates(req.query?.range, now);
+    const selectedRange = getRangeDates(req.query?.range, {
+      period: req.query?.period,
+      now,
+      month: req.query?.month,
+      quarter: req.query?.quarter,
+      year: req.query?.year
+    });
     const rangeStart = selectedRange.start;
     const rangeEnd = selectedRange.end;
+    const targetLookupDate = rangeStart;
     const staleLeadCutoff = new Date(todayStart);
     staleLeadCutoff.setDate(staleLeadCutoff.getDate() - 7);
 
@@ -371,8 +441,8 @@ exports.getDashboard = async (req, res) => {
       SalesTarget.findOne({
         user_id: userId,
         period_type: selectedRange.targetPeriodType,
-        period_start: { $lte: now },
-        period_end: { $gte: now }
+        period_start: { $lte: targetLookupDate },
+        period_end: { $gte: targetLookupDate }
       })
         .sort({ period_start: -1 })
         .lean(),
@@ -540,7 +610,7 @@ exports.getDashboard = async (req, res) => {
     const totalMeetings =
       resolvedScheduledMeetings + resolvedCompletedMeetings + resolvedCancelledMeetings;
     const totalEvents = registeredEvents + attendedEvents + missedEvents;
-    const rangeLabels = getRangeLabels(selectedRange.range);
+    const rangeLabels = getRangeLabels(selectedRange.range, selectedRange.label);
     const followupsDueToday = mappedFollowups.filter((item) => {
       const dueAt = item.dueAt ? new Date(item.dueAt) : null;
       if (!dueAt || Number.isNaN(dueAt.getTime())) return false;
@@ -577,14 +647,14 @@ exports.getDashboard = async (req, res) => {
       {
         title: "Follow-ups & Meetings",
         value: summary.followupsInRange + summary.meetingsInRange,
-        sub: `${summary.highPriorityFollowups} high priority follow-ups, ${summary.meetingsInRange} meetings in ${selectedRange.range}`,
+        sub: `${summary.highPriorityFollowups} high priority follow-ups, ${summary.meetingsInRange} meetings in ${selectedRange.label || selectedRange.range}`,
         icon: "📞",
         color: "blue"
       },
       {
         title: "Active Deals",
         value: summary.activeDeals,
-        sub: `+${summary.dealsAddedThisWeek} this ${selectedRange.range}`,
+        sub: `+${summary.dealsAddedThisWeek} in ${selectedRange.label || selectedRange.range}`,
         icon: "💼",
         color: "green"
       },

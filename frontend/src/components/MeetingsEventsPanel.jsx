@@ -43,7 +43,12 @@ function Donut({ data = [], colors = [], total = 0 }) {
   );
 }
 
-function MeetingsEventsPanel({ activityData, range = "month", onRangeChange }) {
+function MeetingsEventsPanel({
+  activityData,
+  range = "month",
+  onRangeChange,
+  showRangeSelect = true
+}) {
   const data = activityData || DEFAULT_ACTIVITY;
   const { meetings = [], events = [], footerStats = {} } = data;
   const totalMeetings = meetings.reduce((acc, item) => acc + (item.value || 0), 0);
@@ -53,15 +58,17 @@ function MeetingsEventsPanel({ activityData, range = "month", onRangeChange }) {
     <div className="activity-card">
       <div className="activity-header">
         <h3>Meetings & Events Activity</h3>
-        <select
-          className="activity-range-select"
-          value={range}
-          onChange={(event) => onRangeChange?.(event.target.value)}
-        >
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-          <option value="quarter">This Quarter</option>
-        </select>
+        {showRangeSelect ? (
+          <select
+            className="activity-range-select"
+            value={range}
+            onChange={(event) => onRangeChange?.(event.target.value)}
+          >
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="quarter">This Quarter</option>
+          </select>
+        ) : null}
       </div>
 
       <div className="activity-body">

@@ -26,6 +26,12 @@
   align-items: stretch;
 }
 
+.ManagerDashboard .manager-dashboard-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .ManagerDashboard .manager-stat-col {
   display: flex;
   min-width: 0;
@@ -375,6 +381,10 @@
 /* MOBILE */
 
 @media (max-width: 768px) {
+  .ManagerDashboard .manager-dashboard-toolbar {
+    justify-content: flex-start;
+  }
+
   .ManagerDashboard .manager-stats-grid {
     grid-template-columns: 1fr;
   }
