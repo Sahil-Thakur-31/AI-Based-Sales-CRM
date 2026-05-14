@@ -1119,7 +1119,6 @@ exports.convertLeadToDeal = async (req, res) => {
       assignedTo: lead.assigned_to || null,
       assignedBy: actorId,
       stage: "P3",
-      status: "open",
       dealValue: Number(lead.deal_value_estimate) || 0,
       probability: 10,
       expectedCloseDate,

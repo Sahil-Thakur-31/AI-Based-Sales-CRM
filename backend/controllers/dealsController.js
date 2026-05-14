@@ -478,7 +478,7 @@ async function getSalesTargetSummary(userId, periodType, rangeStart, rangeEnd) {
     {
       $match: {
         assignedTo: userId,
-        status: "won",
+        stage: DEAL_WON_STAGE,
         is_deleted: { $ne: true },
       },
     },
@@ -1257,7 +1257,6 @@ exports.updateDeal = async (req, res) => {
       const stage = String(update.stage || "P1").trim().toUpperCase();
       if (["P1", "P2", "P3", "P6", "P7"].includes(stage)) {
         dealUpdate.stage = stage;
-        dealUpdate.status = dealStatusFromStage(stage);
         if (stage === "P7" || stage === "P6") {
           dealUpdate.isActive = false;
           if (!existingDeal.actualCloseDate) dealUpdate.actualCloseDate = new Date();

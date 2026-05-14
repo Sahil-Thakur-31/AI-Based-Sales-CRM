@@ -2209,7 +2209,7 @@ class LocalROIPredictor:
             deal_rows = list(
                 deals_collection.find(
                     {"is_deleted": {"$ne": True}},
-                    {"_id": 1, "lead_id": 1, "client_id": 1, "status": 1, "dealValue": 1},
+                    {"_id": 1, "lead_id": 1, "client_id": 1, "stage": 1, "dealValue": 1},
                 )
             )
 
@@ -2266,11 +2266,11 @@ class LocalROIPredictor:
                 revenue = estimated_revenue_by_event.get(event_id, 0.0)
                 for lead_id in lead_ids_by_event.get(event_id, []):
                     for deal in deals_by_lead.get(lead_id, []):
-                        if clean_text(str(deal.get("status"))).lower() == "won":
+                        if clean_text(str(deal.get("stage"))).upper() == "P7":
                             revenue += max(0.0, parse_float(deal.get("dealValue")) or 0.0)
                 for client_id in client_ids_by_event.get(event_id, []):
                     for deal in deals_by_client.get(client_id, []):
-                        if clean_text(str(deal.get("status"))).lower() == "won":
+                        if clean_text(str(deal.get("stage"))).upper() == "P7":
                             revenue += max(0.0, parse_float(deal.get("dealValue")) or 0.0)
 
                 if revenue <= 0:

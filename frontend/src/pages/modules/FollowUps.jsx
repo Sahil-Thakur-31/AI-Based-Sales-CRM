@@ -304,13 +304,8 @@ function matchesAssigneeFilter({
 function shouldCountDealInStage(deal = {}, stageKey = "") {
   const stage = String(stageKey || "").trim().toUpperCase();
   const dealStage = String(deal?.stage || "").trim().toUpperCase();
-  const dealStatus = String(deal?.status || "").trim().toLowerCase();
 
-  if (dealStage !== stage) return false;
-  if (["P1", "P2", "P3"].includes(stage)) return dealStatus === "open";
-  if (stage === "P6") return dealStatus === "lost";
-  if (stage === "P7") return dealStatus === "won" || dealStatus === "win";
-  return false;
+  return dealStage === stage;
 }
 
 export default function Followups() {

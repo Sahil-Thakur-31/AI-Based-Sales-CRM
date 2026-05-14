@@ -10,6 +10,7 @@ const {
   updateEvent,
   registerForEvent,
   getMyEventRegistration,
+  acceptEventInvitation,
   toggleAttending,
   markEventMissed,
   saveEventOutcome,
@@ -24,6 +25,7 @@ router.get("/:id", auth, getEventById);
 router.post("/", auth, createEvent);
 router.put("/:id", auth, updateEvent);
 router.put("/:id/register", auth, paymentScreenshotUpload.single("paymentScreenshot"), registerForEvent);
+router.put("/:id/accept-invitation", auth, acceptEventInvitation);
 router.put("/:id/attending", auth, toggleAttending);
 router.put("/:id/missed", auth, markEventMissed);
 router.put("/:id/outcome", auth, saveEventOutcome);

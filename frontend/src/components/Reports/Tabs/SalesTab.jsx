@@ -41,13 +41,10 @@ function escapeCsvValue(value) {
 
 function matchesSalesTableFilter(row, filterValue) {
   switch (filterValue) {
-    case "open":
-    case "won":
-    case "lost":
-      return String(row.status || "").toLowerCase() === filterValue;
     case "p1":
     case "p2":
     case "p3":
+    case "p6":
     case "p7":
       return String(row.stage || "").toLowerCase() === filterValue;
     default:
@@ -66,7 +63,6 @@ function matchesSalesSearch(row, searchValue) {
   const haystack = [
     row.dealName,
     row.companyName,
-    row.status,
     row.stage,
     row.assignedToName,
     row.dealValue,
@@ -269,7 +265,6 @@ function SalesTab({ filters, selectedUser }) {
       "Created On",
       "Closed On",
       "Deal Value",
-      "Status",
       "Stage",
       "Assigned To",
     ];
@@ -280,7 +275,6 @@ function SalesTab({ filters, selectedUser }) {
       formatDate(row.createdAt),
       formatDate(row.closedAt),
       formatCurrency(row.dealValue),
-      row.status || "open",
       row.stage || "--",
       row.assignedToName || "Unassigned",
     ]);
@@ -611,12 +605,10 @@ function SalesTab({ filters, selectedUser }) {
               onChange={(event) => setSalesTableFilter(event.target.value)}
             >
               <option value="all">All Deals</option>
-              <option value="open">Open</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
               <option value="p1">P1</option>
               <option value="p2">P2</option>
               <option value="p3">P3</option>
+              <option value="p6">P6</option>
               <option value="p7">P7</option>
             </select>
 
@@ -646,7 +638,7 @@ function SalesTab({ filters, selectedUser }) {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
-                {["Deal Name", "Company", "Created On", "Closed On", "Deal Value", "Status", "Stage", "Assigned To"].map((header) => (
+                {["Deal Name", "Company", "Created On", "Closed On", "Deal Value", "Stage", "Assigned To"].map((header) => (
                   <th
                     key={header}
                     style={{
@@ -666,7 +658,7 @@ function SalesTab({ filters, selectedUser }) {
             <tbody>
               {filteredSalesTableRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
+                  <td colSpan={7} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
                     No deals match this search or filter.
                   </td>
                 </tr>
@@ -678,9 +670,6 @@ function SalesTab({ filters, selectedUser }) {
                     <td style={{ padding: "12px 14px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(row.createdAt)}</td>
                     <td style={{ padding: "12px 14px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(row.closedAt)}</td>
                     <td style={{ padding: "12px 14px", color: "#334155", fontWeight: 600 }}>{formatCurrency(row.dealValue)}</td>
-                    <td style={{ padding: "12px 14px", color: row.status === "won" ? "#15803d" : row.status === "lost" ? "#b91c1c" : "#475569", fontWeight: 600, textTransform: "capitalize" }}>
-                      {row.status || "open"}
-                    </td>
                     <td style={{ padding: "12px 14px", color: "#475569" }}>{row.stage || "--"}</td>
                     <td style={{ padding: "12px 14px", color: "#475569" }}>{row.assignedToName || "Unassigned"}</td>
                   </tr>

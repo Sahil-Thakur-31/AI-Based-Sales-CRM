@@ -99,13 +99,11 @@ async function moveDealToStage(dealId, stage, actorId = null) {
   const existingDeal = await Deal.findById(dealId).select("_id stage actualCloseDate").lean();
   if (!existingDeal) return null;
 
-  const status = stage === DEAL_WON_STAGE ? "won" : stage === "P6" ? "lost" : "open";
   const update = {
     stage,
-    status,
-    isActive: stage === DEAL_WON_STAGE ? false : true
+    isActive: ![DEAL_WON_STAGE, "P6"].includes(stage)
   };
-  if (stage === DEAL_WON_STAGE && !existingDeal.actualCloseDate) {
+  if ([DEAL_WON_STAGE, "P6"].includes(stage) && !existingDeal.actualCloseDate) {
     update.actualCloseDate = new Date();
   }
 
@@ -189,7 +187,6 @@ async function approveLeadQuotationAsWonDeal(quotation, actorId = null) {
     assignedTo: lead.assigned_to || quotation.assignedTo || null,
     assignedBy: actorId || null,
     stage: DEAL_WON_STAGE,
-    status: "won",
     dealValue: Number(quotation.grandTotal || lead.deal_value_estimate || 0),
     probability: 100,
     expectedCloseDate: new Date(),
