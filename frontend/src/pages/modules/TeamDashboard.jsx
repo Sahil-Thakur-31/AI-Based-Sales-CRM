@@ -766,7 +766,7 @@ export default function TeamDashboard() {
                 <thead>
                   <tr className="team-table-group-row">
                     <th rowSpan={2}>Member</th>
-                    <th rowSpan={2} className="team-lead-column team-group-start">Lead Pipeline</th>
+                    <th rowSpan={2} className="team-lead-column team-group-start">Lead</th>
                     <th colSpan={4} className="team-deal-group">Deals</th>
                     <th rowSpan={2}>Follow-ups</th>
                     <th rowSpan={2}>Actions</th>
