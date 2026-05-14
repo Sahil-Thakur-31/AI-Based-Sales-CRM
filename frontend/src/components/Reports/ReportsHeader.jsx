@@ -30,6 +30,14 @@ function sanitizeYearInput(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 4);
 }
 
+function clampYearInput(value) {
+  const sanitized = sanitizeYearInput(value);
+  if (!sanitized) return "";
+  const numeric = Number.parseInt(sanitized, 10);
+  if (!Number.isFinite(numeric)) return "";
+  return String(Math.min(2060, Math.max(2020, numeric)));
+}
+
 function ReportsHeader({
   activeType,
   setActiveType,
@@ -43,6 +51,7 @@ function ReportsHeader({
   expenseFilters,
   setExpenseFilters,
   reportTypes,
+  onExportPdf,
 }) {
   const showSalesFilters = activeType === "sales";
   const showLeadsFilters = activeType === "leads";
@@ -65,244 +74,274 @@ function ReportsHeader({
         ))}
       </div>
 
-      {showSalesFilters && (
-        <div className="report-filter-row">
-          <select
-            className="report-filter"
-            value={salesFilters.period}
-            onChange={(event) =>
-              setSalesFilters((current) => ({
-                ...current,
-                period: event.target.value,
-              }))
-            }
-          >
-            {SALES_PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          {salesFilters.period === "monthly" && (
+      <div className="report-header-controls">
+        {showSalesFilters && (
+          <div className="report-filter-row">
             <select
               className="report-filter"
-              value={salesFilters.month}
+              value={salesFilters.period}
               onChange={(event) =>
                 setSalesFilters((current) => ({
                   ...current,
-                  month: event.target.value,
+                  period: event.target.value,
                 }))
               }
             >
-              {SALES_MONTH_OPTIONS.map((option) => (
+              {SALES_PERIOD_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
-          )}
+            {salesFilters.period === "monthly" && (
+              <select
+                className="report-filter"
+                value={salesFilters.month}
+                onChange={(event) =>
+                  setSalesFilters((current) => ({
+                    ...current,
+                    month: event.target.value,
+                  }))
+                }
+              >
+                {SALES_MONTH_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
 
-          {salesFilters.period === "quarterly" && (
-            <select
-              className="report-filter"
-              value={salesFilters.quarter}
+            {salesFilters.period === "quarterly" && (
+              <select
+                className="report-filter"
+                value={salesFilters.quarter}
+                onChange={(event) =>
+                  setSalesFilters((current) => ({
+                    ...current,
+                    quarter: event.target.value,
+                  }))
+                }
+              >
+                {SALES_QUARTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <input
+              className="report-filter report-filter-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="Year"
+              value={salesFilters.year}
               onChange={(event) =>
                 setSalesFilters((current) => ({
                   ...current,
-                  quarter: event.target.value,
+                  year: sanitizeYearInput(event.target.value),
                 }))
               }
-            >
-              {SALES_QUARTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <input
-            className="report-filter report-filter-input"
-            type="text"
-            inputMode="numeric"
-            placeholder="Year"
-            value={salesFilters.year}
-            onChange={(event) =>
-              setSalesFilters((current) => ({
-                ...current,
-                year: sanitizeYearInput(event.target.value),
-              }))
-            }
-          />
-
-          {showSalesUserFilter && (
-            <select
-              className="report-filter"
-              value={salesFilters.assignedTo}
-              onChange={(event) =>
+              onBlur={(event) =>
                 setSalesFilters((current) => ({
                   ...current,
-                  assignedTo: event.target.value,
+                  year: clampYearInput(event.target.value) || current.year,
                 }))
               }
-            >
-              {canUseAllSalesUsers && <option value="all">{salesAllOptionLabel || "All Users"}</option>}
-              {salesUsers.map((user) => (
-                <option key={user._id} value={user._id}>
-                  {`${user.name || user.email || "User"} - ${user.roleName || "user"}`}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      )}
+            />
 
-      {showLeadsFilters && (
-        <div className="report-filter-row">
-          <select
-            className="report-filter"
-            value={leadsFilters.period}
-            onChange={(event) =>
-              setLeadsFilters((current) => ({
-                ...current,
-                period: event.target.value,
-              }))
-            }
-          >
-            {SALES_PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            {showSalesUserFilter && (
+              <select
+                className="report-filter"
+                value={salesFilters.assignedTo}
+                onChange={(event) =>
+                  setSalesFilters((current) => ({
+                    ...current,
+                    assignedTo: event.target.value,
+                  }))
+                }
+              >
+                {canUseAllSalesUsers && <option value="all">{salesAllOptionLabel || "All Users"}</option>}
+                {salesUsers.map((user) => (
+                  <option key={user._id} value={user._id}>
+                    {`${user.name || user.email || "User"} - ${user.roleName || "user"}`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
-          {leadsFilters.period === "monthly" && (
+        {showLeadsFilters && (
+          <div className="report-filter-row">
             <select
               className="report-filter"
-              value={leadsFilters.month}
+              value={leadsFilters.period}
               onChange={(event) =>
                 setLeadsFilters((current) => ({
                   ...current,
-                  month: event.target.value,
+                  period: event.target.value,
                 }))
               }
             >
-              {SALES_MONTH_OPTIONS.map((option) => (
+              {SALES_PERIOD_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
-          )}
 
-          {leadsFilters.period === "quarterly" && (
-            <select
-              className="report-filter"
-              value={leadsFilters.quarter}
+            {leadsFilters.period === "monthly" && (
+              <select
+                className="report-filter"
+                value={leadsFilters.month}
+                onChange={(event) =>
+                  setLeadsFilters((current) => ({
+                    ...current,
+                    month: event.target.value,
+                  }))
+                }
+              >
+                {SALES_MONTH_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {leadsFilters.period === "quarterly" && (
+              <select
+                className="report-filter"
+                value={leadsFilters.quarter}
+                onChange={(event) =>
+                  setLeadsFilters((current) => ({
+                    ...current,
+                    quarter: event.target.value,
+                  }))
+                }
+              >
+                {SALES_QUARTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <input
+              className="report-filter report-filter-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="Year"
+              value={leadsFilters.year}
               onChange={(event) =>
                 setLeadsFilters((current) => ({
                   ...current,
-                  quarter: event.target.value,
+                  year: sanitizeYearInput(event.target.value),
+                }))
+              }
+              onBlur={(event) =>
+                setLeadsFilters((current) => ({
+                  ...current,
+                  year: clampYearInput(event.target.value) || current.year,
+                }))
+              }
+            />
+          </div>
+        )}
+
+        {showExpenseFilters && (
+          <div className="report-filter-row">
+            <select
+              className="report-filter"
+              value={expenseFilters.period}
+              onChange={(event) =>
+                setExpenseFilters((current) => ({
+                  ...current,
+                  period: event.target.value,
                 }))
               }
             >
-              {SALES_QUARTER_OPTIONS.map((option) => (
+              {SALES_PERIOD_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
-          )}
 
-          <input
-            className="report-filter report-filter-input"
-            type="text"
-            inputMode="numeric"
-            placeholder="Year"
-            value={leadsFilters.year}
-            onChange={(event) =>
-              setLeadsFilters((current) => ({
-                ...current,
-                year: sanitizeYearInput(event.target.value),
-              }))
-            }
-          />
-        </div>
-      )}
+            {expenseFilters.period === "monthly" && (
+              <select
+                className="report-filter"
+                value={expenseFilters.month}
+                onChange={(event) =>
+                  setExpenseFilters((current) => ({
+                    ...current,
+                    month: event.target.value,
+                  }))
+                }
+              >
+                {SALES_MONTH_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
 
-      {showExpenseFilters && (
-        <div className="report-filter-row">
-          <select
-            className="report-filter"
-            value={expenseFilters.period}
-            onChange={(event) =>
-              setExpenseFilters((current) => ({
-                ...current,
-                period: event.target.value,
-              }))
-            }
+            {expenseFilters.period === "quarterly" && (
+              <select
+                className="report-filter"
+                value={expenseFilters.quarter}
+                onChange={(event) =>
+                  setExpenseFilters((current) => ({
+                    ...current,
+                    quarter: event.target.value,
+                  }))
+                }
+              >
+                {SALES_QUARTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <input
+              className="report-filter report-filter-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="Year"
+              value={expenseFilters.year}
+              onChange={(event) =>
+                setExpenseFilters((current) => ({
+                  ...current,
+                  year: sanitizeYearInput(event.target.value),
+                }))
+              }
+              onBlur={(event) =>
+                setExpenseFilters((current) => ({
+                  ...current,
+                  year: clampYearInput(event.target.value) || current.year,
+                }))
+              }
+            />
+          </div>
+        )}
+
+        <div className="report-actions-row">
+          <button
+            type="button"
+            className="report-export-btn"
+            onClick={onExportPdf}
           >
-            {SALES_PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          {expenseFilters.period === "monthly" && (
-            <select
-              className="report-filter"
-              value={expenseFilters.month}
-              onChange={(event) =>
-                setExpenseFilters((current) => ({
-                  ...current,
-                  month: event.target.value,
-                }))
-              }
-            >
-              {SALES_MONTH_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {expenseFilters.period === "quarterly" && (
-            <select
-              className="report-filter"
-              value={expenseFilters.quarter}
-              onChange={(event) =>
-                setExpenseFilters((current) => ({
-                  ...current,
-                  quarter: event.target.value,
-                }))
-              }
-            >
-              {SALES_QUARTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <input
-            className="report-filter report-filter-input"
-            type="text"
-            inputMode="numeric"
-            placeholder="Year"
-            value={expenseFilters.year}
-            onChange={(event) =>
-              setExpenseFilters((current) => ({
-                ...current,
-                year: sanitizeYearInput(event.target.value),
-              }))
-            }
-          />
+            <i className="bi bi-file-earmark-pdf" aria-hidden="true" />
+            Export PDF
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -47,6 +47,31 @@ function escapeCsvValue(value) {
   return normalized;
 }
 
+function normalizeSearchValue(value) {
+  return String(value ?? "").toLowerCase().trim();
+}
+
+function matchesLeadSearch(row, searchValue) {
+  const query = normalizeSearchValue(searchValue);
+  if (!query) return true;
+
+  const haystack = [
+    row.companyName,
+    row.sourceLabel,
+    row.status,
+    row.isContacted ? "Contacted" : "Not Contacted",
+    row.leadTemperature,
+    row.assignedToName,
+    row.totalFollowups,
+    row.meetingCount,
+    formatDate(row.createdAt),
+  ]
+    .map(normalizeSearchValue)
+    .join(" ");
+
+  return haystack.includes(query);
+}
+
 function buildReportParams(filters = {}) {
   const params = {
     period: filters.period || "monthly",
@@ -102,6 +127,7 @@ export default function LeadsTab({ filters }) {
   const [error, setError] = useState("");
   const [hoveredPointIndex, setHoveredPointIndex] = useState(null);
   const [tableFilter, setTableFilter] = useState("all");
+  const [tableSearch, setTableSearch] = useState("");
   const reportParams = buildReportParams(filters);
   const reportKey = [reportParams.period, reportParams.month || "", reportParams.quarter || "", reportParams.year].join("-");
 
@@ -127,7 +153,9 @@ export default function LeadsTab({ filters }) {
   const leadQuality = data?.leadQuality || [];
   const leadAging = data?.leadAging || [];
   const tableRows = data?.tableRows || [];
-  const filteredLeadRows = tableRows.filter((row) => matchesLeadTableFilter(row, tableFilter));
+  const filteredLeadRows = tableRows.filter(
+    (row) => matchesLeadTableFilter(row, tableFilter) && matchesLeadSearch(row, tableSearch)
+  );
 
   const qualityMap = { hot: 0, warm: 0, cold: 0 };
   leadQuality.forEach((q) => {
@@ -461,6 +489,13 @@ export default function LeadsTab({ filters }) {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              className="report-filter report-search-input"
+              type="text"
+              placeholder="Search leads..."
+              value={tableSearch}
+              onChange={(event) => setTableSearch(event.target.value)}
+            />
             <select
               className="report-filter"
               value={tableFilter}
@@ -525,7 +560,7 @@ export default function LeadsTab({ filters }) {
               {filteredLeadRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
-                    No leads match this filter.
+                    No leads match this search or filter.
                   </td>
                 </tr>
               ) : (

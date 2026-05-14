@@ -96,6 +96,32 @@ function buildReportParams(filters = {}) {
   return params;
 }
 
+function normalizeSearchValue(value) {
+  return String(value ?? "").toLowerCase().trim();
+}
+
+function matchesExpenseSearch(row, searchValue) {
+  const query = normalizeSearchValue(searchValue);
+  if (!query) return true;
+
+  const haystack = [
+    row.expenseNo,
+    row.vendorName,
+    row.categoryLabel,
+    row.referenceType,
+    row.totalAmount,
+    row.gstAmount,
+    row.approvalStatus,
+    row.userName,
+    row.description,
+    formatDate(row.expenseDate),
+  ]
+    .map(normalizeSearchValue)
+    .join(" ");
+
+  return haystack.includes(query);
+}
+
 function formatReportPeriod(params = {}) {
   const year = String(params.year || "").trim();
   if (params.period === "quarterly") {
@@ -109,6 +135,48 @@ function formatReportPeriod(params = {}) {
 
   const monthLabel = MONTH_LABELS[Number(params.month)] || "Selected month";
   return `${monthLabel} ${year}`.trim();
+}
+
+function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians),
+  };
+}
+
+function describePieSlice(centerX, centerY, radius, startAngle, endAngle) {
+  const start = polarToCartesian(centerX, centerY, radius, endAngle);
+  const end = polarToCartesian(centerX, centerY, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+  return [
+    "M",
+    centerX,
+    centerY,
+    "L",
+    start.x,
+    start.y,
+    "A",
+    radius,
+    radius,
+    0,
+    largeArcFlag,
+    0,
+    end.x,
+    end.y,
+    "Z",
+  ].join(" ");
+}
+
+function formatSharePercent(value, total) {
+  const numerator = Number(value || 0);
+  const denominator = Number(total || 0);
+  if (denominator <= 0 || numerator <= 0) return "0.0";
+
+  const percent = (numerator / denominator) * 100;
+  if (percent < 0.1) return "<0.1";
+  return percent.toFixed(1);
 }
 
 function buildExpenseKpiCards(expenses, loading, error) {
@@ -158,6 +226,7 @@ function ExpenseTab({ filters }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tableFilter, setTableFilter] = useState("all");
+  const [tableSearch, setTableSearch] = useState("");
   const [scopeLabel, setScopeLabel] = useState("");
   const reportParams = buildReportParams(filters);
   const reportKey = [reportParams.period, reportParams.month || "", reportParams.quarter || "", reportParams.year].join("-");
@@ -208,7 +277,9 @@ function ExpenseTab({ filters }) {
     userName: expense?.userId?.name || expense?.userId?.email || "User",
     description: expense?.description || "",
   }));
-  const filteredExpenseRows = expenseRows.filter((row) => matchesExpenseTableFilter(row, tableFilter));
+  const filteredExpenseRows = expenseRows.filter(
+    (row) => matchesExpenseTableFilter(row, tableFilter) && matchesExpenseSearch(row, tableSearch)
+  );
 
   const breakdownMap = expenseRows.reduce((acc, row) => {
     const key = row.category || "other";
@@ -218,7 +289,8 @@ function ExpenseTab({ filters }) {
   const breakdownRows = [...breakdownMap.entries()]
     .map(([key, amount]) => ({ key, label: toCategoryLabel(key), amount }))
     .sort((a, b) => b.amount - a.amount);
-  const maxBreakdown = Math.max(...breakdownRows.map((row) => row.amount), 1);
+  const totalBreakdown = breakdownRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const pieColors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16", "#f97316"];
 
   const approvalCounts = expenseRows.reduce(
     (acc, row) => {
@@ -329,28 +401,80 @@ function ExpenseTab({ filters }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
         <section className="reports-card">
           <h2 className="reports-card-title">Expense Breakdown</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 280px) 1fr", gap: 20, alignItems: "center", marginTop: 16 }}>
             {breakdownRows.length === 0 ? (
               <p style={{ color: "#9ca3af", fontSize: 13 }}>{loading ? "Loading..." : noExpensesMessage}</p>
             ) : (
-              breakdownRows.map((row) => (
-                <div key={row.key}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>{row.label}</span>
-                    <span style={{ fontSize: 13, color: "#334155", fontWeight: 700 }}>{formatCurrency(row.amount)}</span>
-                  </div>
-                  <div style={{ background: "#e2e8f0", borderRadius: 999, height: 10 }}>
-                    <div
-                      style={{
-                        width: `${Math.max(6, (row.amount / maxBreakdown) * 100)}%`,
-                        background: "#3b82f6",
-                        borderRadius: 999,
-                        height: "100%",
-                      }}
-                    />
-                  </div>
+              <>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <svg width="240" height="240" viewBox="0 0 240 240" aria-label="Expense breakdown pie chart">
+                    <circle cx="120" cy="120" r="92" fill="#f8fafc" />
+                    {(() => {
+                      let currentAngle = 0;
+                      return breakdownRows.map((row, index) => {
+                        const sliceAngle = totalBreakdown > 0 ? (Number(row.amount || 0) / totalBreakdown) * 360 : 0;
+                        const startAngle = currentAngle;
+                        const endAngle = currentAngle + sliceAngle;
+                        currentAngle = endAngle;
+                        return (
+                          <path
+                            key={row.key}
+                            d={describePieSlice(120, 120, 92, startAngle, endAngle)}
+                            fill={pieColors[index % pieColors.length]}
+                            stroke="#ffffff"
+                            strokeWidth="2"
+                          >
+                            <title>{`${row.label}: ${formatCurrency(row.amount)}`}</title>
+                          </path>
+                        );
+                      });
+                    })()}
+                    <circle cx="120" cy="120" r="50" fill="#ffffff" />
+                    <text x="120" y="112" textAnchor="middle" fontSize="12" fill="#64748b" fontWeight="600">
+                      Total
+                    </text>
+                    <text x="120" y="132" textAnchor="middle" fontSize="14" fill="#0f172a" fontWeight="700">
+                      {formatCurrency(totalBreakdown)}
+                    </text>
+                  </svg>
                 </div>
-              ))
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {breakdownRows.map((row, index) => {
+                    const share = formatSharePercent(row.amount, totalBreakdown);
+                    return (
+                      <div
+                        key={row.key}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "14px 1fr auto",
+                          gap: 10,
+                          alignItems: "center",
+                          padding: "10px 12px",
+                          background: "#f8fafc",
+                          border: "1px solid #eef2f7",
+                          borderRadius: 10,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: 999,
+                            background: pieColors[index % pieColors.length],
+                            display: "inline-block",
+                          }}
+                        />
+                        <div>
+                          <div style={{ fontSize: 13, color: "#334155", fontWeight: 700 }}>{row.label}</div>
+                          <div style={{ fontSize: 12, color: "#64748b" }}>{share}% of total</div>
+                        </div>
+                        <div style={{ fontSize: 13, color: "#0f172a", fontWeight: 700 }}>{formatCurrency(row.amount)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         </section>
@@ -383,6 +507,13 @@ function ExpenseTab({ filters }) {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              className="report-filter report-search-input"
+              type="text"
+              placeholder="Search expenses..."
+              value={tableSearch}
+              onChange={(event) => setTableSearch(event.target.value)}
+            />
             <select
               className="report-filter"
               value={tableFilter}
@@ -451,7 +582,7 @@ function ExpenseTab({ filters }) {
               {filteredExpenseRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
-                    {loading ? "Loading..." : error ? error : expenseRows.length === 0 ? noExpensesMessage : "No expenses match this filter."}
+                    {loading ? "Loading..." : error ? error : expenseRows.length === 0 ? noExpensesMessage : "No expenses match this search or filter."}
                   </td>
                 </tr>
               ) : (
