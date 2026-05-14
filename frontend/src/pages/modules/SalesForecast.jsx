@@ -21,6 +21,7 @@ const EMPTY_SUMMARY = {
   selectedRange: "all",
 };
 
+const EMPTY_PIPELINE = [];
 const ITEMS_PER_PAGE = 4;
 
 const formatCurrency = (value) =>
@@ -82,7 +83,7 @@ const SalesForecasting = () => {
   }, [selectedRange]);
 
   const summary = forecastData?.summary || EMPTY_SUMMARY;
-  const pipelineData = forecastData?.pipeline || [];
+  const pipelineData = forecastData?.pipeline || EMPTY_PIPELINE;
 
   useEffect(() => {
     setStagePages((previousPages) => {
@@ -93,7 +94,13 @@ const SalesForecasting = () => {
         nextPages[stage.stageKey] = Math.min(previousPages[stage.stageKey] || 1, totalPages);
       }
 
-      return nextPages;
+      const previousKeys = Object.keys(previousPages);
+      const nextKeys = Object.keys(nextPages);
+      const isSamePageState =
+        previousKeys.length === nextKeys.length &&
+        nextKeys.every((key) => previousPages[key] === nextPages[key]);
+
+      return isSamePageState ? previousPages : nextPages;
     });
   }, [pipelineData]);
 
