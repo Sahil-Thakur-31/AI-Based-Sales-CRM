@@ -644,7 +644,7 @@ function getActiveLeadMatch(extraMatch = {}) {
   return {
     ...extraMatch,
     is_deleted: { $ne: true },
-    stage: { $ne: "P7" },
+    stage: { $nin: ["P4", "P6", "P7"] },
     converted_to_deal: { $ne: true },
     $or: [{ converted_deal_id: { $exists: false } }, { converted_deal_id: null }]
   };

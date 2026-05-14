@@ -602,19 +602,20 @@ def get_source_definition(source: str) -> dict[str, Any]:
 def source_seed_urls(source: str) -> list[str]:
     config = get_source_definition(source)
     urls: list[str] = []
-    search_terms = [term for term in industry_search_terms() if term][:5]
-    primary_search_term = search_terms[0] if search_terms else ""
+    search_terms = [term for term in industry_search_terms() if term][:12]
+    broad_terms = ("technology", "business", "startup", "ai", "conference", "expo", "manufacturing", "pharma")
+    for term in broad_terms:
+        if term not in search_terms:
+            search_terms.append(term)
     if source == "meetup":
-        params: dict[str, str] = {}
-        if primary_search_term:
-            params["keywords"] = primary_search_term
         location_query = TARGET_LOCATION_CONTEXT.search_query()
-        if location_query:
-            params["location"] = location_query
-        if params:
+        for term in search_terms:
+            params: dict[str, str] = {"keywords": term}
+            if location_query:
+                params["location"] = location_query
             urls.append(f"https://www.meetup.com/find/?{urlencode(params)}")
-        else:
-            urls.append("https://www.meetup.com/find/")
+        params = {"location": location_query} if location_query else {}
+        urls.append(f"https://www.meetup.com/find/?{urlencode(params)}" if params else "https://www.meetup.com/find/")
     elif source == "eventbrite":
         city_slug = slugify_fragment(TARGET_LOCATION_CONTEXT.city)
         country_slug = slugify_fragment(TARGET_LOCATION_CONTEXT.country)
@@ -622,13 +623,12 @@ def source_seed_urls(source: str) -> list[str]:
             urls.append(f"https://www.eventbrite.com/d/{country_slug}--{city_slug}/events/")
         elif country_slug:
             urls.append(f"https://www.eventbrite.com/d/{country_slug}/events/")
-        query: dict[str, str] = {}
-        if primary_search_term:
-            query["q"] = primary_search_term
         location_query = TARGET_LOCATION_CONTEXT.search_query()
-        if location_query:
-            query["loc"] = location_query
-        urls.append(f"https://www.eventbrite.com/d/?{urlencode(query)}" if query else "https://www.eventbrite.com/d/")
+        for term in search_terms:
+            query: dict[str, str] = {"q": term}
+            if location_query:
+                query["loc"] = location_query
+            urls.append(f"https://www.eventbrite.com/d/?{urlencode(query)}")
     configured_urls = [str(item).strip() for item in config.get("fallback_urls", []) if str(item).strip()]
     for item in configured_urls:
         if item not in urls:

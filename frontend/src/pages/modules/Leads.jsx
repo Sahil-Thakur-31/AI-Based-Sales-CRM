@@ -1248,7 +1248,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
     }
     if (mode === "leads") {
       const stage = String(row.stage || "").toUpperCase();
-      if (stage === "P7") return false;
+      if (stage === "P4" || stage === "P6" || stage === "P7") return false;
     }
     return true;
   };
