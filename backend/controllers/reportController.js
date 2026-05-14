@@ -1558,25 +1558,11 @@ async function runDealsReport(plan, user) {
         findMatch.expectedCloseDate = { $gte: start, $lt: end };
         findMatch.stage = OPEN_DEAL_STAGE_FILTER;
     } else if (plan.metric === "delayed_deals") {
-<<<<<<< HEAD
       findMatch.expectedCloseDate = { $lt: new Date() };
       findMatch.stage = OPEN_DEAL_STAGE_FILTER;
     } else if (plan.metric === "stage_deals") {
       findMatch.stage = OPEN_DEAL_STAGE_FILTER;
     } else {
-=======
-      const delayedUpperBound = range ? minDate(end, new Date()) : new Date();
-      findMatch.expectedCloseDate = range
-        ? { $gte: start, $lt: delayedUpperBound }
-        : { $lt: delayedUpperBound };
-      findMatch.status = "open";
-    } else if (plan.metric === "stage_deals") {
-      findMatch.status = "open";
-      if (range) {
-        findMatch.createdAt = { $gte: start, $lt: end };
-      }
-    } else if (range) {
->>>>>>> 44fdb45281e83efaa00be6a88bf4d8afc4a05d77
       findMatch.createdAt = { $gte: start, $lt: end };
     }
 
