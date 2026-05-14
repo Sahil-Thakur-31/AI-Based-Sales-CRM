@@ -28,7 +28,7 @@ function saveSeenNotificationIds(ids) {
   }
 }
 
-function Navbar() {
+function Navbar({ onOpenSidebar, isMobileViewport = false }) {
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -262,11 +262,30 @@ function Navbar() {
 
   return (
 
-    <div className="navbar">
+    <div className={`navbar ${isMobileViewport ? "navbar-mobile" : ""}`.trim()}>
 
 
       {/* LEFT */}
       <div className="navbar-left">
+
+        <button
+          type="button"
+          className="mobile-profile-trigger"
+          onClick={onOpenSidebar}
+          aria-label="Open navigation menu"
+        >
+          {displayUser.photoUrl ? (
+            <img
+              src={resolvePhotoUrl(displayUser.photoUrl)}
+              className="mobile-profile-trigger-avatar"
+              alt={displayUser.name}
+            />
+          ) : (
+            <span className="mobile-profile-trigger-fallback" aria-hidden="true">
+              {getInitials(displayUser.name)}
+            </span>
+          )}
+        </button>
 
         <h2 className="module-title">
           {moduleName}
