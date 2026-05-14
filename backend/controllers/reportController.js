@@ -53,7 +53,11 @@ const FOLLOWUP_METRICS = new Set(["todays_followups", "overdue_followups", "pend
 const USER_METRICS = new Set(["user_count", "active_users", "inactive_users", "deleted_users", "user_list"]);
 const TEAM_METRICS = new Set(["team_targets", "team_count", "team_members", "team_list"]);
 
-const DEAL_GROUPS = new Set(["salesperson", "stage", "status", "month", "size"]);
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+const OPEN_DEAL_STAGE_FILTER = { $nin: [DEAL_WON_STAGE, DEAL_LOST_STAGE] };
+
+const DEAL_GROUPS = new Set(["salesperson", "stage", "month", "size"]);
 const LEAD_GROUPS = new Set(["source", "salesperson", "status", "temperature", "month"]);
 const EXPENSE_GROUPS = new Set(["category", "approval_status", "reference_type", "user", "month"]);
 const CLIENT_GROUPS = new Set(["client", "month"]);
@@ -714,7 +718,7 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "deals", "revenue", {
       groupBy: "month",
       chartType: "line",
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
     });
   }
 
@@ -729,7 +733,7 @@ async function buildDeterministicPlan(question) {
       {
         groupBy: "month",
         chartType: "line",
-        filters: { status: "won" },
+        filters: { stage: DEAL_WON_STAGE },
       }
     );
   }
@@ -738,7 +742,7 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "deals", "revenue", {
       groupBy: "salesperson",
       chartType: "bar",
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
     });
   }
 
@@ -746,7 +750,7 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "deals", "revenue", {
       groupBy: "salesperson",
       chartType: "bar",
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
       sort: { by: "value", order: "desc" },
       limit: 10,
     });
@@ -756,7 +760,7 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "deals", "revenue", {
       groupBy: "salesperson",
       chartType: "bar",
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
       sort: { by: "value", order: "asc" },
       limit: 10,
     });
@@ -764,7 +768,7 @@ async function buildDeterministicPlan(question) {
 
   if (lower.includes("average deal size")) {
     return makePlan(selection, "deals", "avg_deal_size", {
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
     });
   }
 
@@ -794,13 +798,13 @@ async function buildDeterministicPlan(question) {
 
   if (lower.includes("won revenue")) {
     return makePlan(selection, "deals", "revenue", {
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
     });
   }
 
   if (lower.includes("lost revenue")) {
     return makePlan(selection, "deals", "lost_revenue", {
-      filters: { status: "lost" },
+      filters: { stage: DEAL_LOST_STAGE },
     });
   }
 
@@ -865,7 +869,7 @@ async function buildDeterministicPlan(question) {
 
   if (containsAny(lower, ["average sales cycle", "sales cycle"])) {
     return makePlan(selection, "deals", "average_sales_cycle", {
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
     });
   }
 
@@ -882,7 +886,7 @@ async function buildDeterministicPlan(question) {
 
   if (containsAny(lower, ["total revenue", "show revenue", "revenue this month", "revenue this year", "sales revenue", "sales this month", "sales this year", "year sales revenue", "this year sales revenue"])) {
     return makePlan(selection, "deals", "revenue", {
-      filters: { status: "won" },
+      filters: { stage: DEAL_WON_STAGE },
     });
   }
 
@@ -921,34 +925,34 @@ function buildHeuristicPlan(question) {
     if (topPerformerIntent) {
       metric = "revenue";
       groupBy = "salesperson";
-      filters.status = "won";
+      filters.stage = DEAL_WON_STAGE;
     } else if (lower.includes("win rate")) {
       metric = "win_rate";
       groupBy = lower.includes("salesperson") || lower.includes("rep") ? "salesperson" : null;
     } else if (lower.includes("average deal")) {
       metric = "avg_deal_size";
-      filters.status = "won";
+      filters.stage = DEAL_WON_STAGE;
       groupBy = lower.includes("salesperson") ? "salesperson" : null;
     } else if (lower.includes("revenue")) {
       metric = "revenue";
-      filters.status = "won";
+      filters.stage = DEAL_WON_STAGE;
       if (lower.includes("salesperson") || lower.includes("rep")) groupBy = "salesperson";
       else if (lower.includes("stage")) groupBy = "stage";
-      else if (lower.includes("status")) groupBy = "status";
+      else if (lower.includes("status")) groupBy = "stage";
       else if (lower.includes("trend") || lower.includes("month")) groupBy = "month";
     } else if (lower.includes("lost")) {
       metric = "lost_deals";
-      filters.status = "lost";
+      filters.stage = DEAL_LOST_STAGE;
       groupBy = lower.includes("salesperson") ? "salesperson" : null;
     } else if (lower.includes("won")) {
       metric = "won_deals";
-      filters.status = "won";
+      filters.stage = DEAL_WON_STAGE;
       groupBy = lower.includes("salesperson") ? "salesperson" : null;
     } else {
       metric = "deal_count";
       if (lower.includes("pipeline") || lower.includes("stage")) groupBy = "stage";
       else if (lower.includes("salesperson") || lower.includes("rep")) groupBy = "salesperson";
-      else if (lower.includes("status")) groupBy = "status";
+      else if (lower.includes("status")) groupBy = "stage";
     }
   }
 
@@ -1172,7 +1176,6 @@ Allowed groupBy values:
 Deals:
 - salesperson
 - stage
-- status
 - month
 - size
 
@@ -1228,9 +1231,9 @@ Allowed filters:
 Rules:
 - Return JSON only.
 - Do not return explanation text.
-- If the user asks for top performers, default to module=deals, metric=revenue, groupBy=salesperson, filters.status=won.
+- If the user asks for top performers, default to module=deals, metric=revenue, groupBy=salesperson, filters.stage=P7.
 - If the user asks for conversion, use leads unless they clearly mention deals.
-- If the user asks for revenue, use deals and filters.status=won.
+- If the user asks for revenue, use deals and filters.stage=P7.
 - If the user asks for expenses/spend, use expenses.
 - If the user asks for follow-ups, followups, follows, or meetings, use followups.
 - If the user asks for users or employees, use users.
@@ -1516,7 +1519,7 @@ async function runDealsReport(plan, user) {
 
   if (["revenue", "lost_revenue"].includes(plan.metric) && !plan.groupBy) {
     const detailMatch = { ...baseMatch };
-    detailMatch.status = plan.metric === "lost_revenue" ? "lost" : "won";
+    detailMatch.stage = plan.metric === "lost_revenue" ? DEAL_LOST_STAGE : DEAL_WON_STAGE;
 
     const pipeline = [
       { $match: detailMatch },
@@ -1553,19 +1556,13 @@ async function runDealsReport(plan, user) {
       }
       } else if (plan.metric === "closing_this_month") {
         findMatch.expectedCloseDate = { $gte: start, $lt: end };
-        findMatch.status = "open";
+        findMatch.stage = OPEN_DEAL_STAGE_FILTER;
     } else if (plan.metric === "delayed_deals") {
-      const delayedUpperBound = range ? minDate(end, new Date()) : new Date();
-      findMatch.expectedCloseDate = range
-        ? { $gte: start, $lt: delayedUpperBound }
-        : { $lt: delayedUpperBound };
-      findMatch.status = "open";
+      findMatch.expectedCloseDate = { $lt: new Date() };
+      findMatch.stage = OPEN_DEAL_STAGE_FILTER;
     } else if (plan.metric === "stage_deals") {
-      findMatch.status = "open";
-      if (range) {
-        findMatch.createdAt = { $gte: start, $lt: end };
-      }
-    } else if (range) {
+      findMatch.stage = OPEN_DEAL_STAGE_FILTER;
+    } else {
       findMatch.createdAt = { $gte: start, $lt: end };
     }
 
@@ -1573,11 +1570,11 @@ async function runDealsReport(plan, user) {
     if (plan.metric === "high_value_deals") findMatch.dealValue = { $gte: 200000 };
     if (plan.metric === "risk_deals") {
       findMatch.aiRiskScore = { $gte: 60 };
-      findMatch.status = "open";
+      findMatch.stage = OPEN_DEAL_STAGE_FILTER;
     }
 
       const rows = await Deal.find(findMatch)
-        .select("deal_name dealValue stage status expectedCloseDate actualCloseDate aiRiskScore createdAt")
+        .select("deal_name dealValue stage expectedCloseDate actualCloseDate aiRiskScore createdAt")
         .sort(plan.metric === "list_deals" ? { createdAt: -1 } : { dealValue: sortOrder, createdAt: -1 })
         .lean();
 
@@ -1585,7 +1582,7 @@ async function runDealsReport(plan, user) {
       label: `${deal?.deal_name || "Untitled Deal"}${deal?.stage ? ` (${deal.stage})` : ""}`,
       value:
         plan.metric === "list_deals"
-          ? `${String(deal?.status || "open").toUpperCase()} / ₹${Number(deal?.dealValue || 0).toLocaleString("en-IN")}`
+          ? `${String(deal?.stage || "P1").toUpperCase()} / ₹${Number(deal?.dealValue || 0).toLocaleString("en-IN")}`
           : plan.metric === "risk_deals"
           ? Number(deal?.aiRiskScore || 0)
           : Number(deal?.dealValue || 0),
@@ -1595,9 +1592,9 @@ async function runDealsReport(plan, user) {
   const pipeline = [{ $match: baseMatch }];
 
   if (plan.metric === "closing_this_month") {
-    pipeline.push({ $match: { expectedCloseDate: { $gte: start, $lt: end }, status: "open" } });
+    pipeline.push({ $match: { expectedCloseDate: { $gte: start, $lt: end }, stage: OPEN_DEAL_STAGE_FILTER } });
   } else if (plan.metric === "active_deals") {
-    pipeline.push({ $match: { status: "open", isActive: true } });
+    pipeline.push({ $match: { stage: OPEN_DEAL_STAGE_FILTER, isActive: true } });
     if (range) {
       pipeline.push({ $match: { createdAt: { $gte: start, $lt: end } } });
     }
@@ -1620,13 +1617,11 @@ async function runDealsReport(plan, user) {
     pipeline.push({ $addFields: { reportDate: "$createdAt" } });
   }
 
-  if (plan.filters?.status) pipeline.push({ $match: { status: String(plan.filters.status).toLowerCase() } });
   if (plan.filters?.stage) pipeline.push({ $match: { stage: plan.filters.stage } });
 
   let groupId = null;
   if (plan.groupBy === "salesperson") groupId = "$assignedTo";
   if (plan.groupBy === "stage") groupId = "$stage";
-  if (plan.groupBy === "status") groupId = "$status";
   if (plan.groupBy === "month") groupId = { $dateToString: { format: "%Y-%m", date: "$reportDate" } };
   if (plan.groupBy === "size") {
     groupId = {
@@ -1648,12 +1643,12 @@ async function runDealsReport(plan, user) {
     groupStage.value = { $sum: 1 };
   }
   if (plan.metric === "avg_deal_size") {
-    groupStage.totalValue = { $sum: { $cond: [{ $eq: ["$status", "won"] }, { $ifNull: ["$dealValue", 0] }, 0] } };
-    groupStage.wonCount = { $sum: { $cond: [{ $eq: ["$status", "won"] }, 1, 0] } };
+    groupStage.totalValue = { $sum: { $cond: [{ $eq: ["$stage", DEAL_WON_STAGE] }, { $ifNull: ["$dealValue", 0] }, 0] } };
+    groupStage.wonCount = { $sum: { $cond: [{ $eq: ["$stage", DEAL_WON_STAGE] }, 1, 0] } };
   }
   if (plan.metric === "win_rate") {
-    groupStage.wonCount = { $sum: { $cond: [{ $eq: ["$status", "won"] }, 1, 0] } };
-    groupStage.closedCount = { $sum: { $cond: [{ $in: ["$status", ["won", "lost"]] }, 1, 0] } };
+    groupStage.wonCount = { $sum: { $cond: [{ $eq: ["$stage", DEAL_WON_STAGE] }, 1, 0] } };
+    groupStage.closedCount = { $sum: { $cond: [{ $in: ["$stage", [DEAL_WON_STAGE, DEAL_LOST_STAGE]] }, 1, 0] } };
   }
   if (plan.metric === "average_sales_cycle") {
     groupStage.totalDays = {
@@ -1664,7 +1659,7 @@ async function runDealsReport(plan, user) {
     groupStage.dealCount = { $sum: 1 };
   }
 
-  if (plan.metric === "lost_revenue") pipeline.push({ $match: { status: "lost" } });
+  if (plan.metric === "lost_revenue") pipeline.push({ $match: { stage: DEAL_LOST_STAGE } });
 
   pipeline.push({ $group: groupStage });
 
@@ -1958,7 +1953,7 @@ async function runClientsReport(plan, user) {
   if (plan.metric === "top_clients_revenue") {
     const match = {
       is_deleted: false,
-      status: "won",
+      stage: DEAL_WON_STAGE,
       client_id: { $ne: null },
     };
     if (scopedIds.length) {
@@ -1999,7 +1994,7 @@ async function runClientsReport(plan, user) {
 
   const inactiveClientDealScope = {
     is_deleted: false,
-    status: "open",
+    stage: OPEN_DEAL_STAGE_FILTER,
     client_id: { $ne: null },
   };
   if (scopedIds.length) {
@@ -2379,7 +2374,7 @@ function buildColumns(plan) {
   if (plan.metric === "list_deals") {
     return [
       { key: "label", label: "Deal" },
-      { key: "value", label: "Status / Value" },
+      { key: "value", label: "Stage / Value" },
     ];
   }
 

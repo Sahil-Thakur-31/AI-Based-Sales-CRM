@@ -24,12 +24,6 @@ const dealsSchema = new mongoose.Schema(
       default: "P3",
     },
 
-    status: {
-      type: String,
-      enum: ["open", "won", "lost"],
-      default: "open",
-    },
-
     dealValue: {
       type: Number,
     },

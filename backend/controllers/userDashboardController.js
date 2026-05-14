@@ -6,6 +6,10 @@ const Event = require("../models/events");
 const Followup = require("../models/followUp");
 const SalesTarget = require("../models/sales_targets");
 
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+const OPEN_DEAL_STAGE_FILTER = { $nin: [DEAL_WON_STAGE, DEAL_LOST_STAGE] };
+
 function startOfDay(date = new Date()) {
   const value = new Date(date);
   value.setHours(0, 0, 0, 0);
@@ -262,7 +266,7 @@ exports.getDashboard = async (req, res) => {
       activeDeals,
       activeLeads,
       newDealsThisWeek,
-      dealStatusAgg,
+      dealStageAgg,
       pipelineValueAgg,
       leadPipelineValueAgg,
       highProbabilityDeals,
@@ -293,7 +297,7 @@ exports.getDashboard = async (req, res) => {
         .lean(),
       Deal.countDocuments({
         assignedTo: assignedUserMatch,
-        status: "open",
+        stage: OPEN_DEAL_STAGE_FILTER,
         is_deleted: { $ne: true }
       }),
       Lead.countDocuments({
@@ -304,7 +308,7 @@ exports.getDashboard = async (req, res) => {
       }),
       Deal.countDocuments({
         assignedTo: assignedUserMatch,
-        status: "open",
+        stage: OPEN_DEAL_STAGE_FILTER,
         createdAt: { $gte: rangeStart, $lt: rangeEnd },
         is_deleted: { $ne: true }
       }),
@@ -317,7 +321,7 @@ exports.getDashboard = async (req, res) => {
         },
         {
           $group: {
-            _id: "$status",
+            _id: "$stage",
             count: { $sum: 1 },
             value: { $sum: { $ifNull: ["$dealValue", 0] } }
           }
@@ -354,7 +358,7 @@ exports.getDashboard = async (req, res) => {
       ]),
       Deal.find({
         assignedTo: assignedUserMatch,
-        status: "open",
+        stage: OPEN_DEAL_STAGE_FILTER,
         probability: { $gte: 70 },
         is_deleted: { $ne: true }
       })
@@ -442,7 +446,7 @@ exports.getDashboard = async (req, res) => {
         {
           $match: {
             assignedTo: assignedUserMatch,
-            status: "won",
+            stage: DEAL_WON_STAGE,
             is_deleted: { $ne: true },
             $or: [
               { actualCloseDate: { $gte: rangeStart, $lt: rangeEnd } },
@@ -462,9 +466,9 @@ exports.getDashboard = async (req, res) => {
       ])
     ]);
 
-    const dealStatusMap = new Map(dealStatusAgg.map((item) => [String(item._id), item]));
-    const wonDeals = dealStatusMap.get("won")?.count || 0;
-    const lostDeals = dealStatusMap.get("lost")?.count || 0;
+    const dealStageMap = new Map(dealStageAgg.map((item) => [String(item._id), item]));
+    const wonDeals = dealStageMap.get(DEAL_WON_STAGE)?.count || 0;
+    const lostDeals = dealStageMap.get(DEAL_LOST_STAGE)?.count || 0;
     const closedDeals = wonDeals + lostDeals;
     const winRate = closedDeals ? Math.round((wonDeals / closedDeals) * 100) : 0;
     const dealPipelineValue = Number(pipelineValueAgg?.[0]?.total || 0);
