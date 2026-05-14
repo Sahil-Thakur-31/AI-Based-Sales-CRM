@@ -279,7 +279,7 @@ export default function TeamTargetsManager() {
           </div>
 
           <div className="team-targets-table-wrap">
-            <table className="team-targets-table">
+            <table className="team-targets-table crm-auto-responsive-table">
               <thead>
                 <tr>
                   <th>Member</th>

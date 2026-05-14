@@ -237,10 +237,10 @@ export default function AILeadGeneration() {
           </div>
         </div>
 
-        <table className="aiLead-table">
+        <table className="aiLead-table crm-auto-responsive-table">
           <thead>
             <tr>
-              <th className="aiLead-checkCol">
+              <th className="aiLead-checkCol" data-label="Select">
                 <input
                   type="checkbox"
                   checked={allFilteredSelected}

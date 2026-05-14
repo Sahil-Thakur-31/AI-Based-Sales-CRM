@@ -539,7 +539,7 @@ function SalesTab({ filters, selectedUser }) {
             <p style={{ color: "#9ca3af", fontSize: 13 }}>No data for this period</p>
           ) : (
             <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "#f9fafb" }}>
                     {["Name", "Target Rev", "Completed Rev", "Target Deals", "Completed Deals", "Win Rate"].map((h) => (
@@ -643,7 +643,7 @@ function SalesTab({ filters, selectedUser }) {
         </div>
 
         <div style={{ marginTop: 18, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+          <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 {["Deal Name", "Company", "Created On", "Closed On", "Deal Value", "Status", "Stage", "Assigned To"].map((header) => (

@@ -343,7 +343,7 @@ export default function QuotationDetails() {
                   </section>
 
                   <section className="qdoc-items-section">
-                    <table>
+                    <table className="crm-auto-responsive-table">
                       <thead>
                         <tr>
                           <th>#</th>

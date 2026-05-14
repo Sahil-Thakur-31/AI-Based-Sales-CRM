@@ -1,0 +1,108 @@
+@media screen and (max-width: 768px) {
+  table.crm-auto-responsive-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  table.crm-auto-responsive-table colgroup,
+  table.crm-auto-responsive-table thead {
+    display: none;
+  }
+
+  table.crm-auto-responsive-table,
+  table.crm-auto-responsive-table tbody,
+  table.crm-auto-responsive-table tr,
+  table.crm-auto-responsive-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  table.crm-auto-responsive-table tbody {
+    padding: 8px;
+  }
+
+  table.crm-auto-responsive-table tbody tr {
+    margin-bottom: 8px;
+    border: 1px solid #e2e8f3;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+  }
+
+  table.crm-auto-responsive-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  table.crm-auto-responsive-table tbody tr:hover {
+    background: #ffffff;
+  }
+
+  table.crm-auto-responsive-table tbody tr td:not([data-no-label="true"]) {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-top: 1px solid #edf2f7;
+    text-align: right;
+  }
+
+  table.crm-auto-responsive-table tbody tr td:not([data-no-label="true"]):first-child,
+  table.crm-auto-responsive-table tbody tr td[data-no-label="true"]:first-child {
+    border-top: none;
+  }
+
+  table.crm-auto-responsive-table tbody tr td:not([data-no-label="true"])::before {
+    content: attr(data-label);
+    flex: 0 0 96px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  table.crm-auto-responsive-table tbody tr td:not([data-no-label="true"]) > * {
+    max-width: calc(100% - 104px);
+  }
+
+  table.crm-auto-responsive-table tbody tr td[data-no-label="true"] {
+    padding: 8px 10px;
+    border-top: 1px solid #edf2f7;
+  }
+
+  table.crm-auto-responsive-table tbody tr td[colspan]:not([colspan="1"]) {
+    padding: 0;
+    border-top: none;
+  }
+
+  table.crm-auto-responsive-table tbody tr td[colspan]:not([colspan="1"])::before {
+    content: none;
+  }
+
+  table.crm-auto-responsive-table .admin-config-empty,
+  table.crm-auto-responsive-table .team-table-empty,
+  table.crm-auto-responsive-table .aiLead-emptyCell {
+    padding: 14px 10px !important;
+    text-align: center !important;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  table.crm-auto-responsive-table input,
+  table.crm-auto-responsive-table select,
+  table.crm-auto-responsive-table textarea {
+    width: min(100%, 220px);
+    max-width: 100%;
+    margin-left: auto;
+  }
+
+  table.crm-auto-responsive-table button {
+    max-width: 100%;
+  }
+}

@@ -1321,19 +1321,158 @@ td {
     border-radius: 0 0 12px 12px;
   }
 
-  table {
-    min-width: 720px;
+  .crm-responsive-table {
+    min-width: 0;
+  }
+
+  .crm-responsive-table thead {
+    display: none;
+  }
+
+  .crm-responsive-table,
+  .crm-responsive-table tbody,
+  .crm-responsive-table tr,
+  .crm-responsive-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .crm-responsive-table tbody {
+    padding: 8px;
+  }
+
+  .crm-responsive-table tbody tr {
+    margin-bottom: 8px;
+    border: 1px solid #e2e8f3;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+  }
+
+  .crm-responsive-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .crm-responsive-table tbody tr:hover {
+    background: #ffffff;
+  }
+
+  .crm-responsive-table tbody tr:not(.crm-table-status-row):not(.client-accordion-panel-row) td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-top: 1px solid #edf2f7;
+    text-align: right;
+  }
+
+  .crm-responsive-table tbody tr:not(.crm-table-status-row):not(.client-accordion-panel-row) td:first-child {
+    border-top: none;
+  }
+
+  .crm-responsive-table tbody tr:not(.crm-table-status-row):not(.client-accordion-panel-row) td::before {
+    content: attr(data-label);
+    flex: 0 0 88px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .crm-responsive-table tbody tr:not(.crm-table-status-row):not(.client-accordion-panel-row) td > * {
+    max-width: 100%;
+  }
+
+  .crm-table-status-row td {
+    padding: 14px 10px;
+    text-align: center;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .crm-responsive-table .company-cell,
+  .crm-responsive-table .contact-name {
+    font-size: 14px;
+  }
+
+  .crm-responsive-table .company-cell {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    text-align: right;
+    line-height: 1.35;
+  }
+
+  .crm-responsive-table .deal-contact-cell,
+  .crm-responsive-table .col-contact,
+  .crm-responsive-table .col-last-contact,
+  .crm-responsive-table .last-contact-cell {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    white-space: normal;
+  }
+
+  .crm-responsive-table .deal-contact-cell {
+    text-align: right;
+  }
+
+  .crm-responsive-table .deal-contact-cell .contact-name,
+  .crm-responsive-table .deal-contact-cell .contact-subtext {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .crm-responsive-table .contact-subtext,
+  .crm-responsive-table .delete-reason {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .crm-responsive-table .ai-chip,
+  .crm-responsive-table .stage-chip {
+    padding: 5px 10px;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .crm-responsive-table td[data-label="Actions"] {
+    align-items: flex-start;
+  }
+
+  .crm-responsive-table td[data-label="Actions"] .row-actions {
+    margin-left: auto;
+    width: auto;
+    max-width: 170px;
+    gap: 6px;
   }
 
   .row-actions {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: stretch;
   }
 
   .row-actions .view-btn,
   .row-actions .quote-btn {
-    width: 100%;
+    width: auto;
+    min-height: 32px;
+    padding: 7px 10px;
+    font-size: 12px;
     text-align: center;
+  }
+
+  .row-actions .soft-delete-btn,
+  .row-actions .convert-btn {
+    padding: 7px 10px;
+    font-size: 12px;
   }
 
   .lead-page {
@@ -1354,6 +1493,47 @@ td {
   .form-actions .soft-delete-btn,
   .form-actions .save-btn {
     width: 100%;
+  }
+
+  .client-accordion-panel-row {
+    margin-top: -6px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+
+  .client-accordion-panel-row td {
+    padding: 0 0 8px;
+  }
+
+  .client-accordion-panel-row td::before {
+    content: none;
+  }
+
+  .client-accordion-panel {
+    width: calc(100% - 16px);
+    margin: 0 8px 8px;
+    padding: 6px;
+  }
+
+  .client-history-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .client-history-actions {
+    margin-left: 0;
+  }
+
+  .client-history-inline {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .client-history-badge {
+    font-size: 10px;
+    padding: 2px 6px;
   }
 }
 

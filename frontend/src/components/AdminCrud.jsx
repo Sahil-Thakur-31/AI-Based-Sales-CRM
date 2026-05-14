@@ -312,13 +312,13 @@ export default function AdminCrud({
       </div>
 
 
-      <table className="admin-config-table">
+      <table className="admin-config-table crm-auto-responsive-table">
 
         <thead>
 
           <tr>
 
-            <th>
+            <th data-label="Select">
 
               <input
                 type="checkbox"

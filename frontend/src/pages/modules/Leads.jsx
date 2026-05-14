@@ -1456,7 +1456,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
       </div>
 
       <div className="table-wrapper">
-        <table>
+        <table className="crm-responsive-table">
           <thead>
             <tr>
               <th>Company</th>
@@ -1474,32 +1474,36 @@ function LeadsDashboard({ defaultView = "leads" }) {
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
-            {!loading && paginatedRows.length === 0 && <tr><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
+            {loading && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
+            {!loading && paginatedRows.length === 0 && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
             {!loading && paginatedRows.map((row) => {
               const t = getTemperature(row);
               return (
                 <tr key={row._id}>
-                  <td className="company-cell" title={viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}>
+                  <td
+                    className="company-cell"
+                    data-label="Company"
+                    title={viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}
+                  >
                     {viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}
                   </td>
                   {viewMode === "deals" && (
-                    <td className="deal-contact-cell">
+                    <td className="deal-contact-cell" data-label="Contact">
                       <div className="contact-name">{row.primary_contact?.name || "-"}</div>
                       <small className="contact-subtext">{row.primary_contact?.email || row.primary_contact?.phone || "-"}</small>
                     </td>
                   )}
-                  <td>{row.industry || "-"}</td>
-                  <td>{formatCurrency(row.deal_value_estimate)}</td>
+                  <td data-label="Industry">{row.industry || "-"}</td>
+                  <td data-label="Value">{formatCurrency(row.deal_value_estimate)}</td>
                   {viewMode === "leads" && (
-                    <td>
+                    <td data-label="Stage">
                       <span className="stage-chip">
                         {row.stage || "-"}
                       </span>
                     </td>
                   )}
                   {viewMode === "leads" && (
-                    <td>
+                    <td data-label="AI Score">
                       <span className={`ai-chip ${t}`}>
                         {`${row.ai_score ?? "-"} - ${getTemperatureLabel(t)}`}
                       </span>
@@ -1507,29 +1511,29 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   )}
 
                   {viewMode === "deals" && (
-                    <td>
+                    <td data-label="Stage">
                       <span className="stage-chip">
                         {row.stage || "-"}
                       </span>
                     </td>
                   )}
-                  <td className="last-contact-cell">{formatDate(row.last_contact_date)}</td>
-                  {!(viewMode === "deals" && activeTab === "inactive") && <td>{row.next_action || "-"}</td>}
+                  <td className="last-contact-cell" data-label="Last Contact">{formatDate(row.last_contact_date)}</td>
+                  {!(viewMode === "deals" && activeTab === "inactive") && <td data-label="Next Action">{row.next_action || "-"}</td>}
                   {viewMode === "deals" && activeTab === "inactive" && (
-                    <td>
+                    <td data-label="Stage">
                       <span className="stage-chip">
                         {row.stage || "-"}
                       </span>
                     </td>
                   )}
                   {activeTab === "deleted" && (
-                    <td>
+                    <td data-label="Delete Reason">
                       <span className="delete-reason">
                         {row.delete_reason || row.deleted_reason || "No reason provided"}
                       </span>
                     </td>
                   )}
-                  <td>
+                  <td data-label="Actions">
                     <div className="row-actions">
                       <button
                         className="view-btn"

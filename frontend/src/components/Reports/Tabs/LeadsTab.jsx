@@ -536,7 +536,7 @@ export default function LeadsTab({ filters }) {
         </div>
 
         <div style={{ marginTop: 18, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
+          <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 {["Company", "Created On", "Source", "Status", "Activity", "Temperature", "Assigned To", "Follow-Ups", "Meetings"].map((header) => (
