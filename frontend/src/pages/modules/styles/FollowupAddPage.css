@@ -23,9 +23,20 @@
 
 .fuaToolbar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e6ebf5;
+}
+
+.fuaToolbarTabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .fuaScope {
@@ -42,37 +53,46 @@
 }
 
 .fuaToolbarBtn {
-  min-height: 54px;
-  border: 1px solid #d5dce6;
-  background: #f8fafc;
-  color: #0f1f38;
-  border-radius: 16px;
-  padding: 0 20px;
-  font-size: 15px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  color: #6b7a99;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 10px;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .fuaToolbarBtn:hover {
-  transform: translateY(-1px);
-  border-color: #c6d0de;
-  background: #ffffff;
+  color: #2f3ea8;
+  background: rgba(95, 114, 255, 0.06);
 }
 
 .fuaToolbarIcon {
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1;
 }
 
 .fuaToolbarBtn.active {
-  background: #eef2ff;
-  border-color: #cfd8ff;
-  color: #3026c7;
-  box-shadow: inset 0 0 0 1px #dfe5ff;
+  color: #2f3ea8;
+  background: transparent;
+}
+
+.fuaToolbarBtn.active::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: -9px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(130deg, #5f72ff, #7f4dd5);
 }
 
 .fuaPanel {
@@ -747,22 +767,71 @@
   color: #0f2748;
 }
 
+.fuaSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fuaSectionMeta {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.fuaListPagination .pagination-container {
+  margin-top: 4px;
+  border: 1px solid #e6ebf2;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #f8fafc;
+}
+
 .fuaFilterBar {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
 }
 
 .fuaFilterSelect {
   border: 1px solid #dbe2ff;
   background: #ffffff;
   color: #334155;
-  border-radius: 10px;
-  padding: 8px 12px;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 36px 0 12px;
   font-size: 13px;
   font-weight: 600;
-  min-width: 190px;
+  min-width: 170px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%236b7a99' height='20' viewBox='0 0 20 20' width='20'><path d='M5 7l5 5 5-5H5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 18px;
+}
+
+.fuaDateFilter {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.fuaToolbarDateFilter {
+  flex-wrap: nowrap;
+}
+
+.fuaDateFilter .dashboard-report-filter {
+  min-width: 170px;
+  border-radius: 8px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.fuaDateFilter .dashboard-report-filter-input {
+  min-width: 92px;
 }
 
 .fuaSelectedInfo {
@@ -804,6 +873,24 @@
 
   .fuaSelectedGrid {
     grid-template-columns: 1fr;
+  }
+
+  .fuaDateFilter {
+    margin-left: 0;
+    justify-content: stretch;
+  }
+
+  .fuaToolbar {
+    align-items: stretch;
+  }
+
+  .fuaToolbarTabs {
+    width: 100%;
+  }
+
+  .fuaToolbarDateFilter {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
 
