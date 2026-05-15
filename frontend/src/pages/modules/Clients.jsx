@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import Pagination from "../../components/Pagination";
+import StageBadge from "../../components/StageBadge";
 import "./styles/LeadsDashboard.css";
 
 function formatCurrency(value) {
@@ -362,7 +363,7 @@ export default function Clients() {
                                         {index === 0 ? "Latest" : "Previous"}
                                       </span>
                                       <strong>{deal?.company_name || client.name || "Untitled Deal"}</strong>
-                                      <span>Stage: {deal?.stage || "-"}</span>
+                                      <span>Stage: <StageBadge stage={deal?.stage} bucket="deal" compact /></span>
                                       <span>Value: {formatCurrency(deal?.deal_value_estimate || 0)}</span>
                                       <span>Updated: {formatDate(updatedOn)}</span>
                                     </div>

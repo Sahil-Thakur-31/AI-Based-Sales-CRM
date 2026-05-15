@@ -4,6 +4,8 @@ import API from "../../api";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import BackButton from "../../components/BackButton";
+import StageBadge from "../../components/StageBadge";
+import { DEAL_STAGE_OPTIONS, LEAD_STAGE_OPTIONS } from "../../utils/stages";
 import "./styles/LeadsDashboard.css";
 
 function getUserIdFromToken() {
@@ -1631,14 +1633,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             <label>Stage</label>
             {editMode ? (
               <select name="stage" value={lead.stage || "P3"} onChange={handleLeadChange}>
-                <option value="P1">P1</option>
-                <option value="P2">P2</option>
-                <option value="P3">P3</option>
-                <option value="P6">P6</option>
-                <option value="P7">P7</option>
+                {DEAL_STAGE_OPTIONS.map((stage) => (
+                  <option key={stage.key} value={stage.key}>{stage.title}</option>
+                ))}
               </select>
             ) : (
-              <p>{lead.stage || "P3"}</p>
+              <p><StageBadge stage={lead.stage || "P3"} bucket="deal" /></p>
             )}
           </div>
         )}
@@ -1649,16 +1649,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             <label>Stage</label>
             {editMode ? (
               <select name="stage" value={lead.stage || "P3"} onChange={handleLeadChange}>
-                <option value="P1">P1</option>
-                <option value="P2">P2</option>
-                <option value="P3">P3</option>
-                <option value="P4">P4</option>
-                <option value="P5">P5</option>
-                <option value="P6">P6</option>
-                <option value="P7">P7</option>
+                {LEAD_STAGE_OPTIONS.map((stage) => (
+                  <option key={stage.key} value={stage.key}>{stage.title}</option>
+                ))}
               </select>
             ) : (
-              <p>{lead.stage || "P3"}</p>
+              <p><StageBadge stage={lead.stage || "P3"} bucket="lead" /></p>
             )}
           </div>
         )}

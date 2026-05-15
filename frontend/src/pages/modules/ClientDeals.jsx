@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../api";
 import Pagination from "../../components/Pagination";
+import StageBadge from "../../components/StageBadge";
 import "./styles/LeadsDashboard.css";
 
 function formatCurrency(value) {
@@ -112,7 +113,7 @@ export default function ClientDeals() {
                 return (
                   <tr key={dealId}>
                     <td className="company-cell" data-label="Company">{deal.company_name || "-"}</td>
-                    <td data-label="Stage">{deal.stage || "-"}</td>
+                    <td data-label="Stage"><StageBadge stage={deal.stage} bucket="deal" compact /></td>
                     <td data-label="Value">{formatCurrency(deal.deal_value_estimate || deal.dealValue)}</td>
                     <td data-label="Updated">{formatDate(deal.updatedAt || deal.last_contact_date)}</td>
                     <td data-label="Actions">

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import DashboardDateFilter from "../../components/DashboardDateFilter";
 import Pagination from "../../components/Pagination";
+import StageBadge, { StageCard } from "../../components/StageBadge";
 import "./styles/teamDashboard.css";
 
 function formatCurrency(value) {
@@ -840,7 +841,7 @@ export default function TeamDashboard() {
                       </p>
                       <span title={`Assigned To: ${followup.assignedTo?.name || "Unassigned"} | Stage: ${followup.stage || "-"}`}>
                         Assigned To: {followup.assignedTo?.name || "Unassigned"} | Stage:{" "}
-                        {followup.stage || "-"}
+                        <StageBadge stage={followup.stage} bucket={followupViewType} compact />
                       </span>
                     </div>
                     <div className="team-followup-side">
@@ -906,28 +907,13 @@ export default function TeamDashboard() {
             <div className="team-stage-list">
               {(pipelineCardData[pipelineViewType]?.stages || []).length ? (
                 (pipelineCardData[pipelineViewType]?.stages || []).map((item) => (
-                  <div key={item.stage} className="team-stage-row">
-                    <span>{item.stage}</span>
-                    <div className="team-stage-bar">
-                      <span
-                        style={{
-                          width: `${
-                            (pipelineCardData[pipelineViewType]?.totals?.count || 0)
-                              ? Math.max(
-                                  6,
-                                  Math.round(
-                                    ((Number(item.count || 0) || 0) /
-                                      (pipelineCardData[pipelineViewType]?.totals?.count || 1)) *
-                                      100
-                                  )
-                                )
-                              : 0
-                          }%`
-                        }}
-                      />
-                    </div>
-                    <strong>{item.count}</strong>
-                  </div>
+                  <StageCard
+                    key={item.stage}
+                    stage={item.stage}
+                    bucket={pipelineViewType}
+                    count={Number(item.count || 0)}
+                    compact
+                  />
                 ))
               ) : (
                 <div className="team-muted">No active stage data</div>
@@ -1110,7 +1096,7 @@ export default function TeamDashboard() {
                         <tbody>
                           {filteredPipelineStageSummary.map((stage) => (
                             <tr key={stage.stage}>
-                              <td>{stage.stage}</td>
+                              <td><StageBadge stage={stage.stage} bucket={pipelineDetailType} compact /></td>
                               <td>{stage.dealCount}</td>
                               <td>{formatCurrency(stage.totalValue)}</td>
                             </tr>
@@ -1151,7 +1137,7 @@ export default function TeamDashboard() {
                           {filteredPipelineRecords.map((item) =>
                             pipelineDetailType === "deal" ? (
                               <tr key={`${item._id}-${item.stageLabel}`}>
-                                <td>{item.stageLabel || "-"}</td>
+                                <td><StageBadge stage={item.stageLabel} bucket="deal" compact /></td>
                                 <td title={item.companyName}>{item.companyName || "-"}</td>
                                 <td title={item.assignedTo?.email || ""}>
                                   {item.assignedTo?.name || "Unassigned"}
@@ -1162,7 +1148,7 @@ export default function TeamDashboard() {
                               </tr>
                             ) : (
                               <tr key={`${item._id}-${item.stageLabel}`}>
-                                <td>{item.stageLabel || "-"}</td>
+                                <td><StageBadge stage={item.stageLabel} bucket="lead" compact /></td>
                                 <td title={item.companyName}>{item.companyName || "-"}</td>
                                 <td title={item.assignedTo?.email || ""}>
                                   {item.assignedTo?.name || "Unassigned"}
@@ -1332,7 +1318,7 @@ export default function TeamDashboard() {
                             filteredMemberDeals.map((deal) => (
                               <tr key={`${deal._id}-${deal.stage || ""}`}>
                                 <td title={deal.companyName}>{deal.companyName || "-"}</td>
-                                <td>{deal.stage || "-"}</td>
+                                <td><StageBadge stage={deal.stage} bucket="deal" compact /></td>
                                 <td>{formatCurrency(deal.dealValue || 0)}</td>
                                 <td>{formatDate(deal.expectedCloseDate)}</td>
                               </tr>
@@ -1401,7 +1387,7 @@ export default function TeamDashboard() {
                               filteredMemberLeads.map((lead) => (
                                 <tr key={lead._id}>
                                   <td title={lead.companyName}>{lead.companyName || "-"}</td>
-                                  <td>{lead.stage || "-"}</td>
+                                  <td><StageBadge stage={lead.stage} bucket="lead" compact /></td>
                                   <td>{formatCurrency(lead.estimatedValue || 0)}</td>
                                   <td>{formatDateTime(lead.lastContactDate)}</td>
                                   <td title={lead.nextAction}>{lead.nextAction || "-"}</td>
@@ -1588,8 +1574,9 @@ export default function TeamDashboard() {
               <div className="team-modal-section">
                 <h4>Details</h4>
                 <p className="team-modal-text">
-                  Action: {selectedFollowupRow.actionType || "-"} | Stage: {selectedFollowupRow.stage || "-"} |
-                  {" "}Status: {selectedFollowupRow.status || "-"}
+                  Action: {selectedFollowupRow.actionType || "-"} | Stage:{" "}
+                  <StageBadge stage={selectedFollowupRow.stage} bucket={selectedFollowupRow.entityType || followupViewType} compact /> |{" "}
+                  Status: {selectedFollowupRow.status || "-"}
                 </p>
                 <p className="team-modal-text">{selectedFollowupRow.notes || "No additional notes."}</p>
               </div>

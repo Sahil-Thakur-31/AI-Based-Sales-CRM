@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import Pagination from "../../components/Pagination";
+import StageBadge from "../../components/StageBadge";
 import "./styles/LeadsDashboard.css";
 import "./styles/Expense.css";
 
@@ -1456,26 +1457,20 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   <td data-label="Value">{formatCurrency(row.deal_value_estimate)}</td>
                   {viewMode === "leads" && (
                     <td data-label="Stage">
-                      <span className="stage-chip">
-                        {row.stage || "-"}
-                      </span>
+                      <StageBadge stage={row.stage} bucket="lead" compact />
                     </td>
                   )}
 
                   {viewMode === "deals" && (
                     <td data-label="Stage">
-                      <span className="stage-chip">
-                        {row.stage || "-"}
-                      </span>
+                      <StageBadge stage={row.stage} bucket="deal" compact />
                     </td>
                   )}
                   <td className="last-contact-cell" data-label="Last Contact">{formatDate(row.last_contact_date)}</td>
                   {!(viewMode === "deals" && activeTab === "inactive") && <td data-label="Next Action">{row.next_action || "-"}</td>}
                   {viewMode === "deals" && activeTab === "inactive" && (
                     <td data-label="Stage">
-                      <span className="stage-chip">
-                        {row.stage || "-"}
-                      </span>
+                      <StageBadge stage={row.stage} bucket="deal" compact />
                     </td>
                   )}
                   {activeTab === "deleted" && (

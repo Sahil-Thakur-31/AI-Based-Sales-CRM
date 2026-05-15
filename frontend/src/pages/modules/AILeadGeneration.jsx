@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../../api";
+import Pagination from "../../components/Pagination";
 import "./styles/AILeadGeneration.css";
 
 function normalizeText(value) {
@@ -14,6 +15,7 @@ function compareText(left, right) {
 }
 
 export default function AILeadGeneration() {
+  const itemsPerPage = 10;
   const [leads, setLeads] = useState([]);
   const [summary, setSummary] = useState({
     total: 0,
@@ -34,6 +36,7 @@ export default function AILeadGeneration() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [sortBy, setSortBy] = useState("company-asc");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadAiLeads = async () => {
     try {
@@ -127,12 +130,27 @@ export default function AILeadGeneration() {
     );
   }, [remainingLeads]);
 
-  const filteredLeadIds = useMemo(
-    () => filteredLeads.map((lead) => String(lead._id || "")).filter(Boolean),
-    [filteredLeads]
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedIndustry, sortBy, filteredLeads.length]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / itemsPerPage));
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const paginatedLeads = useMemo(
+    () => filteredLeads.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [filteredLeads, currentPage]
   );
-  const allFilteredSelected =
-    filteredLeadIds.length > 0 && filteredLeadIds.every((id) => selectedLeadIds.includes(id));
+
+  const visibleLeadIds = useMemo(
+    () => paginatedLeads.map((lead) => String(lead._id || "")).filter(Boolean),
+    [paginatedLeads]
+  );
+  const allVisibleSelected =
+    visibleLeadIds.length > 0 && visibleLeadIds.every((id) => selectedLeadIds.includes(id));
 
   const toggleLeadSelection = (leadId) => {
     setSelectedLeadIds((prev) =>
@@ -140,12 +158,12 @@ export default function AILeadGeneration() {
     );
   };
 
-  const toggleSelectAllFiltered = () => {
+  const toggleSelectAllVisible = () => {
     setSelectedLeadIds((prev) => {
-      if (allFilteredSelected) {
-        return prev.filter((id) => !filteredLeadIds.includes(id));
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleLeadIds.includes(id));
       }
-      return Array.from(new Set([...prev, ...filteredLeadIds]));
+      return Array.from(new Set([...prev, ...visibleLeadIds]));
     });
   };
 
@@ -169,6 +187,12 @@ export default function AILeadGeneration() {
   const importedLeads = Number(summary.imported || 0);
   const industryCount = Number(summary.industries || Math.max(0, industryOptions.length - 1));
   const todayFetchedCount = Number(summary.todayFetchedCount || 0);
+  const pageStart = filteredLeads.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const pageEnd = Math.min(currentPage * itemsPerPage, filteredLeads.length);
+  const resultsSummary =
+    filteredLeads.length === 0
+      ? `Showing 0 of 0 filtered leads (${totalLeads} total)`
+      : `Showing ${pageStart}-${pageEnd} of ${filteredLeads.length} filtered leads (${totalLeads} total)`;
 
   return (
     <div className="aiLead-container">
@@ -243,10 +267,10 @@ export default function AILeadGeneration() {
               <th className="aiLead-checkCol" data-label="Select">
                 <input
                   type="checkbox"
-                  checked={allFilteredSelected}
-                  onChange={toggleSelectAllFiltered}
-                  disabled={!filteredLeadIds.length}
-                  aria-label="Select all visible AI leads"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                  disabled={!visibleLeadIds.length}
+                  aria-label="Select all AI leads on this page"
                 />
               </th>
               <th>Company</th>
@@ -269,7 +293,7 @@ export default function AILeadGeneration() {
               </tr>
             )}
 
-            {!loading && filteredLeads.map((lead) => {
+            {!loading && paginatedLeads.map((lead) => {
               const leadId = String(lead._id || "");
               const isImporting = importingId === leadId;
               const checked = selectedLeadIds.includes(leadId);
@@ -316,7 +340,7 @@ export default function AILeadGeneration() {
             {!loading && filteredLeads.length === 0 && (
               <tr>
                 <td className="aiLead-emptyCell" colSpan={9}>
-                  No fetched leads found for the selected industry.
+                  No fetched leads match the current filters.
                 </td>
               </tr>
             )}
@@ -325,7 +349,7 @@ export default function AILeadGeneration() {
 
         <div className="aiLead-bulkBar">
           <p>
-            Showing {filteredLeads.length} of {totalLeads} fetched leads
+            {resultsSummary}
             {summary.lastImportedCount || summary.lastUpdatedCount
               ? ` | Last sync: ${summary.lastImportedCount || 0} new, ${summary.lastUpdatedCount || 0} updated`
               : ""}
@@ -340,6 +364,13 @@ export default function AILeadGeneration() {
               {bulkImporting ? "Importing..." : `Import Selected (${selectedLeadIds.length})`}
             </button>
           </div>
+        </div>
+        <div className="aiLead-pagination">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            handlePageChange={setCurrentPage}
+          />
         </div>
         {error && <p className="aiLead-errorText">{error}</p>}
       </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../../../api";
+import StageBadge from "../../StageBadge";
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("en-IN", {
@@ -670,7 +671,9 @@ function SalesTab({ filters, selectedUser }) {
                     <td style={{ padding: "12px 14px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(row.createdAt)}</td>
                     <td style={{ padding: "12px 14px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(row.closedAt)}</td>
                     <td style={{ padding: "12px 14px", color: "#334155", fontWeight: 600 }}>{formatCurrency(row.dealValue)}</td>
-                    <td style={{ padding: "12px 14px", color: "#475569" }}>{row.stage || "--"}</td>
+                    <td style={{ padding: "12px 14px", color: "#475569" }}>
+                      <StageBadge stage={row.stage} bucket="deal" compact fallback="--" />
+                    </td>
                     <td style={{ padding: "12px 14px", color: "#475569" }}>{row.assignedToName || "Unassigned"}</td>
                   </tr>
                 ))

@@ -4,21 +4,15 @@ import API from "../../api";
 import DashboardDateFilter from "../../components/DashboardDateFilter";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import Pagination from "../../components/Pagination";
+import StageBadge from "../../components/StageBadge";
+import { ALL_STAGE_OPTIONS } from "../../utils/stages";
 import { minLength } from "../../utils/formValidation";
 import { handleError } from "../../utils";
 import LeadFormPage from "./LeadFormPage";
 import "./styles/Followups.css";
 import "./styles/FollowupAddPage.css";
 
-const STAGES = [
-  { key: "P1", title: "P1 - Quote Sent" },
-  { key: "P2", title: "P2 - Meeting Scheduled" },
-  { key: "P3", title: "P3 - In Conversation" },
-  { key: "P4", title: "P4 - No Service" },
-  { key: "P5", title: "P5 - RNR" },
-  { key: "P6", title: "P6 - No Response" },
-  { key: "P7", title: "P7 - Won" },
-];
+const STAGES = ALL_STAGE_OPTIONS;
 const STAGE_KEYS = new Set(STAGES.map((s) => s.key));
 const EVENT_TYPES = new Set(["Physical Meeting", "Online Meeting", "Follow Up Phone Call"]);
 const PRIORITIES = new Set(["high", "medium", "low"]);
@@ -248,6 +242,11 @@ function isMeetingEventType(eventType = "") {
 
 function isPhysicalMeetingEvent(eventType = "") {
   return String(eventType).toLowerCase().includes("physical");
+}
+
+function inferRecordBucket(item = {}) {
+  if (item?.clientId || item?.dealId) return "deal";
+  return "lead";
 }
 
 function isCompletedStatus(status = "") {
@@ -1474,7 +1473,7 @@ export default function FollowupsAddPage() {
             <div className="title">{f.client} - {f.title}</div>
             <div className="meta">
               <span>Due: {f.due}</span>
-              <span>{f.stage}</span>
+              <StageBadge stage={f.stage} bucket={inferRecordBucket(f)} compact />
               <span className={cx("fuaStatus", String(f.status).toLowerCase() === "completed" ? "completed" : "pending")}>{completionText(f.status)}</span>
             </div>
           </div>
@@ -1691,7 +1690,7 @@ export default function FollowupsAddPage() {
             ["Client", item.clientName || "N/A"],
             ["Task", item.title || item.eventType || "N/A"],
             ["Meeting Location", item.meetingLocation || "-"],
-            ["Stage", item.stage || "-"],
+            ["Stage", <StageBadge stage={item.stage} bucket={inferRecordBucket(item)} />],
             ["Event Type", item.eventType || "-"],
             ["Time", item.time || "--:--"],
             ["Due", formatDate(item.dueDateTime)],
@@ -1711,7 +1710,7 @@ export default function FollowupsAddPage() {
           ["Client", item.client || "N/A"],
           ["Task", item.title || "N/A"],
           ["Assigned To", item.assignedToName || "-"],
-          ["Stage", item.stage || "-"],
+          ["Stage", <StageBadge stage={item.stage} bucket={inferRecordBucket(item)} />],
           ["Due", item.due || formatDate(item.dueDateTime)],
           ["Priority", item.priority || "-"],
           ["Status", item.status || "-"],

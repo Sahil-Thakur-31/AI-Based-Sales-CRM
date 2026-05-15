@@ -287,14 +287,10 @@
 
 /* ─── Stage strip ─── */
 .stageStrip {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-radius: var(--r14);
-  background: #fff;
-  border: 1px solid var(--border);
-  overflow: auto;
-  margin-bottom: 4px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .stageChip {

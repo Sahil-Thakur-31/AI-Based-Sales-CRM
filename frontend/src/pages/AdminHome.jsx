@@ -20,6 +20,7 @@ import {
 } from "@coreui/react";
 import Pagination from "../components/Pagination";
 import DashboardDateFilter from "../components/DashboardDateFilter";
+import StageBadge, { StageCard } from "../components/StageBadge";
 import "../styles/AdminHome.css";
 
 // ✅ Switch this to true only if you want mock data
@@ -60,15 +61,6 @@ function formatINR(value) {
 /* Custom Badge for AI labels */
 function AiBadge({ children, tone = "ai" }) {
   return <span className={cx("badge", `badge--${tone}`)}>{children}</span>;
-}
-
-// stage
-function StagePill({ stage }) {
-  return (
-    <CBadge color="light" className="stage-pill" shape="rounded-pill">
-      {stage}
-    </CBadge>
-  );
 }
 
 function buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeals, range) {
@@ -612,14 +604,14 @@ export default function AdminHome() {
               <CCardBody>
                 {/* Stage chips */}
                 <div className="stageStrip">
-                  {pipeline.map((p, idx) => (
-                    <div
+                  {pipeline.map((p) => (
+                    <StageCard
                       key={p.code}
-                      className={cx("stageChip", `stageChip--${idx + 1}`)}
-                    >
-                      <div className="stageChip__code">{p.code}</div>
-                      <div className="stageChip__count">{p.count}</div>
-                    </div>
+                      stage={p.code}
+                      bucket={pipelineType}
+                      count={Number(p.count || 0)}
+                      compact
+                    />
                   ))}
                 </div>
 
@@ -796,7 +788,7 @@ export default function AdminHome() {
                             {d.dealName}
                           </CTableDataCell>
                           <CTableDataCell>
-                            <StagePill stage={d.stage} />
+                            <StageBadge stage={d.stage} bucket="deal" compact />
                           </CTableDataCell>
                           <CTableDataCell className="tbl__value">
                             {formatINR(d.value)}
