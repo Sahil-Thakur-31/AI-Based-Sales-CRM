@@ -15,13 +15,6 @@ const DEAL_WON_STAGE = "P7";
 const DEAL_LOST_STAGE = "P6";
 const INACTIVE_DEAL_STAGES = new Set([DEAL_LOST_STAGE, DEAL_WON_STAGE]);
 
-function mapTemperatureFromLead(lead) {
-  const temp = (lead?.lead_temperature || "").toLowerCase();
-  if (temp === "hot") return { ai_score: 90, lead_temperature: "hot" };
-  if (temp === "warm") return { ai_score: 70, lead_temperature: "warm" };
-  return { ai_score: 50, lead_temperature: "cold" };
-}
-
 function toValidDate(value) {
   if (!value) return null;
   const d = new Date(value);
@@ -208,7 +201,6 @@ function buildLeadUpdatePayload(body = {}) {
     "source",
     "referred_by_user",
     "expo_event_id",
-    "lead_temperature",
     "next_action",
     "last_contact_date",
     "assigned_to",
@@ -891,7 +883,6 @@ exports.getDeals = async (req, res) => {
       const clientId = deal.client_id?.toString();
       const lead = leadId ? leadMap.get(leadId) : null;
       const client = clientId ? clientMap.get(clientId) : null;
-      const temperatureData = mapTemperatureFromLead(lead);
 
       return {
         _id: deal._id,
@@ -907,8 +898,6 @@ exports.getDeals = async (req, res) => {
           typeof deal.dealValue === "number"
             ? deal.dealValue
             : lead?.deal_value_estimate || 0,
-        ai_score: temperatureData.ai_score,
-        lead_temperature: temperatureData.lead_temperature,
         last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
         next_action: lead?.next_action || "",
         next_action_date: null,
@@ -1173,7 +1162,6 @@ exports.getDealById = async (req, res) => {
           ? deal.dealValue
           : lead?.deal_value_estimate || 0,
       assigned_to: deal.assignedTo || lead?.assigned_to || "",
-      lead_temperature: lead?.lead_temperature || "",
       stage: deal.stage || "",
       last_contact_date: lead?.last_contact_date || deal.updatedAt || null,
       next_action:

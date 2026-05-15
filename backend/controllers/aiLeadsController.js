@@ -9,14 +9,6 @@ function toTitleStatus(status) {
   return status === "imported" ? "Imported" : "New";
 }
 
-function getLeadTemperature(score) {
-  const numeric = Number(score);
-  if (!Number.isFinite(numeric)) return "cold";
-  if (numeric >= 90) return "hot";
-  if (numeric >= 75) return "warm";
-  return "cold";
-}
-
 function parseEmployeeCount(rangeValue) {
   const value = String(rangeValue || "").trim();
   const nums = value.match(/\d+/g);
@@ -227,7 +219,6 @@ exports.importAiLead = async (req, res) => {
         Address: aiLead.Address || "",
         website: aiLead.website || "",
         source: aiLead.source || null,
-        lead_temperature: getLeadTemperature(aiLead.similarity_score),
         deal_value_estimate: 0,
         assigned_to: req.user?._id || null,
         stage: "P3",

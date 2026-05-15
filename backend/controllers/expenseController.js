@@ -1,9 +1,12 @@
 const Expense = require("../models/expenses");
 const OcrFeedback = require("../models/ocrFeedback");
 const Notification = require("../models/notifications");
+const CRMSettings = require("../models/crmSettings");
 const Team = require("../models/teams");
 const getNextCounter = require("../utils/getNextCounter");
 const { extractReceiptData } = require("../services/expenseReceiptOcr");
+const { TEMPLATE_KEYS } = require("../services/emailTemplates");
+const { getNotificationChannels } = require("../services/notificationPreferences");
 const fs = require("fs").promises;
 const mongoose = require("mongoose");
 require("../models/users");
@@ -372,6 +375,11 @@ const parseBooleanField = (value) => {
   return ["true", "1", "yes", "y", "on"].includes(normalized);
 };
 
+const getExpenseNotificationChannels = async (userId) => {
+  const settings = await CRMSettings.findOne({ userId }).lean();
+  return getNotificationChannels(settings, "expenses");
+};
+
 exports.extractExpenseReceipt = async (req, res) => {
   const receiptFile = getFirstUploadedReceiptFile(req);
   try {
@@ -584,14 +592,19 @@ exports.approveExpense = async (req, res) => {
     expense.approval.approvedAt = new Date();
     await expense.save();
 
-    await Notification.create({
-      userId: expense.userId,
-      title: "Expense Approved",
-      message: `Your expense #${expense.expenseNo} has been approved.`,
-      type: "success",
-      relatedId: expense._id,
-      relatedType: "expense",
-    });
+    const deliveryChannels = await getExpenseNotificationChannels(expense.userId);
+    if (deliveryChannels.inApp || deliveryChannels.email) {
+      await Notification.create({
+        userId: expense.userId,
+        title: "Expense Approved",
+        message: `Your expense #${expense.expenseNo} has been approved.`,
+        type: "success",
+        relatedId: expense._id,
+        relatedType: "expense",
+        templateKey: TEMPLATE_KEYS.EXPENSE_APPROVED,
+        deliveryChannels,
+      });
+    }
 
     res.json({ message: "Expense Approved", expense });
   } catch (err) {
@@ -638,25 +651,35 @@ exports.updateExpenseStatus = async (req, res) => {
     await expense.save();
 
     if (status === "approved") {
-      await Notification.create({
-        userId: expense.userId,
-        title: "Expense Approved",
-        message: `Your expense #${expense.expenseNo} has been approved.`,
-        type: "success",
-        relatedId: expense._id,
-        relatedType: "expense",
-      });
+      const deliveryChannels = await getExpenseNotificationChannels(expense.userId);
+      if (deliveryChannels.inApp || deliveryChannels.email) {
+        await Notification.create({
+          userId: expense.userId,
+          title: "Expense Approved",
+          message: `Your expense #${expense.expenseNo} has been approved.`,
+          type: "success",
+          relatedId: expense._id,
+          relatedType: "expense",
+          templateKey: TEMPLATE_KEYS.EXPENSE_APPROVED,
+          deliveryChannels,
+        });
+      }
     }
 
     if (status === "rejected") {
-      await Notification.create({
-        userId: expense.userId,
-        title: "Expense Rejected",
-        message: `Your expense #${expense.expenseNo} was rejected. Reason: ${expense.approval.remarks}`,
-        type: "warning",
-        relatedId: expense._id,
-        relatedType: "expense",
-      });
+      const deliveryChannels = await getExpenseNotificationChannels(expense.userId);
+      if (deliveryChannels.inApp || deliveryChannels.email) {
+        await Notification.create({
+          userId: expense.userId,
+          title: "Expense Rejected",
+          message: `Your expense #${expense.expenseNo} was rejected. Reason: ${expense.approval.remarks}`,
+          type: "warning",
+          relatedId: expense._id,
+          relatedType: "expense",
+          templateKey: TEMPLATE_KEYS.EXPENSE_REJECTED,
+          deliveryChannels,
+        });
+      }
     }
 
     res.json({ message: "Expense status updated", expense });

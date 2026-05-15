@@ -14,6 +14,10 @@ const CRMSettings = require("../models/crmSettings");
 const { TEMPLATE_KEYS } = require("../services/emailTemplates");
 const { syncSingleMeetingToGoogle, deleteSingleMeetingFromGoogle } = require("../services/googleCalendarSync");
 const { refreshPrioritiesForFollowupAndMeeting } = require("../services/followupPriorityAiService");
+const {
+  getNotificationChannels,
+  isTimedReminderEnabled,
+} = require("../services/notificationPreferences");
 
 function normalizeRole(roleName = "") {
   return String(roleName).trim().toLowerCase();
@@ -591,11 +595,14 @@ async function createFollowupNotification(doc, userId, eventType) {
   if (!doc || !userId) return;
   if (doc.reminderEnabled === false && eventType === "created") return;
   const settings = await CRMSettings.findOne({ userId }).lean();
-  // Check if smart reminders are enabled and at least one method (inApp OR email) is enabled
-  if (!settings?.smartFollowupRemindersEnabled) return;
-  if (!settings?.reminderMethodInApp && !settings?.reminderMethodEmail) return;
-
   const isMeeting = doc.kind === "meeting";
+  const reminderKind = isMeeting ? "meeting" : "followup";
+  const deliveryChannels = {
+    inApp: isTimedReminderEnabled(settings, "app", reminderKind),
+    email: isTimedReminderEnabled(settings, "email", reminderKind),
+  };
+  if (!deliveryChannels.inApp && !deliveryChannels.email) return;
+
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
   const companyName = getNotificationCompanyName(doc);
   const itemType = getNotificationItemType(doc);
@@ -609,10 +616,12 @@ async function createFollowupNotification(doc, userId, eventType) {
     await Notification.create({
       userId,
       title: `${itemLabel} Created`,
-      message: `${itemType} scheduled for ${companyName} on ${scheduledText}. An in-app reminder will be shown ${formatReminderLabel(offsetMinutes)} before the scheduled time.`,
+      message: `${itemType} scheduled for ${companyName} on ${scheduledText}. Reminder delivery will follow your notification settings and the ${formatReminderLabel(offsetMinutes)} offset.`,
       type: "info",
       relatedId: doc._id,
       relatedType: "Followup",
+      templateKey: isMeeting ? TEMPLATE_KEYS.MEETING_SCHEDULED : TEMPLATE_KEYS.FOLLOWUP_SCHEDULED,
+      deliveryChannels,
     });
     return;
   }
@@ -625,6 +634,8 @@ async function createFollowupNotification(doc, userId, eventType) {
       type: "success",
       relatedId: doc._id,
       relatedType: "Followup",
+      templateKey: isMeeting ? TEMPLATE_KEYS.MEETING_COMPLETED : null,
+      deliveryChannels,
     });
   }
 }
@@ -635,11 +646,9 @@ async function createFollowupAssignmentNotification(doc) {
   if (!userId) return;
 
   const settings = await CRMSettings.findOne({ userId }).lean();
-  // Check if smart reminders are enabled and at least one method (inApp OR email) is enabled
-  if (!settings?.smartFollowupRemindersEnabled) return;
-  if (!settings?.reminderMethodInApp && !settings?.reminderMethodEmail) return;
-
   const isMeeting = doc.kind === "meeting";
+  const deliveryChannels = getNotificationChannels(settings, isMeeting ? "meetings" : "followups");
+  if (!deliveryChannels.inApp && !deliveryChannels.email) return;
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
   const companyName = getNotificationCompanyName(doc);
   const itemType = getNotificationItemType(doc);
@@ -653,6 +662,7 @@ async function createFollowupAssignmentNotification(doc) {
     relatedId: doc._id,
     relatedType: "Followup",
     templateKey: isMeeting ? TEMPLATE_KEYS.MEETING_ASSIGNED : TEMPLATE_KEYS.FOLLOWUP_ASSIGNED,
+    deliveryChannels,
   });
 }
 

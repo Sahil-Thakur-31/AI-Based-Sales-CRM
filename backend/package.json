@@ -7,10 +7,13 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js",
+    "start": "node index.js",
+    "start:watch": "node --watch index.js",
+    "start:nodemon": "nodemon index.js",
     "seed:events": "node seed/seedEvents.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.2",

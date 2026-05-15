@@ -5,10 +5,13 @@ const Location = require("../models/location");
 const Source = require("../models/sources");
 const EventScraperRun = require("../models/eventScraperRuns");
 const Notification = require("../models/notifications");
+const CRMSettings = require("../models/crmSettings");
 const Team = require("../models/teams");
 const User = require("../models/users");
 const Role = require("../models/roles");
 const { syncSingleCrmItemToGoogle } = require("../services/googleCalendarSync");
+const { TEMPLATE_KEYS } = require("../services/emailTemplates");
+const { getNotificationChannels } = require("../services/notificationPreferences");
 const REGISTRATION_GRACE_DAYS = 4;
 
 const sanitizeObjectIdList = (values = []) => {
@@ -152,6 +155,11 @@ const getAttendanceNotificationRecipients = async (actorUserId) => {
   recipients.delete(String(actorUserId));
 
   return Array.from(recipients).filter(Boolean);
+};
+
+const getEventNotificationChannels = async (userId) => {
+  const settings = await CRMSettings.findOne({ userId }).lean();
+  return getNotificationChannels(settings, "events");
 };
 
 const populateEventQuery = (query) =>
@@ -1143,16 +1151,29 @@ exports.registerForEvent = async (req, res) => {
     const previousSet = new Set(previousAttendeeUsers.map(String));
     const newAttendeeUsers = attendeeUsers.filter((id) => !previousSet.has(String(id)));
     if (newAttendeeUsers.length) {
-      await Notification.insertMany(
-        newAttendeeUsers.map((userId) => ({
+      const deliveries = await Promise.all(
+        newAttendeeUsers.map(async (userId) => ({
+          userId,
+          deliveryChannels: await getEventNotificationChannels(userId),
+        }))
+      );
+
+      const docs = deliveries
+        .filter(({ deliveryChannels }) => deliveryChannels.inApp || deliveryChannels.email)
+        .map(({ userId, deliveryChannels }) => ({
           userId,
           title: "Event Invitation",
           message: `You have been added as an attendee for "${event.name}".`,
           type: "info",
           relatedId: event._id,
-          relatedType: "event"
-        }))
-      );
+          relatedType: "event",
+          templateKey: TEMPLATE_KEYS.EVENT_ATTENDEE_INVITATION,
+          deliveryChannels,
+        }));
+
+      if (docs.length) {
+        await Notification.insertMany(docs);
+      }
     }
 
     const populated = await populateEventQuery(Event.findById(event._id));
@@ -1323,16 +1344,28 @@ exports.toggleAttending = async (req, res) => {
       const recipientIds = await getAttendanceNotificationRecipients(req.user._id);
 
       if (recipientIds.length > 0) {
-        await Notification.insertMany(
-          recipientIds.map((userId) => ({
+        const deliveries = await Promise.all(
+          recipientIds.map(async (userId) => ({
+            userId,
+            deliveryChannels: await getEventNotificationChannels(userId),
+          }))
+        );
+
+        const docs = deliveries
+          .filter(({ deliveryChannels }) => deliveryChannels.inApp || deliveryChannels.email)
+          .map(({ userId, deliveryChannels }) => ({
             userId,
             title: "Event Attendance Update",
             message: `${actorLabel} marked attending for "${existingEvent.name}".`,
             type: "info",
             relatedId: existingEvent._id,
-            relatedType: "event"
-          }))
-        );
+            relatedType: "event",
+            deliveryChannels,
+          }));
+
+        if (docs.length) {
+          await Notification.insertMany(docs);
+        }
       }
     }
 

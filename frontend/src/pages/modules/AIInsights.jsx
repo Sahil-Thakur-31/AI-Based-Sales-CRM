@@ -1,398 +1,915 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import API from "../../api";
-import "./styles/AIInsights.css";
 
-const RANGE_OPTIONS = [
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "quarter", label: "This Quarter" }
-];
+const emptyState = {
+  insights: {
+    summary: "",
+    todayPriorities: [],
+    keyMetrics: [],
+    opportunities: [],
+    warnings: [],
+    coachTip: "",
+    weekOutlook: "",
+  },
+  evidence: {
+    scope: "personal",
+    metrics: {},
+    memberPerformance: [],
+    recentLeads: [],
+    stageBreakdown: [],
+    teamName: "",
+    managerName: "",
+    memberCount: 0,
+  },
+  generatedAt: "",
+  mode: "personal",
+  teamName: "",
+};
+
+const shimmerKeyframes = `
+  @keyframes aiInsightsShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+`;
+
+function normalizeRole(rawRole = "") {
+  const role = String(rawRole || "").trim().toLowerCase();
+  if (role === "admin") return "admin";
+  if (role === "manager") return "manager";
+  return "user";
+}
+
+function normalizeFilter(rawFilter = "") {
+  const filter = String(rawFilter || "").trim().toLowerCase();
+  if (filter === "week" || filter === "quarter") return filter;
+  return "month";
+}
+
+function getFilterLabel(filter = "month") {
+  if (filter === "week") return "This Week";
+  if (filter === "quarter") return "This Quarter";
+  return "This Month";
+}
+
+function getFilterSubtitle(filter = "month") {
+  if (filter === "week") return "this week";
+  if (filter === "quarter") return "this quarter";
+  return "this month";
+}
+
+function formatTimestamp(value) {
+  if (!value) return "Just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Just now";
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("en-IN");
+}
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   });
 }
 
-function normalizeSeverity(value = "") {
-  const normalized = String(value).trim().toLowerCase();
-  if (["high", "danger", "critical", "red"].includes(normalized)) return "high";
-  if (["medium", "warning", "orange", "amber"].includes(normalized)) return "medium";
-  return "low";
+function trendMeta(value) {
+  const trend = String(value || "").toLowerCase();
+  if (trend === "up") return { icon: "↑", color: "#15803d" };
+  if (trend === "down") return { icon: "↓", color: "#dc2626" };
+  return { icon: "→", color: "#6b7280" };
 }
 
-function toneLabel(tone) {
-  if (tone === "high") return "High Priority";
-  if (tone === "medium") return "Needs Attention";
-  return "Opportunity";
+function urgencyMeta(value) {
+  const urgency = String(value || "").toLowerCase();
+  if (urgency === "high") {
+    return { border: "#dc2626", background: "#fef2f2", color: "#991b1b" };
+  }
+  if (urgency === "low") {
+    return { border: "#16a34a", background: "#f0fdf4", color: "#166534" };
+  }
+  return { border: "#d97706", background: "#fffbeb", color: "#92400e" };
 }
 
-function toNumber(value) {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const cleaned = String(value || "").replace(/[^0-9.-]/g, "");
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : 0;
+function warningMeta(value) {
+  const severity = String(value || "").toLowerCase();
+  if (severity === "critical") {
+    return { icon: "🚨", background: "#fee2e2", color: "#991b1b", border: "#fca5a5" };
+  }
+  if (severity === "warning") {
+    return { icon: "⚠️", background: "#fef3c7", color: "#92400e", border: "#fcd34d" };
+  }
+  return { icon: "ℹ️", background: "#dbeafe", color: "#1d4ed8", border: "#93c5fd" };
 }
 
-function buildManagerInsights(payload, range) {
-  const insights = Array.isArray(payload?.insights) ? payload.insights : [];
-  const meetings = Array.isArray(payload?.meetings) ? payload.meetings : [];
-  const followups = Array.isArray(payload?.followups) ? payload.followups : [];
-  const pipelineValue = toNumber(payload?.summary?.pipelineValue);
-  const revenue = toNumber(payload?.summary?.revenueAchieved ?? payload?.summary?.monthlyAchieved);
-  const totalActions = meetings.length + followups.length;
-
-  const systemInsights = [];
-
-  if (pipelineValue > 0) {
-    systemInsights.push({
-      id: "pipeline-value",
-      title: "Pipeline value is carrying the period",
-      message: `${formatCurrency(pipelineValue)} is currently active in pipeline for ${range}. Prioritize late-stage movement to protect this value.`,
-      tone: pipelineValue >= 1000000 ? "high" : "medium",
-      category: "Pipeline"
-    });
-  }
-
-  if (totalActions > 0) {
-    systemInsights.push({
-      id: "activity-load",
-      title: "Execution queue is building up",
-      message: `${totalActions} follow-ups and meetings are scheduled in the selected ${range} window. Clearing the highest-priority actions first should improve conversion momentum.`,
-      tone: totalActions >= 8 ? "high" : "medium",
-      category: "Execution"
-    });
-  }
-
-  if (revenue > 0) {
-    systemInsights.push({
-      id: "revenue-signal",
-      title: "Revenue signal is positive",
-      message: `${formatCurrency(revenue)} has been captured in won revenue for the selected window. Use the same patterns to coach similar open deals.`,
-      tone: "low",
-      category: "Revenue"
-    });
-  }
-
-  const mappedInsights = insights.map((insight, index) => ({
-    id: insight.id || `dashboard-insight-${index}`,
-    title: insight.type || "AI Insight",
-    message: insight.message || "No summary available.",
-    tone: normalizeSeverity(insight.severity),
-    category: "Assistant"
-  }));
-
-  return [...mappedInsights, ...systemInsights];
+function impactMeta(value) {
+  const impact = String(value || "").toLowerCase();
+  if (impact === "high") return { background: "#fee2e2", color: "#991b1b" };
+  if (impact === "low") return { background: "#dcfce7", color: "#166534" };
+  return { background: "#fef3c7", color: "#92400e" };
 }
 
-function buildTeamInsights(payload) {
-  const insights = Array.isArray(payload?.insights) ? payload.insights : [];
-  const kpis = payload?.kpis || {};
-  const memberPerformance = Array.isArray(payload?.memberPerformance) ? payload.memberPerformance : [];
-  const topMember = memberPerformance.length
-    ? [...memberPerformance].sort(
-        (a, b) => Number(b?.wonRevenue || 0) - Number(a?.wonRevenue || 0) ||
-          Number(b?.wonDeals || 0) - Number(a?.wonDeals || 0)
-      )[0]
-    : null;
-
-  const mappedInsights = insights.map((insight, index) => ({
-    id: `team-${insight.type || "insight"}-${index}`,
-    title: String(insight.type || "Insight")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase()),
-    message: insight.message || "No summary available.",
-    tone: normalizeSeverity(insight.severity),
-    category: "Team"
-  }));
-
-  const derivedInsights = [];
-
-  if (Number(kpis.pipelineValue || 0) > 0) {
-    derivedInsights.push({
-      id: "team-pipeline-value",
-      title: "Team pipeline needs active coverage",
-      message: `${formatCurrency(kpis.pipelineValue)} is active in this team pipeline. Keep owners focused on stage movement and follow-up discipline.`,
-      tone: Number(kpis.activeDeals || 0) > 0 ? "medium" : "high",
-      category: "Pipeline"
-    });
+function getBadge(role, mode, teamName) {
+  if (mode === "company") {
+    return { label: "Company View", color: "#6d28d9", background: "#ede9fe" };
   }
-
-  if (topMember?.user?.name) {
-    derivedInsights.push({
-      id: "team-top-member",
-      title: "Strongest team benchmark",
-      message: `${topMember.user.name} is leading with ${topMember.wonDeals || 0} won deal(s). Use that conversion pattern as the coaching benchmark.`,
-      tone: "low",
-      category: "Performance"
-    });
+  if (mode === "team") {
+    return { label: `Team: ${teamName || "Selected Team"}`, color: "#1d4ed8", background: "#dbeafe" };
   }
-
-  return [...mappedInsights, ...derivedInsights];
+  if (role === "admin") {
+    return { label: "Company Overview", color: "#6d28d9", background: "#ede9fe" };
+  }
+  if (role === "manager") {
+    return { label: "My Personal View", color: "#0f766e", background: "#ccfbf1" };
+  }
+  return { label: "My View", color: "#0f766e", background: "#ccfbf1" };
 }
 
-function buildActionQueue(roleName, insights) {
-  const topInsight = insights.find((item) => item.tone === "high") || insights[0];
-  const actions = [
-    {
-      id: "review-priority",
-      title: "Review top signal",
-      description: topInsight
-        ? `${topInsight.title}: ${topInsight.message}`
-        : "Open the highest-priority AI recommendation and validate it with your team.",
-      cta: "Open follow-ups",
-      path: "/followups"
-    },
-    {
-      id: "inspect-pipeline",
-      title: "Inspect live pipeline",
-      description: "Cross-check AI recommendations against current leads and deals before making outreach changes.",
-      cta: "Open deals",
-      path: "/deals"
-    },
-    {
-      id: "coach-next",
-      title: roleName === "admin" ? "Coach the team" : "Take the next move",
-      description: roleName === "admin"
-        ? "Use the strongest positive signal as a benchmark and the highest-risk signal as a coaching topic."
-        : "Convert the strongest insight into an immediate follow-up, meeting, or deal progression step.",
-      cta: roleName === "admin" ? "Open team dashboard" : "Open leads",
-      path: roleName === "admin" ? "/team-dashboard" : "/leads"
-    }
+function buildGlanceMetrics(mode, metrics, activeFilter = "month") {
+  const periodSubtitle = getFilterLabel(activeFilter);
+  const currentSubtitle = "Current";
+  const items = [
+    { label: "Total Leads", value: metrics.totalLeads, subtitle: currentSubtitle },
+    { label: "New Leads", value: metrics.newLeads, subtitle: periodSubtitle },
+    { label: "Converted", value: metrics.convertedLeads, subtitle: periodSubtitle },
+    { label: "Open Deals", value: metrics.openDeals, subtitle: currentSubtitle },
+    { label: "Won Deals", value: metrics.wonDeals, subtitle: periodSubtitle },
+    { label: "Lost Deals", value: metrics.lostDeals, subtitle: periodSubtitle },
+    { label: "Pipeline Value", value: formatCurrency(metrics.pipelineValue), subtitle: currentSubtitle, isCurrency: true },
+    { label: "Total Clients", value: metrics.totalClients, subtitle: currentSubtitle },
+    { label: "Pending Follow-ups", value: metrics.pendingFollowUps, subtitle: currentSubtitle },
+    { label: "Overdue", value: metrics.overdueFollowUps, subtitle: currentSubtitle },
+    { label: "Pending Expenses", value: metrics.pendingExpenses, subtitle: currentSubtitle },
   ];
 
-  return actions;
+  if (mode === "company") {
+    items.push({ label: "Total Users", value: metrics.totalUsers, subtitle: currentSubtitle });
+  }
+
+  return items;
+}
+
+function SkeletonBlock({ height, style = {} }) {
+  return (
+    <div
+      style={{
+        height,
+        borderRadius: 12,
+        background: "linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%)",
+        backgroundSize: "200% 100%",
+        animation: "aiInsightsShimmer 1.6s linear infinite",
+        ...style,
+      }}
+    />
+  );
+}
+
+function LoadingView() {
+  return (
+    <div style={{ display: "grid", gap: 20 }}>
+      <SkeletonBlock height={96} />
+      <SkeletonBlock height={150} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
+        {Array.from({ length: 6 }).map((_, index) => (
+          <SkeletonBlock key={index} height={118} />
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
+        <SkeletonBlock height={260} />
+        <SkeletonBlock height={260} />
+      </div>
+      <SkeletonBlock height={200} />
+      <SkeletonBlock height={240} />
+      <SkeletonBlock height={100} />
+    </div>
+  );
 }
 
 export default function AIInsights() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
-  const scope = String(searchParams.get("scope") || "").trim().toLowerCase();
-  const teamId = String(searchParams.get("teamId") || "").trim();
-  const isTeamScope = scope === "team" && Boolean(teamId);
-  const [range, setRange] = useState("month");
+  const location = useLocation();
+  const [insightData, setInsightData] = useState(emptyState);
+  const [glanceData, setGlanceData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [glanceLoading, setGlanceLoading] = useState(false);
   const [error, setError] = useState("");
-  const [insights, setInsights] = useState([]);
-  const [snapshot, setSnapshot] = useState([]);
-  const [headline, setHeadline] = useState("AI Insights");
-  const [subcopy, setSubcopy] = useState(
-    "A focused view of the signals, risks, and next-best actions the CRM is surfacing for your current pipeline."
+  const [teams, setTeams] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [loadingTeamOptions, setLoadingTeamOptions] = useState(false);
+  const [dateFilter, setDateFilter] = useState("month");
+
+  const role = useMemo(
+    () => normalizeRole(localStorage.getItem("role") || localStorage.getItem("RoleName") || "user"),
+    []
   );
+  const userName = useMemo(
+    () => localStorage.getItem("name") || localStorage.getItem("Name") || "there",
+    []
+  );
+
+  const searchParams = new URLSearchParams(location.search);
+  const urlTeamId = searchParams.get("teamId");
+  const badge = getBadge(role, insightData.mode || "personal", insightData.teamName || insightData.evidence?.teamName);
+
+  const buildApiUrl = (teamId, glanceFilter) => {
+    const params = new URLSearchParams();
+    if (teamId === "all") {
+      params.set("teamId", "all");
+    } else if (teamId) {
+      params.set("teamId", teamId);
+    }
+    if (glanceFilter) {
+      params.set("glanceFilter", glanceFilter);
+    }
+    const query = params.toString();
+    return query ? `/api/ai-insights?${query}` : "/api/ai-insights";
+  };
+
+  const fetchInsightsData = async (overrideTeamId = null) => {
+    const effectiveTeamId = overrideTeamId ?? urlTeamId;
+    const apiUrl = buildApiUrl(effectiveTeamId, "");
+    console.log("[AI Insights Frontend] calling insights:", apiUrl);
+    const token = localStorage.getItem("token");
+    const res = await API.get(apiUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    return res.data;
+  };
+
+  const fetchGlanceData = async (overrideTeamId = null, overrideFilter = dateFilter) => {
+    const effectiveTeamId = overrideTeamId ?? urlTeamId;
+    const apiUrl = buildApiUrl(effectiveTeamId, overrideFilter);
+    console.log("[AI Insights Frontend] calling glance:", apiUrl);
+    const token = localStorage.getItem("token");
+    const res = await API.get(apiUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    return res.data;
+  };
+
+  const fetchTeamsFallback = async () => {
+    const token = localStorage.getItem("token");
+    const res = await API.get("/teams", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    const rows = Array.isArray(res.data) ? res.data : [];
+    return rows.map((team) => ({
+      _id: String(team?._id || ""),
+      name: team?.name || "Unnamed Team",
+      managerName:
+        team?.teamLeads?.[0]?.userId?.name ||
+        team?.managerName ||
+        "",
+      memberCount: Number(team?.totalPeople || team?.memberCount || 0),
+    })).filter((team) => team._id);
+  };
+
+  const loadGlanceOnly = async (overrideTeamId = null, overrideFilter = dateFilter) => {
+    try {
+      setGlanceLoading(true);
+      const effectiveTeamId = overrideTeamId ?? (urlTeamId === "all" && selectedTeamId ? selectedTeamId : urlTeamId);
+      const response = await fetchGlanceData(effectiveTeamId, overrideFilter);
+      setGlanceData(response?.glanceMetrics ? { ...response.glanceMetrics, activeFilter: response.activeFilter } : null);
+    } catch (err) {
+      console.error("[AI Insights Frontend] glance refresh failed:", err?.response?.data?.message || err?.message || err);
+    } finally {
+      setGlanceLoading(false);
+    }
+  };
+
+  const loadInsights = async (overrideTeamId = null) => {
+    try {
+      setLoading(true);
+      setError("");
+      const effectiveTeamId = overrideTeamId ?? (urlTeamId === "all" && selectedTeamId ? selectedTeamId : urlTeamId);
+
+      if ((overrideTeamId === "all" || (urlTeamId === "all" && !selectedTeamId)) && role === "admin") {
+        setLoadingTeamOptions(true);
+        const teamListResponse = await fetchInsightsData("all");
+        let rows = Array.isArray(teamListResponse?.teams) ? teamListResponse.teams : [];
+
+        if (!rows.length) {
+          console.warn("[AI Insights Frontend] empty teamList from /api/ai-insights?teamId=all, falling back to /teams");
+          rows = await fetchTeamsFallback();
+        }
+
+        setTeams(rows);
+        setLoadingTeamOptions(false);
+
+        if (!rows.length) {
+          throw new Error("No teams available for AI insights.");
+        }
+
+        const nextTeamId = overrideTeamId && overrideTeamId !== "all"
+          ? String(overrideTeamId)
+          : selectedTeamId && rows.some((team) => String(team._id) === String(selectedTeamId))
+          ? selectedTeamId
+          : String(rows[0]._id);
+
+        setSelectedTeamId(nextTeamId);
+        const [teamResponse, teamGlanceResponse] = await Promise.all([
+          fetchInsightsData(nextTeamId),
+          fetchGlanceData(nextTeamId, dateFilter),
+        ]);
+        setInsightData(teamResponse || emptyState);
+        setGlanceData(teamGlanceResponse?.glanceMetrics ? { ...teamGlanceResponse.glanceMetrics, activeFilter: teamGlanceResponse.activeFilter } : null);
+        return;
+      }
+
+      if (effectiveTeamId) {
+        setSelectedTeamId(String(effectiveTeamId));
+        const [response, glanceResponse] = await Promise.all([
+          fetchInsightsData(effectiveTeamId),
+          fetchGlanceData(effectiveTeamId, dateFilter),
+        ]);
+        setInsightData(response || emptyState);
+        setGlanceData(glanceResponse?.glanceMetrics ? { ...glanceResponse.glanceMetrics, activeFilter: glanceResponse.activeFilter } : null);
+        return;
+      }
+
+      setTeams([]);
+      setSelectedTeamId("");
+      const [response, glanceResponse] = await Promise.all([
+        fetchInsightsData(null),
+        fetchGlanceData(null, dateFilter),
+      ]);
+      setInsightData(response || emptyState);
+      setGlanceData(glanceResponse?.glanceMetrics ? { ...glanceResponse.glanceMetrics, activeFilter: glanceResponse.activeFilter } : null);
+    } catch (err) {
+      setLoadingTeamOptions(false);
+      setError(err?.response?.data?.message || err?.message || "Failed to load AI insights.");
+      setInsightData(emptyState);
+      setGlanceData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadInsights() {
-      try {
-        setLoading(true);
-        setError("");
-
-        if (isTeamScope) {
-          const response = await API.get(`/teams/dashboard?teamId=${teamId}`, {
-            signal: controller.signal
-          });
-          const payload = response.data || {};
-          const nextInsights = buildTeamInsights(payload);
-
-          setHeadline(payload?.team?.name ? `${payload.team.name} AI Insights` : "Team AI Insights");
-          setSubcopy(
-            "A team-focused view of pipeline pressure, follow-up execution, and conversion signals based on current dashboard rules."
-          );
-          setInsights(nextInsights);
-          setSnapshot([
-            { label: "Pipeline Value", value: formatCurrency(payload?.kpis?.pipelineValue) },
-            { label: "Active Deals", value: String(payload?.kpis?.activeDeals || 0) },
-            { label: "Follow-ups Today", value: String(payload?.kpis?.followupsToday || 0) },
-            { label: "Win Rate", value: `${Number(payload?.kpis?.winRate || 0)}%` }
-          ]);
-        } else {
-          const isAdminWithoutTeamScope = roleName === "admin";
-          if (isAdminWithoutTeamScope) {
-            setHeadline("AI Insights");
-            setSubcopy("Admin-wide AI insights are planned for a later phase. Team-level AI insights are already available from Team Dashboard.");
-            setInsights([]);
-            setSnapshot([]);
-            setLoading(false);
-            return;
-          }
-
-          const endpoint = roleName === "manager" ? "/api/manager/dashboard" : "/api/user/dashboard";
-          const response = await API.get(endpoint, {
-            params: { range },
-            signal: controller.signal
-          });
-          const payload = response.data || {};
-          const nextInsights = buildManagerInsights(payload, range);
-          const statCards = Array.isArray(payload.statCards) ? payload.statCards : [];
-
-          setHeadline(roleName === "manager" ? "Manager AI Insights" : "My AI Insights");
-          setSubcopy(
-            "A focused view of the signals, risks, and next-best actions the CRM is surfacing for your current pipeline."
-          );
-          setInsights(nextInsights);
-          setSnapshot([
-            {
-              label: statCards[0]?.title || "Follow-ups & Meetings",
-              value: String(
-                payload?.summary?.followupsInRange + payload?.summary?.meetingsInRange ||
-                statCards[0]?.value ||
-                0
-              )
-            },
-            {
-              label: "Pipeline Value",
-              value: formatCurrency(payload.summary?.pipelineValue)
-            },
-            {
-              label: "Follow-ups",
-              value: String((payload.followups || []).length)
-            },
-            {
-              label: "Meetings",
-              value: String((payload.meetings || []).length)
-            }
-          ]);
-        }
-      } catch (err) {
-        if (err.name === "CanceledError" || err.name === "AbortError") return;
-        setError(err.response?.data?.message || "Failed to load AI insights");
-        setInsights([]);
-        setSnapshot([]);
-      } finally {
-        setLoading(false);
-      }
+    if (urlTeamId === "all" && !selectedTeamId) {
+      loadInsights("all");
+      return;
     }
+    loadInsights(urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
+  }, [urlTeamId, selectedTeamId]);
 
-    loadInsights();
-    return () => controller.abort();
-  }, [isTeamScope, range, roleName, teamId]);
+  useEffect(() => {
+    if (loading) return;
+    loadGlanceOnly(urlTeamId === "all" ? selectedTeamId : urlTeamId || null, dateFilter);
+  }, [dateFilter]);
 
-  const groupedInsights = useMemo(() => {
-    const high = insights.filter((item) => item.tone === "high");
-    const medium = insights.filter((item) => item.tone === "medium");
-    const low = insights.filter((item) => item.tone === "low");
-    return { high, medium, low };
-  }, [insights]);
+  const onRefresh = () => {
+    loadInsights(urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
+  };
 
-  const actionQueue = useMemo(
-    () => buildActionQueue(roleName, insights),
-    [insights, roleName]
-  );
+  const onChangeTeam = (nextTeamId) => {
+    setSelectedTeamId(nextTeamId);
+  };
+
+  const insights = insightData.insights || emptyState.insights;
+  const evidence = insightData.evidence || emptyState.evidence;
+  const activeFilter = normalizeFilter(glanceData?.activeFilter || dateFilter);
+  const activeFilterLabel = getFilterLabel(activeFilter);
+  const glanceMetrics = buildGlanceMetrics(insightData.mode || "personal", glanceData || {}, activeFilter);
+  const showTeamSelector = role === "admin" && urlTeamId === "all";
 
   return (
-    <div className="aiInsights-page">
-      <section className="aiInsights-hero">
-        <div className="aiInsights-heroCopy">
-          <span className="aiInsights-kicker">AI Guidance Center</span>
-          <h1>{headline}</h1>
-          <p>{subcopy}</p>
-        </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(180deg, #eff6ff 0%, #f8fafc 45%, #ffffff 100%)",
+        padding: "24px 16px 40px",
+        fontFamily: "system-ui, Segoe UI, sans-serif",
+        color: "#0f172a",
+      }}
+    >
+      <style>{shimmerKeyframes}</style>
 
-        <div className="aiInsights-toolbar">
-          <label htmlFor="ai-insights-range">Window</label>
-          <select
-            id="ai-insights-range"
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            disabled={isTeamScope}
-          >
-            {RANGE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </section>
-
-      {error ? (
-        <div className="aiInsights-error">{error}</div>
-      ) : null}
-
-      <section className="aiInsights-snapshotGrid">
-        {loading
-          ? [...Array(4)].map((_, index) => (
-              <div key={index} className="aiInsights-snapshotCard aiInsights-snapshotCard-loading" />
-            ))
-          : snapshot.map((item) => (
-              <article key={item.label} className="aiInsights-snapshotCard">
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </article>
-            ))}
-      </section>
-
-      <section className="aiInsights-contentGrid">
-        <div className="aiInsights-main">
-          <div className="aiInsights-sectionHead">
-            <h2>Priority Signals</h2>
-            <span>{insights.length} active insight{insights.length === 1 ? "" : "s"}</span>
-          </div>
-
-          {loading ? (
-            <div className="aiInsights-stateCard">Loading AI insights...</div>
-          ) : insights.length === 0 ? (
-            <div className="aiInsights-stateCard">No AI insights are available for this view yet.</div>
-          ) : (
-            <div className="aiInsights-columns">
-              {[
-                { key: "high", title: "High Priority", items: groupedInsights.high },
-                { key: "medium", title: "Needs Attention", items: groupedInsights.medium },
-                { key: "low", title: "Opportunities", items: groupedInsights.low }
-              ].map((group) => (
-                <section key={group.key} className="aiInsights-column">
-                  <div className="aiInsights-columnHead">
-                    <h3>{group.title}</h3>
-                    <span>{group.items.length}</span>
-                  </div>
-
-                  <div className="aiInsights-cardStack">
-                    {group.items.length === 0 ? (
-                      <div className="aiInsights-emptyTone">Nothing in this bucket right now.</div>
-                    ) : (
-                      group.items.map((item) => (
-                        <article key={item.id} className={`aiInsights-card aiInsights-card-${item.tone}`}>
-                          <div className="aiInsights-cardMeta">
-                            <span className={`aiInsights-pill aiInsights-pill-${item.tone}`}>
-                              {toneLabel(item.tone)}
-                            </span>
-                            <span className="aiInsights-category">{item.category}</span>
-                          </div>
-                          <h4>{item.title}</h4>
-                          <p>{item.message}</p>
-                        </article>
-                      ))
-                    )}
-                  </div>
-                </section>
-              ))}
+      <div style={{ maxWidth: 1240, margin: "0 auto", display: "grid", gap: 20 }}>
+        <section
+          style={{
+            background: "#ffffff",
+            borderRadius: 16,
+            boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+            padding: 24,
+            display: "flex",
+            gap: 16,
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1.1 }}>🤖 AI Insights</h1>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: badge.color,
+                  background: badge.background,
+                }}
+              >
+                {badge.label}
+              </span>
             </div>
-          )}
-        </div>
-
-        <aside className="aiInsights-side">
-          <div className="aiInsights-sectionHead">
-            <h2>Recommended Moves</h2>
+            <div style={{ fontSize: 17, color: "#334155" }}>
+              Hey {userName} — here&apos;s what your CRM tells you right now
+            </div>
+            <div style={{ fontSize: 13, color: "#64748b" }}>
+              Last updated: {formatTimestamp(insightData.generatedAt)}
+            </div>
           </div>
 
-          <div className="aiInsights-actions">
-            {actionQueue.map((action) => (
-              <article key={action.id} className="aiInsights-actionCard">
-                <h3>{action.title}</h3>
-                <p>{action.description}</p>
-                <button type="button" onClick={() => navigate(action.path)}>
-                  {action.cta}
-                </button>
-              </article>
-            ))}
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            {showTeamSelector ? (
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                  Select Team
+                </label>
+                <select
+                  value={selectedTeamId}
+                  onChange={(e) => onChangeTeam(e.target.value)}
+                  disabled={loadingTeamOptions || loading}
+                  style={{
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 12,
+                    padding: "11px 14px",
+                    minWidth: 220,
+                    fontSize: 14,
+                    background: "#ffffff",
+                  }}
+                >
+                  {teams.map((team) => (
+                    <option key={team._id} value={team._id}>
+                      {team.name || "Unnamed Team"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={loading}
+              style={{
+                border: "none",
+                borderRadius: 12,
+                background: "#2563eb",
+                color: "#ffffff",
+                fontSize: 14,
+                fontWeight: 700,
+                padding: "12px 18px",
+                cursor: loading ? "wait" : "pointer",
+                boxShadow: "0 8px 18px rgba(37, 99, 235, 0.28)",
+              }}
+            >
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
           </div>
-        </aside>
-      </section>
+        </section>
+
+        {error && !loading ? (
+          <div style={{ minHeight: 320, display: "grid", placeItems: "center" }}>
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 560,
+                background: "#fee2e2",
+                border: "1px solid #fecaca",
+                color: "#991b1b",
+                borderRadius: 16,
+                boxShadow: "0 10px 30px rgba(127, 29, 29, 0.12)",
+                padding: 28,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 28, marginBottom: 10 }}>Something went wrong</div>
+              <div style={{ fontSize: 15, marginBottom: 18 }}>{error}</div>
+              <button
+                type="button"
+                onClick={onRefresh}
+                style={{
+                  border: "none",
+                  borderRadius: 12,
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  padding: "11px 18px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <LoadingView />
+        ) : !error ? (
+          <>
+            <section
+              style={{
+                background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)",
+                color: "#ffffff",
+                borderRadius: 18,
+                boxShadow: "0 18px 40px rgba(15, 23, 42, 0.18)",
+                padding: 24,
+                display: "grid",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800, fontSize: 13, letterSpacing: "0.12em" }}>
+                <span style={{ fontSize: 22 }}>🤖</span>
+                <span style={{ opacity: 0.86 }}>AI SUMMARY</span>
+              </div>
+              <div style={{ fontSize: 18, lineHeight: 1.7, maxWidth: 980 }}>{insights.summary}</div>
+              <div style={{ fontSize: 15, fontStyle: "italic", color: "#bfdbfe" }}>{insights.weekOutlook}</div>
+            </section>
+
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {insights.keyMetrics.map((metric, index) => {
+                const trend = trendMeta(metric.trend);
+                return (
+                  <div
+                    key={`${metric.label}-${index}`}
+                    style={{
+                      background: "linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%)",
+                      borderRadius: 14,
+                      padding: 18,
+                      boxShadow: "0 8px 20px rgba(37, 99, 235, 0.10)",
+                      minHeight: 122,
+                      display: "grid",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {metric.label}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: "#0f172a" }}>
+                        {typeof metric.value === "number" ? formatNumber(metric.value) : metric.value}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: trend.color }}>{trend.icon}</div>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>{metric.note}</div>
+                  </div>
+                );
+              })}
+            </section>
+
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: 20,
+              }}
+            >
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: 16,
+                  boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+                  padding: 22,
+                  display: "grid",
+                  gap: 16,
+                }}
+              >
+                <div style={{ fontSize: 22, fontWeight: 800 }}>🎯 Today&apos;s Priorities</div>
+                {insights.todayPriorities.length ? (
+                  insights.todayPriorities.map((item, index) => {
+                    const urgency = urgencyMeta(item.urgency);
+                    return (
+                      <div
+                        key={`${item.title}-${index}`}
+                        style={{
+                          borderLeft: `5px solid ${urgency.border}`,
+                          background: urgency.background,
+                          color: "#0f172a",
+                          borderRadius: 12,
+                          padding: 16,
+                          display: "grid",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", fontWeight: 800 }}>
+                            <span style={{ fontSize: 20 }}>{item.icon}</span>
+                            <span>{item.title}</span>
+                          </div>
+                          <span
+                            style={{
+                              padding: "5px 10px",
+                              borderRadius: 999,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              background: "#ffffff",
+                              color: urgency.color,
+                              textTransform: "capitalize",
+                            }}
+                          >
+                            {item.urgency}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 14, lineHeight: 1.55, color: "#334155" }}>{item.detail}</div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ fontSize: 15, color: "#166534", background: "#f0fdf4", padding: 16, borderRadius: 12 }}>
+                    No urgent tasks today. Great work!
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: 16,
+                  boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+                  padding: 22,
+                  display: "grid",
+                  gap: 16,
+                }}
+              >
+                <div style={{ fontSize: 22, fontWeight: 800 }}>🚨 Alerts &amp; Warnings</div>
+                {insights.warnings.length ? (
+                  insights.warnings.map((item, index) => {
+                    const meta = warningMeta(item.severity);
+                    return (
+                      <div
+                        key={`${item.title}-${index}`}
+                        style={{
+                          background: meta.background,
+                          border: `1px solid ${meta.border}`,
+                          color: meta.color,
+                          borderRadius: 12,
+                          padding: 16,
+                          display: "grid",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 10, alignItems: "center", fontWeight: 800 }}>
+                          <span style={{ fontSize: 20 }}>{meta.icon}</span>
+                          <span>{item.title}</span>
+                        </div>
+                        <div style={{ fontSize: 14, lineHeight: 1.55 }}>{item.detail}</div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ fontSize: 15, color: "#166534", background: "#f0fdf4", padding: 16, borderRadius: 12 }}>
+                    No active warnings. Everything looks good!
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section
+              style={{
+                background: "#ffffff",
+                borderRadius: 16,
+                boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+                padding: 22,
+                display: "grid",
+                gap: 16,
+              }}
+            >
+              <div style={{ fontSize: 22, fontWeight: 800 }}>💡 Opportunities to Act On</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+                {insights.opportunities.map((item, index) => {
+                  const impact = impactMeta(item.impact);
+                  return (
+                    <div
+                      key={`${item.title}-${index}`}
+                      style={{
+                        borderLeft: "5px solid #16a34a",
+                        background: "#f8fafc",
+                        borderRadius: 12,
+                        padding: 16,
+                        display: "grid",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start" }}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center", fontWeight: 800 }}>
+                          <span style={{ fontSize: 20 }}>💡</span>
+                          <span>{item.title}</span>
+                        </div>
+                        <span
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            background: impact.background,
+                            color: impact.color,
+                          }}
+                        >
+                          {item.impact}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.6 }}>{item.detail}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section
+              style={{
+                background: "#ffffff",
+                borderRadius: 16,
+                boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+                padding: 22,
+                display: "grid",
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ fontSize: 22, fontWeight: 800 }}>Your CRM At a Glance</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 13, color: "#475569", fontWeight: 700 }}>Period:</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {[
+                      { value: "week", label: "This Week" },
+                      { value: "month", label: "This Month" },
+                      { value: "quarter", label: "This Quarter" },
+                    ].map((option) => {
+                      const isActive = dateFilter === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setDateFilter(option.value)}
+                          disabled={glanceLoading}
+                          style={{
+                            border: `1px solid ${isActive ? "#2563eb" : "#cbd5e1"}`,
+                            borderRadius: 999,
+                            background: isActive ? "#2563eb" : "#ffffff",
+                            color: isActive ? "#ffffff" : "#64748b",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            padding: "8px 12px",
+                            cursor: glanceLoading ? "wait" : "pointer",
+                            boxShadow: isActive ? "0 8px 18px rgba(37, 99, 235, 0.18)" : "none",
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 700 }}>
+                Period: {activeFilterLabel}
+              </div>
+
+              {insightData.mode === "team" ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ background: "#eff6ff", borderRadius: 12, padding: 14 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Team Name</div>
+                    <div style={{ fontSize: 20, fontWeight: 800 }}>{insightData.teamName || evidence.teamName || "-"}</div>
+                  </div>
+                  <div style={{ background: "#eff6ff", borderRadius: 12, padding: 14 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Manager Name</div>
+                    <div style={{ fontSize: 20, fontWeight: 800 }}>{evidence.managerName || "-"}</div>
+                  </div>
+                  <div style={{ background: "#eff6ff", borderRadius: 12, padding: 14 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Member Count</div>
+                    <div style={{ fontSize: 20, fontWeight: 800 }}>{formatNumber(evidence.memberCount)}</div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                  gap: 14,
+                  opacity: glanceLoading ? 0.55 : 1,
+                  transition: "opacity 0.2s ease",
+                }}
+              >
+                {glanceMetrics.map((item) => {
+                  const label = item.label;
+                  const rawValue = item.value;
+                  const overdueBox = String(label).toLowerCase().includes("overdue") && Number(rawValue || 0) > 0;
+                  return (
+                    <div
+                      key={label}
+                      style={{
+                        background: overdueBox ? "#fee2e2" : "#f8fafc",
+                        border: `1px solid ${overdueBox ? "#fecaca" : "#e2e8f0"}`,
+                        borderRadius: 12,
+                        padding: 14,
+                        display: "grid",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        {label}
+                      </div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: overdueBox ? "#b91c1c" : "#0f172a" }}>
+                        {item.isCurrency ? rawValue : typeof rawValue === "string" ? rawValue : formatNumber(rawValue)}
+                      </div>
+                      <div style={{ fontSize: 12, color: overdueBox ? "#b91c1c" : "#64748b" }}>
+                        {item.subtitle}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {insightData.mode === "team" ? (
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800 }}>Team Leaderboard</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                          <th style={{ padding: 12, fontSize: 13, color: "#475569" }}>Name</th>
+                          <th style={{ padding: 12, fontSize: 13, color: "#475569" }}>Deals Won</th>
+                          <th style={{ padding: 12, fontSize: 13, color: "#475569" }}>Value Won</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(evidence.memberPerformance || []).map((member) => (
+                          <tr key={member.userId || member.name} style={{ borderTop: "1px solid #e2e8f0" }}>
+                            <td style={{ padding: 12, fontSize: 14 }}>{member.name || "Unknown"}</td>
+                            <td style={{ padding: 12, fontSize: 14 }}>{formatNumber(member.dealsWon)}</td>
+                            <td style={{ padding: 12, fontSize: 14 }}>{formatCurrency(member.valueWon)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section
+              style={{
+                background: "linear-gradient(135deg, #dcfce7 0%, #ecfccb 100%)",
+                borderRadius: 16,
+                boxShadow: "0 10px 30px rgba(34, 197, 94, 0.10)",
+                padding: 22,
+                display: "grid",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, fontWeight: 800, letterSpacing: "0.08em", color: "#166534" }}>
+                <span style={{ fontSize: 22 }}>🏆</span>
+                <span>COACH TIP</span>
+              </div>
+              <div style={{ fontSize: 17, lineHeight: 1.65, color: "#14532d" }}>{insights.coachTip}</div>
+            </section>
+
+            <footer style={{ fontSize: 13, color: "#6b7280", textAlign: "center", paddingTop: 4 }}>
+              Insights generated at {formatTimestamp(insightData.generatedAt)} · Powered by Google Gemini + live CRM data
+            </footer>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

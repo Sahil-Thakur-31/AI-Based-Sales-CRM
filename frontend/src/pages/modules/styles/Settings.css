@@ -1,14 +1,8 @@
 .settings-container {
-  width: min(1200px, 100%);
+  width: min(1080px, 100%);
   margin: 0 auto;
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  gap: 20px;
-  padding: 0 12px;
+  padding: 0 12px 24px;
   box-sizing: border-box;
-  overflow-x: hidden;
-  min-height: calc(100vh - 130px);
 }
 
 .settings-loading {
@@ -17,211 +11,248 @@
 
 .settings-card {
   background: #fff;
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 24px;
-  border: 1px solid #e5e7eb;
-  flex: 1 1 0;
-  min-width: 460px;
-  max-width: 560px;
+  border-radius: 18px;
+  padding: 28px;
+  margin: 0 auto 24px;
+  border: 1px solid #e2e8f0;
+  width: 100%;
+  max-width: 1020px;
   box-sizing: border-box;
-  overflow: hidden;
- display: flex;
-  flex-direction: column;
-  height: auto;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.04);
 }
 
 .settings-card-header {
+  margin-bottom: 24px;
+}
+
+.settings-header-main {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 22px;
+  gap: 16px;
+  min-width: 0;
 }
 
 .settings-header-icon {
-  width: 40px;
-  height: 40px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  background: #f3f4f6;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f8fafc, #eef2ff);
+  border: 1px solid #e2e8f0;
   overflow: hidden;
 }
 
 .settings-header-icon img {
-  width: 35px;
-  height: 35px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
   display: block;
 }
 
 .settings-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .settings-subtitle {
-  font-size: 13px;
-  color: #6b7280;
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.6;
 }
 
-.toggle-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 0;
-  border-top: 1px solid #f1f5f9;
+.settings-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-.toggle-left {
-  display: flex;
-  gap: 14px;
-  align-items: center;
+.settings-tab {
+  border: 1px solid #dbe3f0;
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 16px 18px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
-.toggle-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  background: #f3f4f6;
-  overflow: hidden;
+.settings-tab:hover {
+  transform: translateY(-1px);
+  border-color: #cbd5e1;
 }
 
-.toggle-icon img {
-  width: 35px;
-  height: 35px;
-  object-fit: contain;
+.settings-tab.active {
+  background: #eff6ff;
+  border-color: #2563eb;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
+}
+
+.settings-tab span {
   display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
 }
 
-.toggle-title {
-  font-weight: 600;
-}
-
-.toggle-desc {
+.settings-tab small {
+  display: block;
   font-size: 13px;
-  color: #6b7280;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.settings-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 22px;
+  background: #fff;
+}
+
+.settings-panel + .settings-panel {
+  margin-top: 18px;
+}
+
+.settings-section-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.settings-panel-subtext {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.settings-module-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-module-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid #edf2f7;
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: #fcfdff;
+}
+
+.settings-module-copy {
+  min-width: 0;
+}
+
+.settings-module-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.settings-module-description {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.settings-module-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.settings-module-state,
+.settings-toggle-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+}
+
+.settings-reminder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-header-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .toggle-switch {
-  width: 44px;
-  height: 24px;
+  width: 50px;
+  height: 28px;
   background: #e5e7eb;
   border-radius: 999px;
   position: relative;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .toggle-switch.active {
-  background: #6366f1;
+  background: #2563eb;
 }
 
 .toggle-knob {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   background: #fff;
   border-radius: 50%;
   position: absolute;
   top: 3px;
   left: 3px;
-  transition: 0.2s;
+  transition: left 0.2s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
 }
 
 .toggle-switch.active .toggle-knob {
-  left: 23px;
+  left: 25px;
 }
 
-.settings-section-label {
-  font-size: 13px;
-  font-weight: 600;
-  margin-top: 10px;
-  margin-bottom: 10px;
-}
-
-.method-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.method-card {
-  border: 1px solid #e5e7eb;
-  padding: 18px;
-  border-radius: 12px;
-  text-align: center;
-  cursor: pointer;
-  min-height: 128px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-.method-card.active {
-  border-color: #6366f1;
-  background: #eef2ff;
-}
-
-.method-icon {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 6px;
-}
-
-.method-icon img {
-  width: 35px;
-  height: 35px;
-  object-fit: contain;
-  display: block;
-}
-
-.method-title {
-  margin-top: 6px;
+.settings-reminder-scroll {
+  margin-top: 16px;
 }
 
 .reminder-options-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.settings-reminder-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 4px;
+  gap: 10px;
 }
 
 .reminder-option-row {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 0.8fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
 
-.reminder-option-label,
 .reminder-option-number,
 .reminder-option-unit {
   border: 1px solid #cfd8ea;
-  border-radius: 10px;
-  min-height: 42px;
+  border-radius: 12px;
+  min-height: 44px;
   padding: 8px 12px;
   font-size: 14px;
   color: #1f3552;
   background: #fff;
-}
-
-.reminder-option-label {
-  display: flex;
-  align-items: center;
 }
 
 .reminder-option-number {
@@ -229,37 +260,69 @@
 }
 
 .reminder-option-remove {
-  width: 38px;
-  height: 38px;
-  border: 1px solid #cfd8ea;
-  border-radius: 10px;
-  background: #fff;
-  color: #334155;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #dc2626;
+  font-size: 20px;
+  line-height: 1;
   cursor: pointer;
+}
+
+.reminder-option-remove:hover {
+  background: #fef2f2;
+}
+
+.reminder-option-remove-spacer {
+  width: 40px;
+  height: 40px;
 }
 
 .reminder-option-add {
   width: fit-content;
-  border: 1px dashed #8ca0dd;
-  border-radius: 10px;
+  border: 1px dashed #93c5fd;
+  border-radius: 12px;
   background: #f8fbff;
-  color: #334155;
-  padding: 8px 12px;
+  color: #1d4ed8;
+  padding: 10px 14px;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 @media (max-width: 980px) {
-  .settings-container {
-    flex-direction: column;
-    align-items: center;
-    min-height: auto;
+  .settings-card {
+    max-width: 100%;
+    padding: 22px;
+  }
+}
+
+@media (max-width: 720px) {
+  .settings-tabs {
+    grid-template-columns: 1fr;
   }
 
-  .settings-card {
+  .settings-title {
+    font-size: 24px;
+  }
+
+  .settings-module-row,
+  .settings-reminder-header,
+  .settings-header-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-module-toggle,
+  .settings-header-toggle {
     width: 100%;
-    min-width: 0;
-    max-width: 720px;
-    height: auto;
+    justify-content: space-between;
+    flex-direction: row;
+  }
+
+  .reminder-option-row {
+    grid-template-columns: 1fr;
   }
 }

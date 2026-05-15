@@ -69,6 +69,17 @@ const notificationSchema = new mongoose.Schema({
   emailSkippedReason: {
     type: String,
     default: ""
+  },
+
+  deliveryChannels: {
+    inApp: {
+      type: Boolean,
+      default: true
+    },
+    email: {
+      type: Boolean,
+      default: true
+    }
   }
 
 }, {

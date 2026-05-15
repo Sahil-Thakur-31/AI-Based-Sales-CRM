@@ -1,5 +1,28 @@
 const mongoose = require("mongoose");
 
+const channelModuleDefaults = {
+  leads: {
+    type: Boolean,
+    default: true,
+  },
+  followups: {
+    type: Boolean,
+    default: true,
+  },
+  meetings: {
+    type: Boolean,
+    default: true,
+  },
+  events: {
+    type: Boolean,
+    default: true,
+  },
+  expenses: {
+    type: Boolean,
+    default: true,
+  },
+};
+
 const crmSettingsSchema = new mongoose.Schema({
 
   userId: {
@@ -11,7 +34,7 @@ const crmSettingsSchema = new mongoose.Schema({
 
   smartFollowupRemindersEnabled: {
     type: Boolean,
-    default: false
+    default: true
   },
 
   aiLeadScoringEnabled: {
@@ -42,6 +65,28 @@ const crmSettingsSchema = new mongoose.Schema({
   reminderMethodWhatsApp: {
     type: Boolean,
     default: false
+  },
+
+  appNotifications: {
+    type: new mongoose.Schema(channelModuleDefaults, { _id: false }),
+    default: () => ({
+      leads: true,
+      followups: true,
+      meetings: true,
+      events: true,
+      expenses: true,
+    })
+  },
+
+  emailNotifications: {
+    type: new mongoose.Schema(channelModuleDefaults, { _id: false }),
+    default: () => ({
+      leads: true,
+      followups: true,
+      meetings: true,
+      events: true,
+      expenses: true,
+    })
   },
 
   reminderOptions: [

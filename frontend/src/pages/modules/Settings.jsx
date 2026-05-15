@@ -1,15 +1,57 @@
 import { useEffect, useState } from "react";
 import API from "../../api";
 import "./styles/Settings.css";
-import robotIcon from "../../assets/settings/robot_16109533.png";
 import reminderIcon from "../../assets/settings/reminder_18312774.png";
-import leadScoreIcon from "../../assets/settings/benchmarking_16744074.png";
-import predictiveIcon from "../../assets/settings/predictive-chart_18263705.png";
-import notifyIcon from "../../assets/settings/notification_6048479.png";
-import layersIcon from "../../assets/settings/layers_18783180.png";
-import mailIcon from "../../assets/settings/mail_10585228.png";
 
 const DEFAULT_REMINDER_OPTIONS = [{ value: 10, unit: "minutes" }];
+const DEFAULT_CHANNEL_PREFERENCES = {
+  leads: true,
+  followups: true,
+  meetings: true,
+  events: true,
+  expenses: true,
+};
+
+const CHANNEL_TABS = [
+  {
+    id: "app",
+    label: "App Notifications",
+    description: "Show alerts inside CRM, including the notification center and navbar.",
+  },
+  {
+    id: "email",
+    label: "Email Notifications",
+    description: "Send notification emails based on the modules enabled below.",
+  },
+];
+
+const MODULE_OPTIONS = [
+  {
+    key: "leads",
+    label: "Assigned Leads",
+    description: "Lead assignment and reassignment alerts.",
+  },
+  {
+    key: "followups",
+    label: "Follow-ups",
+    description: "Follow-up assignments, updates, and reminders.",
+  },
+  {
+    key: "meetings",
+    label: "Meetings",
+    description: "Meeting assignments, updates, and reminders.",
+  },
+  {
+    key: "events",
+    label: "Events",
+    description: "Event invitations and attendance notifications.",
+  },
+  {
+    key: "expenses",
+    label: "Expenses",
+    description: "Expense approval and rejection updates.",
+  },
+];
 
 function normalizeReminderOptions(options = []) {
   if (!Array.isArray(options)) return [...DEFAULT_REMINDER_OPTIONS];
@@ -25,9 +67,30 @@ function normalizeReminderOptions(options = []) {
   return normalized.length ? normalized : [...DEFAULT_REMINDER_OPTIONS];
 }
 
+function normalizeChannelPreferences(source = {}) {
+  return Object.keys(DEFAULT_CHANNEL_PREFERENCES).reduce((acc, key) => {
+    acc[key] =
+      source?.[key] === undefined
+        ? DEFAULT_CHANNEL_PREFERENCES[key]
+        : Boolean(source[key]);
+    return acc;
+  }, {});
+}
+
+function normalizeSettings(data = {}) {
+  return {
+    ...data,
+    smartFollowupRemindersEnabled: true,
+    appNotifications: normalizeChannelPreferences(data?.appNotifications),
+    emailNotifications: normalizeChannelPreferences(data?.emailNotifications),
+    reminderOptions: normalizeReminderOptions(data?.reminderOptions),
+  };
+}
+
 export default function Settings() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("app");
 
   useEffect(() => {
     loadSettings();
@@ -36,10 +99,7 @@ export default function Settings() {
   const loadSettings = async () => {
     try {
       const res = await API.get("/crm-settings/me");
-      setSettings({
-        ...res.data,
-        reminderOptions: normalizeReminderOptions(res.data?.reminderOptions),
-      });
+      setSettings(normalizeSettings(res.data));
     } catch (err) {
       console.error(err);
     } finally {
@@ -47,138 +107,125 @@ export default function Settings() {
     }
   };
 
-  const update = async (field, value) => {
-    const updated = { ...settings, [field]: value };
-    setSettings(updated);
+  const persistSettings = async (nextSettings) => {
+    const normalized = normalizeSettings(nextSettings);
+    setSettings(normalized);
     try {
-      await API.put("/crm-settings/me", updated);
+      await API.put("/crm-settings/me", normalized);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const updateReminderOptions = async (nextOptions) => {
-    const normalized = normalizeReminderOptions(nextOptions);
-    const updated = { ...settings, reminderOptions: normalized };
-    setSettings(updated);
-    try {
-      await API.put("/crm-settings/me", updated);
-    } catch (err) {
-      console.error(err);
-    }
+  const updateNotificationPreference = (channel, key, value) => {
+    persistSettings({
+      ...settings,
+      [`${channel}Notifications`]: {
+        ...settings[`${channel}Notifications`],
+        [key]: value,
+      },
+    });
+  };
+
+  const updateReminderOptions = (nextOptions) => {
+    persistSettings({
+      ...settings,
+      reminderOptions: normalizeReminderOptions(nextOptions),
+    });
   };
 
   if (loading) return <div className="settings-loading">Loading settings...</div>;
 
+  const activeChannelKey = `${activeTab}Notifications`;
+  const activeChannelSettings = settings?.[activeChannelKey] || DEFAULT_CHANNEL_PREFERENCES;
   const reminderOptions = normalizeReminderOptions(settings.reminderOptions);
 
   return (
     <div className="settings-container">
-      <div className="settings-card settings-card--ai">
+      <div className="settings-card">
         <div className="settings-card-header">
-          <div className="settings-header-icon">
-            <img src={robotIcon} alt="AI automation" />
-          </div>
-          <div>
-            <div className="settings-title">AI & Automation</div>
-            <div className="settings-subtitle">Intelligent automation powered by machine learning</div>
-          </div>
-        </div>
-
-        <ToggleRow
-          icon={reminderIcon}
-          title="Smart Follow-up Reminders"
-          desc="Automatically suggest optimal follow-up timing"
-          value={settings.smartFollowupRemindersEnabled}
-          onChange={(v) => update("smartFollowupRemindersEnabled", v)}
-        />
-
-        <ToggleRow
-          icon={leadScoreIcon}
-          title="AI Lead Scoring"
-          desc="Automatically prioritize leads based on engagement"
-          value={settings.aiLeadScoringEnabled}
-          onChange={(v) => update("aiLeadScoringEnabled", v)}
-        />
-
-        <ToggleRow
-          icon={predictiveIcon}
-          title="Predictive Analytics"
-          desc="Forecast revenue and identify high-probability deals"
-          value={settings.predictiveAnalyticsEnabled}
-          onChange={(v) => update("predictiveAnalyticsEnabled", v)}
-        />
-      </div>
-
-      <div className="settings-card settings-card--notifications">
-        <div className="settings-card-header">
-          <div className="settings-header-icon">
-            <img src={notifyIcon} alt="Notifications" />
-          </div>
-          <div>
-            <div className="settings-title">Notifications</div>
-            <div className="settings-subtitle">Control reminder delivery and offsets</div>
+          <div className="settings-header-main">
+            <div className="settings-header-icon">
+              <img src={reminderIcon} alt="Notification preferences" />
+            </div>
+            <div>
+              <div className="settings-title">Notification Preferences</div>
+              <div className="settings-subtitle">
+                Choose which modules send app alerts and which send emails for your account.
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="settings-section-label">Reminder Method</div>
-        <div className="method-grid">
-          <MethodCard
-            icon={layersIcon}
-            title="In-App"
-            active={settings.reminderMethodInApp}
-            onClick={() => update("reminderMethodInApp", !settings.reminderMethodInApp)}
-          />
-          <MethodCard
-            icon={mailIcon}
-            title="Email"
-            active={settings.reminderMethodEmail}
-            onClick={() => update("reminderMethodEmail", !settings.reminderMethodEmail)}
-          />
+        <div className="settings-tabs">
+          {CHANNEL_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`settings-tab ${activeTab === tab.id ? "active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span>{tab.label}</span>
+              <small>{tab.description}</small>
+            </button>
+          ))}
         </div>
 
-        <div className="settings-section-label">Reminder Offsets</div>
-        <div className="settings-reminder-scroll">
-          <ReminderOptionsEditor
-            options={reminderOptions}
-            onChange={updateReminderOptions}
-          />
+        <div className="settings-panel">
+          <div className="settings-section-label">
+            {CHANNEL_TABS.find((tab) => tab.id === activeTab)?.label}
+          </div>
+          <div className="settings-panel-subtext">
+            Turn individual modules on or off for this delivery channel.
+          </div>
+
+          <div className="settings-module-list">
+            {MODULE_OPTIONS.map((item) => (
+              <div className="settings-module-row" key={item.key}>
+                <div className="settings-module-copy">
+                  <div className="settings-module-title">{item.label}</div>
+                  <div className="settings-module-description">{item.description}</div>
+                </div>
+                <div className="settings-module-toggle">
+                  <span className="settings-module-state">
+                    {activeChannelSettings[item.key] ? "On" : "Off"}
+                  </span>
+                  <div
+                    className={`toggle-switch ${activeChannelSettings[item.key] ? "active" : ""}`}
+                    onClick={() =>
+                      updateNotificationPreference(
+                        activeTab,
+                        item.key,
+                        !activeChannelSettings[item.key]
+                      )
+                    }
+                  >
+                    <div className="toggle-knob" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-panel settings-panel--reminders">
+          <div className="settings-reminder-header">
+            <div>
+              <div className="settings-section-label">Reminder Offsets</div>
+              <div className="settings-panel-subtext">
+                Shared timing for scheduled follow-up and meeting reminders. The default reminder is 10 minutes before the activity.
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-reminder-scroll">
+            <ReminderOptionsEditor
+              options={reminderOptions}
+              onChange={updateReminderOptions}
+            />
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ToggleRow({ icon, title, desc, value, onChange }) {
-  return (
-    <div className="toggle-row">
-      <div className="toggle-left">
-        <div className="toggle-icon">
-          <img src={icon} alt="" />
-        </div>
-        <div>
-          <div className="toggle-title">{title}</div>
-          <div className="toggle-desc">{desc}</div>
-        </div>
-      </div>
-
-      <div
-        className={`toggle-switch ${value ? "active" : ""}`}
-        onClick={() => onChange(!value)}
-      >
-        <div className="toggle-knob" />
-      </div>
-    </div>
-  );
-}
-
-function MethodCard({ icon, title, active, onClick }) {
-  return (
-    <div className={`method-card ${active ? "active" : ""}`} onClick={onClick}>
-      <div className="method-icon">
-        <img src={icon} alt={title} />
-      </div>
-      <div className="method-title">{title}</div>
     </div>
   );
 }
@@ -225,14 +272,18 @@ function ReminderOptionsEditor({ options, onChange }) {
             <option value="hours">hours</option>
             <option value="days">days</option>
           </select>
-          <button
-            type="button"
-            className="reminder-option-remove"
-            onClick={() => removeRow(index)}
-            title="Remove row"
-          >
-            x
-          </button>
+          {index > 0 ? (
+            <button
+              type="button"
+              className="reminder-option-remove"
+              onClick={() => removeRow(index)}
+              title="Remove row"
+            >
+              x
+            </button>
+          ) : (
+            <div className="reminder-option-remove-spacer" />
+          )}
         </div>
       ))}
       <button type="button" className="reminder-option-add" onClick={addRow}>

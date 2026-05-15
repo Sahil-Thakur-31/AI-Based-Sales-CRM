@@ -7,6 +7,11 @@ const Followup = require("../models/followUp");
 const CRMSettings = require("../models/crmSettings");
 const Meeting = require("../models/meetings");
 const Event = require("../models/events");
+const {
+  isNotificationModuleEnabled,
+  isTimedReminderEnabled,
+  normalizeNotificationSettings,
+} = require("../services/notificationPreferences");
 
 
 const authenticate = require("../middlewares/auth");
@@ -31,12 +36,12 @@ function isReminderTemplate(templateKey) {
   ].includes(templateKey);
 }
 
-function getReminderOffsetMinutes(settings) {
-  if (!settings) return 48 * 60;
+function isInAppReminderEnabled(settings, kind) {
+  return Boolean(isTimedReminderEnabled(settings, "app", kind));
+}
 
-  if (!settings.smartFollowupRemindersEnabled || !settings.reminderMethodInApp || !settings.reminderMethodEmail) {
-    return null;
-  }
+function getReminderOffsetMinutes(settings) {
+  if (!settings) return null;
 
   if (Array.isArray(settings.reminderOptions) && settings.reminderOptions.length > 0) {
     const values = settings.reminderOptions
@@ -114,14 +119,18 @@ router.get("/", authenticate, async (req, res) => {
   try {
 
     const notifications = await Notification.find({
-
-      userId: req.user._id
-
+      userId: req.user._id,
+      $or: [
+        { "deliveryChannels.inApp": true },
+        { deliveryChannels: { $exists: false } },
+      ],
     })
       .sort({ createdAt: -1 })
       .limit(50);
 
-    const settings = await CRMSettings.findOne({ userId: req.user._id }).lean();
+    const settings = normalizeNotificationSettings(
+      await CRMSettings.findOne({ userId: req.user._id }).lean()
+    );
     const reminderOffsetMinutes = getReminderOffsetMinutes(settings);
     const now = new Date();
     let leadReminderNotifications = [];
@@ -146,6 +155,7 @@ router.get("/", authenticate, async (req, res) => {
           if (dueAt.getTime() <= now.getTime()) return null;
 
           const isMeeting = followup.kind === "meeting";
+          if (!isInAppReminderEnabled(settings, followup.kind)) return null;
           const companyName = getNotificationCompanyName(followup);
           const itemType = getNotificationItemType(followup);
 
@@ -188,6 +198,7 @@ router.get("/", authenticate, async (req, res) => {
           const diffMinutes = diffMs / (60 * 1000);
           const reminderLabel = getReminderLabel(diffMinutes);
           const isMeeting = followup.kind === "meeting";
+          if (!isInAppReminderEnabled(settings, followup.kind)) return null;
           const companyName = getNotificationCompanyName(followup);
           const itemType = getNotificationItemType(followup);
 
@@ -235,52 +246,66 @@ router.get("/reminders", authenticate, async (req, res) => {
     const limitRaw = Number(req.query.limit);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 200;
     const userId = req.user._id;
+    const settings = normalizeNotificationSettings(
+      await CRMSettings.findOne({ userId }).lean()
+    );
+    const includeInAppFollowupReminders =
+      isInAppReminderEnabled(settings, "followup") ||
+      isInAppReminderEnabled(settings, "meeting");
+    const includeEventReminders = isNotificationModuleEnabled(settings, "app", "events");
 
     const [followups, events] = await Promise.all([
-      Followup.find({
-        is_deleted: false,
-        assignedTo: userId,
-        reminderEnabled: { $ne: false },
-        status: { $in: ["pending", "overdue"] },
-        dueDateTime: { $gte: now },
-      })
-        .select("_id leadId kind actionType clientName title dueDateTime")
-        .sort({ dueDateTime: 1 })
-        .limit(limit)
-        .lean(),
-      Event.find({
-        is_deleted: false,
-        status: "upcoming",
-        startDate: { $gte: now },
-        $or: [
-          { "registrations.attendeeUsers": userId },
-          { registeredBy: userId },
-          { attendedBy: userId },
-        ],
-      })
-        .select("_id name venue startDate endDate")
-        .sort({ startDate: 1 })
-        .limit(limit)
-        .lean(),
+      includeInAppFollowupReminders
+        ? Followup.find({
+            is_deleted: false,
+            assignedTo: userId,
+            reminderEnabled: { $ne: false },
+            status: { $in: ["pending", "overdue"] },
+            dueDateTime: { $gte: now },
+          })
+            .select("_id leadId kind actionType clientName title dueDateTime")
+            .sort({ dueDateTime: 1 })
+            .limit(limit)
+            .lean()
+        : [],
+      includeEventReminders
+        ? Event.find({
+            is_deleted: false,
+            status: "upcoming",
+            startDate: { $gte: now },
+            $or: [
+              { "registrations.attendeeUsers": userId },
+              { registeredBy: userId },
+              { attendedBy: userId },
+            ],
+          })
+            .select("_id name venue startDate endDate")
+            .sort({ startDate: 1 })
+            .limit(limit)
+            .lean()
+        : [],
     ]);
 
-    const followupReminders = followups.map((item) => {
-      const isMeeting = item.kind === "meeting";
-      const label = isMeeting ? "Meeting Reminder" : "Follow-up Reminder";
-      const itemType = getNotificationItemType(item);
-      const companyName = getNotificationCompanyName(item);
-      return {
-        _id: `${isMeeting ? "meeting" : "followup"}-upcoming-${item._id}`,
-        title: label,
-        message: `${itemType} for ${companyName} is scheduled on ${formatReminderDateTime(item.dueDateTime)}.`,
-        type: "info",
-        relatedId: item.leadId || item._id,
-        relatedType: isMeeting ? "Meeting" : "Followup",
-        reminderAt: item.dueDateTime,
-        createdAt: item.dueDateTime,
-        sourceType: isMeeting ? "meeting" : "followup",
-      };
-    });
+    const followupReminders = followups
+      .map((item) => {
+        if (!isInAppReminderEnabled(settings, item.kind)) return null;
+        const isMeeting = item.kind === "meeting";
+        const label = isMeeting ? "Meeting Reminder" : "Follow-up Reminder";
+        const itemType = getNotificationItemType(item);
+        const companyName = getNotificationCompanyName(item);
+        return {
+          _id: `${isMeeting ? "meeting" : "followup"}-upcoming-${item._id}`,
+          title: label,
+          message: `${itemType} for ${companyName} is scheduled on ${formatReminderDateTime(item.dueDateTime)}.`,
+          type: "info",
+          relatedId: item.leadId || item._id,
+          relatedType: isMeeting ? "Meeting" : "Followup",
+          reminderAt: item.dueDateTime,
+          createdAt: item.dueDateTime,
+          sourceType: isMeeting ? "meeting" : "followup",
+        };
+      })
+      .filter(Boolean);
 
     const eventReminders = events.map((item) => {
       const venue = String(item.venue || "").trim();
