@@ -46,7 +46,7 @@ const DEAL_METRICS = new Set([
   "inactive_deal_value",
   "list_deals",
 ]);
-const LEAD_METRICS = new Set(["lead_count", "converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
+const LEAD_METRICS = new Set(["lead_count", "converted_count", "non_converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
 const EXPENSE_METRICS = new Set(["expense_total", "expense_count", "approved_total", "pending_count", "rejected_count"]);
 const CLIENT_METRICS = new Set(["top_clients_revenue", "inactive_clients"]);
 const FOLLOWUP_METRICS = new Set(["todays_followups", "overdue_followups", "pending_meetings", "completed_meetings", "followup_count"]);
@@ -58,7 +58,7 @@ const DEAL_LOST_STAGE = "P6";
 const OPEN_DEAL_STAGE_FILTER = { $nin: [DEAL_WON_STAGE, DEAL_LOST_STAGE] };
 
 const DEAL_GROUPS = new Set(["salesperson", "stage", "month", "size"]);
-const LEAD_GROUPS = new Set(["source", "salesperson", "status", "temperature", "month"]);
+const LEAD_GROUPS = new Set(["source", "salesperson", "status", "month"]);
 const EXPENSE_GROUPS = new Set(["category", "approval_status", "reference_type", "user", "month"]);
 const CLIENT_GROUPS = new Set(["client", "month"]);
 const FOLLOWUP_GROUPS = new Set(["employee", "stage", "status", "month"]);
@@ -668,22 +668,12 @@ async function buildDeterministicPlan(question) {
     });
   }
 
-  if (containsAny(lower, ["hot leads", "warm leads", "cold leads"])) {
-    const temperature = lower.includes("hot") ? "hot" : lower.includes("warm") ? "warm" : "cold";
-    return makePlan(selection, "leads", "lead_count", {
-      filters: { temperature },
-    });
-  }
-
-  if (containsAny(lower, ["hot warm cold", "lead temperature", "lead quality"])) {
-    return makePlan(selection, "leads", "lead_count", {
-      groupBy: "temperature",
-      chartType: "bar",
-    });
-  }
-
   if (lower.includes("uncontacted lead")) {
     return makePlan(selection, "leads", "uncontacted_count");
+  }
+
+  if (containsAny(lower, ["non converted leads", "non converted lead", "not converted leads", "not converted lead", "unconverted leads", "unconverted lead"])) {
+    return makePlan(selection, "leads", "non_converted_count");
   }
 
   if (containsAny(lower, ["lead conversion rate", "converted leads", "converted lead"])) {
@@ -905,7 +895,7 @@ function buildHeuristicPlan(question) {
   let module = "deals";
   if (/(expense|spend|approved expense|pending expense|rejected expense)/.test(lower)) {
     module = "expenses";
-  } else if (/(lead|source|uncontacted|qualified|converted lead|temperature|hot|warm|cold)/.test(lower)) {
+  } else if (/(lead|source|uncontacted|qualified|converted lead|non converted|not converted|unconverted)/.test(lower)) {
     module = "leads";
   } else if (/(follow[-\s]?up|followup|follows|meeting)/.test(lower)) {
     module = "followups";
@@ -960,6 +950,9 @@ function buildHeuristicPlan(question) {
     if (lower.includes("uncontacted")) {
       metric = "uncontacted_count";
       groupBy = lower.includes("source") ? "source" : lower.includes("salesperson") ? "salesperson" : null;
+    } else if (lower.includes("non converted") || lower.includes("not converted") || lower.includes("unconverted")) {
+      metric = "non_converted_count";
+      groupBy = lower.includes("source") ? "source" : lower.includes("salesperson") ? "salesperson" : null;
     } else if (lower.includes("conversion")) {
       metric = "conversion_rate";
       groupBy = lower.includes("source") ? "source" : lower.includes("salesperson") ? "salesperson" : null;
@@ -975,12 +968,7 @@ function buildHeuristicPlan(question) {
       if (lower.includes("source")) groupBy = "source";
       else if (lower.includes("salesperson") || lower.includes("rep")) groupBy = "salesperson";
       else if (lower.includes("status")) groupBy = "status";
-      else if (lower.includes("hot") || lower.includes("warm") || lower.includes("cold") || lower.includes("temperature")) groupBy = "temperature";
     }
-
-    if (lower.includes("hot")) filters.temperature = "hot";
-    if (lower.includes("warm")) filters.temperature = "warm";
-    if (lower.includes("cold")) filters.temperature = "cold";
     if (lower.includes("source")) {
       groupBy = lower.includes("by source") ? "source" : groupBy;
     }
@@ -1135,6 +1123,7 @@ Deals:
 Leads:
 - lead_count
 - converted_count
+- non_converted_count
 - uncontacted_count
 - conversion_rate
 - qualified_count
@@ -1183,7 +1172,6 @@ Leads:
 - source
 - salesperson
 - status
-- temperature
 - month
 
 Expenses:
@@ -1220,7 +1208,6 @@ Allowed filters:
 - salesperson
 - source
 - stage
-- temperature
 - category
 - approval_status
 - reference_type
@@ -1233,6 +1220,7 @@ Rules:
 - Do not return explanation text.
 - If the user asks for top performers, default to module=deals, metric=revenue, groupBy=salesperson, filters.stage=P7.
 - If the user asks for conversion, use leads unless they clearly mention deals.
+- If the user asks for non-converted leads, not-converted leads, or unconverted leads, use module=leads and metric=non_converted_count.
 - If the user asks for revenue, use deals and filters.stage=P7.
 - If the user asks for expenses/spend, use expenses.
 - If the user asks for follow-ups, followups, follows, or meetings, use followups.
@@ -1714,7 +1702,9 @@ async function runLeadsReport(plan, user) {
     };
   }
   if (plan.filters?.status) match.status = plan.filters.status;
-  if (plan.filters?.temperature) match.lead_temperature = plan.filters.temperature;
+  if (plan.metric === "non_converted_count") {
+    match.converted_to_deal = false;
+  }
   if (plan.metric === "inactive_leads") {
     match.is_active = false;
     match.is_deleted = { $ne: true };
@@ -1729,7 +1719,7 @@ async function runLeadsReport(plan, user) {
 
   if (plan.metric === "uncontacted_count") {
     const leadDocs = await Leads.find(match)
-      .select("_id last_contact_date source assigned_to status lead_temperature created_at")
+      .select("_id last_contact_date source assigned_to status created_at")
       .lean();
 
     const leadIds = leadDocs
@@ -1771,7 +1761,6 @@ async function runLeadsReport(plan, user) {
       if (plan.groupBy === "source") groupKey = String(lead?.source || "");
       else if (plan.groupBy === "salesperson") groupKey = String(lead?.assigned_to || "");
       else if (plan.groupBy === "status") groupKey = String(lead?.status || "");
-      else if (plan.groupBy === "temperature") groupKey = String(lead?.lead_temperature || "cold").toLowerCase();
       else if (plan.groupBy === "month") {
         const createdAt = lead?.created_at ? new Date(lead.created_at) : null;
         groupKey =
@@ -1814,12 +1803,12 @@ async function runLeadsReport(plan, user) {
   if (plan.groupBy === "source") groupId = "$source";
   if (plan.groupBy === "salesperson") groupId = "$assigned_to";
   if (plan.groupBy === "status") groupId = "$status";
-  if (plan.groupBy === "temperature") groupId = { $toLower: { $ifNull: ["$lead_temperature", "cold"] } };
   if (plan.groupBy === "month") groupId = { $dateToString: { format: "%Y-%m", date: "$created_at" } };
 
   const groupStage = { _id: groupId };
   if (plan.metric === "lead_count") groupStage.value = { $sum: 1 };
   if (plan.metric === "converted_count") groupStage.value = { $sum: { $cond: [{ $eq: ["$converted_to_deal", true] }, 1, 0] } };
+  if (plan.metric === "non_converted_count") groupStage.value = { $sum: { $cond: [{ $eq: ["$converted_to_deal", false] }, 1, 0] } };
   if (plan.metric === "qualified_count") groupStage.value = { $sum: { $cond: [{ $eq: ["$status", "qualified"] }, 1, 0] } };
   if (plan.metric === "conversion_rate") {
     groupStage.totalCount = { $sum: 1 };
@@ -2312,6 +2301,7 @@ async function runTeamsReport(plan, user) {
     list_deals: "Deals List",
     lead_count: "Lead Count",
     converted_count: "Converted Leads",
+    non_converted_count: "Non-Converted Leads",
     uncontacted_count: "Uncontacted Leads",
     conversion_rate: "Lead Conversion Rate",
     qualified_count: "Qualified Leads",

@@ -354,7 +354,6 @@ function buildTemplateByKey({
         { label: "Company", value: relatedData?.company_name || "" },
         { label: "Industry", value: relatedData?.industry || "" },
         { label: "Value Estimate", value: formatCurrency(relatedData?.deal_value_estimate) },
-        { label: "Temperature", value: relatedData?.lead_temperature || "" },
         { label: "Status", value: relatedData?.status || "" },
       ];
       return {

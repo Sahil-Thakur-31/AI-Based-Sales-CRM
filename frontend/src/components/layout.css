@@ -72,4 +72,69 @@
         opacity: 1;
         pointer-events: auto;
     }
+
+    .page-content :is(
+        .topActions,
+        .top-actions,
+        .filters,
+        .fuTopbarFilters,
+        .expense-ledger-actions,
+        .manager-dashboard-toolbar,
+        .team-targets-filters
+    ) {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .page-content :is(
+        .topActions,
+        .top-actions,
+        .filters,
+        .fuTopbarFilters,
+        .expense-ledger-actions,
+        .manager-dashboard-toolbar,
+        .team-targets-filters
+    ) > * {
+        min-width: 0;
+        max-width: 100%;
+        width: 100%;
+        box-sizing: border-box;
+        margin-left: 0;
+    }
+
+    .page-content :is(
+        .topActions,
+        .top-actions,
+        .filters,
+        .fuTopbarFilters,
+        .expense-ledger-actions,
+        .manager-dashboard-toolbar,
+        .team-targets-filters
+    ) :is(input[type="text"], input[type="search"], input[type="date"], input[type="number"], select, button) {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin-left: 0;
+    }
+
+    .page-content .add-deal-btn {
+        margin-left: 0;
+    }
+}
+
+@media screen and (max-width: 420px) {
+    .page-content :is(
+        .topActions,
+        .top-actions,
+        .filters,
+        .fuTopbarFilters,
+        .expense-ledger-actions,
+        .manager-dashboard-toolbar,
+        .team-targets-filters
+    ) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }

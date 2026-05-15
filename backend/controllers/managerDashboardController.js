@@ -63,13 +63,6 @@ function formatCurrency(value) {
   });
 }
 
-function getLeadPriority(lead) {
-  const temp = String(lead?.lead_temperature || "").toLowerCase();
-  if (temp === "hot") return "High";
-  if (temp === "warm") return "Medium";
-  return "Low";
-}
-
 function getFollowupPriority(priority) {
   const value = String(priority || "").toLowerCase();
   if (value === "high" || value === "urgent") return "High";

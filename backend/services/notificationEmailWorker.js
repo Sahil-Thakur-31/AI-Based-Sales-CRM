@@ -8,6 +8,11 @@ const {
   inferTemplateKey,
   TEMPLATE_KEYS,
 } = require("./emailTemplates");
+const {
+  isTimedReminderEnabled,
+  normalizeNotificationSettings,
+  resolveNotificationModule,
+} = require("./notificationPreferences");
 
 let isProcessing = false;
 let workerTimer = null;
@@ -46,7 +51,6 @@ function isReminderTemplate(templateKey) {
   return [
     TEMPLATE_KEYS.MEETING_SCHEDULED,
     TEMPLATE_KEYS.FOLLOWUP_SCHEDULED,
-    TEMPLATE_KEYS.EVENT_ATTENDEE_INVITATION,
   ].includes(templateKey);
 }
 
@@ -61,10 +65,6 @@ function getReminderTargetDate(templateKey, relatedData) {
     return relatedData.dueDateTime || relatedData.nextActionDate || null;
   }
 
-  if (templateKey === TEMPLATE_KEYS.EVENT_ATTENDEE_INVITATION) {
-    return relatedData.startDate || relatedData.endDate || null;
-  }
-
   return null;
 }
 
@@ -75,6 +75,17 @@ async function markNotification(id, patch) {
 async function processNotification(notificationDoc) {
   const now = new Date();
   const notification = notificationDoc.toObject ? notificationDoc.toObject() : notificationDoc;
+  const deliveryChannels = notification.deliveryChannels || {};
+
+  if (deliveryChannels.email === false) {
+    await markNotification(notification._id, {
+      emailStatus: "skipped",
+      emailLastAttemptAt: now,
+      emailSkippedReason: "Email delivery disabled for this notification",
+      emailError: "",
+    });
+    return;
+  }
 
   const user = await User.findById(notification.userId).select("name email").lean();
   if (!user?.email) {
@@ -95,9 +106,10 @@ async function processNotification(notificationDoc) {
   });
 
   if (isReminderTemplate(templateKey)) {
-    const settings = await CRMSettings.findOne({ userId: notification.userId }).lean();
-    // Only send email if smart reminders are enabled AND email method is enabled
-    if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodEmail) {
+    const rawSettings = await CRMSettings.findOne({ userId: notification.userId }).lean();
+    const settings = normalizeNotificationSettings(rawSettings);
+    const reminderType = templateKey === TEMPLATE_KEYS.MEETING_SCHEDULED ? "meeting" : "followup";
+    if (!isTimedReminderEnabled(settings, "email", reminderType)) {
       return;
     }
 
@@ -123,6 +135,20 @@ async function processNotification(notificationDoc) {
         });
         return;
       }
+    }
+  } else {
+    const rawSettings = await CRMSettings.findOne({ userId: notification.userId }).lean();
+    const settings = normalizeNotificationSettings(rawSettings);
+    const moduleKey = resolveNotificationModule({ ...notification, templateKey });
+    if (moduleKey && settings.emailNotifications?.[moduleKey] === false) {
+      await markNotification(notification._id, {
+        emailStatus: "skipped",
+        emailLastAttemptAt: now,
+        emailSkippedReason: "Email notification disabled in settings",
+        emailError: "",
+        templateKey,
+      });
+      return;
     }
   }
 

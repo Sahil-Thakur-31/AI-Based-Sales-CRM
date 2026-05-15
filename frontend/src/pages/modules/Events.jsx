@@ -852,11 +852,6 @@ const EventExpo = () => {
 
   return (
     <div className="event-page">
-      <div className="event-page-header">
-        <div>
-          <p>Track opportunities, register teams, and manage upcoming expos.</p>
-        </div>
-      </div>
 
       <div className={`event-summary-cards ${isRestrictedUser ? "event-summary-cards-user" : ""}`}>
         {isRestrictedUser ? (

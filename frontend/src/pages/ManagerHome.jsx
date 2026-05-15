@@ -386,7 +386,11 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
                 <button
                   className="manager-mini-btn done"
                   type="button"
-                  onClick={() => navigate("/ai-insights")}
+                  onClick={() =>
+                    navigate("/ai-insights?scope=personal", {
+                      state: { source: "main-dashboard" }
+                    })
+                  }
                 >
                   View All
                 </button>

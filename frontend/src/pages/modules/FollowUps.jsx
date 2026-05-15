@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../../api";
 import FormErrorSlot from "../../components/FormErrorSlot";
+import Pagination from "../../components/Pagination";
 import { minLength, required } from "../../utils/formValidation";
 import "./styles/Followups.css";
 
@@ -69,7 +70,7 @@ const EMPTY_CANCEL_MODAL = {
   reason: "",
 };
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 5;
 
 function cx(...arr) {
   return arr.filter(Boolean).join(" ");
@@ -593,6 +594,16 @@ export default function Followups() {
     const start = (followupPage - 1) * PAGE_SIZE;
     return filteredFollowupsByStatus.slice(start, start + PAGE_SIZE);
   }, [filteredFollowupsByStatus, followupPage]);
+
+  const handleMeetingPageChange = (page) => {
+    const nextPage = Math.min(Math.max(page, 1), meetingTotalPages);
+    setMeetingPage(nextPage);
+  };
+
+  const handleFollowupPageChange = (page) => {
+    const nextPage = Math.min(Math.max(page, 1), followupTotalPages);
+    setFollowupPage(nextPage);
+  };
 
   const statusCounts = useMemo(() => {
     const meetingRemaining = assigneeFilteredMeetings.filter(
@@ -1202,11 +1213,11 @@ export default function Followups() {
                   )}
                 </div>
                 {filteredMeetings.length > 0 && (
-                  <div className="fuPager">
-                    <button className="fuMiniBtn" type="button" onClick={() => setMeetingPage((p) => Math.max(1, p - 1))} disabled={meetingPage <= 1}>Prev</button>
-                    <span className="fuPagerText">Page {meetingPage} / {meetingTotalPages}</span>
-                    <button className="fuMiniBtn" type="button" onClick={() => setMeetingPage((p) => Math.min(meetingTotalPages, p + 1))} disabled={meetingPage >= meetingTotalPages}>Next</button>
-                  </div>
+                  <Pagination
+                    currentPage={meetingPage}
+                    totalPages={meetingTotalPages}
+                    handlePageChange={handleMeetingPageChange}
+                  />
                 )}
               </>
             )}
@@ -1266,11 +1277,11 @@ export default function Followups() {
                 )}
               </div>
               {filteredFollowupsByStatus.length > 0 && (
-                <div className="fuPager">
-                  <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.max(1, p - 1))} disabled={followupPage <= 1}>Prev</button>
-                  <span className="fuPagerText">Page {followupPage} / {followupTotalPages}</span>
-                  <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.min(followupTotalPages, p + 1))} disabled={followupPage >= followupTotalPages}>Next</button>
-                </div>
+                <Pagination
+                  currentPage={followupPage}
+                  totalPages={followupTotalPages}
+                  handlePageChange={handleFollowupPageChange}
+                />
               )}
             </>
           </div>

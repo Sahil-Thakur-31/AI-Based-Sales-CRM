@@ -711,20 +711,6 @@
   margin-top: 14px;
 }
 
-.fuPager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 2px 10px 12px;
-}
-
-.fuPagerText {
-  font-size: 12px;
-  color: #475569;
-  font-weight: 700;
-}
-
 .fuFooterRow {
   padding: 10px 12px;
   border-top: 1px solid #e6ebf2;
@@ -980,17 +966,6 @@
 
   .fuPriorityDot {
     margin-top: 4px;
-  }
-
-  .fuPager {
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 0 8px 10px;
-  }
-
-  .fuPagerText {
-    width: 100%;
-    text-align: center;
   }
 
   .fuDetailsHead,

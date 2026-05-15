@@ -70,10 +70,7 @@ function emptyDashboard(team = null) {
       contacted: 0,
       qualified: 0,
       converted: 0,
-      rejected: 0,
-      hot: 0,
-      warm: 0,
-      cold: 0
+      rejected: 0
     },
     recentLeads: [],
     pipeline: {
@@ -111,10 +108,7 @@ function emptyMemberDetail() {
       contacted: 0,
       qualified: 0,
       converted: 0,
-      rejected: 0,
-      hot: 0,
-      warm: 0,
-      cold: 0
+      rejected: 0
     },
     followups: []
   };
@@ -184,8 +178,7 @@ export default function TeamDashboard() {
     entityType: "all"
   });
   const [memberLeadFilters, setMemberLeadFilters] = useState({
-    query: "",
-    temperature: "all"
+    query: ""
   });
 
   const selectedTeam = useMemo(
@@ -282,7 +275,7 @@ export default function TeamDashboard() {
     setMemberDetailData(emptyMemberDetail());
     setMemberDealFilters({ query: "", stage: "all" });
     setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
-    setMemberLeadFilters({ query: "", temperature: "all" });
+    setMemberLeadFilters({ query: "" });
   };
 
   const openMemberDetail = async (row) => {
@@ -295,7 +288,7 @@ export default function TeamDashboard() {
     setMemberDetailData(emptyMemberDetail());
     setMemberDealFilters({ query: "", stage: "all" });
     setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
-    setMemberLeadFilters({ query: "", temperature: "all" });
+    setMemberLeadFilters({ query: "" });
 
     try {
       const res = await API.get("/teams/member-detail", {
@@ -321,10 +314,7 @@ export default function TeamDashboard() {
           contacted: 0,
           qualified: 0,
           converted: 0,
-          rejected: 0,
-          hot: 0,
-          warm: 0,
-          cold: 0
+          rejected: 0
         },
         followups: Array.isArray(payload?.followups) ? payload.followups : []
       });
@@ -607,25 +597,15 @@ export default function TeamDashboard() {
     });
   }, [memberDetailData.followups, memberFollowupFilters]);
 
-  const memberLeadTemperatureOptions = useMemo(
-    () =>
-      [...new Set((memberDetailData.leads || []).map((lead) => lead.temperature).filter(Boolean))],
-    [memberDetailData.leads]
-  );
   const filteredMemberLeads = useMemo(() => {
     const query = memberLeadFilters.query.trim().toLowerCase();
     return (memberDetailData.leads || []).filter((lead) => {
-      const temperatureOk =
-        memberLeadFilters.temperature === "all" ||
-        (lead.temperature || "") === memberLeadFilters.temperature;
-      if (!temperatureOk) return false;
       if (!query) return true;
 
       const haystack = [
         lead._id,
         lead.companyName,
         lead.stage,
-        lead.temperature,
         lead.nextAction
       ]
         .filter(Boolean)
@@ -766,7 +746,7 @@ export default function TeamDashboard() {
                 <thead>
                   <tr className="team-table-group-row">
                     <th rowSpan={2}>Member</th>
-                    <th rowSpan={2} className="team-lead-column team-group-start">Lead Pipeline</th>
+                    <th rowSpan={2} className="team-lead-column team-group-start">Lead</th>
                     <th colSpan={4} className="team-deal-group">Deals</th>
                     <th rowSpan={2}>Follow-ups</th>
                     <th rowSpan={2}>Actions</th>
@@ -961,7 +941,16 @@ export default function TeamDashboard() {
               <button
                 type="button"
                 className="team-btn team-btn-secondary"
-                onClick={() => navigate(`/ai-insights?scope=team&teamId=${selectedTeamId}`)}
+                onClick={() =>
+                  navigate(
+                    isAdminUser
+                      ? "/ai-insights?teamId=all"
+                      : `/ai-insights?teamId=${selectedTeamId}`,
+                    {
+                    state: { source: "team-dashboard" }
+                    }
+                  )
+                }
                 disabled={!selectedTeamId}
               >
                 View All
@@ -1393,23 +1382,6 @@ export default function TeamDashboard() {
                             }))
                           }
                         />
-                        <select
-                          className="team-modal-filter-select"
-                          value={memberLeadFilters.temperature}
-                          onChange={(e) =>
-                            setMemberLeadFilters((prev) => ({
-                              ...prev,
-                              temperature: e.target.value
-                            }))
-                          }
-                        >
-                          <option value="all">All Temperatures</option>
-                          {memberLeadTemperatureOptions.map((temp) => (
-                            <option key={temp} value={temp}>
-                              {temp}
-                            </option>
-                          ))}
-                        </select>
                       </div>
 
                       <div className="team-modal-table-wrap">
@@ -1418,7 +1390,6 @@ export default function TeamDashboard() {
                             <tr>
                               <th>Company</th>
                               <th>Stage</th>
-                              <th>Temperature</th>
                               <th>Estimated Value</th>
                               <th>Last Contact</th>
                               <th>Next Action</th>
@@ -1431,7 +1402,6 @@ export default function TeamDashboard() {
                                 <tr key={lead._id}>
                                   <td title={lead.companyName}>{lead.companyName || "-"}</td>
                                   <td>{lead.stage || "-"}</td>
-                                  <td>{lead.temperature || "-"}</td>
                                   <td>{formatCurrency(lead.estimatedValue || 0)}</td>
                                   <td>{formatDateTime(lead.lastContactDate)}</td>
                                   <td title={lead.nextAction}>{lead.nextAction || "-"}</td>
@@ -1448,7 +1418,7 @@ export default function TeamDashboard() {
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={7} className="team-table-empty">
+                                <td colSpan={6} className="team-table-empty">
                                   No leads match current filters.
                                 </td>
                               </tr>
