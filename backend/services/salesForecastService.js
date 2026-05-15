@@ -312,10 +312,12 @@ function logModelInputs(rows = [], dealsById = new Map(), leadsById = new Map())
     };
   });
 
-  console.log("Sales forecast model inputs:");
-  for (const row of printableRows) {
-    console.log(`[Sales Forecast] ${row.dealName} (${row.dealId})`);
-    console.log(row.modelInputArgs);
+  if (process.env.SALES_FORECAST_DEBUG === "true") {
+    console.log("Sales forecast model inputs:");
+    for (const row of printableRows) {
+      console.log(`[Sales Forecast] ${row.dealName} (${row.dealId})`);
+      console.log(row.modelInputArgs);
+    }
   }
 }
 
@@ -501,7 +503,7 @@ async function getSalesForecast(user = {}, options = {}) {
             modelVersion: "random_forest_v1"
           }
         },
-        { new: false }
+        { returnDocument: "before" }
       );
     }
   } catch (error) {

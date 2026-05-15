@@ -4,7 +4,11 @@ const defaultBaseUrl = "http://localhost:8080/";
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl;
 
 const API = axios.create({
+<<<<<<< HEAD
     baseURL : configuredBaseUrl
+=======
+    baseURL : "http://localhost:8080/"
+>>>>>>> 75cd7117f5864763bb7ada8569be09461ca87f2f
 })
 
 API.interceptors.request.use(req =>{
