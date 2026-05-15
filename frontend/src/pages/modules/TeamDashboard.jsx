@@ -919,7 +919,16 @@ export default function TeamDashboard() {
               <button
                 type="button"
                 className="team-btn team-btn-secondary"
-                onClick={() => navigate(`/ai-insights?scope=team&teamId=${selectedTeamId}`)}
+                onClick={() =>
+                  navigate(
+                    isAdminUser
+                      ? "/ai-insights?teamId=all"
+                      : `/ai-insights?teamId=${selectedTeamId}`,
+                    {
+                    state: { source: "team-dashboard" }
+                    }
+                  )
+                }
                 disabled={!selectedTeamId}
               >
                 View All

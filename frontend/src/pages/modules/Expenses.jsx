@@ -719,9 +719,9 @@ const ExpenseDashboard = () => {
       startRect: currentCrop,
       offset: currentCrop
         ? {
-            x: pointer.x - currentCrop.x,
-            y: pointer.y - currentCrop.y,
-          }
+          x: pointer.x - currentCrop.x,
+          y: pointer.y - currentCrop.y,
+        }
         : null,
     });
 
@@ -1002,477 +1002,381 @@ const ExpenseDashboard = () => {
 
   return (
     <div className="expense-dashboard">
-      <div className="expense-cards">
-        <div className="expense-card green">
-          <h4>Total</h4>
-          <h2>Rs. {totalAmount.toFixed(2)}</h2>
-          <p className="expense-total-period">{totalPeriodLabel}</p>
-        </div>
+      {!showModal && (
+        <>
+          <div className="expense-cards">
+            <div className="expense-card green">
+              <h4>Total</h4>
+              <h2>Rs. {totalAmount.toFixed(2)}</h2>
+              <p className="expense-total-period">{totalPeriodLabel}</p>
+            </div>
 
-        <div className="expense-card blue">
-          <h4>Approved</h4>
-          <h2>Rs. {approved.reduce((s, e) => s + e.total, 0).toFixed(2)}</h2>
-          <p>{approved.length} expenses</p>
-        </div>
+            <div className="expense-card blue">
+              <h4>Approved</h4>
+              <h2>Rs. {approved.reduce((s, e) => s + e.total, 0).toFixed(2)}</h2>
+              <p>{approved.length} expenses</p>
+            </div>
 
-        <div className="expense-card orange">
-          <h4>Pending</h4>
-          <h2>Rs. {pending.reduce((s, e) => s + e.total, 0).toFixed(2)}</h2>
-          <p>{pending.length} awaiting</p>
-        </div>
+            <div className="expense-card orange">
+              <h4>Pending</h4>
+              <h2>Rs. {pending.reduce((s, e) => s + e.total, 0).toFixed(2)}</h2>
+              <p>{pending.length} awaiting</p>
+            </div>
 
-        <div className="expense-card pink">
-          <h4>Total Entries</h4>
-          <h2>{sortedExpenses.length}</h2>
-          <p>In current view</p>
-        </div>
-      </div>
-
-      {isAdmin && (
-        <div className="expense-middle-section">
-          <div className="expense-box">
-            <h3>By Category</h3>
-            {categorySummary.map((item, i) => (
-              <div key={i}>
-                <div className="expense-progress-item">
-                  <span>{item.category}</span>
-                  <span>Rs. {item.total.toFixed(2)}</span>
-                </div>
-                <div className="expense-progress">
-                  <div
-                    className="expense-bar green"
-                    style={{ width: `${(item.total / maxCategory) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+            <div className="expense-card pink">
+              <h4>Total Entries</h4>
+              <h2>{sortedExpenses.length}</h2>
+              <p>In current view</p>
+            </div>
           </div>
 
-          <div className="expense-box expense-by-user-box">
-            <div className="expense-box-header">
-              <h3>By User (Recent Updates)</h3>
-              <input
-                type="text"
-                placeholder="Search user..."
-                value={userSummarySearch}
-                onChange={(e) => setUserSummarySearch(e.target.value)}
-                className="expense-by-user-search"
-              />
-            </div>
-            <div className="expense-by-user-scroll">
-              {paginatedUserSummary.length > 0 ? (
-                paginatedUserSummary.map((item, i) => (
-                  <div key={`${item.user}-${i}`}>
-                    <div className="expense-user-row">
-                      <span>{item.user}</span>
+          {isAdmin && (
+            <div className="expense-middle-section">
+              <div className="expense-box">
+                <h3>By Category</h3>
+                {categorySummary.map((item, i) => (
+                  <div key={i}>
+                    <div className="expense-progress-item">
+                      <span>{item.category}</span>
                       <span>Rs. {item.total.toFixed(2)}</span>
                     </div>
                     <div className="expense-progress">
                       <div
-                        className="expense-bar blue"
-                        style={{ width: `${(item.total / maxUser) * 100}%` }}
+                        className="expense-bar green"
+                        style={{ width: `${(item.total / maxCategory) * 100}%` }}
                       ></div>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="expense-user-empty">No users found.</div>
-              )}
+                ))}
+              </div>
+
+              <div className="expense-box expense-by-user-box">
+                <div className="expense-box-header">
+                  <h3>By User (Recent Updates)</h3>
+                  <input
+                    type="text"
+                    placeholder="Search user..."
+                    value={userSummarySearch}
+                    onChange={(e) => setUserSummarySearch(e.target.value)}
+                    className="expense-by-user-search"
+                  />
+                </div>
+                <div className="expense-by-user-scroll">
+                  {paginatedUserSummary.length > 0 ? (
+                    paginatedUserSummary.map((item, i) => (
+                      <div key={`${item.user}-${i}`}>
+                        <div className="expense-user-row">
+                          <span>{item.user}</span>
+                          <span>Rs. {item.total.toFixed(2)}</span>
+                        </div>
+                        <div className="expense-progress">
+                          <div
+                            className="expense-bar blue"
+                            style={{ width: `${(item.total / maxUser) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="expense-user-empty">No users found.</div>
+                  )}
+                </div>
+                <div className="expense-by-user-pagination">
+                  <button
+                    disabled={userSummaryPage === 1}
+                    onClick={() => setUserSummaryPage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </button>
+                  <span>
+                    Page {userSummaryPage} of {userSummaryTotalPages}
+                  </span>
+                  <button
+                    disabled={userSummaryPage === userSummaryTotalPages}
+                    onClick={() =>
+                      setUserSummaryPage((p) => Math.min(userSummaryTotalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="expense-by-user-pagination">
-              <button
-                disabled={userSummaryPage === 1}
-                onClick={() => setUserSummaryPage((p) => Math.max(1, p - 1))}
-              >
+          )}
+
+          <div className="expense-ledger">
+            <div className="expense-ledger-header">
+              <h3>Expense Ledger</h3>
+
+              <div className="expense-ledger-actions">
+                {isAdmin && (
+                  <div className="expense-dropdown">
+                    <div
+                      className="expense-dropdown-selected"
+                      onClick={() => setShowDropdown(!showDropdown)}
+                    >
+                      {selectedUser} &#9662;
+                    </div>
+
+                    {showDropdown && (
+                      <div className="expense-dropdown-menu">
+                        <input
+                          className="expense-dropdown-search"
+                          type="text"
+                          placeholder="Search user..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                        <div className="expense-dropdown-list">
+                          {filteredUsers.map((user, i) => (
+                            <div
+                              key={i}
+                              className="expense-dropdown-item"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowDropdown(false);
+                              }}
+                            >
+                              {user}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button className="expense-ocr-btn" onClick={openOcrModal}>
+                  OCR
+                </button>
+
+                <button className="expense-log-btn" onClick={openCreateModal}>
+                  + Log Expense
+                </button>
+              </div>
+            </div>
+            <FormErrorSlot message={pageError} className="form-error-slot-global" />
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>User</th>
+                  <th>Total</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedExpenses.map((exp) => {
+                  const canModifyOwnPending = exp.status === "pending" && String(exp.userId) === String(currentUser?._id);
+                  return (
+                    <tr key={exp.id}>
+                      <td>{exp.categoryLabel}</td>
+                      <td>{exp.referenceType || "-"}</td>
+                      <td>{exp.user}</td>
+                      <td>Rs. {exp.total.toFixed(2)}</td>
+                      <td>{exp.date}</td>
+                      <td>
+                        {isAdmin ? (
+                          <select
+                            className={`expense-status-select expense-status-${exp.status}`}
+                            value={exp.status}
+                            disabled={exp.status === "approved"}
+                            title={exp.status === "approved" ? "Approved expense status cannot be changed" : "Update status"}
+                            onChange={(e) => handleStatusChange(exp, e.target.value)}
+                          >
+                            <option value="pending">pending</option>
+                            <option value="approved">approved</option>
+                            <option value="rejected">rejected</option>
+                          </select>
+                        ) : (
+                          <div className="expense-status-stack">
+                            <button
+                              type="button"
+                              className={
+                                exp.status === "approved"
+                                  ? "expense-approved"
+                                  : exp.status === "rejected"
+                                    ? "expense-rejected expense-status-clickable"
+                                    : "expense-pending"
+                              }
+                              onClick={() => openReasonModal(exp)}
+                              title={exp.status === "rejected" ? "Click to view rejected reason" : ""}
+                            >
+                              {exp.status}
+                            </button>
+                            {exp.status === "rejected" && exp.approvalRemarks && (
+                              <small className="expense-rejection-inline" title="Click rejected status to view full reason">
+                                Click rejected status to view reason
+                              </small>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <button className="expense-view" onClick={() => handleView(exp)}>
+                          View
+                        </button>
+
+                        {isAdmin && (
+                          <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
+                            Delete
+                          </button>
+                        )}
+
+                        {!isAdmin && canModifyOwnPending && (
+                          <button className="expense-view" onClick={() => openEditModal(exp)}>
+                            Edit
+                          </button>
+                        )}
+
+                        {!isAdmin && canModifyOwnPending && (
+                          <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
+                            Delete
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div className="expense-pagination">
+              <button disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
                 Prev
               </button>
               <span>
-                Page {userSummaryPage} of {userSummaryTotalPages}
+                Page {currentPage} of {totalPages}
               </span>
-              <button
-                disabled={userSummaryPage === userSummaryTotalPages}
-                onClick={() =>
-                  setUserSummaryPage((p) => Math.min(userSummaryTotalPages, p + 1))
-                }
-              >
+              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
                 Next
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      <div className="expense-ledger">
-        <div className="expense-ledger-header">
-          <h3>Expense Ledger</h3>
-
-          <div className="expense-ledger-actions">
-            {isAdmin && (
-              <div className="expense-dropdown">
-                <div
-                  className="expense-dropdown-selected"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                >
-                  {selectedUser} &#9662;
+      {showModal && (
+        <section className="expense-ocr-page-shell">
+          <div className="workspace-container-wrapper">
+            <div className="expense-ocr-page-toolbar">
+              <div className="ocr-header-brand">
+                <div className="ocr-brand-icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.29 7 12 12 20.71 7"/>
+                    <line x1="12" y1="22" x2="12" y2="12"/>
+                  </svg>
                 </div>
-
-                {showDropdown && (
-                  <div className="expense-dropdown-menu">
-                    <input
-                      className="expense-dropdown-search"
-                      type="text"
-                      placeholder="Search user..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                    <div className="expense-dropdown-list">
-                      {filteredUsers.map((user, i) => (
-                        <div
-                          key={i}
-                          className="expense-dropdown-item"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setShowDropdown(false);
-                          }}
-                        >
-                          {user}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div className="ocr-brand-text">
+                  <span className="ocr-brand-kicker">Intelligent Extraction</span>
+                  <h2 className="ocr-brand-title">Expense OCR Workspace</h2>
+                </div>
               </div>
-            )}
 
-            <button className="expense-ocr-btn" onClick={openOcrModal}>
-              OCR
-            </button>
-
-            <button className="expense-log-btn" onClick={openCreateModal}>
-              + Log Expense
-            </button>
-          </div>
-        </div>
-        <FormErrorSlot message={pageError} className="form-error-slot-global" />
-
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Type</th>
-              <th>User</th>
-              <th>Total</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedExpenses.map((exp) => {
-              const canModifyOwnPending = exp.status === "pending" && String(exp.userId) === String(currentUser?._id);
-              return (
-                <tr key={exp.id}>
-                  <td>{exp.categoryLabel}</td>
-                  <td>{exp.referenceType || "-"}</td>
-                  <td>{exp.user}</td>
-                  <td>Rs. {exp.total.toFixed(2)}</td>
-                  <td>{exp.date}</td>
-                  <td>
-                    {isAdmin ? (
-                      <select
-                        className={`expense-status-select expense-status-${exp.status}`}
-                        value={exp.status}
-                        disabled={exp.status === "approved"}
-                        title={exp.status === "approved" ? "Approved expense status cannot be changed" : "Update status"}
-                        onChange={(e) => handleStatusChange(exp, e.target.value)}
-                      >
-                        <option value="pending">pending</option>
-                        <option value="approved">approved</option>
-                        <option value="rejected">rejected</option>
-                      </select>
-                    ) : (
-                      <div className="expense-status-stack">
-                        <button
-                          type="button"
-                          className={
-                            exp.status === "approved"
-                              ? "expense-approved"
-                              : exp.status === "rejected"
-                                ? "expense-rejected expense-status-clickable"
-                                : "expense-pending"
-                          }
-                          onClick={() => openReasonModal(exp)}
-                          title={exp.status === "rejected" ? "Click to view rejected reason" : ""}
-                        >
-                          {exp.status}
-                        </button>
-                        {exp.status === "rejected" && exp.approvalRemarks && (
-                          <small className="expense-rejection-inline" title="Click rejected status to view full reason">
-                            Click rejected status to view reason
-                          </small>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <button className="expense-view" onClick={() => handleView(exp)}>
-                      View
-                    </button>
-
-                    {isAdmin && (
-                      <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
-                        Delete
-                      </button>
-                    )}
-
-                    {!isAdmin && canModifyOwnPending && (
-                      <button className="expense-view" onClick={() => openEditModal(exp)}>
-                        Edit
-                      </button>
-                    )}
-
-                    {!isAdmin && canModifyOwnPending && (
-                      <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
-                        Delete
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="expense-pagination">
-          <button disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
-            Prev
-          </button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
-            Next
-          </button>
-        </div>
-      </div>
-
-      {showModal &&
-        ReactDOM.createPortal(
-          <div className="expense-modal-overlay">
-            <div className="expense-modal expense-large-modal">
-              <div className="expense-modal-header">
-                <h3>OCR Expense Import</h3>
-                <button type="button" className="expense-close-btn" onClick={closeOcrModal} aria-label="Close OCR import">
-                  x
+              <div className="ocr-toolbar-actions">
+                <div className="ocr-status-pill">
+                  <div className="status-dot"></div>
+                  <span>{ocrReceipts.length} File{ocrReceipts.length === 1 ? '' : 's'} in Queue</span>
+                </div>
+                <button type="button" className="ocr-close-btn" onClick={closeOcrModal} title="Close Workspace">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
                 </button>
               </div>
+            </div>
 
-              <div className="expense-ocr-workspace">
-                <div className="expense-ocr-sidebar">
-                  <section className="expense-ocr-sidebar-section">
-                    <div className="expense-ocr-section-heading">
-                      <span className="expense-ocr-section-kicker">Receipt Intake</span>
-                      <h4>Upload source files</h4>
-                      <p>Add one or more receipts, then choose the document you want to review.</p>
-                    </div>
-
-                    <label className="expense-upload-box expense-ocr-dropzone">
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        multiple
-                        onChange={handleOcrReceiptSelect}
-                      />
-                      <p>Drop file or click to upload</p>
-                      <span>Supports: JPG, PNG, PDF</span>
-                    </label>
-                  </section>
-
-                  <section className="expense-ocr-sidebar-section">
-                    <div className="expense-ocr-panel-heading">
-                      <div>
-                        <h4>Queued receipts</h4>
-                        <p>{ocrReceipts.length === 0 ? "Nothing uploaded yet" : `${ocrReceipts.length} file(s) ready for review`}</p>
+            <div className="expense-ocr-page-panel">
+              <div className="expense-ocr-workspace-layout">
+                {/* Left Panel: Queue & Upload */}
+                <aside className="workspace-panel ocr-sidebar-panel">
+                  <div className="ocr-panel-section">
+                    <span className="ocr-section-title">1. Intake</span>
+                    <label className="ocr-upload-zone">
+                      <div className="upload-icon-circle">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
                       </div>
-                    </div>
+                      <strong>Upload Receipts</strong>
+                      <p>Click or drag and drop</p>
+                      <input type="file" accept="image/*,application/pdf" multiple onChange={handleOcrReceiptSelect} />
+                    </label>
+                  </div>
 
-                    <div className="expense-ocr-filelist">
+                  <div className="ocr-panel-section" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <span className="ocr-section-title">2. Processing Queue</span>
+                    <div className="ocr-queue-list">
                       {ocrReceipts.length === 0 ? (
-                        <div className="expense-ocr-empty">No receipt selected yet.</div>
+                        <div className="expense-ocr-empty">No documents in queue</div>
                       ) : (
                         ocrReceipts.map((item, index) => (
                           <div
                             key={item.id}
-                            className={
-                              item.id === ocrSelectedId
-                                ? "expense-selected-receipt-item expense-selected-receipt-item-active"
-                                : "expense-selected-receipt-item"
-                            }
+                            className={`ocr-queue-item ${item.id === ocrSelectedId ? 'active' : ''}`}
                             onClick={() => setOcrSelectedId(item.id)}
                           >
-                            <div className="expense-selected-receipt-copy">
-                              <small>{item.isPdf ? "PDF" : "Image"}</small>
-                              <span title={item.name}>
-                                {index + 1}. {item.name}
-                              </span>
+                            <div className="file-type-icon">{item.isPdf ? 'PDF' : 'IMG'}</div>
+                            <div className="file-info-meta">
+                              <span title={item.name}>{item.name}</span>
+                              <small>{index + 1} of {ocrReceipts.length}</small>
                             </div>
                             <button
                               type="button"
                               className="expense-remove-receipt-btn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleRemoveOcrReceipt(item.id);
-                              }}
+                              onClick={(e) => { e.stopPropagation(); handleRemoveOcrReceipt(item.id); }}
                             >
-                              x
+                              ×
                             </button>
                           </div>
                         ))
                       )}
                     </div>
-                  </section>
-
-                  <section className="expense-ocr-sidebar-section expense-ocr-summary-strip">
-                    <div className="expense-ocr-mini-stat">
-                      <span>Active file</span>
-                      <strong>{selectedOcrReceipt ? "Ready" : "Waiting"}</strong>
-                    </div>
-                    <div className="expense-ocr-mini-stat">
-                      <span>Scan mode</span>
-                      <strong>{selectedOcrReceipt ? (selectedOcrReceipt.isPdf ? "PDF" : "Image") : "--"}</strong>
-                    </div>
-                    <div className="expense-ocr-mini-stat">
-                      <span>Crop</span>
-                      <strong>{selectedOcrReceipt?.isPdf ? "Locked" : selectedOcrAdjustment.cropRect ? "Applied" : "None"}</strong>
-                    </div>
-                  </section>
-
-                  {!selectedOcrReceipt?.isPdf && selectedOcrReceipt && (
-                    <section className="expense-ocr-sidebar-section expense-ocr-toolbar">
-                      <div className="expense-ocr-panel-heading">
-                        <div>
-                          <h4>Image adjustments</h4>
-                          <p>Prepare the image before extraction.</p>
-                        </div>
-                      </div>
-
-                      <div className="expense-ocr-actions-row">
-                        <button
-                          type="button"
-                          className="expense-ocr-tool-btn"
-                          onClick={() =>
-                            updateOcrAdjustment(
-                              selectedOcrReceipt.id,
-                              "rotation",
-                              (selectedOcrAdjustment.rotation || 0) - 90
-                            )
-                          }
-                        >
-                          Rotate Left
-                        </button>
-                        <button
-                          type="button"
-                          className="expense-ocr-tool-btn"
-                          onClick={() =>
-                            updateOcrAdjustment(
-                              selectedOcrReceipt.id,
-                              "rotation",
-                              (selectedOcrAdjustment.rotation || 0) + 90
-                            )
-                          }
-                        >
-                          Rotate Right
-                        </button>
-                        <button
-                          type="button"
-                          className="expense-ocr-tool-btn"
-                          onClick={() => resetOcrAdjustment(selectedOcrReceipt.id)}
-                        >
-                          Reset
-                        </button>
-                      </div>
-
-                      <div className="expense-ocr-slider-grid">
-                        <label>
-                          <span>Brightness</span>
-                          <strong>{selectedOcrAdjustment.brightness}%</strong>
-                          <input
-                            type="range"
-                            min="80"
-                            max="160"
-                            step="5"
-                            value={selectedOcrAdjustment.brightness}
-                            onChange={(event) =>
-                              updateOcrAdjustment(
-                                selectedOcrReceipt.id,
-                                "brightness",
-                                Number(event.target.value)
-                              )
-                            }
-                          />
-                        </label>
-                        <label>
-                          <span>Contrast</span>
-                          <strong>{selectedOcrAdjustment.contrast}%</strong>
-                          <input
-                            type="range"
-                            min="80"
-                            max="160"
-                            step="5"
-                            value={selectedOcrAdjustment.contrast}
-                            onChange={(event) =>
-                              updateOcrAdjustment(
-                                selectedOcrReceipt.id,
-                                "contrast",
-                                Number(event.target.value)
-                              )
-                            }
-                          />
-                        </label>
-                      </div>
-
-                      <div className="expense-ocr-note">
-                        <div className="expense-ocr-note-title">📐 Image Cropping Instructions:</div>
-                        <ul className="expense-ocr-note-steps">
-                          <li><strong>Draw Crop:</strong> Click and drag on the image to select the area containing the receipt text</li>
-                          <li><strong>Move Crop:</strong> Drag inside the blue crop box to reposition it</li>
-                          <li><strong>Clear Crop:</strong> Use the "Clear Crop" button to reset selection</li>
-                          <li><strong>Why Crop?</strong> Focus OCR on relevant text areas for better accuracy</li>
-                        </ul>
-                      </div>
-                    </section>
-                  )}
-                </div>
-
-                <div className="expense-ocr-preview-panel">
-                  <div className="expense-ocr-preview-header">
-                    <div className="expense-ocr-preview-title">
-                      <span className="expense-ocr-section-kicker">Document Review</span>
-                      <h4>{selectedOcrReceipt ? selectedOcrReceipt.name : "Receipt preview"}</h4>
-                      <p>{selectedOcrModeLabel}. {selectedCropStatus}.</p>
-                    </div>
-                    <div className="expense-ocr-preview-badges">
-                      <span>{ocrReceipts.length} queued</span>
-                      <span>{selectedOcrReceipt ? (selectedOcrReceipt.isPdf ? "PDF" : "Image") : "No file"}</span>
-                      <span>{selectedCropStatus}</span>
-                    </div>
                   </div>
+                </aside>
 
-                  <div className="expense-ocr-preview-box">
+                {/* Center Panel: Canvas */}
+                <main className="workspace-panel ocr-canvas-panel">
+                  {selectedOcrReceipt && !selectedOcrReceipt.isPdf && (
+                    <div className="ocr-canvas-header">
+                      <button
+                        className="canvas-tool-btn"
+                        title="Rotate Left"
+                        onClick={() => updateOcrAdjustment(selectedOcrReceipt.id, "rotation", (selectedOcrAdjustment.rotation || 0) - 90)}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                      </button>
+                      <button
+                        className="canvas-tool-btn"
+                        title="Rotate Right"
+                        onClick={() => updateOcrAdjustment(selectedOcrReceipt.id, "rotation", (selectedOcrAdjustment.rotation || 0) + 90)}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                      </button>
+                      <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+                      <button
+                        className="canvas-tool-btn"
+                        title="Reset Adjustments"
+                        onClick={() => resetOcrAdjustment(selectedOcrReceipt.id)}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="ocr-canvas-stage">
                     {!selectedOcrReceipt ? (
-                      <div className="expense-ocr-preview-empty">
-                        Select a receipt to preview and crop it here.
-                      </div>
+                      <div className="expense-ocr-preview-empty">Select a document to begin processing</div>
                     ) : selectedOcrReceipt.isPdf ? (
-                      <iframe
-                        title="OCR receipt preview"
-                        src={ocrPreviewUrl}
-                        className="expense-ocr-preview-frame"
-                      />
+                      <iframe title="OCR PDF" src={ocrPreviewUrl} className="expense-ocr-preview-frame" />
                     ) : (
                       <div
                         ref={ocrPreviewStageRef}
-                        className="expense-ocr-preview-stage"
+                        className="ocr-image-wrapper"
                         onPointerDown={startCropSelection}
                         onPointerMove={updateCropSelection}
                         onPointerUp={endCropSelection}
@@ -1480,8 +1384,7 @@ const ExpenseDashboard = () => {
                       >
                         <img
                           src={ocrPreviewUrl}
-                          alt="Receipt preview"
-                          className="expense-ocr-stage-image"
+                          alt="Preview"
                           draggable={false}
                           style={{
                             transform: `rotate(${selectedOcrAdjustment.rotation || 0}deg)`,
@@ -1502,72 +1405,71 @@ const ExpenseDashboard = () => {
                       </div>
                     )}
                   </div>
+                </main>
 
-                  {ocrResultMeta && (
-                    <div className="expense-ocr-result-summary">
-                      <div className="expense-ocr-confidence-header">
-                        <div className="expense-ocr-confidence-score">
-                          <strong>OCR Confidence: {ocrResultMeta.overallConfidence}%</strong>
-                          <div className={`expense-ocr-confidence-indicator ${
-                            ocrResultMeta.overallConfidence >= 80 ? 'high' :
-                            ocrResultMeta.overallConfidence >= 60 ? 'medium' : 'low'
-                          }`}>
-                            {ocrResultMeta.overallConfidence >= 80 ? 'High' :
-                             ocrResultMeta.overallConfidence >= 60 ? 'Medium' : 'Low'}
-                          </div>
-                        </div>
-                        {ocrResultMeta.overallConfidence < 70 && (
-                          <div className="expense-ocr-confidence-warning">
-                            ⚠️ Low confidence detected. Please review and verify the extracted data carefully.
-                          </div>
-                        )}
+                {/* Right Panel: Intel & Actions */}
+                <aside className="workspace-panel ocr-intel-panel">
+                  <div className="ocr-panel-section ocr-adjustments">
+                    <span className="ocr-section-title">3. Refinement</span>
+                    <div className="adjustment-slider">
+                      <div className="slider-header">
+                        <span>Brightness</span>
+                        <span>{selectedOcrAdjustment.brightness}%</span>
                       </div>
-                      {ocrResultMeta.predictedCategory && (
-                        <div className="expense-ocr-category-info">
-                          <span>AI Suggested Category: <strong>{ocrResultMeta.predictedCategory}</strong></span>
-                        </div>
-                      )}
-                      {(ocrResultMeta.warnings?.length > 0 || ocrResultMeta.validation?.length > 0) && (
-                        <div className="expense-ocr-warnings">
-                          <div className="expense-ocr-warnings-title">⚠️ Issues to Review:</div>
-                          <ul className="expense-ocr-warnings-list">
-                            {[...(ocrResultMeta.warnings || []), ...(ocrResultMeta.validation || [])].map((warning, index) => (
-                              <li key={index}>{warning}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      <input
+                        type="range" min="80" max="160" step="5"
+                        className="premium-slider"
+                        value={selectedOcrAdjustment.brightness}
+                        onChange={(e) => updateOcrAdjustment(selectedOcrReceipt.id, "brightness", Number(e.target.value))}
+                        disabled={!selectedOcrReceipt || selectedOcrReceipt.isPdf}
+                      />
                     </div>
-                  )}
+                    <div className="adjustment-slider">
+                      <div className="slider-header">
+                        <span>Contrast</span>
+                        <span>{selectedOcrAdjustment.contrast}%</span>
+                      </div>
+                      <input
+                        type="range" min="80" max="160" step="5"
+                        className="premium-slider"
+                        value={selectedOcrAdjustment.contrast}
+                        onChange={(e) => updateOcrAdjustment(selectedOcrReceipt.id, "contrast", Number(e.target.value))}
+                        disabled={!selectedOcrReceipt || selectedOcrReceipt.isPdf}
+                      />
+                    </div>
+                  </div>
 
-                  <FormErrorSlot message={ocrFormError} className="form-error-slot-global" />
-                  <div className="expense-modal-footer expense-ocr-footer">
-                    <button className="expense-cancel-btn" onClick={closeOcrModal}>
-                      Cancel
-                    </button>
-                    {selectedOcrAdjustment.cropRect && !selectedOcrReceipt?.isPdf && (
-                      <button
-                        type="button"
-                        className="expense-submit-btn expense-ocr-clear-btn"
-                        onClick={() => updateOcrAdjustment(selectedOcrReceipt.id, "cropRect", null)}
-                      >
-                        Clear Crop
-                      </button>
-                    )}
+                  <div className="ocr-action-footer">
+                    <FormErrorSlot message={ocrFormError} className="form-error-slot-global" />
                     <button
-                      className="expense-ai-btn"
+                      className="btn-primary-glow"
                       onClick={handleRunExpenseOcr}
                       disabled={ocrProcessing || !selectedOcrReceipt}
                     >
-                      {ocrProcessing ? "AI OCR Processing..." : "AI OCR Processing"}
+                      {ocrProcessing ? (
+                        <>Processing...</>
+                      ) : (
+                        <>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                          Run AI Extraction
+                        </>
+                      )}
                     </button>
+                    {selectedOcrAdjustment.cropRect && !selectedOcrReceipt?.isPdf && (
+                      <button
+                        className="btn-secondary-outline"
+                        onClick={() => updateOcrAdjustment(selectedOcrReceipt.id, "cropRect", null)}
+                      >
+                        Clear Focus Area
+                      </button>
+                    )}
                   </div>
-                </div>
+                </aside>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          </div>
+        </section>
+      )}
 
       {showLogModal &&
         ReactDOM.createPortal(
@@ -1936,6 +1838,12 @@ const ExpenseDashboard = () => {
 };
 
 export default ExpenseDashboard;
+
+
+
+
+
+
 
 
 

@@ -1,7 +1,7 @@
 const http = require('http')
 const express = require('express')
 const path = require("path");
-require('dotenv').config()
+require('dotenv').config({ path: path.join(__dirname, '.env') })
 const authRoute = require('./routes/authRoutes')
 const userRoutes = require('./routes/userRoutes')
 const crmSettingsRoutes = require("./routes/crmSettingsRoutes");
@@ -34,7 +34,7 @@ const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
 const salesForecastRoutes = require("./routes/salesForecastRoutes");
 
-require('./config/db');
+const connectDatabase = require("./config/db");
 const bodyparser = require('body-parser');
 const cors = require('cors');
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
@@ -81,6 +81,8 @@ app.use("/ocr", ocrRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/auth/google", googleAuthRoutes);
 app.use("/sales-forecast", salesForecastRoutes);
+app.use("/api/ai-insights", require("./routes/aiInsightRoutes"));
+
 
 
 let backgroundWorkersStarted = false;
@@ -107,14 +109,28 @@ const startBackgroundWorkers = async () => {
   startLeadScraperScheduler();
 };
 
-if (mongoose.connection.readyState === 1) {
-  void startBackgroundWorkers();
-} else {
-  mongoose.connection.once("open", () => {
-    void startBackgroundWorkers();
-  });
+myServer.on("error", (error) => {
+  if (error?.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Stop the other process or change PORT in backend/.env.`);
+    process.exit(1);
+  }
+
+  console.error("Server failed to start:", error);
+  process.exit(1);
+});
+
+async function startServer() {
+  try {
+    await connectDatabase();
+    await startBackgroundWorkers();
+    myServer.listen(PORT, () => console.log('Server started on', PORT));
+  } catch (error) {
+    console.error("Failed to connect to MongoDB. Check backend/.env CONN and network access.");
+    console.error(error);
+    process.exit(1);
+  }
 }
 
-myServer.listen(PORT, () => console.log('Server started on', PORT));
+void startServer();
 // trigger reload for python backend (v11 - Clean Start)!!!!!!!!!!!
 
