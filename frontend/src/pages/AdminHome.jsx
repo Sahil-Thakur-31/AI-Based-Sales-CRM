@@ -24,24 +24,6 @@ import "../styles/AdminHome.css";
 
 // ✅ Switch this to true only if you want mock data
 const USE_MOCK = false;
-const ADMIN_AI_INSIGHTS = [
-  {
-    title: "Deals needing attention",
-    value: "2 high-risk accounts",
-    note: "Review Greenfield Solar and Reliance Infra this week.",
-  },
-  {
-    title: "Best win window",
-    value: "P5 to P6 deals",
-    note: "Proposal-stage conversations are converting fastest right now.",
-  },
-  {
-    title: "Next action",
-    value: "Schedule executive follow-up",
-    note: "Shorter response gaps are helping close larger opportunities.",
-  },
-];
-
 /* ---------- helpers ---------- */
 function cx(...arr) {
   return arr.filter(Boolean).join(" ");
@@ -87,6 +69,71 @@ function StagePill({ stage }) {
       {stage}
     </CBadge>
   );
+}
+
+function buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeals, range) {
+  const highRiskDeals = (recentDeals || []).filter(
+    (deal) => String(deal?.risk || "").toLowerCase() === "high"
+  );
+  const topStage = [...(pipeline || [])].sort(
+    (a, b) => Number(b?.amount || 0) - Number(a?.amount || 0) || Number(b?.count || 0) - Number(a?.count || 0)
+  )[0];
+  const topTeam = [...(teamPerf || [])].sort((a, b) => Number(b?.value || 0) - Number(a?.value || 0))[0];
+  const priorityFollowups = (followups || []).filter((item) =>
+    ["high", "urgent"].includes(String(item?.priority || "").toLowerCase())
+  );
+
+  const insights = [];
+
+  if (highRiskDeals.length) {
+    insights.push({
+      title: "Deals needing attention",
+      value: `${highRiskDeals.length} high-risk account${highRiskDeals.length === 1 ? "" : "s"}`,
+      note: `Review ${highRiskDeals.slice(0, 2).map((deal) => deal.client).filter(Boolean).join(" and ") || "priority opportunities"} in this ${range}.`,
+    });
+  }
+
+  if (topStage?.label && Number(topStage?.amount || 0) > 0) {
+    insights.push({
+      title: "Largest pipeline pocket",
+      value: `${topStage.label} stage`,
+      note: `${formatINR(topStage.amount)} is concentrated here across ${topStage.count || 0} deal(s).`,
+    });
+  }
+
+  if (priorityFollowups.length) {
+    insights.push({
+      title: "Next action",
+      value: `${priorityFollowups.length} priority follow-up${priorityFollowups.length === 1 ? "" : "s"}`,
+      note: "Executive help on blocked follow-ups can protect close momentum this cycle.",
+    });
+  }
+
+  if (topTeam?.name && Number(topTeam?.value || 0) > 0) {
+    insights.push({
+      title: "Top team benchmark",
+      value: topTeam.name,
+      note: `${formatINR(topTeam.value)} in won revenue makes this the strongest coaching benchmark right now.`,
+    });
+  }
+
+  if (Number(summary?.openLeadsFromAI || 0) > 0) {
+    insights.push({
+      title: "AI lead contribution",
+      value: `${summary.openLeadsFromAI} AI-sourced leads`,
+      note: "Monitor whether sourced leads are converting into qualified conversations fast enough.",
+    });
+  }
+
+  if (!insights.length) {
+    insights.push({
+      title: "Portfolio status",
+      value: "Activity is steady",
+      note: "No major alert is visible yet. Keep watching pipeline flow, team execution, and conversion quality.",
+    });
+  }
+
+  return insights.slice(0, 3);
 }
 
 const DASHBOARD_PERIOD_OPTIONS = [
@@ -337,6 +384,10 @@ export default function AdminHome() {
   const totalRecentDealsPages = useMemo(
     () => Math.max(1, Math.ceil(recentDeals.length / DEALS_PER_PAGE)),
     [recentDeals.length]
+  );
+  const adminAiInsights = useMemo(
+    () => buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeals, range),
+    [followups, pipeline, range, recentDeals, summary, teamPerf]
   );
 
   const totalFollowupsPages = useMemo(
@@ -772,13 +823,25 @@ export default function AdminHome() {
                 <CCardHeader className="panel__header">
                   <div className="panel__titleRow">
                     <span className="panel__title">AI Insights</span>
-                    <AiBadge tone="priority">Static</AiBadge>
+                    <AiBadge tone="priority">Live</AiBadge>
                   </div>
+                  <CButton
+                    color="light"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      navigate("/ai-insights?scope=company", {
+                        state: { source: "main-dashboard" }
+                      })
+                    }
+                  >
+                    View All
+                  </CButton>
                 </CCardHeader>
 
                 <CCardBody>
                   <div className="aiInsightsList">
-                    {ADMIN_AI_INSIGHTS.map((item) => (
+                    {adminAiInsights.map((item) => (
                       <div key={item.title} className="aiInsightItem">
                         <span className="aiInsightItem__label">{item.title}</span>
                         <strong className="aiInsightItem__value">{item.value}</strong>

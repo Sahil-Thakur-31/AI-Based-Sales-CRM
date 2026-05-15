@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import API from '../../api'
 import AuthBrandHeader from '../../components/AuthBrandHeader';
 import FormErrorSlot from '../../components/FormErrorSlot';
-import { validEmail, strongPassword } from '../../utils/formValidation';
+import { minLength, validEmail } from '../../utils/formValidation';
 import "./verify.css"
 
 function Login() {
@@ -50,7 +50,7 @@ function Login() {
         const { email, password } = logininfo;
         const nextErrors = {
             email: validEmail(email),
-            password: strongPassword(password),
+            password: minLength(password, 6, "Password"),
         };
 
         setFieldErrors(nextErrors);
