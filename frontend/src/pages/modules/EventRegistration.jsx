@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import API from "../../api";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import FormErrorSlot from "../../components/FormErrorSlot";
+import SuccessPrompt from "../../components/SuccessPrompt";
 import { required } from "../../utils/formValidation";
 import "./styles/EventRegistration.css";
 
@@ -104,6 +105,8 @@ const EventRegistration = () => {
   const [missedReasonSuccess, setMissedReasonSuccess] = useState("");
   const [registrationConfirmOpen, setRegistrationConfirmOpen] = useState(false);
   const [registrationSavedPopupOpen, setRegistrationSavedPopupOpen] = useState(false);
+  const [outcomeConfirmOpen, setOutcomeConfirmOpen] = useState(false);
+  const [outcomePendingPayload, setOutcomePendingPayload] = useState(null);
   const usersLoadedRef = useRef(false);
   const registrationLoadedKeyRef = useRef("");
   const attendeeUserOptions = useMemo(
@@ -363,16 +366,17 @@ const EventRegistration = () => {
     if (notes) payload.notes = notes;
 
     if (!Object.keys(payload).length) {
-      const message = "Add at least one outcome value before saving.";
-      setOutcomeError(message);
-      window.alert(message);
+      setOutcomeError("Add at least one outcome value before saving.");
       return;
     }
 
-    if (!window.confirm("Save these outcome details? You can update them anytime later.")) {
-      return;
-    }
+    setOutcomePendingPayload(payload);
+    setOutcomeConfirmOpen(true);
+  };
 
+  const confirmSaveOutcome = async () => {
+    const payload = outcomePendingPayload || {};
+    setOutcomeConfirmOpen(false);
     setOutcomeSaving(true);
     try {
       const { data } = await API.put(`/events/${eventDetails.eventId}/outcome`, payload);
@@ -383,6 +387,7 @@ const EventRegistration = () => {
       setOutcomeError(err?.response?.data?.message || "Failed to save event outcome");
     } finally {
       setOutcomeSaving(false);
+      setOutcomePendingPayload(null);
     }
   };
 
@@ -783,7 +788,7 @@ const EventRegistration = () => {
                 </label>
 
                 <label>
-                  Generated Revenue ({eventDetails.registrationCurrency || "INR"})
+                  Generated Revenue (INR)
                   <input
                     type="number"
                     name="generatedRevenue"
@@ -794,7 +799,7 @@ const EventRegistration = () => {
                 </label>
 
                 <label>
-                  Investment Cost ({eventDetails.registrationCurrency || "INR"})
+                  Investment Cost (INR)
                   <input
                     type="number"
                     name="investmentCost"
@@ -880,16 +885,25 @@ const EventRegistration = () => {
       />
 
       <ConfirmDialog
-        isOpen={registrationSavedPopupOpen}
-        title="Registration Saved"
-        message="Event registered successfully. Redirecting to Events page."
-        confirmText="Go to Events"
-        hideCancel={true}
-        onConfirm={() => {
-          setRegistrationSavedPopupOpen(false);
-          navigate("/events");
-        }}
+        isOpen={outcomeConfirmOpen}
+        title="Confirm Outcome"
+        message="Save these outcome details? You can update them anytime later."
+        confirmText="Save Outcome"
+        cancelText="Cancel"
+        onConfirm={confirmSaveOutcome}
         onCancel={() => {
+          setOutcomeConfirmOpen(false);
+          setOutcomePendingPayload(null);
+        }}
+      />
+
+      <SuccessPrompt
+        open={registrationSavedPopupOpen}
+        title="Registration Saved"
+        subtitle="Event registered successfully. Redirecting to Events page..."
+        buttonText="Go to Events"
+        autoCloseMs={1200}
+        onClose={() => {
           setRegistrationSavedPopupOpen(false);
           navigate("/events");
         }}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../../api";
 import Pagination from "../../components/Pagination";
+import SuccessPrompt from "../../components/SuccessPrompt";
 import "./styles/AILeadGeneration.css";
 
 function normalizeText(value) {
@@ -37,6 +38,7 @@ export default function AILeadGeneration() {
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [sortBy, setSortBy] = useState("company-asc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [successPrompt, setSuccessPrompt] = useState({ open: false, title: "", subtitle: "" });
 
   const loadAiLeads = async () => {
     try {
@@ -60,7 +62,7 @@ export default function AILeadGeneration() {
     loadAiLeads();
   }, []);
 
-  const handleImport = async (leadId) => {
+  const handleImport = async (leadId, showPrompt = true) => {
     if (!leadId || importingId || bulkImporting) return false;
 
     try {
@@ -69,6 +71,13 @@ export default function AILeadGeneration() {
       await API.post(`/ai-leads/${leadId}/import`);
       setLeads((prev) => prev.filter((lead) => String(lead._id) !== leadId));
       setSelectedLeadIds((prev) => prev.filter((id) => id !== leadId));
+      if (showPrompt) {
+        setSuccessPrompt({
+          open: true,
+          title: "Lead Added Successfully",
+          subtitle: "AI lead has been imported to leads pipeline."
+        });
+      }
       return true;
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to import lead.");
@@ -172,12 +181,21 @@ export default function AILeadGeneration() {
     setBulkImporting(true);
     setError("");
     try {
+      let importedCount = 0;
       for (const leadId of selectedLeadIds) {
-        const ok = await handleImport(leadId);
+        const ok = await handleImport(leadId, false);
         if (!ok) break;
+        importedCount += 1;
       }
       await loadAiLeads();
       setSelectedLeadIds([]);
+      if (importedCount > 0) {
+        setSuccessPrompt({
+          open: true,
+          title: "Leads Added Successfully",
+          subtitle: `${importedCount} AI lead${importedCount === 1 ? "" : "s"} imported to leads pipeline.`
+        });
+      }
     } finally {
       setBulkImporting(false);
     }
@@ -428,6 +446,14 @@ export default function AILeadGeneration() {
           </div>
         </div>
       ) : null}
+
+      <SuccessPrompt
+        open={successPrompt.open}
+        title={successPrompt.title}
+        subtitle={successPrompt.subtitle}
+        autoCloseMs={1800}
+        onClose={() => setSuccessPrompt({ open: false, title: "", subtitle: "" })}
+      />
     </div>
   );
 }

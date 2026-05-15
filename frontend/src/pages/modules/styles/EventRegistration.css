@@ -120,6 +120,28 @@
   font-weight: 600;
 }
 
+body:has(.event-registration-page) .confirm-dialog {
+  border: 2px solid #10b981;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(16, 185, 129, 0.16);
+}
+
+body:has(.event-registration-page) .confirm-dialog-header,
+body:has(.event-registration-page) .confirm-dialog-footer {
+  background: #ffffff;
+  border-color: #d1fae5;
+}
+
+body:has(.event-registration-page) .btn-confirm {
+  background: #10b981;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+body:has(.event-registration-page) .btn-confirm:hover {
+  background: #059669;
+}
+
 .section-title {
   margin: 4px 0 10px;
   color: #143253;
