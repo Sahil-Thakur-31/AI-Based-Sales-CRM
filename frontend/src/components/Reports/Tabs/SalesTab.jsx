@@ -20,6 +20,61 @@ function formatDays(value) {
   return `${amount.toFixed(1)} Days`;
 }
 
+function formatDate(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function escapeCsvValue(value) {
+  const normalized = String(value ?? "");
+  if (/[",\n]/.test(normalized)) {
+    return `"${normalized.replace(/"/g, "\"\"")}"`;
+  }
+  return normalized;
+}
+
+function matchesSalesTableFilter(row, filterValue) {
+  switch (filterValue) {
+    case "p1":
+    case "p2":
+    case "p3":
+    case "p6":
+    case "p7":
+      return String(row.stage || "").toLowerCase() === filterValue;
+    default:
+      return true;
+  }
+}
+
+function normalizeSearchValue(value) {
+  return String(value ?? "").toLowerCase().trim();
+}
+
+function matchesSalesSearch(row, searchValue) {
+  const query = normalizeSearchValue(searchValue);
+  if (!query) return true;
+
+  const haystack = [
+    row.dealName,
+    row.companyName,
+    row.stage,
+    row.assignedToName,
+    row.dealValue,
+    formatDate(row.createdAt),
+    formatDate(row.closedAt),
+  ]
+    .map(normalizeSearchValue)
+    .join(" ");
+
+  return haystack.includes(query);
+}
+
 function getTrendClass(value) {
   const amount = Number(value || 0);
   if (amount > 0) return "positive";
@@ -122,7 +177,7 @@ function buildSalesReportParams(filters = {}) {
   }
 
   if (period === "quarterly") {
-    params.quarter = filters.quarter || "jan-apr";
+    params.quarter = filters.quarter || "q1";
   }
 
   if (filters.assignedTo && filters.assignedTo !== "all") {
@@ -136,12 +191,15 @@ function SalesTab({ filters, selectedUser }) {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [salesTableFilter, setSalesTableFilter] = useState("all");
+  const [salesSearch, setSalesSearch] = useState("");
   const [analytics, setAnalytics] = useState({
     revenueTrend: [],
     revenueByUser: [],
     performanceByUser: [],
     dealSizeBuckets: [],
     targetSummary: null,
+    tableRows: [],
   });
 
   useEffect(() => {
@@ -170,6 +228,7 @@ function SalesTab({ filters, selectedUser }) {
               performanceByUser: [],
               dealSizeBuckets: [],
               targetSummary: null,
+              tableRows: [],
             }
           );
         }
@@ -193,6 +252,48 @@ function SalesTab({ filters, selectedUser }) {
     viewerRoleName === "admin" &&
     !isAllUsersView &&
     selectedRoleName === "manager";
+  const showIndividualTargetProgress = isSingleUserView && selectedRoleName !== "manager";
+  const salesTableRows = analytics.tableRows || [];
+  const filteredSalesTableRows = salesTableRows.filter(
+    (row) => matchesSalesTableFilter(row, salesTableFilter) && matchesSalesSearch(row, salesSearch)
+  );
+
+  function handleSalesExportExcel() {
+    const headers = [
+      "Deal Name",
+      "Company",
+      "Created On",
+      "Closed On",
+      "Deal Value",
+      "Stage",
+      "Assigned To",
+    ];
+
+    const csvRows = filteredSalesTableRows.map((row) => [
+      row.dealName || "Unnamed Deal",
+      row.companyName || "Unknown Company",
+      formatDate(row.createdAt),
+      formatDate(row.closedAt),
+      formatCurrency(row.dealValue),
+      row.stage || "--",
+      row.assignedToName || "Unassigned",
+    ]);
+
+    const csvContent = [
+      headers.map(escapeCsvValue).join(","),
+      ...csvRows.map((row) => row.map(escapeCsvValue).join(",")),
+    ].join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sales-report-${filters.period || "monthly"}-${salesTableFilter}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="sales-tab">
@@ -287,7 +388,7 @@ function SalesTab({ filters, selectedUser }) {
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6b7280" }}>
                         <span>{u.wonDeals}/{u.totalDeals} deals</span>
-                        <span style={{ fontWeight: 600, color: u.winRate >= 60 ? "#10b981" : u.winRate >= 30 ? "#f59e0b" : "#ef4444" }}>{u.winRate}% WR</span>
+                        <span style={{ fontWeight: 600, color: u.winRate >= 60 ? "#10b981" : u.winRate >= 30 ? "#f59e0b" : "#ef4444" }}>{Math.min(100, u.winRate)}% WR</span>
                       </div>
                     </div>
                   ))}
@@ -297,7 +398,7 @@ function SalesTab({ filters, selectedUser }) {
           </>
         )}
 
-        {isSingleUserView && (
+        {showIndividualTargetProgress && (
           <>
             <h4 style={{ margin: "16px 0 10px", color: "#374151" }}>Assigned Target Progress</h4>
             <div style={{ border: "1px solid #e0e7ff", background: "#f8f9ff", borderRadius: 12, padding: 16 }}>
@@ -307,7 +408,7 @@ function SalesTab({ filters, selectedUser }) {
                   <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>{formatCurrency(analytics.targetSummary?.revenueTarget)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Completed Value</div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Completed Revenue</div>
                   <div style={{ fontSize: 22, fontWeight: 700, color: "#6366f1" }}>{formatCurrency(analytics.targetSummary?.completedValue)}</div>
                 </div>
                 <div>
@@ -330,7 +431,7 @@ function SalesTab({ filters, selectedUser }) {
                 />
               </div>
               <div style={{ fontSize: 12, color: "#6b7280" }}>
-                Completed value uses quotation subtotal minus discount, without tax or GST, for the filtered won deals.
+                Completed value uses the same won-deal revenue basis as the KPI cards for the filtered period.
               </div>
             </div>
           </>
@@ -338,13 +439,13 @@ function SalesTab({ filters, selectedUser }) {
       </section>
 
       <section className="reports-card">
-        <h2 className="reports-card-title">Conversion Analytics</h2>
+        <h2 className="reports-card-title">Lead Cohort Conversion</h2>
 
         {(() => {
           const cv = analytics.conversion || {};
           const funnel = [
-            { label: "Leads", count: cv.leadCount || 0 },
-            { label: "Deals", count: cv.dealCount || 0 },
+            { label: "New Leads", count: cv.leadCount || 0 },
+            { label: "Converted", count: cv.dealCount || 0 },
             { label: "Won", count: cv.wonCount || 0 },
           ];
           const maxCount = Math.max(...funnel.map((f) => f.count), 1);
@@ -367,15 +468,18 @@ function SalesTab({ filters, selectedUser }) {
 
               <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
                 {[
-                  { label: "Lead to Deal", value: cv.leadToDeal || 0 },
-                  { label: "Deal to Won", value: cv.dealToWon || 0 },
-                  { label: "Overall", value: cv.overall || 0 },
+                  { label: "Lead to Deal", value: Math.min(100, cv.leadToDeal || 0) },
+                  { label: "Converted to Won", value: Math.min(100, cv.dealToWon || 0) },
+                  { label: "Overall Cohort Win", value: Math.min(100, cv.overall || 0) },
                 ].map((m) => (
                   <div key={m.label} style={{ flex: 1, minWidth: 120, background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
                     <div style={{ fontSize: 22, fontWeight: 700, color: "#6366f1" }}>{m.value}%</div>
                     <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{m.label}</div>
                   </div>
                 ))}
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280" }}>
+                This section tracks leads created in the selected period, then measures how many of that same lead cohort converted into deals and how many of those converted deals are now won.
               </div>
             </>
           );
@@ -385,14 +489,54 @@ function SalesTab({ filters, selectedUser }) {
       {(isAllUsersView || showSelectedManagerTeamPerformance) && (
         <section className="reports-card">
           <h2 className="reports-card-title">Team Performance</h2>
+
+          
+          {(() => {
+            if ((analytics.performanceByUser || []).length === 0) return null;
+            const teamTotals = analytics.performanceByUser.reduce(
+              (acc, u) => {
+                acc.targetRevenue += u.targetRevenue || 0;
+                acc.completedRevenue += u.revenue || 0;
+                acc.targetDeals += u.targetDeals || 0;
+                acc.completedDeals += u.wonDeals || 0;
+                return acc;
+              },
+              { targetRevenue: 0, completedRevenue: 0, targetDeals: 0, completedDeals: 0 }
+            );
+
+            const displayTargetRevenue = analytics.teamTarget ? analytics.teamTarget.revenueTarget : teamTotals.targetRevenue;
+            const displayTargetDeals = analytics.teamTarget ? analytics.teamTarget.dealTarget : teamTotals.targetDeals;
+
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
+                <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8, fontWeight: 500 }}>Team Target Revenue</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: "#111827" }}>{formatCurrency(displayTargetRevenue)}</div>
+                </div>
+                <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", borderBottom: "4px solid #10b981" }}>
+                  <div style={{ fontSize: 13, color: "#166534", marginBottom: 8, fontWeight: 500 }}>Total Completed Revenue</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: "#10b981" }}>{formatCurrency(teamTotals.completedRevenue)}</div>
+                </div>
+                <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8, fontWeight: 500 }}>Team Target Deals</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: "#111827" }}>{displayTargetDeals}</div>
+                </div>
+                <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", borderBottom: "4px solid #10b981" }}>
+                  <div style={{ fontSize: 13, color: "#166534", marginBottom: 8, fontWeight: 500 }}>Total Completed Deals</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: "#10b981" }}>{teamTotals.completedDeals}</div>
+                </div>
+              </div>
+            );
+          })()}
+
           {(analytics.performanceByUser || []).length === 0 ? (
             <p style={{ color: "#9ca3af", fontSize: 13 }}>No data for this period</p>
           ) : (
             <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "#f9fafb" }}>
-                    {["Name", "Revenue", "Deals", "Won", "Win Rate"].map((h) => (
+                    {["Name", "Target Rev", "Completed Rev", "Target Deals", "Completed Deals", "Win Rate"].map((h) => (
                       <th key={h} style={{ padding: "9px 14px", textAlign: h === "Name" ? "left" : "center", color: "#6b7280", fontWeight: 600 }}>{h}</th>
                     ))}
                   </tr>
@@ -401,12 +545,13 @@ function SalesTab({ filters, selectedUser }) {
                   {analytics.performanceByUser.map((u, i) => (
                     <tr key={i} style={{ borderTop: "1px solid #f0f0f0" }}>
                       <td style={{ padding: "9px 14px", fontWeight: 500, color: "#111827" }}>{u.name}</td>
-                      <td style={{ padding: "9px 14px", textAlign: "center", color: "#374151" }}>{formatCurrency(u.revenue)}</td>
-                      <td style={{ padding: "9px 14px", textAlign: "center", color: "#6b7280" }}>{u.totalDeals}</td>
+                      <td style={{ padding: "9px 14px", textAlign: "center", color: "#6b7280" }}>{formatCurrency(u.targetRevenue)}</td>
+                      <td style={{ padding: "9px 14px", textAlign: "center", color: "#374151", fontWeight: 600 }}>{formatCurrency(u.revenue)}</td>
+                      <td style={{ padding: "9px 14px", textAlign: "center", color: "#6b7280" }}>{u.targetDeals}</td>
                       <td style={{ padding: "9px 14px", textAlign: "center", color: "#6b7280" }}>{u.wonDeals}</td>
                       <td style={{ padding: "9px 14px", textAlign: "center" }}>
                         <span style={{ fontWeight: 700, color: u.winRate >= 60 ? "#10b981" : u.winRate >= 30 ? "#f59e0b" : "#ef4444" }}>
-                          {u.winRate}%
+                          {Math.min(100, u.winRate)}%
                         </span>
                       </td>
                     </tr>
@@ -435,6 +580,104 @@ function SalesTab({ filters, selectedUser }) {
             </div>
           ));
         })()}
+      </section>
+
+      <section className="reports-card">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <h2 className="reports-card-title" style={{ marginBottom: 4 }}>Sales Table</h2>
+            <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
+              {filteredSalesTableRows.length} of {salesTableRows.length} deals in this period
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              className="report-filter report-search-input"
+              type="text"
+              placeholder="Search deals..."
+              value={salesSearch}
+              onChange={(event) => setSalesSearch(event.target.value)}
+            />
+            <select
+              className="report-filter"
+              value={salesTableFilter}
+              onChange={(event) => setSalesTableFilter(event.target.value)}
+            >
+              <option value="all">All Deals</option>
+              <option value="p1">P1</option>
+              <option value="p2">P2</option>
+              <option value="p3">P3</option>
+              <option value="p6">P6</option>
+              <option value="p7">P7</option>
+            </select>
+
+            <button
+              type="button"
+              className="report-type-btn"
+              onClick={handleSalesExportExcel}
+              disabled={filteredSalesTableRows.length === 0}
+              style={{
+                minWidth: 170,
+                background: "#16a34a",
+                color: "#fff",
+                borderColor: "#16a34a",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <i className="bi bi-file-earmark-excel" aria-hidden="true" />
+              Export Excel
+            </button>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 18, overflowX: "auto" }}>
+          <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+            <thead>
+              <tr style={{ background: "#f8fafc" }}>
+                {["Deal Name", "Company", "Created On", "Closed On", "Deal Value", "Stage", "Assigned To"].map((header) => (
+                  <th
+                    key={header}
+                    style={{
+                      textAlign: "left",
+                      padding: "12px 14px",
+                      fontSize: 12,
+                      color: "#475569",
+                      borderBottom: "1px solid #e2e8f0",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredSalesTableRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
+                    No deals match this search or filter.
+                  </td>
+                </tr>
+              ) : (
+                filteredSalesTableRows.map((row) => (
+                  <tr key={row.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "12px 14px", fontWeight: 600, color: "#334155" }}>{row.dealName || "Unnamed Deal"}</td>
+                    <td style={{ padding: "12px 14px", color: "#475569" }}>{row.companyName || "Unknown Company"}</td>
+                    <td style={{ padding: "12px 14px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(row.createdAt)}</td>
+                    <td style={{ padding: "12px 14px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(row.closedAt)}</td>
+                    <td style={{ padding: "12px 14px", color: "#334155", fontWeight: 600 }}>{formatCurrency(row.dealValue)}</td>
+                    <td style={{ padding: "12px 14px", color: "#475569" }}>{row.stage || "--"}</td>
+                    <td style={{ padding: "12px 14px", color: "#475569" }}>{row.assignedToName || "Unassigned"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );

@@ -93,6 +93,16 @@ const formatFee = (amountValue, currencyValue) => {
   }
 };
 
+const getDisplayRegistrationFee = (eventItem = {}) => {
+  const amount = toOptionalNumber(eventItem.registrationFee);
+  const sourceName = String(eventItem.source?.name || "").trim().toLowerCase();
+  const currency = String(eventItem.registrationCurrency || "INR").trim().toUpperCase();
+  if (sourceName === "meetup" && currency === "INR" && amount !== null && amount <= 5) {
+    return 0;
+  }
+  return eventItem.registrationFee;
+};
+
 const formatCount = (value) => {
   const parsed = toOptionalNumber(value);
   if (parsed === null) return "N/A";
@@ -297,6 +307,7 @@ const EventExpo = () => {
   const isManager = roleName === "manager";
   const isAdminOrManager = roleName === "admin" || roleName === "manager";
   const isRestrictedUser = !isAdminOrManager;
+  const canUsePendingInvitations = isRestrictedUser || isManager;
   const [events, setEvents] = useState([]);
   const [summary, setSummary] = useState({
     upcomingEvents: 0,
@@ -305,6 +316,7 @@ const EventExpo = () => {
     missedPastEvents: 0,
     uninterestedPastEvents: 0,
     avgAiScore: 0,
+    todayFetchedCount: 0,
     lastUpdatedAt: null,
     lastScraperRunAt: null,
     lastScraperNewEvents: 0,
@@ -313,7 +325,7 @@ const EventExpo = () => {
   const [industryFilter, setIndustryFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [locationQuery, setLocationQuery] = useState("");
-  const [viewTab, setViewTab] = useState("upcoming");
+  const [viewTab, setViewTab] = useState(() => (isRestrictedUser ? "registered" : "upcoming"));
   const [quickFilter, setQuickFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date_asc");
   const [userCoordinates, setUserCoordinates] = useState(null);
@@ -341,6 +353,8 @@ const EventExpo = () => {
   const [missedConfirmEventItem, setMissedConfirmEventItem] = useState(null);
   const [missedReasonInput, setMissedReasonInput] = useState("");
   const [missedReasonError, setMissedReasonError] = useState("");
+  const [pendingModalOpen, setPendingModalOpen] = useState(false);
+  const [acceptingInvitationId, setAcceptingInvitationId] = useState("");
 
   const fetchEvents = async () => {
     try {
@@ -363,6 +377,12 @@ const EventExpo = () => {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  useEffect(() => {
+    if (isRestrictedUser && viewTab === "upcoming") {
+      setViewTab("registered");
+    }
+  }, [isRestrictedUser, viewTab]);
 
   useEffect(() => {
     if (quickFilter !== "near-me") {
@@ -623,6 +643,28 @@ const EventExpo = () => {
 
   const dedupedEvents = useMemo(() => events, [events]);
 
+  const pendingInvitations = useMemo(
+    () => dedupedEvents.filter((eventItem) => Boolean(eventItem.isPendingInvitation)),
+    [dedupedEvents]
+  );
+
+  const acceptInvitation = async (eventItem) => {
+    const eventId = eventItem?._id;
+    if (!eventId) return;
+
+    try {
+      setAcceptingInvitationId(eventId);
+      const { data } = await API.put(`/events/${eventId}/accept-invitation`);
+      setEvents((prev) => prev.map((item) => (item._id === eventId ? data : item)));
+      setViewTab("registered");
+      await fetchEvents();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to accept invitation");
+    } finally {
+      setAcceptingInvitationId("");
+    }
+  };
+
   const industryOptions = useMemo(() => {
     const map = new Map();
     dedupedEvents.forEach((item) => {
@@ -805,28 +847,11 @@ const EventExpo = () => {
     ? localUpcomingCount
     : Number(summary.upcomingEvents || 0);
   const invitationCount = upcomingCount;
-  const pendingInvitationCount = Math.max(0, invitationCount - attendingCount);
-  const formatDateTimeLabel = (value) => (value
-    ? new Date(value).toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    })
-    : "N/A");
-  const lastUpdatedLabel = formatDateTimeLabel(summary.lastUpdatedAt);
-  const lastScraperRunLabel = formatDateTimeLabel(summary.lastScraperRunAt);
-  const lastScraperNewEvents = Number(summary.lastScraperNewEvents || 0);
-  const lastScraperUpdatedEvents = Number(summary.lastScraperUpdatedEvents || 0);
+  const pendingInvitationCount = pendingInvitations.length;
+  const todayFetchedCount = Number(summary.todayFetchedCount || 0);
 
   return (
     <div className="event-page">
-      <div className="event-page-header">
-        <div>
-          <p>Track opportunities, register teams, and manage upcoming expos.</p>
-        </div>
-      </div>
 
       <div className={`event-summary-cards ${isRestrictedUser ? "event-summary-cards-user" : ""}`}>
         {isRestrictedUser ? (
@@ -841,12 +866,6 @@ const EventExpo = () => {
               <h4>Attending</h4>
               <h2>{attendingCount}</h2>
               <p>{pendingInvitationCount} pending response</p>
-            </div>
-
-            <div className="event-card event-card-accent-purple">
-              <h4>Last Fetched</h4>
-              <h2>{loading ? "..." : `${lastScraperNewEvents} new`}</h2>
-              <p>{summary.lastScraperRunAt ? lastScraperRunLabel : lastUpdatedLabel}</p>
             </div>
           </>
         ) : (
@@ -870,16 +889,9 @@ const EventExpo = () => {
             </div>
 
             <div className="event-card event-card-accent-purple">
-              <h4>Last Fetched</h4>
-              <h2>{loading ? "..." : `${lastScraperNewEvents} new`}</h2>
-              <p>{summary.lastScraperRunAt ? `${lastScraperRunLabel}${lastScraperUpdatedEvents ? ` | ${lastScraperUpdatedEvents} updated` : ""}` : lastUpdatedLabel}</p>
-              {/*
-              <p>
-                {summary.lastScraperRunAt
-                  ? `${lastScraperRunLabel}${lastScraperUpdatedEvents ? ` · ${lastScraperUpdatedEvents} updated` : ""}`
-                  : lastUpdatedLabel}
-              </p>
-              */}
+              <h4>Today's Fetch</h4>
+              <h2>{loading ? "..." : `${todayFetchedCount} new`}</h2>
+              <p>Events fetched today</p>
             </div>
           </>
         )}
@@ -888,13 +900,15 @@ const EventExpo = () => {
       <div className="event-section">
         <div className="event-section-header">
           <div className="event-view-tabs event-view-tabs-row">
-            <button
-              type="button"
-              className={viewTab === "upcoming" ? "active" : ""}
-              onClick={() => setViewTab("upcoming")}
-            >
-              Upcoming
-            </button>
+            {!isRestrictedUser && (
+              <button
+                type="button"
+                className={viewTab === "upcoming" ? "active" : ""}
+                onClick={() => setViewTab("upcoming")}
+              >
+                Upcoming
+              </button>
+            )}
             <button
               type="button"
               className={viewTab === "registered" ? "active" : ""}
@@ -971,6 +985,11 @@ const EventExpo = () => {
             {isAdminOrManager && (
               <button className="add-event-btn-section" onClick={openAddEventPage}>
                 + Add Event
+              </button>
+            )}
+            {canUsePendingInvitations && (
+              <button className="pending-invitations-btn" onClick={() => setPendingModalOpen(true)}>
+                Pending Invitations ({pendingInvitations.length})
               </button>
             )}
             <datalist id="event-city-list">
@@ -1146,7 +1165,7 @@ const EventExpo = () => {
                           <small>
                             {roleComparison.visitor.expectedROIRange || "Range N/A"}
                             {Number.isFinite(Number(roleComparison.visitor.confidence))
-                              ? ` · ${Math.round(Number(roleComparison.visitor.confidence || 0))}% conf`
+                              ? ` Â· ${Math.round(Number(roleComparison.visitor.confidence || 0))}% conf`
                               : ""}
                           </small>
                         </div>
@@ -1158,7 +1177,7 @@ const EventExpo = () => {
                           <small>
                             {roleComparison.exhibitor.expectedROIRange || "Range N/A"}
                             {Number.isFinite(Number(roleComparison.exhibitor.confidence))
-                              ? ` · ${Math.round(Number(roleComparison.exhibitor.confidence || 0))}% conf`
+                              ? ` Â· ${Math.round(Number(roleComparison.exhibitor.confidence || 0))}% conf`
                               : ""}
                           </small>
                         </div>
@@ -1166,7 +1185,7 @@ const EventExpo = () => {
                     </div>
                     <div className="roi-role-summary">
                       Suggested mode: {roleComparison.recommendedRole || "N/A"}
-                      {roleComparison.decisionSummary ? ` · ${roleComparison.decisionSummary}` : ""}
+                      {roleComparison.decisionSummary ? ` Â· ${roleComparison.decisionSummary}` : ""}
                     </div>
                   </div>
                 )}
@@ -1209,7 +1228,7 @@ const EventExpo = () => {
                       Register
                     </button>
                   )}
-                  {isAdmin && hasRegistrationData && !isUpcomingTab && (
+                  {isAdmin && (hasRegistrationData || isMissedTab) && !isUpcomingTab && (
                     <button
                       className="primary registered-btn"
                       onClick={() => openRegistrationForm(eventItem, { viewOnly: true })}
@@ -1217,7 +1236,7 @@ const EventExpo = () => {
                       View
                     </button>
                   )}
-                  {isManager && hasRegistrationData && !isUpcomingTab && (
+                  {isManager && (hasRegistrationData || isMissedTab) && !isUpcomingTab && (
                     <button
                       className="primary registered-btn"
                       onClick={() => openRegistrationForm(eventItem, { viewOnly: true })}
@@ -1274,7 +1293,7 @@ const EventExpo = () => {
               </div>
 
               <div className="event-right">
-                <h3>{formatFee(eventItem.registrationFee, eventItem.registrationCurrency)}</h3>
+                <h3>{formatFee(getDisplayRegistrationFee(eventItem), eventItem.registrationCurrency)}</h3>
                 <p>Registration Fee</p>
               </div>
             </div>
@@ -1369,6 +1388,47 @@ const EventExpo = () => {
         />
         {missedReasonError && <p className="missed-reason-error">{missedReasonError}</p>}
       </ConfirmDialog>
+
+      {pendingModalOpen && (
+        <div className="event-modal-backdrop" role="presentation" onMouseDown={() => setPendingModalOpen(false)}>
+          <div className="event-invitations-modal" role="dialog" aria-modal="true" aria-label="Pending invitations" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="event-invitations-head">
+              <div>
+                <h3>Pending Invitations</h3>
+                <p>{pendingInvitations.length} invitation{pendingInvitations.length === 1 ? "" : "s"} waiting for response</p>
+              </div>
+              <button type="button" className="event-modal-close" onClick={() => setPendingModalOpen(false)}>Close</button>
+            </div>
+
+            <div className="event-invitations-list">
+              {pendingInvitations.length ? (
+                pendingInvitations.map((eventItem) => (
+                  <div className="event-invitation-row" key={`pending-${eventItem._id}`}>
+                    <div>
+                      <strong>{eventItem.name || "Untitled Event"}</strong>
+                      <span>{getLocationText(eventItem)}</span>
+                      <small>{formatDateRange(eventItem.startDate, eventItem.endDate)}</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="accept-invitation-btn"
+                      onClick={() => acceptInvitation(eventItem)}
+                      disabled={acceptingInvitationId === eventItem._id}
+                    >
+                      {acceptingInvitationId === eventItem._id ? "Accepting..." : "Accept"}
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="event-empty-state event-invitation-empty">
+                  <h4>No pending invitations</h4>
+                  <p>Accepted invitations will appear in the Registered tab.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -1,8 +1,14 @@
 export const routeConfig = [
+  // Public
+  { path: "/login", title: "Login" },
+  { path: "/forgot-password", title: "Forgot Password" },
+  { path: "/verify-otp", title: "Verify OTP" },
+  { path: "/reset-password", title: "Reset Password" },
 
   // Dashboard
   { path: "/adminhome", title: "Admin Dashboard" },
   { path: "/managerhome", title: "Manager Dashboard" },
+  { path: "/userhome", title: "My Dashboard" },
 
   // Admin Config Modules
   { path: "/products", title: "Products" },

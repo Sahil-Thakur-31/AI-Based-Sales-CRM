@@ -10,9 +10,6 @@ from train_sales_forecast_model import FEATURE_COLUMNS, NUMERIC_COLUMNS, REVENUE
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_MODEL_PATH = BASE_DIR / "model_artifacts" / "sales_forecast_random_forest.joblib"
-COMPATIBILITY_COLUMNS = [
-    "deal_age_days",
-]
 
 # decide which fields come from the command line
 def parse_args():
@@ -32,11 +29,6 @@ def parse_args():
         "--overdue_meeting_count",
         required=True,
         help="Count of overdue meetings for the deal.",
-    )
-    parser.add_argument(
-        "--deal_age_days",
-        default=0,
-        help="Legacy compatibility field for older saved models.",
     )
     parser.add_argument(
         "--expected_close_gap_days",
@@ -68,7 +60,6 @@ def build_input_row(args):
         "deal_stage": args.deal_stage,
         "deal_value": args.deal_value,
         "overdue_meeting_count": args.overdue_meeting_count,
-        "deal_age_days": args.deal_age_days,
         "expected_close_gap_days": args.expected_close_gap_days,
         "lead_to_deal_convert_days": args.lead_to_deal_convert_days,
         "followup_count": args.followup_count,
@@ -79,7 +70,7 @@ def build_input_row(args):
 
     # Keep deal_value on the row for revenue calculation, while the model only reads FEATURE_COLUMNS.
     df = pd.DataFrame([row])
-    for column in NUMERIC_COLUMNS + REVENUE_COLUMNS + COMPATIBILITY_COLUMNS:   #convert numeric-looking inputs into actual numeric value
+    for column in NUMERIC_COLUMNS + REVENUE_COLUMNS:   #convert numeric-looking inputs into actual numeric value
         df[column] = pd.to_numeric(df[column], errors="coerce")
     return df
 

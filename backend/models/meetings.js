@@ -100,6 +100,7 @@ const meetingsSchema = new mongoose.Schema({
     type: String,
     enum: [
       "scheduled",
+      "overdue",
       "completed",
       "cancelled",
       "rescheduled",

@@ -28,6 +28,7 @@ const eventsRoutes = require("./routes/eventsRoutes");
 const aiLeadsRoutes = require("./routes/aiLeadsRoutes");
 const { startNotificationEmailWorker } = require("./services/notificationEmailWorker");
 const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker");
+const { startFollowupOverdueWorker } = require("./services/followupOverdueWorker");
 const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
 const { startLeadScraperScheduler } = require("./services/leadScraperScheduler");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
@@ -41,6 +42,7 @@ const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const managerDashboardRoutes = require("./routes/managerDashboardRoutes");
 const userDashboardRoutes = require("./routes/userDashboardRoutes");
 const dailyClosingRoutes = require("./routes/dailyClosingRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 const myServer = http.createServer(app);
@@ -81,8 +83,12 @@ app.use("/ocr", ocrRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/auth/google", googleAuthRoutes);
 app.use("/sales-forecast", salesForecastRoutes);
+<<<<<<< HEAD
 app.use("/api/ai-insights", require("./routes/aiInsightRoutes"));
 
+=======
+app.use("/reports", reportRoutes);
+>>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
 
 
 let backgroundWorkersStarted = false;
@@ -105,6 +111,7 @@ const startBackgroundWorkers = async () => {
   // Start background workers only after DB is available.
   startNotificationEmailWorker();
   startWhatsAppMeetingWorker();
+  startFollowupOverdueWorker();
   startEventScraperScheduler();
   startLeadScraperScheduler();
 };

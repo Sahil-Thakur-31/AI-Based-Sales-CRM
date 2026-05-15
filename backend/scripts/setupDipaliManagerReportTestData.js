@@ -77,7 +77,6 @@ async function createLeadForDeal({
 }) {
   const lead = await Leads.create({
     company_name: companyName,
-    lead_temperature: "hot",
     status: converted ? "converted" : "qualified",
     assigned_to: owner._id,
     deal_value_estimate: dealEstimate,
@@ -100,7 +99,7 @@ async function createDealWithQuotation({
   createdAt,
   closeDate,
   expectedCloseDate,
-  status,
+  stage,
   dealValue,
   subtotalAmount,
   discountAmount,
@@ -119,16 +118,15 @@ async function createDealWithQuotation({
     lead_id: lead._id,
     assignedTo: owner._id,
     assignedBy: manager._id,
-    stage: status === "won" ? "P7" : status === "lost" ? "P3" : "P2",
-    status,
+    stage,
     dealValue,
-    probability: status === "won" ? 100 : status === "lost" ? 0 : 55,
-    actualCloseDate: status === "open" ? null : closeDate,
-    expectedCloseDate: status === "open" ? expectedCloseDate : null,
-    isActive: status === "open",
+    probability: stage === "P7" ? 100 : stage === "P6" ? 0 : 55,
+    actualCloseDate: ["P6", "P7"].includes(stage) ? closeDate : null,
+    expectedCloseDate: ["P6", "P7"].includes(stage) ? null : expectedCloseDate,
+    isActive: !["P6", "P7"].includes(stage),
     is_deleted: false,
     createdAt,
-    updatedAt: status === "open" ? expectedCloseDate || createdAt : closeDate || createdAt,
+    updatedAt: ["P6", "P7"].includes(stage) ? closeDate || createdAt : expectedCloseDate || createdAt,
   });
 
   await Leads.updateOne(
@@ -143,7 +141,7 @@ async function createDealWithQuotation({
     }
   );
 
-  if (status === "won") {
+  if (stage === "P7") {
     const taxAmount = Math.round(subtotalAmount * 0.18);
     await Quotation.create({
       quoteNumber: `RT-DIPALI-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -195,7 +193,7 @@ async function main() {
   };
 
   const team = existingTeam
-    ? await Team.findByIdAndUpdate(existingTeam._id, { $set: teamPayload }, { new: true })
+    ? await Team.findByIdAndUpdate(existingTeam._id, { $set: teamPayload }, { returnDocument: "after" })
     : await Team.create(teamPayload);
 
   const now = new Date();
@@ -331,7 +329,7 @@ async function main() {
       label: "Dipali M Jan Won",
       createdAt: dateInMonth(year, 0, 4),
       closeDate: dateInMonth(year, 0, 14),
-      status: "won",
+      stage: "P7",
       dealValue: 180000,
       subtotalAmount: 172000,
       discountAmount: 7000,
@@ -341,7 +339,7 @@ async function main() {
       label: "Dipali M Current Won",
       createdAt: dateInMonth(year, now.getMonth(), 2),
       closeDate: dateInMonth(year, now.getMonth(), 6),
-      status: "won",
+      stage: "P7",
       dealValue: 225000,
       subtotalAmount: 215000,
       discountAmount: 10000,
@@ -351,7 +349,7 @@ async function main() {
       label: "Dipali M Current Open",
       createdAt: dateInMonth(year, now.getMonth(), 8),
       expectedCloseDate: dateInMonth(year, now.getMonth(), 24),
-      status: "open",
+      stage: "P2",
       dealValue: 95000,
     },
     {
@@ -359,7 +357,7 @@ async function main() {
       label: "Dipali U Mar Won",
       createdAt: dateInMonth(year, 2, 3),
       closeDate: dateInMonth(year, 2, 10),
-      status: "won",
+      stage: "P7",
       dealValue: 145000,
       subtotalAmount: 140000,
       discountAmount: 5000,
@@ -369,7 +367,7 @@ async function main() {
       label: "Dipali U Current Won",
       createdAt: dateInMonth(year, now.getMonth(), 4),
       closeDate: dateInMonth(year, now.getMonth(), 9),
-      status: "won",
+      stage: "P7",
       dealValue: 155000,
       subtotalAmount: 150000,
       discountAmount: 5000,
@@ -379,7 +377,7 @@ async function main() {
       label: "Dipali U Current Lost",
       createdAt: dateInMonth(year, now.getMonth(), 11),
       closeDate: dateInMonth(year, now.getMonth(), 21),
-      status: "lost",
+      stage: "P6",
       dealValue: 60000,
     },
     {
@@ -387,7 +385,7 @@ async function main() {
       label: "Ambadas U Apr Won",
       createdAt: dateInMonth(year, 3, 5),
       closeDate: dateInMonth(year, 3, 12),
-      status: "won",
+      stage: "P7",
       dealValue: 135000,
       subtotalAmount: 130000,
       discountAmount: 5000,
@@ -397,7 +395,7 @@ async function main() {
       label: "Ambadas U Current Won",
       createdAt: dateInMonth(year, now.getMonth(), 6),
       closeDate: dateInMonth(year, now.getMonth(), 13),
-      status: "won",
+      stage: "P7",
       dealValue: 165000,
       subtotalAmount: 160000,
       discountAmount: 7000,
@@ -407,7 +405,7 @@ async function main() {
       label: "Ambadas U Current Open",
       createdAt: dateInMonth(year, now.getMonth(), 9),
       expectedCloseDate: dateInMonth(year, now.getMonth(), 27),
-      status: "open",
+      stage: "P2",
       dealValue: 90000,
     },
     {
@@ -415,7 +413,7 @@ async function main() {
       label: "Sahil U Feb Won",
       createdAt: dateInMonth(year, 1, 10),
       closeDate: dateInMonth(year, 1, 18),
-      status: "won",
+      stage: "P7",
       dealValue: 120000,
       subtotalAmount: 118000,
       discountAmount: 3000,
@@ -425,7 +423,7 @@ async function main() {
       label: "Sahil U Current Won",
       createdAt: dateInMonth(year, now.getMonth(), 10),
       closeDate: dateInMonth(year, now.getMonth(), 17),
-      status: "won",
+      stage: "P7",
       dealValue: 140000,
       subtotalAmount: 136000,
       discountAmount: 4000,
@@ -435,7 +433,7 @@ async function main() {
       label: "Sahil U Current Lost",
       createdAt: dateInMonth(year, now.getMonth(), 14),
       closeDate: dateInMonth(year, now.getMonth(), 23),
-      status: "lost",
+      stage: "P6",
       dealValue: 50000,
     },
   ];
@@ -448,7 +446,7 @@ async function main() {
       createdAt: scenario.createdAt,
       closeDate: scenario.closeDate,
       expectedCloseDate: scenario.expectedCloseDate,
-      status: scenario.status,
+      stage: scenario.stage,
       dealValue: scenario.dealValue,
       subtotalAmount: scenario.subtotalAmount || 0,
       discountAmount: scenario.discountAmount || 0,
@@ -465,7 +463,7 @@ async function main() {
     },
     targetsCreatedFor: [manager.name, ...members.map((member) => member.name)],
     dealsCreated: scenarios.length,
-    wonDealsWithQuotations: scenarios.filter((scenario) => scenario.status === "won").length,
+    wonDealsWithQuotations: scenarios.filter((scenario) => scenario.stage === "P7").length,
   }, null, 2));
 
   await mongoose.disconnect();

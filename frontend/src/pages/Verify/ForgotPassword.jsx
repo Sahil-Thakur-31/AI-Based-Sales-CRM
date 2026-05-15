@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AuthBrandHeader from "../../components/AuthBrandHeader";
 import BackButton from "../../components/BackButton";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import API from "../../api";
@@ -60,6 +61,7 @@ function ForgotPassword() {
   return (
     <div className="login-wrapper">
       <div className="container">
+        <AuthBrandHeader />
         <h1>Send OTP</h1>
         {successMsg && <div className="form-message primary">{successMsg}</div>}
 

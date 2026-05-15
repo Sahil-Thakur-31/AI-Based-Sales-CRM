@@ -79,6 +79,11 @@ const aiGeneratedLeadsSchema = new mongoose.Schema(
       default: true
     },
 
+    is_deleted: {
+      type: Boolean,
+      default: false
+    },
+
     location: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "location"

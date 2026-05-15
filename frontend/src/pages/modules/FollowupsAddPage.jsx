@@ -253,8 +253,10 @@ export default function FollowupsAddPage() {
   const [cancelModal, setCancelModal] = useState(EMPTY_CANCEL_MODAL);
   const [cancelModalError, setCancelModalError] = useState("");
   const [savingCancel, setSavingCancel] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [successModal, setSuccessModal] = useState({ open: false, title: "", subtitle: "" });
   const selectedDateFromRoute = useMemo(() => {
     const fromState = String(location.state?.selectedDate || "").trim();
     const fromQuery = String(new URLSearchParams(location.search).get("date") || "").trim();
@@ -425,7 +427,7 @@ export default function FollowupsAddPage() {
           id: String(lead._id),
           label: lead.company_name || "Untitled Lead",
           sourceType: "lead",
-          stage: "P1",
+          stage: lead.stage || "P1",
           leadId: String(lead._id),
         }));
     }
@@ -805,8 +807,16 @@ export default function FollowupsAddPage() {
     setEditModalOpen(true);
   };
 
+  const showSuccessModal = (title, subtitle = "") => {
+    setSuccessModal({ open: true, title, subtitle });
+    setTimeout(() => {
+      setSuccessModal({ open: false, title: "", subtitle: "" });
+    }, 1200);
+  };
+
   const submitForm = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const activeEditRecord =
       editingRecord && selectedRecord && String(editingRecord.id) === String(selectedRecord.item?.id)
         ? selectedRecord
@@ -819,8 +829,11 @@ export default function FollowupsAddPage() {
     const v = validateForm();
     if (v) return setFormError(v);
     setFormError("");
+    setClientSuggestions([]);
+    setLocationSuggestions([]);
 
     try {
+      setIsSubmitting(true);
       const resolvedTarget = editingRecord?.type || (isMeetingEventType(formData.eventType) ? "meeting" : "followup");
       const dueAt = new Date(`${formData.date}T${formData.time}:00`);
       if (Number.isNaN(dueAt.getTime())) {
@@ -850,6 +863,9 @@ export default function FollowupsAddPage() {
         setEditModalOpen(false);
         setDetailsModalOpen(true);
         resetForm();
+        showSuccessModal(
+          `${editingRecord.type === "meeting" ? "Meeting" : "Follow-up"} Updated Successfully`
+        );
         return;
       }
       const isPastMeetingInput = resolvedTarget === "meeting" && dueAt < new Date();
@@ -920,7 +936,13 @@ export default function FollowupsAddPage() {
         setSelectedRecord({ type: resolvedTarget, item: mapped });
         setEditModalOpen(false);
         setDetailsModalOpen(true);
+        showSuccessModal(
+          `${resolvedTarget === "meeting" ? "Meeting" : "Follow-up"} Updated Successfully`
+        );
       } else {
+        const displayType = resolvedTarget === "meeting" ? "Meeting" : "Followup";
+        const timeStr = formData.time ? `at ${formData.time}` : "";
+        showSuccessModal(`${displayType} Created Successfully`, timeStr);
         setActiveAction(resolvedTarget === "meeting" ? "meeting" : "followup");
       }
       resetForm();
@@ -936,6 +958,8 @@ export default function FollowupsAddPage() {
         err?.response?.data?.message ||
         "Failed to save"
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1172,7 +1196,7 @@ export default function FollowupsAddPage() {
             {formData.sourceType !== "existingClient" && (
               <label>
                 Stage
-                <input type="text" value={formData.stage || "No stage found"} readOnly />
+                <input type="text" value={formData.stage ? getStageOptionLabel(STAGES.find((s) => s.key === formData.stage)) : "No stage found"} readOnly />
               </label>
             )}
 
@@ -1270,10 +1294,13 @@ export default function FollowupsAddPage() {
 
           <FormErrorSlot message={formError} className="form-error-slot-global" />
           <div className="fuaActions">
-            <button className="fuaBtn primary" type="submit">{editingRecord ? "Update" : "Submit"}</button>
+            <button className="fuaBtn primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : editingRecord ? "Update" : "Submit"}
+            </button>
             <button
               className="fuaBtn danger"
               type="button"
+              disabled={isSubmitting}
               onClick={() => {
                 if (isModal) {
                   setEditModalOpen(false);
@@ -1451,6 +1478,9 @@ export default function FollowupsAddPage() {
         setSelectedRecord({ type: "followup", item: updated });
       }
       setCancelModal(EMPTY_CANCEL_MODAL);
+      showSuccessModal(
+        `${cancelModal.kind === "meeting" ? "Meeting" : "Follow-up"} Cancelled Successfully`
+      );
     } catch (err) {
       console.error(err);
       setCancelModalError(err?.response?.data?.message || "Failed to cancel record");
@@ -1702,10 +1732,13 @@ export default function FollowupsAddPage() {
         )}
         <FormErrorSlot message={formError} className="form-error-slot-global" />
         <div className="fuFormActions">
-          <button className="fuBtn fuBtnPrimary" type="submit">Save</button>
+          <button className="fuBtn fuBtnPrimary" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save"}
+          </button>
           <button
             className="fuBtn fuBtnGhost"
             type="button"
+            disabled={isSubmitting}
             onClick={() => {
               setEditModalOpen(false);
               setDetailsModalOpen(true);
@@ -1833,6 +1866,17 @@ export default function FollowupsAddPage() {
         }}>
           <div className="fuModalCard" onClick={(e) => e.stopPropagation()}>
             {renderCompactEditModal()}
+          </div>
+        </div>
+      )}
+      {successModal.open && (
+        <div className="fuModalOverlay">
+          <div className="fuModalCard fuaSuccessModalCard">
+            <div className="fuaSuccessContent">
+              <div className="fuaSuccessCheckmark">✓</div>
+              <h3 className="fuaSuccessTitle">{successModal.title}</h3>
+              {successModal.subtitle ? <p className="fuaSuccessTime">{successModal.subtitle}</p> : null}
+            </div>
           </div>
         </div>
       )}

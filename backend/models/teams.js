@@ -42,4 +42,30 @@ const teamSchema = new mongoose.Schema(
   }
 );
 
+teamSchema.pre("validate", async function rejectDuplicateMembers() {
+  const memberIds = (this.members || [])
+    .map((member) => String(member.userId || ""))
+    .filter(Boolean);
+
+  if (memberIds.length !== new Set(memberIds).size) {
+    throw new Error("A member can only be assigned once in a team");
+  }
+
+  if (memberIds.length) {
+    const conflict = await this.constructor
+      .findOne({
+        _id: { $ne: this._id },
+        "members.userId": { $in: memberIds },
+      })
+      .select("name")
+      .lean();
+
+    if (conflict) {
+      throw new Error(
+        `A member can only be assigned to one team. Already assigned to "${conflict.name || "Untitled Team"}"`
+      );
+    }
+  }
+});
+
 module.exports = mongoose.model("Team", teamSchema);

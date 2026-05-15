@@ -51,11 +51,6 @@ const leadsSchema = new mongoose.Schema(
       ref: "events",
     },
 
-    lead_temperature: {
-      type: String,
-      enum: ["cold", "warm", "hot"],
-    },
-
     deal_value_estimate: {
       type: Number,
     },
@@ -68,19 +63,7 @@ const leadsSchema = new mongoose.Schema(
     stage: {
       type: String,
       enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
-      default: "P1",
-    },
-
-    status: {
-      type: String,
-      enum: ["new", "contacted", "qualified", "converted", "rejected"],
-      default: "new",
-    },
-
-    stage: {
-      type: String,
-      enum: ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
-      default: "P1",
+      default: "P3",
     },
 
     converted_deal_id: {
@@ -103,6 +86,12 @@ const leadsSchema = new mongoose.Schema(
 
     next_action: {
       type: String,
+    },
+
+    reason_for_lost: {
+      type: String,
+      trim: true,
+      default: "",
     },
 
     is_active: {

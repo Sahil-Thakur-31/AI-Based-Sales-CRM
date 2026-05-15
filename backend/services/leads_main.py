@@ -34,8 +34,14 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-BASE_DIR = Path(__file__).resolve().parent
-ENV_VALUES = load_env_file(BASE_DIR / ".env")
+SCRIPT_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = SCRIPT_DIR.parent
+PROJECT_ROOT = BACKEND_DIR.parent
+ENV_VALUES = {
+    **load_env_file(PROJECT_ROOT / ".env"),
+    **load_env_file(BACKEND_DIR / ".env"),
+    **load_env_file(SCRIPT_DIR / ".env"),
+}
 
 
 def env_value(name: str, fallback: str = "") -> str:
@@ -55,6 +61,7 @@ COLLECTION_NAME = env_value("LEAD_SCRAPER_COLLECTION_NAME", "scraped_leads")
 DEFAULT_COUNTRY = env_value("LEAD_SCRAPER_DEFAULT_COUNTRY", "India")
 DEFAULT_SEARCH_QUERY = env_value("LEAD_SCRAPER_DEFAULT_QUERY", "company")
 GOOGLE_RESULT_LIMIT = max(1, int(env_value("LEAD_SCRAPER_GOOGLE_RESULT_LIMIT", "5") or "5"))
+MAX_EMPLOYEE_COUNT_HINT = max(1, int(env_value("LEAD_SCRAPER_MAX_EMPLOYEE_COUNT_HINT", "10000") or "10000"))
 PLAYWRIGHT_HEADLESS = env_value("LEAD_SCRAPER_HEADLESS", "0").lower() not in {"0", "false", "no"}
 PLAYWRIGHT_SLOW_MO_MS = 400 if not PLAYWRIGHT_HEADLESS else 0
 SEARCH_BACKEND = env_value("LEAD_SCRAPER_SEARCH_BACKEND", "bing").lower() or "bing"
@@ -296,6 +303,29 @@ def parse_int(value: Any) -> int | None:
         return int(float(str(value).replace(",", "")))
     except (TypeError, ValueError):
         return None
+
+
+def sanitize_employee_count_hint(value: Any) -> int | None:
+    count = parse_int(value)
+    if count is None or count <= 0:
+        return None
+    # Scraped pages can concatenate unrelated numbers into fake headcounts.
+    if count > MAX_EMPLOYEE_COUNT_HINT:
+        return None
+    return count
+
+
+def sanitize_employee_range_hint(value: Any) -> str:
+    text = clean_text(value)
+    if not text:
+        return ""
+    numbers = [parse_int(item) for item in re.findall(r"\d+", text)]
+    numbers = [item for item in numbers if item is not None]
+    if not numbers:
+        return ""
+    if max(numbers) > MAX_EMPLOYEE_COUNT_HINT:
+        return ""
+    return text
 
 
 def normalize_phone(value: Any) -> str:
@@ -1343,8 +1373,8 @@ class LeadScraperApp:
         employee_range_match = EMPLOYEE_RANGE_PATTERN.search(combined_text)
         founded_match = FOUNDED_PATTERN.search(combined_text)
         turnover_match = TURNOVER_PATTERN.search(combined_text)
-        row["companySizeSignals"]["employeeCountHint"] = parse_int(employee_match.group(1)) if employee_match else None
-        row["companySizeSignals"]["employeeRangeHint"] = clean_text(employee_range_match.group(1)) if employee_range_match else ""
+        row["companySizeSignals"]["employeeCountHint"] = sanitize_employee_count_hint(employee_match.group(1)) if employee_match else None
+        row["companySizeSignals"]["employeeRangeHint"] = sanitize_employee_range_hint(employee_range_match.group(1)) if employee_range_match else ""
         row["companySizeSignals"]["foundedYear"] = parse_int(founded_match.group(1)) if founded_match else None
         row["companySizeSignals"]["turnoverHint"] = clean_text(turnover_match.group(1)) if turnover_match else ""
         row["companySizeSignals"]["websiteCategoryHint"] = choose_website_category_hint(
@@ -1541,8 +1571,8 @@ class LeadScraperApp:
         founded_match = FOUNDED_PATTERN.search(text)
         turnover_match = TURNOVER_PATTERN.search(text)
         return {
-            "employeeCountHint": parse_int(employee_match.group(1)) if employee_match else None,
-            "employeeRangeHint": clean_text(employee_range_match.group(1)) if employee_range_match else "",
+            "employeeCountHint": sanitize_employee_count_hint(employee_match.group(1)) if employee_match else None,
+            "employeeRangeHint": sanitize_employee_range_hint(employee_range_match.group(1)) if employee_range_match else "",
             "foundedYear": parse_int(founded_match.group(1)) if founded_match else None,
             "websiteCategoryHint": infer_business_category(text),
             "turnoverHint": clean_text(turnover_match.group(1)) if turnover_match else "",

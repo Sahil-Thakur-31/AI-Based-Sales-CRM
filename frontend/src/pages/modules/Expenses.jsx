@@ -1278,6 +1278,7 @@ const ExpenseDashboard = () => {
                 </div>
               </div>
 
+<<<<<<< HEAD
               <div className="ocr-toolbar-actions">
                 <div className="ocr-status-pill">
                   <div className="status-dot"></div>
@@ -1288,6 +1289,128 @@ const ExpenseDashboard = () => {
                     <line x1="18" y1="6" x2="6" y2="18"/>
                     <line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
+=======
+            <button className="expense-ocr-btn" onClick={openOcrModal}>
+              OCR
+            </button>
+
+            <button className="expense-log-btn" onClick={openCreateModal}>
+              + Log Expense
+            </button>
+          </div>
+        </div>
+        <FormErrorSlot message={pageError} className="form-error-slot-global" />
+
+        <table className="crm-auto-responsive-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Type</th>
+              <th>User</th>
+              <th>Total</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedExpenses.map((exp) => {
+              const canModifyOwnPending = exp.status === "pending" && String(exp.userId) === String(currentUser?._id);
+              return (
+                <tr key={exp.id}>
+                  <td>{exp.categoryLabel}</td>
+                  <td>{exp.referenceType || "-"}</td>
+                  <td>{exp.user}</td>
+                  <td>Rs. {exp.total.toFixed(2)}</td>
+                  <td>{exp.date}</td>
+                  <td>
+                    {isAdmin ? (
+                      <select
+                        className={`expense-status-select expense-status-${exp.status}`}
+                        value={exp.status}
+                        disabled={exp.status === "approved"}
+                        title={exp.status === "approved" ? "Approved expense status cannot be changed" : "Update status"}
+                        onChange={(e) => handleStatusChange(exp, e.target.value)}
+                      >
+                        <option value="pending">pending</option>
+                        <option value="approved">approved</option>
+                        <option value="rejected">rejected</option>
+                      </select>
+                    ) : (
+                      <div className="expense-status-stack">
+                        <button
+                          type="button"
+                          className={
+                            exp.status === "approved"
+                              ? "expense-approved"
+                              : exp.status === "rejected"
+                                ? "expense-rejected expense-status-clickable"
+                                : "expense-pending"
+                          }
+                          onClick={() => openReasonModal(exp)}
+                          title={exp.status === "rejected" ? "Click to view rejected reason" : ""}
+                        >
+                          {exp.status}
+                        </button>
+                        {exp.status === "rejected" && exp.approvalRemarks && (
+                          <small className="expense-rejection-inline" title="Click rejected status to view full reason">
+                            Click rejected status to view reason
+                          </small>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <button className="expense-view" onClick={() => handleView(exp)}>
+                      View
+                    </button>
+
+                    {isAdmin && (
+                      <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
+                        Delete
+                      </button>
+                    )}
+
+                    {!isAdmin && canModifyOwnPending && (
+                      <button className="expense-view" onClick={() => openEditModal(exp)}>
+                        Edit
+                      </button>
+                    )}
+
+                    {!isAdmin && canModifyOwnPending && (
+                      <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <div className="expense-pagination">
+          <button disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+            Prev
+          </button>
+          <span>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
+            Next
+          </button>
+        </div>
+      </div>
+
+      {showModal &&
+        ReactDOM.createPortal(
+          <div className="expense-modal-overlay">
+            <div className="expense-modal expense-large-modal">
+              <div className="expense-modal-header">
+                <h3>OCR Expense Import</h3>
+                <button type="button" className="expense-close-btn" onClick={closeOcrModal} aria-label="Close OCR import">
+                  x
+>>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
                 </button>
               </div>
             </div>

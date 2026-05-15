@@ -1,9 +1,11 @@
 const path = require("path");
 const { execFile } = require("child_process");
+const fs = require("fs");
 
 const LEAD_SCRAPER_SOURCES = ["indiamart", "google_maps"];
-const PYTHON_CMD = process.env.PYTHON_CMD || "python";
-const LEAD_SCRAPER_SCRIPT = path.resolve(__dirname, "../../leads_main.py");
+const LOCAL_BACKEND_PYTHON = path.resolve(__dirname, "../.venv/Scripts/python.exe");
+const PYTHON_CMD = process.env.PYTHON_CMD || (fs.existsSync(LOCAL_BACKEND_PYTHON) ? LOCAL_BACKEND_PYTHON : "python");
+const LEAD_SCRAPER_SCRIPT = path.resolve(__dirname, "leads_main.py");
 const LEAD_SCRAPER_EXEC_TIMEOUT_MS = Math.max(
   5 * 60 * 1000,
   Number(process.env.LEAD_SCRAPER_EXEC_TIMEOUT_MS || 45 * 60 * 1000)

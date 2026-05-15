@@ -6,6 +6,8 @@
 const Deal = require("../models/deals");
 const Lead = require("../models/leads");
 const Followup = require("../models/followUp");
+const LeadContacts = require("../models/leadContacts");
+const ClientContact = require("../models/client_contact");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const Role = require("../models/roles");
@@ -19,6 +21,14 @@ try {
 }
 
 const { getRangeDates } = require("./dashboardRange.admin");
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+const dealClosedNorMatch = {
+  $nor: [
+    { stage: DEAL_WON_STAGE },
+    { stage: DEAL_LOST_STAGE }
+  ]
+};
 
 async function getNonAdminUserIds() {
   const adminRoles = await Role.find(
@@ -47,14 +57,6 @@ function pctChange(curr, prev) {
   return Number((((curr - prev) / prev) * 100).toFixed(1));
 }
 
-function riskLabelFromAi(aiRiskScore) {
-  const s = Number(aiRiskScore);
-  if (!Number.isFinite(s)) return "medium";
-  if (s <= 33) return "low";
-  if (s <= 66) return "medium";
-  return "high";
-}
-
 function iconFromActionType(actionType = "") {
   const a = String(actionType).toLowerCase();
   if (a.includes("call")) return "📞";
@@ -62,6 +64,12 @@ function iconFromActionType(actionType = "") {
   if (a.includes("meeting") || a.includes("demo")) return "🤝";
   if (a.includes("doc") || a.includes("contract")) return "📄";
   return "🔔";
+}
+
+function pickPrimaryPhone(value) {
+  if (Array.isArray(value)) return String(value[0] || "").trim();
+  if (typeof value === "string") return value.split(",")[0].trim();
+  return "";
 }
 
 /**
@@ -75,35 +83,40 @@ function iconFromActionType(actionType = "") {
  *  openLeads, openLeadsFromAI
  * }
  */
-async function getSummary(range) {
-  const { start, end, prevStart, prevEnd } = getRangeDates(range);
+async function getSummary(filters = {}) {
+  const { start, end, prevStart, prevEnd } = getRangeDates(filters.range, filters);
   const nonAdminUserIds = await getNonAdminUserIds();
 
   // Won revenue in current range
   const wonAgg = await Deal.aggregate([
-    { $match: { status: "won", is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: start, $lte: end } } },
+    { $match: { stage: DEAL_WON_STAGE, is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: start, $lte: end } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenueWon = wonAgg[0]?.total || 0;
 
   // Won revenue in previous range
   const prevWonAgg = await Deal.aggregate([
-    { $match: { status: "won", is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
+    { $match: { stage: DEAL_WON_STAGE, is_deleted: { $ne: true }, assignedTo: { $in: nonAdminUserIds }, actualCloseDate: { $gte: prevStart, $lte: prevEnd } } },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const revenuePrev = prevWonAgg[0]?.total || 0;
 
-  // Active deals created in the selected range.
+  // Active deals are current pipeline counts, not created-in-range counts.
   const activeDeals = await Deal.countDocuments({
-    status: "open",
+    ...dealClosedNorMatch,
+    is_deleted: { $ne: true },
+    assignedTo: { $in: nonAdminUserIds },
+  });
+
+  // Delta still tells how many active deals were created in the selected range.
+  const activeDealsCreatedInRange = await Deal.countDocuments({
+    ...dealClosedNorMatch,
     is_deleted: { $ne: true },
     assignedTo: { $in: nonAdminUserIds },
     createdAt: { $gte: start, $lte: end },
   });
-
-  // Compare against the previous equivalent range window.
   const activeDealsPrev = await Deal.countDocuments({
-    status: "open",
+    ...dealClosedNorMatch,
     is_deleted: { $ne: true },
     assignedTo: { $in: nonAdminUserIds },
     createdAt: { $gte: prevStart, $lte: prevEnd },
@@ -114,15 +127,15 @@ async function getSummary(range) {
     {
       $match: {
         is_deleted: { $ne: true },
-        status: { $in: ["won", "lost"] },
         assignedTo: { $in: nonAdminUserIds },
         actualCloseDate: { $gte: start, $lte: end },
+        stage: { $in: [DEAL_WON_STAGE, DEAL_LOST_STAGE] },
       },
     },
-    { $group: { _id: "$status", c: { $sum: 1 } } },
+    { $group: { _id: "$stage", c: { $sum: 1 } } },
   ]);
-  const wonCount = closedAgg.find((x) => x._id === "won")?.c || 0;
-  const lostCount = closedAgg.find((x) => x._id === "lost")?.c || 0;
+  const wonCount = closedAgg.find((x) => x._id === DEAL_WON_STAGE)?.c || 0;
+  const lostCount = closedAgg.find((x) => x._id === DEAL_LOST_STAGE)?.c || 0;
   const totalClosed = wonCount + lostCount;
   const winRatePct = totalClosed === 0 ? 0 : Math.round((wonCount / totalClosed) * 100);
 
@@ -130,26 +143,25 @@ async function getSummary(range) {
     {
       $match: {
         is_deleted: { $ne: true },
-        status: { $in: ["won", "lost"] },
         assignedTo: { $in: nonAdminUserIds },
         actualCloseDate: { $gte: prevStart, $lte: prevEnd },
+        stage: { $in: [DEAL_WON_STAGE, DEAL_LOST_STAGE] },
       },
     },
-    { $group: { _id: "$status", c: { $sum: 1 } } },
+    { $group: { _id: "$stage", c: { $sum: 1 } } },
   ]);
-  const prevWonCount = prevClosedAgg.find((x) => x._id === "won")?.c || 0;
-  const prevLostCount = prevClosedAgg.find((x) => x._id === "lost")?.c || 0;
+  const prevWonCount = prevClosedAgg.find((x) => x._id === DEAL_WON_STAGE)?.c || 0;
+  const prevLostCount = prevClosedAgg.find((x) => x._id === DEAL_LOST_STAGE)?.c || 0;
   const prevTotalClosed = prevWonCount + prevLostCount;
   const prevWinRate = prevTotalClosed === 0 ? 0 : Math.round((prevWonCount / prevTotalClosed) * 100);
 
-  // Pipeline value within the selected range.
+  // Pipeline value is current live pipeline value.
   const pipeAgg = await Deal.aggregate([
     {
       $match: {
-        status: "open",
+        ...dealClosedNorMatch,
         is_deleted: { $ne: true },
         assignedTo: { $in: nonAdminUserIds },
-        createdAt: { $gte: start, $lte: end },
       }
     },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
@@ -160,13 +172,13 @@ async function getSummary(range) {
   // For now: keep 0 to avoid wrong info until target logic is final.
   const pipelineDeltaPct = 0;
 
-  // Open leads created in the selected range and still open.
+  // Open leads are current lead pipeline counts.
   const openLeads = await Lead.countDocuments({
     is_active: true,
     is_deleted: { $ne: true },
     assigned_to: { $in: nonAdminUserIds },
-    status: { $nin: ["converted", "rejected"] },
-    created_at: { $gte: start, $lte: end },
+    converted_to_deal: { $ne: true },
+    stage: { $ne: "P7" },
   });
 
   // AI-sourced leads created in this range (if model exists)
@@ -185,7 +197,7 @@ async function getSummary(range) {
     revenueDeltaPct: pctChange(revenueWon, revenuePrev),
 
     activeDeals,
-    activeDealsDelta: activeDeals - activeDealsPrev,
+    activeDealsDelta: activeDealsCreatedInRange - activeDealsPrev,
 
     winRatePct,
     winRateDeltaPct: winRatePct - prevWinRate,
@@ -203,45 +215,89 @@ async function getSummary(range) {
  * Shape must match frontend:
  * [{ code, label, count, amount }, ...]
  */
-async function getPipeline(range, pipelineType = "deal") {
-  const { start, end } = getRangeDates(range);
+async function getPipeline(filters = {}, pipelineType = "deal") {
   const normalizedType = String(pipelineType || "deal").toLowerCase() === "lead" ? "lead" : "deal";
   const nonAdminUserIds = await getNonAdminUserIds();
   const stages = normalizedType === "deal"
-    ? ["P1", "P2", "P3", "P7"]
-    : ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+    ? ["P1", "P2", "P3", "P6", "P7"]
+    : ["P1", "P2", "P3", "P4", "P5", "P6"];
 
   const agg =
     normalizedType === "lead"
-      ? await Lead.aggregate([
-          {
-            $match: {
-              is_deleted: { $ne: true },
-              is_active: true,
-              assigned_to: { $in: nonAdminUserIds },
-              status: { $nin: ["converted", "rejected"] },
-              created_at: { $gte: start, $lte: end },
+      ? await (async () => {
+          return Lead.aggregate([
+            {
+              $match: {
+                is_deleted: { $ne: true },
+                assigned_to: { $in: nonAdminUserIds },
+                converted_to_deal: { $ne: true },
+                stage: { $in: ["P1", "P2", "P3", "P4", "P5", "P6"] },
+              },
             },
-          },
-          {
-            $group: {
-              _id: "$stage",
-              count: { $sum: 1 },
-              amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
+            {
+              $group: {
+                _id: "$stage",
+                count: { $sum: 1 },
+                amount: { $sum: { $ifNull: ["$deal_value_estimate", 0] } },
+              },
             },
-          },
-        ])
-      : await Deal.aggregate([
-          {
-            $match: {
-              status: "open",
-              is_deleted: { $ne: true },
-              assignedTo: { $in: nonAdminUserIds },
-              createdAt: { $gte: start, $lte: end },
-            }
-          },
-          { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
-        ]);
+          ]);
+        })()
+      : await (async () => {
+          const [openStageAgg, lostAgg, wonAgg] = await Promise.all([
+            Deal.aggregate([
+              {
+                $match: {
+                  is_deleted: { $ne: true },
+                  assignedTo: { $in: nonAdminUserIds },
+                  ...dealClosedNorMatch,
+                }
+              },
+              { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
+            ]),
+            Deal.aggregate([
+              {
+                $match: {
+                  stage: DEAL_LOST_STAGE,
+                  is_deleted: { $ne: true },
+                  assignedTo: { $in: nonAdminUserIds },
+                }
+              },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  amount: { $sum: "$dealValue" },
+                }
+              },
+            ]),
+            Deal.aggregate([
+              {
+                $match: {
+                  stage: DEAL_WON_STAGE,
+                  is_deleted: { $ne: true },
+                  assignedTo: { $in: nonAdminUserIds },
+                }
+              },
+              {
+                $group: {
+                  _id: null,
+                  count: { $sum: 1 },
+                  amount: { $sum: "$dealValue" },
+                }
+              },
+            ]),
+          ]);
+
+          const lostStage = lostAgg[0]
+            ? [{ _id: "P6", count: lostAgg[0].count || 0, amount: lostAgg[0].amount || 0 }]
+            : [];
+          const wonStage = wonAgg[0]
+            ? [{ _id: "P7", count: wonAgg[0].count || 0, amount: wonAgg[0].amount || 0 }]
+            : [];
+
+          return [...openStageAgg, ...lostStage, ...wonStage];
+        })();
 
   const map = new Map(agg.map((x) => [x._id, x]));
   return stages.map((s) => ({
@@ -257,15 +313,15 @@ async function getPipeline(range, pipelineType = "deal") {
  * Shape must match frontend:
  * [{ id, name, value, pct, color }, ...]
  */
-async function getTeamPerformance(range) {
-  const { start, end } = getRangeDates(range);
+async function getTeamPerformance(filters = {}) {
+  const { start, end } = getRangeDates(filters.range, filters);
   const nonAdminUserIds = await getNonAdminUserIds();
 
   // Won revenue per salesperson in range
   const userAgg = await Deal.aggregate([
     {
       $match: {
-        status: "won",
+        stage: DEAL_WON_STAGE,
         is_deleted: { $ne: true },
         actualCloseDate: { $gte: start, $lte: end },
         assignedTo: { $in: nonAdminUserIds },
@@ -324,8 +380,8 @@ async function getTeamPerformance(range) {
  * Shape must match frontend:
  * [{ id, title, owner, score, date, priority, icon }, ...]
  */
-async function getFollowups(range, viewerUserId = null) {
-  const { start, end } = getRangeDates(range);
+async function getFollowups(filters = {}, viewerUserId = null) {
+  const { start, end } = getRangeDates(filters.range, filters);
   const now = new Date();
 
   const baseMatch = {
@@ -344,6 +400,10 @@ async function getFollowups(range, viewerUserId = null) {
       clientName: 1,
       kind: 1,
       actionType: 1,
+      leadId: 1,
+      dealId: 1,
+      clientId: 1,
+      contactId: 1,
       assignedTo: 1,
       aiScore: 1,
       priority: 1,
@@ -359,6 +419,61 @@ async function getFollowups(range, viewerUserId = null) {
   const users = await User.find({ _id: { $in: userIds } }, { name: 1 }).lean();
   const nameMap = new Map(users.map((u) => [String(u._id), u.name]));
 
+  const dealIds = [...new Set(list.map((f) => String(f.dealId || "")).filter(Boolean))];
+  const linkedDeals = dealIds.length
+    ? await Deal.find({ _id: { $in: dealIds } }, { lead_id: 1, client_id: 1 }).lean()
+    : [];
+  const dealMap = new Map(linkedDeals.map((deal) => [String(deal._id), deal]));
+
+  const leadIds = [...new Set([
+    ...list.map((f) => String(f.leadId || "")).filter(Boolean),
+    ...linkedDeals.map((deal) => String(deal.lead_id || "")).filter(Boolean),
+  ])];
+  const clientIds = [...new Set([
+    ...list.map((f) => String(f.clientId || "")).filter(Boolean),
+    ...linkedDeals.map((deal) => String(deal.client_id || "")).filter(Boolean),
+  ])];
+  const contactIds = [...new Set(list.map((f) => String(f.contactId || "")).filter(Boolean))];
+
+  const [leadContacts, clientContacts] = await Promise.all([
+    leadIds.length
+      ? LeadContacts.find({ lead_id: { $in: leadIds } })
+          .sort({ is_primary: -1, created_at: 1 })
+          .lean()
+      : [],
+    clientIds.length || contactIds.length
+      ? ClientContact.find({
+          $or: [
+            ...(clientIds.length ? [{ client_id: { $in: clientIds }, is_active: true }] : []),
+            ...(contactIds.length ? [{ _id: { $in: contactIds } }] : []),
+          ],
+        })
+          .sort({ is_primary: -1, createdAt: 1 })
+          .lean()
+      : [],
+  ]);
+
+  const leadPhoneMap = new Map();
+  const clientPhoneMap = new Map();
+  const contactPhoneMap = new Map();
+
+  for (const contact of leadContacts) {
+    const leadId = String(contact.lead_id || "");
+    if (!leadId || leadPhoneMap.has(leadId)) continue;
+    leadPhoneMap.set(leadId, pickPrimaryPhone(contact.phone));
+  }
+
+  for (const contact of clientContacts) {
+    const contactId = String(contact._id || "");
+    if (contactId && !contactPhoneMap.has(contactId)) {
+      contactPhoneMap.set(contactId, pickPrimaryPhone(contact.phone));
+    }
+
+    const clientId = String(contact.client_id || "");
+    if (!clientId || clientPhoneMap.has(clientId)) continue;
+    clientPhoneMap.set(clientId, pickPrimaryPhone(contact.phone));
+  }
+
   const priorityRank = { urgent: 4, high: 3, medium: 2, low: 1 };
   const comparePriority = (a, b) => {
     const pa = priorityRank[String(a.priority || "").toLowerCase()] || 0;
@@ -367,20 +482,36 @@ async function getFollowups(range, viewerUserId = null) {
     return Number(b.score || 0) - Number(a.score || 0);
   };
 
-  const mapped = list.map((f) => ({
+  const mapped = list.map((f) => {
+      const deal = dealMap.get(String(f.dealId || ""));
+      const leadId = String(f.leadId || deal?.lead_id || "");
+      const clientId = String(f.clientId || deal?.client_id || "");
+      const contactId = String(f.contactId || "");
+      const itemType = f.kind === "meeting" ? "Meeting" : "Follow-up";
+      const contactPhone =
+        itemType === "Meeting"
+          ? ""
+          : contactPhoneMap.get(contactId) ||
+            leadPhoneMap.get(leadId) ||
+            clientPhoneMap.get(clientId) ||
+            "";
+
+      return {
       id: String(f._id),
       title: f.title,
       companyName: f.clientName || "",
-      itemType: f.kind === "meeting" ? "Meeting" : "Follow-up",
+      itemType,
       actionType: f.actionType || "",
       owner: nameMap.get(String(f.assignedTo)) || "Unknown",
       score: Number(f.aiScore || 0),
+      contactPhone,
       date: f.dueDateTime ? new Date(f.dueDateTime).toLocaleDateString("en-IN") : "",
       dueDateTime: f.dueDateTime ? new Date(f.dueDateTime).toISOString() : "",
       status: String(f.status || "").toLowerCase(),
       priority: f.priority || "medium",
       icon: iconFromActionType(f.actionType),
-  }));
+    };
+  });
 
   const upcoming = mapped
     .filter((item) => item.status === "pending" && new Date(item.dueDateTime || 0) >= now)
@@ -406,35 +537,31 @@ async function getFollowups(range, viewerUserId = null) {
 /**
  * RECENT DEALS
  * Shape must match frontend:
- * [{ id, client, stage, value, risk, closeDate }, ...]
+ * [{ id, dealName, stage, value, closeDate }, ...]
  */
-async function getRecentDeals(range) {
-  const { start, end } = getRangeDates(range);
+async function getRecentDeals(filters = {}) {
+  const { start, end } = getRangeDates(filters.range, filters);
   const nonAdminUserIds = await getNonAdminUserIds();
 
   const deals = await Deal.find(
     {
       is_deleted: { $ne: true },
       assignedTo: { $in: nonAdminUserIds },
+      stage: { $in: ["P1", "P2", "P3"] },
       createdAt: { $gte: start, $lte: end },
     },
-    { stage: 1, dealValue: 1, aiRiskScore: 1, expectedCloseDate: 1, actualCloseDate: 1, createdAt: 1, client_id: 1 }
+    { deal_name: 1, stage: 1, dealValue: 1, expectedCloseDate: 1, actualCloseDate: 1, createdAt: 1 }
   )
     .sort({ createdAt: -1 })
-    .limit(4)
-    .populate({ path: "client_id", model: "client", select: "name" })
     .lean();
 
   return deals.map((d) => ({
     id: String(d._id),
-    client: d.client_id?.name || "Client",
+    dealName: d.deal_name || "Unnamed Deal",
     stage: d.stage || "P1",
     value: Number(d.dealValue || 0),
-    risk: riskLabelFromAi(d.aiRiskScore),
-    closeDate: d.expectedCloseDate
+    expectedCloseDate: d.expectedCloseDate
       ? new Date(d.expectedCloseDate).toLocaleDateString("en-IN")
-      : d.actualCloseDate
-      ? new Date(d.actualCloseDate).toLocaleDateString("en-IN")
       : "",
   }));
 }

@@ -1,8 +1,10 @@
 const path = require("path");
 const { execFile } = require("child_process");
+const fs = require("fs");
 
 const SCRAPER_SOURCES = ["predicthq", "meetup", "eventbrite", "mccia", "nasscom", "mea"];
-const PYTHON_CMD = process.env.PYTHON_CMD || "python";
+const LOCAL_BACKEND_PYTHON = path.resolve(__dirname, "../.venv/Scripts/python.exe");
+const PYTHON_CMD = process.env.PYTHON_CMD || (fs.existsSync(LOCAL_BACKEND_PYTHON) ? LOCAL_BACKEND_PYTHON : "python");
 const SCRAPER_SCRIPT = path.resolve(__dirname, "./eventScraperMain.py");
 const SCRAPER_EXEC_TIMEOUT_MS = Math.max(
   5 * 60 * 1000,

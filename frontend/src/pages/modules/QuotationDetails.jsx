@@ -319,8 +319,8 @@ export default function QuotationDetails() {
                           <strong>{quoteType === "lead" ? "Lead" : "Deal"}</strong>
                         </div>
                         <div className="qdoc-title-meta">
-                          <span>{quoteType === "lead" ? "Lead Status" : "Deal Stage"}</span>
-                          <strong>{asReadable(quoteType === "lead" ? detail.lead?.status : detail.deal?.stage)}</strong>
+                          <span>{quoteType === "lead" ? "Lead Stage" : "Deal Stage"}</span>
+                          <strong>{asReadable(quoteType === "lead" ? detail.lead?.stage : detail.deal?.stage)}</strong>
                         </div>
                         <div className="qdoc-title-meta">
                           <span>Currency</span>
@@ -343,7 +343,7 @@ export default function QuotationDetails() {
                   </section>
 
                   <section className="qdoc-items-section">
-                    <table>
+                    <table className="crm-auto-responsive-table">
                       <thead>
                         <tr>
                           <th>#</th>

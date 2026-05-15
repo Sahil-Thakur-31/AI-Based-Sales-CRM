@@ -128,7 +128,7 @@ function ReportTableSection({
         )}
       </div>
       <div className="dailyClosingReportTableWrap">
-        <table className="dailyClosingReportTable">
+        <table className="dailyClosingReportTable crm-auto-responsive-table">
           <colgroup>
             <col className="dailyClosingColSr" />
             <col className="dailyClosingColTotal" />

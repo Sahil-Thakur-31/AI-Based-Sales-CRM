@@ -36,6 +36,12 @@
   outline: none;
 }
 
+.team-dashboard-range-select {
+  min-width: 132px;
+  width: 132px;
+  padding: 8px 10px;
+}
+
 .team-dashboard-select:focus {
   border-color: #5b6fd8;
   box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.12);
@@ -274,6 +280,41 @@
   white-space: nowrap;
 }
 
+.team-table .team-table-group-row th {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.team-table .team-table-subhead-row th {
+  font-size: 10px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.team-table th.team-lead-column,
+.team-table td.team-lead-column {
+  background: #f0f7ff;
+}
+
+.team-table th.team-deal-column,
+.team-table td.team-deal-column,
+.team-table th.team-deal-group {
+  background: #fff8ed;
+}
+
+.team-table th.team-deal-group {
+  text-align: center;
+  color: #9a5d03;
+  font-weight: 800;
+}
+
+.team-table th.team-lead-column {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+
 .team-table td {
   border-bottom: 1px solid #f1f5f9;
   padding: 7px 10px;
@@ -404,6 +445,7 @@
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -420,6 +462,27 @@
   color: #64748b;
   font-size: 11px;
   text-align: left;
+}
+
+.team-followup-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.team-followup-type-meeting {
+  border-color: #bae6fd;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .team-followup-side {
@@ -1190,7 +1253,8 @@
   color: #166534;
 }
 
-.team-member-pill-pending {
+.team-member-pill-pending,
+.team-member-pill-overdue {
   border-color: #fde68a;
   background: #fef9c3;
   color: #854d0e;

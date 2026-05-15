@@ -10,7 +10,9 @@ const SalesTarget = require("../models/sales_targets");
 const ADMIN_ROLE = "Admin";
 const MANAGER_ROLE = "Manager";
 const LEAD_PIPELINE_STAGES = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
-const DEAL_PIPELINE_STAGES = ["P1", "P2", "P3", "P7"];
+const DEAL_PIPELINE_STAGES = ["P1", "P2", "P3", "P6", "P7"];
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
 
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -56,6 +58,17 @@ function isManager(role) {
 
 function roleNameFromUser(userDoc) {
   return userDoc?.role?.name || "";
+}
+
+function isDuplicateTeamMemberError(err) {
+  const message = String(err?.message || "");
+  return (
+    message.includes("A member can only be assigned") ||
+    (err?.code === 11000 &&
+      (err?.keyPattern?.["members.userId"] ||
+        message.includes("members.userId") ||
+        message.includes("unique_team_member_user")))
+  );
 }
 
 function mapUserForApi(userDoc) {
@@ -177,6 +190,119 @@ function startOfToday() {
   return date;
 }
 
+function clampDashboardYear(value) {
+  const numeric = Number.parseInt(String(value || "").trim(), 10);
+  if (!Number.isFinite(numeric)) return new Date().getFullYear();
+  return Math.min(2060, Math.max(2020, numeric));
+}
+
+function getTeamDashboardRange(input = {}) {
+  const query = typeof input === "object" && input !== null ? input : { range: input };
+  const requestedPeriod = String(query.period || "").trim().toLowerCase();
+
+  if (["monthly", "quarterly", "yearly"].includes(requestedPeriod)) {
+    const year = clampDashboardYear(query.year);
+    let start;
+    let end;
+    let label;
+    let range;
+
+    if (requestedPeriod === "yearly") {
+      start = new Date(year, 0, 1, 0, 0, 0, 0);
+      end = new Date(year, 11, 31, 23, 59, 59, 999);
+      label = String(year);
+      range = "year";
+    } else if (requestedPeriod === "quarterly") {
+      const quarterValue = String(query.quarter || "q1").trim().toLowerCase();
+      const quarterNumber = ["q1", "q2", "q3", "q4"].includes(quarterValue)
+        ? Number(quarterValue.slice(1))
+        : 1;
+      const quarterStartMonth = (quarterNumber - 1) * 3;
+      start = new Date(year, quarterStartMonth, 1, 0, 0, 0, 0);
+      end = new Date(year, quarterStartMonth + 3, 0, 23, 59, 59, 999);
+      label = `Q${quarterNumber} ${year}`;
+      range = "quarter";
+    } else {
+      const monthNumber = Number.parseInt(String(query.month || "").trim(), 10);
+      const monthIndex = Number.isInteger(monthNumber) && monthNumber >= 1 && monthNumber <= 12
+        ? monthNumber - 1
+        : new Date().getMonth();
+      start = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+      end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+      label = start.toLocaleString("en-IN", { month: "long", year: "numeric" });
+      range = "month";
+    }
+
+    return {
+      range,
+      period: requestedPeriod,
+      label,
+      start,
+      end
+    };
+  }
+
+  const normalized = String(query.range || "month").trim().toLowerCase();
+  const range = ["today", "week", "month", "quarter", "year", "lifetime"].includes(normalized)
+    ? normalized
+    : "month";
+
+  if (range === "lifetime") {
+    return {
+      range,
+      period: "lifetime",
+      label: "Lifetime",
+      start: null,
+      end: null
+    };
+  }
+
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  if (range === "week") {
+    const day = start.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    start.setDate(start.getDate() + diffToMonday);
+  } else if (range === "month") {
+    start.setDate(1);
+  } else if (range === "quarter") {
+    start.setMonth(start.getMonth() - (start.getMonth() % 3), 1);
+  } else if (range === "year") {
+    start.setMonth(0, 1);
+  }
+
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  const labels = {
+    today: "Today",
+    week: "This Week",
+    month: "This Month",
+    quarter: "This Quarter",
+    year: "This Year"
+  };
+
+  return {
+    range,
+    period: range,
+    label: labels[range] || "This Month",
+    start,
+    end
+  };
+}
+
+function dateRangeMatch(field, selectedRange) {
+  if (!selectedRange?.start || !selectedRange?.end) return {};
+  return {
+    [field]: {
+      $gte: selectedRange.start,
+      $lte: selectedRange.end
+    }
+  };
+}
+
 function normalizePeriodType(value) {
   const periodType = String(value || "monthly").trim().toLowerCase();
   if (periodType === "quarterly") return "quarterly";
@@ -229,7 +355,6 @@ function formatMemberDealRow(dealDoc = {}) {
   return {
     _id: dealDoc._id,
     companyName: lead?.company_name || client?.name || "Untitled Deal",
-    status: dealDoc.status || "open",
     stage: dealDoc.stage || "",
     dealValue: Number(dealDoc.dealValue) || 0,
     probability: Number(dealDoc.probability) || 0,
@@ -284,6 +409,7 @@ function formatDashboardFollowupRow(followupDoc = {}) {
     _id: followupDoc._id || null,
     title: followupDoc.title || "Follow-up",
     companyName,
+    kind: followupDoc.kind || "followup",
     notes: followupDoc.notes || "",
     actionType: followupDoc.actionType || "",
     stage: followupDoc.stage || "",
@@ -304,16 +430,15 @@ function formatDashboardFollowupRow(followupDoc = {}) {
 }
 
 function formatMemberLeadRow(leadDoc = {}) {
-  const status = String(leadDoc.status || "new");
+  const convertedToDeal = Boolean(leadDoc.converted_to_deal) || String(leadDoc.stage || "").toUpperCase() === "P7";
   return {
     _id: leadDoc._id || null,
     companyName: leadDoc.company_name || "Unknown company",
-    status,
-    temperature: leadDoc.lead_temperature || "cold",
+    stage: leadDoc.stage || "",
     estimatedValue: Number(leadDoc.deal_value_estimate || 0),
     nextAction: leadDoc.next_action || "",
     lastContactDate: leadDoc.last_contact_date || null,
-    convertedToDeal: status === "converted" || Boolean(leadDoc.converted_to_deal),
+    convertedToDeal,
     updatedAt: leadDoc.updated_at || leadDoc.created_at || null
   };
 }
@@ -350,7 +475,9 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
   let totalValue = 0;
 
   for (const deal of deals) {
-    const stage = stageOrder.includes(String(deal.stage || "")) ? String(deal.stage || "") : null;
+    const rawStage = String(deal.stage || "");
+    const displayStage = rawStage;
+    const stage = stageOrder.includes(displayStage) ? displayStage : null;
     if (!stage) continue;
     const stageEntry = stageMap.get(stage);
     if (!stageEntry) continue;
@@ -364,7 +491,6 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
       _id: deal._id,
       companyName: deal.companyName || "Untitled Deal",
       stage,
-      status: deal.status || "open",
       dealValue,
       probability: Number(deal.probability || 0),
       expectedCloseDate: deal.expectedCloseDate || null,
@@ -386,9 +512,8 @@ function summarizeDealPipeline(deals = [], usersMap = new Map(), stageOrder = DE
 }
 
 function summarizeLeadPipeline({
-  leadFollowups = [],
   usersMap = new Map(),
-  leadsMap = new Map(),
+  leads = [],
   stageOrder = LEAD_PIPELINE_STAGES
 }) {
   const stageMap = new Map(
@@ -406,32 +531,27 @@ function summarizeLeadPipeline({
   let totalCount = 0;
   let totalValue = 0;
 
-  for (const row of leadFollowups) {
-    const stage = stageOrder.includes(String(row.stage || "")) ? String(row.stage || "") : null;
+  for (const lead of leads) {
+    const stage = stageOrder.includes(String(lead.stage || "")) ? String(lead.stage || "") : null;
     if (!stage) continue;
     const stageEntry = stageMap.get(stage);
     if (!stageEntry) continue;
 
-    const lead = leadsMap.get(String(row.leadId || ""));
-    if (!lead) continue;
-    const assignedUser = usersMap.get(String(row.assignedTo || ""));
+    const assignedUser = usersMap.get(String(lead.assigned_to || ""));
     const estimatedValue = Number(lead?.deal_value_estimate || 0);
 
     stageEntry.count += 1;
     stageEntry.value += estimatedValue;
     stageEntry.items.push({
-      _id: row._id,
-      leadId: row.leadId,
-      companyName: lead?.company_name || row.clientName || "Untitled Lead",
+      _id: lead._id,
+      leadId: lead._id,
+      companyName: lead?.company_name || "Untitled Lead",
       stage,
-      status: row.status || "pending",
-      actionType: row.actionType || "",
-      title: row.title || "Follow-up",
-      dueDateTime: row.dueDateTime || null,
-      updatedAt: row.updatedAt || row.createdAt || null,
+      actionType: lead.next_action || "",
+      title: lead.next_action || "",
+      dueDateTime: lead.last_contact_date || null,
+      updatedAt: lead.updated_at || lead.created_at || null,
       estimatedValue,
-      leadStatus: lead?.status || "new",
-      temperature: lead?.lead_temperature || "cold",
       assignedTo: assignedUser ? mapUserForApi(assignedUser) : null
     });
 
@@ -511,10 +631,7 @@ function getEmptyLeadSummary() {
     contacted: 0,
     qualified: 0,
     converted: 0,
-    rejected: 0,
-    hot: 0,
-    warm: 0,
-    cold: 0
+    rejected: 0
   };
 }
 
@@ -522,7 +639,7 @@ function getActiveLeadMatch(extraMatch = {}) {
   return {
     ...extraMatch,
     is_deleted: { $ne: true },
-    status: { $ne: "converted" },
+    stage: { $nin: ["P4", "P6", "P7"] },
     converted_to_deal: { $ne: true },
     $or: [{ converted_deal_id: { $exists: false } }, { converted_deal_id: null }]
   };
@@ -661,6 +778,9 @@ exports.createTeam = async (req, res) => {
     );
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to create team" });
   }
 };
@@ -790,6 +910,9 @@ exports.updateTeam = async (req, res) => {
     return res.json(mapTeamForList(team.toObject(), usersMap, req.user));
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to update team" });
   }
 };
@@ -914,6 +1037,9 @@ exports.addMember = async (req, res) => {
     return res.json({ message: "Member added successfully" });
   } catch (err) {
     console.error(err);
+    if (isDuplicateTeamMemberError(err)) {
+      return res.status(400).json({ message: "A member can only be assigned to one team" });
+    }
     return res.status(500).json({ message: "Failed to add member" });
   }
 };
@@ -968,6 +1094,7 @@ exports.getTeamDashboard = async (req, res) => {
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
+    const selectedRange = getTeamDashboardRange(req.query);
 
     const leadIds = (team.teamLeads || []).map((lead) => String(lead.userId));
     const memberIds = (team.members || []).map((member) => String(member.userId));
@@ -996,6 +1123,7 @@ exports.getTeamDashboard = async (req, res) => {
           memberCount: 0,
           totalPeople: 0
         },
+        range: selectedRange,
         teamLeads,
         members,
         kpis: {
@@ -1049,31 +1177,30 @@ exports.getTeamDashboard = async (req, res) => {
     const memberObjectIds = allUserIds.map((id) => toObjectId(id));
     const dealsMatch = {
       assignedTo: { $in: memberObjectIds },
-      is_deleted: { $ne: true }
+      is_deleted: { $ne: true },
+      ...dateRangeMatch("createdAt", selectedRange)
     };
 
-    const today = startOfToday();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const followupDueMatch = dateRangeMatch("dueDateTime", selectedRange);
+    const leadDateMatch = dateRangeMatch("created_at", selectedRange);
 
     const [
-      dealStatusAgg,
+      dealStageAgg,
       memberDealAgg,
       activeDealRows,
       followupsToday,
       followupRows,
       followupByMemberAgg,
       leadStatusAgg,
-      leadTempAgg,
       recentLeadRows,
       memberLeadAgg,
-      leadPipelineRawRows
+      leadPipelineRows
     ] = await Promise.all([
       Deal.aggregate([
         { $match: dealsMatch },
         {
           $group: {
-            _id: "$status",
+            _id: "$stage",
             count: { $sum: 1 },
             value: { $sum: { $ifNull: ["$dealValue", 0] } }
           }
@@ -1085,18 +1212,18 @@ exports.getTeamDashboard = async (req, res) => {
           $group: {
             _id: "$assignedTo",
             openDeals: {
-              $sum: { $cond: [{ $eq: ["$status", "open"] }, 1, 0] }
+              $sum: { $cond: [{ $not: [{ $in: ["$stage", [DEAL_WON_STAGE, DEAL_LOST_STAGE]] }] }, 1, 0] }
             },
             wonDeals: {
-              $sum: { $cond: [{ $eq: ["$status", "won"] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ["$stage", DEAL_WON_STAGE] }, 1, 0] }
             },
             lostDeals: {
-              $sum: { $cond: [{ $eq: ["$status", "lost"] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ["$stage", DEAL_LOST_STAGE] }, 1, 0] }
             },
             pipelineValue: {
               $sum: {
                 $cond: [
-                  { $eq: ["$status", "open"] },
+                  { $not: [{ $in: ["$stage", [DEAL_WON_STAGE, DEAL_LOST_STAGE]] }] },
                   { $ifNull: ["$dealValue", 0] },
                   0
                 ]
@@ -1105,7 +1232,7 @@ exports.getTeamDashboard = async (req, res) => {
             wonRevenue: {
               $sum: {
                 $cond: [
-                  { $eq: ["$status", "won"] },
+                  { $eq: ["$stage", DEAL_WON_STAGE] },
                   { $ifNull: ["$dealValue", 0] },
                   0
                 ]
@@ -1117,11 +1244,10 @@ exports.getTeamDashboard = async (req, res) => {
       Deal.find({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        status: "open",
-        stage: { $in: DEAL_PIPELINE_STAGES }
+        ...dateRangeMatch("createdAt", selectedRange)
       })
         .select(
-          "_id assignedTo stage dealValue probability expectedCloseDate status updatedAt createdAt lead_id client_id"
+          "_id assignedTo stage dealValue probability expectedCloseDate updatedAt createdAt lead_id client_id"
         )
         .populate("lead_id", "company_name")
         .populate("client_id", "name")
@@ -1129,17 +1255,17 @@ exports.getTeamDashboard = async (req, res) => {
       Followup.countDocuments({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        dueDateTime: { $gte: today, $lt: tomorrow },
+        ...followupDueMatch,
         status: { $in: ["pending", "overdue"] }
       }),
       Followup.find({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        dueDateTime: { $gte: today, $lt: tomorrow },
+        ...followupDueMatch,
         status: { $ne: "cancelled" }
       })
         .select(
-          "title clientName notes actionType stage priority dueDateTime status completedAt leadId dealId clientId assignedTo"
+          "title clientName notes kind actionType stage priority dueDateTime status completedAt leadId dealId clientId assignedTo"
         )
         .populate("assignedTo", "name email")
         .populate("leadId", "company_name")
@@ -1151,7 +1277,7 @@ exports.getTeamDashboard = async (req, res) => {
           $match: {
             assignedTo: { $in: memberObjectIds },
             is_deleted: { $ne: true },
-            dueDateTime: { $gte: today, $lt: tomorrow },
+            ...followupDueMatch,
             status: { $in: ["pending", "overdue"] }
           }
         },
@@ -1165,76 +1291,71 @@ exports.getTeamDashboard = async (req, res) => {
       Lead.aggregate([
         {
           $match: getActiveLeadMatch({
-            assigned_to: { $in: memberObjectIds }
+            assigned_to: { $in: memberObjectIds },
+            ...leadDateMatch
           })
         },
         {
           $group: {
-            _id: "$status",
-            count: { $sum: 1 }
-          }
-        }
-      ]),
-      Lead.aggregate([
-        {
-          $match: getActiveLeadMatch({
-            assigned_to: { $in: memberObjectIds }
-          })
-        },
-        {
-          $group: {
-            _id: "$lead_temperature",
+            _id: "$stage",
             count: { $sum: 1 }
           }
         }
       ]),
       Lead.find(
         getActiveLeadMatch({
-          assigned_to: { $in: memberObjectIds }
+          assigned_to: { $in: memberObjectIds },
+          ...leadDateMatch
         })
       )
         .sort({ updated_at: -1, created_at: -1 })
         .limit(8)
         .select(
-          "company_name status lead_temperature assigned_to next_action last_contact_date deal_value_estimate converted_to_deal created_at updated_at"
+          "company_name stage assigned_to next_action last_contact_date deal_value_estimate converted_to_deal created_at updated_at"
         )
         .populate("assigned_to", "name email")
         .lean(),
       Lead.aggregate([
         {
           $match: getActiveLeadMatch({
-            assigned_to: { $in: memberObjectIds }
+            assigned_to: { $in: memberObjectIds },
+            ...leadDateMatch
           })
         },
         {
           $group: {
             _id: "$assigned_to",
-            totalLeads: { $sum: 1 },
-            hotLeads: {
-              $sum: { $cond: [{ $eq: ["$lead_temperature", "hot"] }, 1, 0] }
-            }
+            totalLeads: { $sum: 1 }
           }
         }
       ]),
-      Followup.find({
-        assignedTo: { $in: memberObjectIds },
-        is_deleted: { $ne: true },
-        status: { $ne: "cancelled" },
-        leadId: { $exists: true, $ne: null }
-      })
-        .select("leadId assignedTo stage status actionType title dueDateTime clientName updatedAt createdAt")
-        .sort({ updatedAt: -1, createdAt: -1 })
+      Lead.find(
+        getActiveLeadMatch({
+          assigned_to: { $in: memberObjectIds },
+          ...leadDateMatch
+        })
+      )
+        .select(
+          "company_name stage assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
+        )
+        .sort({ updated_at: -1, created_at: -1 })
         .lean()
     ]);
 
-    const dealStatusMap = new Map(dealStatusAgg.map((item) => [String(item._id), item]));
-    const openDeals = dealStatusMap.get("open")?.count || 0;
-    const wonDeals = dealStatusMap.get("won")?.count || 0;
-    const lostDeals = dealStatusMap.get("lost")?.count || 0;
+    const dealStageMap = new Map(dealStageAgg.map((item) => [String(item._id), item]));
+    const wonDeals = dealStageMap.get(DEAL_WON_STAGE)?.count || 0;
+    const lostDeals = dealStageMap.get(DEAL_LOST_STAGE)?.count || 0;
+    const openDeals = (dealStageAgg || []).reduce((sum, item) => {
+      const stage = String(item?._id || "");
+      return [DEAL_WON_STAGE, DEAL_LOST_STAGE].includes(stage) ? sum : sum + Number(item?.count || 0);
+    }, 0);
     const closedDeals = wonDeals + lostDeals;
     const winRate = closedDeals ? Math.round((wonDeals / closedDeals) * 100) : 0;
-    const pipelineValue = dealStatusMap.get("open")?.value || 0;
-    const wonRevenue = dealStatusMap.get("won")?.value || 0;
+    const pipelineValue = (dealStageAgg || []).reduce((sum, item) => {
+      const stage = String(item?._id || "");
+      return [DEAL_WON_STAGE, DEAL_LOST_STAGE].includes(stage) ? sum : sum + Number(item?.value || 0);
+    }, 0);
+    const wonRevenue = dealStageMap.get(DEAL_WON_STAGE)?.value || 0;
 
     const followupByMemberMap = new Map(
       followupByMemberAgg.map((item) => [String(item._id), item.count])
@@ -1250,7 +1371,6 @@ exports.getTeamDashboard = async (req, res) => {
     const dealPipelineRows = (activeDealRows || []).map((deal) => ({
       _id: deal._id,
       stage: deal.stage || "",
-      status: deal.status || "open",
       dealValue: Number(deal.dealValue || 0),
       probability: Number(deal.probability || 0),
       expectedCloseDate: deal.expectedCloseDate || null,
@@ -1260,34 +1380,9 @@ exports.getTeamDashboard = async (req, res) => {
     }));
     const dealPipeline = summarizeDealPipeline(dealPipelineRows, usersMap, DEAL_PIPELINE_STAGES);
 
-    const latestLeadFollowups = [];
-    const seenLeadIds = new Set();
-    for (const row of leadPipelineRawRows || []) {
-      const leadId = String(row?.leadId || "");
-      if (!leadId || seenLeadIds.has(leadId)) continue;
-      seenLeadIds.add(leadId);
-      latestLeadFollowups.push(row);
-    }
-
-    const leadPipelineLeadIds = latestLeadFollowups
-      .map((row) => String(row?.leadId || ""))
-      .filter(Boolean);
-    const leadPipelineLeadDocs = leadPipelineLeadIds.length
-      ? await Lead.find(
-          getActiveLeadMatch({
-            _id: { $in: leadPipelineLeadIds }
-          })
-        )
-          .select("company_name status lead_temperature deal_value_estimate")
-          .lean()
-      : [];
-    const leadPipelineLeadMap = new Map(
-      leadPipelineLeadDocs.map((lead) => [String(lead._id), lead])
-    );
     const leadPipeline = summarizeLeadPipeline({
-      leadFollowups: latestLeadFollowups,
       usersMap,
-      leadsMap: leadPipelineLeadMap,
+      leads: leadPipelineRows,
       stageOrder: LEAD_PIPELINE_STAGES
     });
 
@@ -1304,8 +1399,7 @@ exports.getTeamDashboard = async (req, res) => {
           wonRevenue: 0
         };
         const leadPerf = memberLeadMap.get(String(userId)) || {
-          totalLeads: 0,
-          hotLeads: 0
+          totalLeads: 0
         };
 
         const userClosed = (perf.wonDeals || 0) + (perf.lostDeals || 0);
@@ -1318,7 +1412,6 @@ exports.getTeamDashboard = async (req, res) => {
           user: mapUserForApi(user),
           totalLeads,
           convertedLeads,
-          hotLeads: Number(leadPerf.hotLeads || 0),
           leadConversionRate,
           openDeals: perf.openDeals || 0,
           wonDeals: perf.wonDeals || 0,
@@ -1350,17 +1443,17 @@ exports.getTeamDashboard = async (req, res) => {
 
     const leadSummary = getEmptyLeadSummary();
     const statusMap = new Map((leadStatusAgg || []).map((item) => [String(item?._id || ""), Number(item?.count || 0)]));
-    const tempMap = new Map((leadTempAgg || []).map((item) => [String(item?._id || ""), Number(item?.count || 0)]));
 
-    leadSummary.new = statusMap.get("new") || 0;
-    leadSummary.contacted = statusMap.get("contacted") || 0;
-    leadSummary.qualified = statusMap.get("qualified") || 0;
+    leadSummary.new = statusMap.get("P1") || 0;
+    leadSummary.contacted = statusMap.get("P2") || 0;
+    leadSummary.qualified =
+      (statusMap.get("P3") || 0) +
+      (statusMap.get("P4") || 0) +
+      (statusMap.get("P5") || 0) +
+      (statusMap.get("P6") || 0);
     leadSummary.converted = 0;
-    leadSummary.rejected = statusMap.get("rejected") || 0;
+    leadSummary.rejected = 0;
     leadSummary.total = Array.from(statusMap.values()).reduce((acc, count) => acc + count, 0);
-    leadSummary.hot = tempMap.get("hot") || 0;
-    leadSummary.warm = tempMap.get("warm") || 0;
-    leadSummary.cold = tempMap.get("cold") || 0;
 
     const recentLeads = (recentLeadRows || []).map((lead) => {
       const row = formatMemberLeadRow(lead);
@@ -1415,6 +1508,7 @@ exports.getTeamDashboard = async (req, res) => {
       },
       teamLeads,
       members,
+      range: selectedRange,
       kpis: {
         followupsToday,
         activeDeals: openDeals,
@@ -1470,6 +1564,7 @@ exports.getTeamMemberDetail = async (req, res) => {
     if (!teamContainsUser(team, memberId)) {
       return res.status(403).json({ message: "Selected user is not part of this team" });
     }
+    const selectedRange = getTeamDashboardRange(req.query);
 
     const user = await User.findOne({
       _id: memberId,
@@ -1484,29 +1579,25 @@ exports.getTeamMemberDetail = async (req, res) => {
     }
 
     const memberObjectId = toObjectId(memberId);
-    const today = startOfToday();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
     const now = new Date();
 
     const [deals, followups, memberLeads, activeTargetDoc] = await Promise.all([
       Deal.find({
         assignedTo: memberObjectId,
         is_deleted: { $ne: true },
-        status: { $in: ["open", "won", "lost"] }
+        ...dateRangeMatch("createdAt", selectedRange)
       })
         .populate("client_id", "name")
         .populate("lead_id", "company_name")
         .select(
-          "status stage dealValue probability expectedCloseDate actualCloseDate updatedAt createdAt client_id lead_id"
+          "stage dealValue probability expectedCloseDate actualCloseDate updatedAt createdAt client_id lead_id"
         )
         .sort({ updatedAt: -1, createdAt: -1 })
         .lean(),
       Followup.find({
         assignedTo: memberObjectId,
         is_deleted: { $ne: true },
-        dueDateTime: { $gte: today, $lt: tomorrow },
+        ...dateRangeMatch("dueDateTime", selectedRange),
         status: { $ne: "cancelled" }
       })
         .select(
@@ -1516,11 +1607,12 @@ exports.getTeamMemberDetail = async (req, res) => {
         .lean(),
       Lead.find(
         getActiveLeadMatch({
-          assigned_to: memberObjectId
+          assigned_to: memberObjectId,
+          ...dateRangeMatch("created_at", selectedRange)
         })
       )
         .select(
-          "company_name status lead_temperature deal_value_estimate next_action last_contact_date converted_to_deal created_at updated_at"
+          "company_name stage deal_value_estimate next_action last_contact_date converted_to_deal created_at updated_at"
         )
         .sort({ updated_at: -1, created_at: -1 })
         .lean(),
@@ -1544,8 +1636,9 @@ exports.getTeamMemberDetail = async (req, res) => {
 
     for (const deal of deals) {
       const row = formatMemberDealRow(deal);
-      if (row.status === "won") groupedDeals.won.push(row);
-      else if (row.status === "lost") groupedDeals.lost.push(row);
+      const stage = String(row.stage || "").toUpperCase();
+      if (stage === DEAL_WON_STAGE) groupedDeals.won.push(row);
+      else if (stage === DEAL_LOST_STAGE) groupedDeals.lost.push(row);
       else groupedDeals.open.push(row);
     }
 
@@ -1570,7 +1663,7 @@ exports.getTeamMemberDetail = async (req, res) => {
           {
             $match: {
               assignedTo: memberObjectId,
-              status: "won",
+              stage: DEAL_WON_STAGE,
               is_deleted: { $ne: true },
               $or: [
                 { actualCloseDate: { $gte: targetStart, $lte: targetEnd } },
@@ -1622,13 +1715,8 @@ exports.getTeamMemberDetail = async (req, res) => {
     const leadSummary = leads.reduce(
       (acc, lead) => {
         acc.total += 1;
-        if (lead.status === "new") acc.new += 1;
-        if (lead.status === "contacted") acc.contacted += 1;
-        if (lead.status === "qualified") acc.qualified += 1;
-        if (lead.status === "rejected") acc.rejected += 1;
-        if (lead.temperature === "hot") acc.hot += 1;
-        if (lead.temperature === "warm") acc.warm += 1;
-        if (lead.temperature === "cold") acc.cold += 1;
+        if (lead.convertedToDeal) acc.converted += 1;
+        else acc.new += 1;
         return acc;
       },
       {
@@ -1637,10 +1725,7 @@ exports.getTeamMemberDetail = async (req, res) => {
         contacted: 0,
         qualified: 0,
         converted: 0,
-        rejected: 0,
-        hot: 0,
-        warm: 0,
-        cold: 0
+        rejected: 0
       }
     );
 
@@ -1650,6 +1735,7 @@ exports.getTeamMemberDetail = async (req, res) => {
         name: team.name || "",
         teamLeadId: team.teamLeads?.[0]?.userId || null
       },
+      range: selectedRange,
       member: mapUserForApi(user),
       target: targetProgress,
       deals: groupedDeals,
@@ -1681,6 +1767,7 @@ exports.getTeamPipelineDetail = async (req, res) => {
       ? "lead"
       : "deal";
     const stageOrder = pipelineType === "lead" ? LEAD_PIPELINE_STAGES : DEAL_PIPELINE_STAGES;
+    const selectedRange = getTeamDashboardRange(req.query);
 
     const team = await resolveTeamForDashboard(req.user, teamId);
     if (!team) {
@@ -1700,6 +1787,7 @@ exports.getTeamPipelineDetail = async (req, res) => {
           totalPeople: 0
         },
         pipelineType,
+        range: selectedRange,
         totals: empty.totals,
         stages: empty.stages.map((stage) => ({
           ...stage,
@@ -1716,11 +1804,10 @@ exports.getTeamPipelineDetail = async (req, res) => {
       const deals = await Deal.find({
         assignedTo: { $in: memberObjectIds },
         is_deleted: { $ne: true },
-        status: "open",
-        stage: { $in: stageOrder }
+        ...dateRangeMatch("createdAt", selectedRange)
       })
         .select(
-          "_id assignedTo stage dealValue probability expectedCloseDate status updatedAt createdAt lead_id client_id"
+          "_id assignedTo stage dealValue probability expectedCloseDate updatedAt createdAt lead_id client_id"
         )
         .populate("lead_id", "company_name")
         .populate("client_id", "name")
@@ -1730,7 +1817,6 @@ exports.getTeamPipelineDetail = async (req, res) => {
       const dealRows = (deals || []).map((deal) => ({
         _id: deal._id,
         stage: deal.stage || "",
-        status: deal.status || "open",
         dealValue: Number(deal.dealValue || 0),
         probability: Number(deal.probability || 0),
         expectedCloseDate: deal.expectedCloseDate || null,
@@ -1743,11 +1829,12 @@ exports.getTeamPipelineDetail = async (req, res) => {
       return res.json({
         team: {
           _id: team._id,
-          name: team.name || "",
-          totalPeople: allUserIds.length
-        },
-        pipelineType,
-        totals: dealPipeline.totals,
+        name: team.name || "",
+        totalPeople: allUserIds.length
+      },
+      pipelineType,
+      range: selectedRange,
+      totals: dealPipeline.totals,
         stages: dealPipeline.stages.map((stage) => ({
           ...stage,
           deals: stage.items
@@ -1755,53 +1842,33 @@ exports.getTeamPipelineDetail = async (req, res) => {
       });
     }
 
-    const leadPipelineRaw = await Followup.find({
-      assignedTo: { $in: memberObjectIds },
-      is_deleted: { $ne: true },
-      status: { $ne: "cancelled" },
-      leadId: { $exists: true, $ne: null }
-    })
-      .select("leadId assignedTo stage status actionType title dueDateTime clientName updatedAt createdAt")
-      .sort({ updatedAt: -1, createdAt: -1 })
+    const leadRows = await Lead.find(
+      getActiveLeadMatch({
+        assigned_to: { $in: memberObjectIds },
+        stage: { $in: stageOrder },
+        ...dateRangeMatch("created_at", selectedRange)
+      })
+    )
+      .select(
+        "company_name stage assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
+      )
+      .sort({ stage: 1, updated_at: -1, created_at: -1 })
       .lean();
-
-    const latestLeadRows = [];
-    const seenLeadIds = new Set();
-    for (const row of leadPipelineRaw || []) {
-      const leadId = String(row?.leadId || "");
-      if (!leadId || seenLeadIds.has(leadId)) continue;
-      seenLeadIds.add(leadId);
-      latestLeadRows.push(row);
-    }
-
-    const leadIdsForLookup = latestLeadRows
-      .map((row) => String(row?.leadId || ""))
-      .filter(Boolean);
-    const leadDocs = leadIdsForLookup.length
-      ? await Lead.find(
-          getActiveLeadMatch({
-            _id: { $in: leadIdsForLookup }
-          })
-        )
-          .select("company_name status lead_temperature deal_value_estimate")
-          .lean()
-      : [];
-    const leadsMap = new Map(leadDocs.map((lead) => [String(lead._id), lead]));
     const leadPipeline = summarizeLeadPipeline({
-      leadFollowups: latestLeadRows,
       usersMap,
-      leadsMap,
+      leads: leadRows,
       stageOrder
     });
 
     return res.json({
       team: {
         _id: team._id,
-        name: team.name || "",
-        totalPeople: allUserIds.length
-      },
-      pipelineType,
-      totals: leadPipeline.totals,
+      name: team.name || "",
+      totalPeople: allUserIds.length
+    },
+    pipelineType,
+    range: selectedRange,
+    totals: leadPipeline.totals,
       stages: leadPipeline.stages.map((stage) => ({
         ...stage,
         leads: stage.items
@@ -1883,7 +1950,7 @@ exports.getTeamTargets = async (req, res) => {
             {
               $match: {
                 assignedTo: { $in: teamUserObjectIds },
-                status: "won",
+                stage: DEAL_WON_STAGE,
                 is_deleted: { $ne: true }
               }
             },

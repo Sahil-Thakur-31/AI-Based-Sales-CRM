@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
+import DashboardDateFilter from "../../components/DashboardDateFilter";
 import Pagination from "../../components/Pagination";
 import "./styles/teamDashboard.css";
 
@@ -32,6 +33,17 @@ function formatDate(value) {
   });
 }
 
+function formatFollowupKind(value) {
+  return String(value || "").toLowerCase() === "meeting" ? "Meeting" : "Follow-up";
+}
+
+function getFollowupStatusClass(followup) {
+  const status = String(followup?.status || "").toLowerCase();
+  if (status === "overdue") return "team-member-pill-overdue";
+  if (followup?.isCompleted || status === "completed") return "team-member-pill-completed";
+  return "team-member-pill-pending";
+}
+
 function emptyDashboard(team = null) {
   return {
     team: team || {
@@ -58,10 +70,7 @@ function emptyDashboard(team = null) {
       contacted: 0,
       qualified: 0,
       converted: 0,
-      rejected: 0,
-      hot: 0,
-      warm: 0,
-      cold: 0
+      rejected: 0
     },
     recentLeads: [],
     pipeline: {
@@ -99,10 +108,7 @@ function emptyMemberDetail() {
       contacted: 0,
       qualified: 0,
       converted: 0,
-      rejected: 0,
-      hot: 0,
-      warm: 0,
-      cold: 0
+      rejected: 0
     },
     followups: []
   };
@@ -119,8 +125,15 @@ function emptyPipelineDetail() {
   };
 }
 
+const TEAM_DASHBOARD_PERIOD_OPTIONS = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" }
+];
+
 export default function TeamDashboard() {
   const navigate = useNavigate();
+  const today = new Date();
   const roleName = localStorage.getItem("RoleName") || "";
   const normalizedRoleName = String(roleName).trim().toLowerCase();
   const isAdminUser = normalizedRoleName === "admin";
@@ -128,6 +141,10 @@ export default function TeamDashboard() {
 
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [period, setPeriod] = useState("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
+  const [selectedYear, setSelectedYear] = useState(String(today.getFullYear()));
   const [dashboardData, setDashboardData] = useState(emptyDashboard());
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
@@ -153,7 +170,6 @@ export default function TeamDashboard() {
   });
   const [memberDealFilters, setMemberDealFilters] = useState({
     query: "",
-    status: "all",
     stage: "all"
   });
   const [memberFollowupFilters, setMemberFollowupFilters] = useState({
@@ -162,9 +178,7 @@ export default function TeamDashboard() {
     entityType: "all"
   });
   const [memberLeadFilters, setMemberLeadFilters] = useState({
-    query: "",
-    status: "all",
-    temperature: "all"
+    query: ""
   });
 
   const selectedTeam = useMemo(
@@ -176,6 +190,15 @@ export default function TeamDashboard() {
     isAdminUser
       ? `/team-targets/admin?teamId=${selectedTeamId}`
       : `/team-targets/manage?teamId=${selectedTeamId}`;
+  const dashboardFilters = useMemo(
+    () => ({
+      period,
+      month: selectedMonth + 1,
+      quarter: selectedQuarter,
+      year: selectedYear
+    }),
+    [period, selectedMonth, selectedQuarter, selectedYear]
+  );
 
   const loadTeams = useCallback(async () => {
     try {
@@ -207,14 +230,19 @@ export default function TeamDashboard() {
     }
   }, [selectedTeamId]);
 
-  const loadDashboard = useCallback(async (teamId) => {
+  const loadDashboard = useCallback(async (teamId, filters = dashboardFilters) => {
     if (!teamId) return;
 
     try {
       setLoadingDashboard(true);
       setError("");
 
-      const res = await API.get(`/teams/dashboard?teamId=${teamId}`);
+      const res = await API.get("/teams/dashboard", {
+        params: {
+          teamId,
+          ...filters
+        }
+      });
       setDashboardData(res.data || emptyDashboard());
     } catch (err) {
       console.error(err);
@@ -223,7 +251,7 @@ export default function TeamDashboard() {
     } finally {
       setLoadingDashboard(false);
     }
-  }, [selectedTeam]);
+  }, [dashboardFilters, selectedTeam]);
 
   useEffect(() => {
     loadTeams();
@@ -231,20 +259,13 @@ export default function TeamDashboard() {
 
   useEffect(() => {
     if (selectedTeamId) {
-      loadDashboard(selectedTeamId);
+      loadDashboard(selectedTeamId, dashboardFilters);
       setPerformancePage(1);
       setFollowupPage(1);
       setFollowupViewType("lead");
       setPipelineViewType("deal");
     }
-  }, [selectedTeamId, loadDashboard]);
-
-  const onRefresh = async () => {
-    await loadTeams();
-    if (selectedTeamId) {
-      await loadDashboard(selectedTeamId);
-    }
-  };
+  }, [selectedTeamId, dashboardFilters, loadDashboard]);
 
   const closeMemberDetail = () => {
     setSelectedPerformanceRow(null);
@@ -252,9 +273,9 @@ export default function TeamDashboard() {
     setMemberDetailLoading(false);
     setMemberDetailError("");
     setMemberDetailData(emptyMemberDetail());
-    setMemberDealFilters({ query: "", status: "all", stage: "all" });
+    setMemberDealFilters({ query: "", stage: "all" });
     setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
-    setMemberLeadFilters({ query: "", status: "all", temperature: "all" });
+    setMemberLeadFilters({ query: "" });
   };
 
   const openMemberDetail = async (row) => {
@@ -265,14 +286,18 @@ export default function TeamDashboard() {
     setMemberDetailLoading(true);
     setMemberDetailError("");
     setMemberDetailData(emptyMemberDetail());
-    setMemberDealFilters({ query: "", status: "all", stage: "all" });
+    setMemberDealFilters({ query: "", stage: "all" });
     setMemberFollowupFilters({ query: "", status: "all", entityType: "all" });
-    setMemberLeadFilters({ query: "", status: "all", temperature: "all" });
+    setMemberLeadFilters({ query: "" });
 
     try {
-      const res = await API.get(
-        `/teams/member-detail?teamId=${selectedTeamId}&memberId=${row.user._id}`
-      );
+      const res = await API.get("/teams/member-detail", {
+        params: {
+          teamId: selectedTeamId,
+          memberId: row.user._id,
+          ...dashboardFilters
+        }
+      });
       const payload = res.data || {};
 
       setMemberDetailData({
@@ -289,10 +314,7 @@ export default function TeamDashboard() {
           contacted: 0,
           qualified: 0,
           converted: 0,
-          rejected: 0,
-          hot: 0,
-          warm: 0,
-          cold: 0
+          rejected: 0
         },
         followups: Array.isArray(payload?.followups) ? payload.followups : []
       });
@@ -322,9 +344,13 @@ export default function TeamDashboard() {
       setPipelineFilters({ query: "", stage: "all" });
 
       try {
-        const res = await API.get(
-          `/teams/pipeline-detail?teamId=${selectedTeamId}&pipelineType=${type}`
-        );
+        const res = await API.get("/teams/pipeline-detail", {
+          params: {
+            teamId: selectedTeamId,
+            pipelineType: type,
+            ...dashboardFilters
+          }
+        });
         const payload = res.data || {};
         setPipelineDetailData({
           pipelineType: String(payload?.pipelineType || type || "deal"),
@@ -341,7 +367,7 @@ export default function TeamDashboard() {
         setPipelineDetailLoading(false);
       }
     },
-    [selectedTeamId]
+    [dashboardFilters, selectedTeamId]
   );
 
   const openPipelineDetail = async (type = pipelineViewType) => {
@@ -365,7 +391,7 @@ export default function TeamDashboard() {
       value: dashboardData.kpis.totalLeads ?? dashboardData.leads?.total ?? 0
     },
     {
-      label: "Follow-ups Today",
+      label: "Follow-ups",
       value: dashboardData.kpis.followupsToday
     },
     {
@@ -472,7 +498,6 @@ export default function TeamDashboard() {
         item.assignedTo?.name,
         item.assignedTo?.email,
         item.stageLabel,
-        item.status,
         item.actionType,
         item.title
       ]
@@ -516,7 +541,7 @@ export default function TeamDashboard() {
       memberDealSections.flatMap((section) =>
         section.rows.map((deal) => ({
           ...deal,
-          dealStatus: section.key
+          dealStageGroup: section.key
         }))
       ),
     [memberDealSections]
@@ -530,12 +555,11 @@ export default function TeamDashboard() {
   const filteredMemberDeals = useMemo(() => {
     const query = memberDealFilters.query.trim().toLowerCase();
     return memberDealsFlat.filter((deal) => {
-      const statusOk = memberDealFilters.status === "all" || deal.dealStatus === memberDealFilters.status;
       const stageOk = memberDealFilters.stage === "all" || (deal.stage || "") === memberDealFilters.stage;
-      if (!statusOk || !stageOk) return false;
+      if (!stageOk) return false;
       if (!query) return true;
 
-      const haystack = [deal._id, deal.companyName, deal.stage, deal.dealStatus]
+      const haystack = [deal._id, deal.companyName, deal.stage]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -573,31 +597,15 @@ export default function TeamDashboard() {
     });
   }, [memberDetailData.followups, memberFollowupFilters]);
 
-  const memberLeadStatusOptions = useMemo(
-    () => [...new Set((memberDetailData.leads || []).map((lead) => lead.status).filter(Boolean))],
-    [memberDetailData.leads]
-  );
-  const memberLeadTemperatureOptions = useMemo(
-    () =>
-      [...new Set((memberDetailData.leads || []).map((lead) => lead.temperature).filter(Boolean))],
-    [memberDetailData.leads]
-  );
   const filteredMemberLeads = useMemo(() => {
     const query = memberLeadFilters.query.trim().toLowerCase();
     return (memberDetailData.leads || []).filter((lead) => {
-      const statusOk =
-        memberLeadFilters.status === "all" || (lead.status || "") === memberLeadFilters.status;
-      const temperatureOk =
-        memberLeadFilters.temperature === "all" ||
-        (lead.temperature || "") === memberLeadFilters.temperature;
-      if (!statusOk || !temperatureOk) return false;
       if (!query) return true;
 
       const haystack = [
         lead._id,
         lead.companyName,
-        lead.status,
-        lead.temperature,
+        lead.stage,
         lead.nextAction
       ]
         .filter(Boolean)
@@ -669,9 +677,7 @@ export default function TeamDashboard() {
               Create Team
             </button>
           ) : null}
-        </div>
 
-        <div className="team-toolbar-right">
           {canAssignTargets ? (
             <button
               className="team-btn team-btn-primary"
@@ -680,6 +686,22 @@ export default function TeamDashboard() {
               Assign Targets
             </button>
           ) : null}
+        </div>
+
+        <div className="team-toolbar-right">
+          <DashboardDateFilter
+            period={period}
+            periodOptions={TEAM_DASHBOARD_PERIOD_OPTIONS}
+            month={selectedMonth}
+            quarter={selectedQuarter}
+            year={selectedYear}
+            onPeriodChange={setPeriod}
+            onMonthChange={setSelectedMonth}
+            onQuarterChange={setSelectedQuarter}
+            onYearChange={setSelectedYear}
+            disabled={loadingDashboard}
+            className="team-dashboard-date-filter"
+          />
 
           {isAdminUser ? (
             <select
@@ -698,10 +720,6 @@ export default function TeamDashboard() {
               {selectedTeam?.name || dashboardData?.team?.name || "My Team"}
             </div>
           )}
-
-          <button className="team-btn team-btn-secondary" onClick={onRefresh}>
-            Refresh
-          </button>
         </div>
       </div>
 
@@ -721,20 +739,23 @@ export default function TeamDashboard() {
           <section className="team-panel team-panel-performance">
             <div className="team-panel-head">
               <h3>Member Performance</h3>
-              {loadingDashboard ? <small>Refreshing...</small> : null}
+              {loadingDashboard ? <small>Loading...</small> : null}
             </div>
             <div className="team-table-wrap">
-              <table className="team-table">
+              <table className="team-table crm-auto-responsive-table">
                 <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Leads</th>
-                    <th>Open</th>
-                    <th>Won</th>
-                    <th>Lost</th>
-                    <th>Follow-ups</th>
-                    <th>Win Rate</th>
-                    <th>Actions</th>
+                  <tr className="team-table-group-row">
+                    <th rowSpan={2}>Member</th>
+                    <th rowSpan={2} className="team-lead-column team-group-start">Lead</th>
+                    <th colSpan={4} className="team-deal-group">Deals</th>
+                    <th rowSpan={2}>Follow-ups</th>
+                    <th rowSpan={2}>Actions</th>
+                  </tr>
+                  <tr className="team-table-subhead-row">
+                    <th className="team-deal-column team-group-start">Open</th>
+                    <th className="team-deal-column">Won</th>
+                    <th className="team-deal-column">Lost</th>
+                    <th className="team-deal-column">Win Rate</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -752,12 +773,12 @@ export default function TeamDashboard() {
                             <span title={row.user.email}>{row.user.email}</span>
                           </div>
                         </td>
-                        <td>{row.totalLeads || 0}</td>
-                        <td>{row.openDeals}</td>
-                        <td>{row.wonDeals}</td>
-                        <td>{row.lostDeals}</td>
+                        <td className="team-lead-column team-group-start">{row.totalLeads || 0}</td>
+                        <td className="team-deal-column team-group-start">{row.openDeals}</td>
+                        <td className="team-deal-column">{row.wonDeals}</td>
+                        <td className="team-deal-column">{row.lostDeals}</td>
+                        <td className="team-deal-column">{row.winRate}%</td>
                         <td>{row.followupsToday}</td>
-                        <td>{row.winRate}%</td>
                         <td>
                           <button
                             className="team-inline-view-btn"
@@ -824,10 +845,11 @@ export default function TeamDashboard() {
                     </div>
                     <div className="team-followup-side">
                       <div className="team-followup-time">{formatDateTime(followup.dueDateTime)}</div>
+                      <span className={`team-followup-type-badge team-followup-type-${String(followup.kind || "followup").toLowerCase()}`}>
+                        {formatFollowupKind(followup.kind)}
+                      </span>
                       <span
-                        className={`team-member-pill ${
-                          followup.isCompleted ? "team-member-pill-completed" : "team-member-pill-pending"
-                        }`}
+                        className={`team-member-pill ${getFollowupStatusClass(followup)}`}
                       >
                         {followup.status || "pending"}
                       </span>
@@ -1077,7 +1099,7 @@ export default function TeamDashboard() {
 
                   {filteredPipelineStageSummary.length ? (
                     <div className="team-modal-table-wrap">
-                      <table className="team-modal-table">
+                      <table className="team-modal-table crm-auto-responsive-table">
                         <thead>
                           <tr>
                             <th>Stage</th>
@@ -1102,7 +1124,7 @@ export default function TeamDashboard() {
 
                   {filteredPipelineRecords.length ? (
                     <div className="team-modal-table-wrap">
-                      <table className="team-modal-table">
+                      <table className="team-modal-table crm-auto-responsive-table">
                         <thead>
                           {pipelineDetailType === "deal" ? (
                             <tr>
@@ -1294,37 +1316,11 @@ export default function TeamDashboard() {
                       ))}
                     </select>
                   </div>
-                  <div className="team-modal-tabs" role="tablist" aria-label="Member deal status tabs">
-                    {[
-                      { key: "all", label: "All" },
-                      { key: "open", label: "Open" },
-                      { key: "won", label: "Won" },
-                      { key: "lost", label: "Lost" }
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        className={`team-modal-tab-btn ${
-                          memberDealFilters.status === tab.key ? "active" : ""
-                        }`}
-                        onClick={() =>
-                          setMemberDealFilters((prev) => ({
-                            ...prev,
-                            status: tab.key
-                          }))
-                        }
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
                   {hasMemberDeals ? (
                     <div className="team-modal-table-wrap">
-                      <table className="team-modal-table team-modal-table-compact">
+                      <table className="team-modal-table team-modal-table-compact crm-auto-responsive-table">
                         <thead>
                           <tr>
-                            <th>Status</th>
                             <th>Company</th>
                             <th>Stage</th>
                             <th>Value</th>
@@ -1334,12 +1330,7 @@ export default function TeamDashboard() {
                         <tbody>
                           {filteredMemberDeals.length ? (
                             filteredMemberDeals.map((deal) => (
-                              <tr key={`${deal._id}-${deal.dealStatus}`}>
-                                <td>
-                                  <span className="team-member-pill">
-                                    {deal.dealStatus?.toUpperCase() || "-"}
-                                  </span>
-                                </td>
+                              <tr key={`${deal._id}-${deal.stage || ""}`}>
                                 <td title={deal.companyName}>{deal.companyName || "-"}</td>
                                 <td>{deal.stage || "-"}</td>
                                 <td>{formatCurrency(deal.dealValue || 0)}</td>
@@ -1348,7 +1339,7 @@ export default function TeamDashboard() {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={5} className="team-table-empty">
+                                <td colSpan={4} className="team-table-empty">
                                 No deals match current filters.
                               </td>
                             </tr>
@@ -1382,7 +1373,7 @@ export default function TeamDashboard() {
                         <input
                           type="text"
                           className="team-modal-filter-input"
-                          placeholder="Search by lead, status or next action..."
+                          placeholder="Search by lead, stage or next action..."
                           value={memberLeadFilters.query}
                           onChange={(e) =>
                             setMemberLeadFilters((prev) => ({
@@ -1391,49 +1382,14 @@ export default function TeamDashboard() {
                             }))
                           }
                         />
-                        <select
-                          className="team-modal-filter-select"
-                          value={memberLeadFilters.status}
-                          onChange={(e) =>
-                            setMemberLeadFilters((prev) => ({
-                              ...prev,
-                              status: e.target.value
-                            }))
-                          }
-                        >
-                          <option value="all">All Statuses</option>
-                          {memberLeadStatusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          className="team-modal-filter-select"
-                          value={memberLeadFilters.temperature}
-                          onChange={(e) =>
-                            setMemberLeadFilters((prev) => ({
-                              ...prev,
-                              temperature: e.target.value
-                            }))
-                          }
-                        >
-                          <option value="all">All Temperatures</option>
-                          {memberLeadTemperatureOptions.map((temp) => (
-                            <option key={temp} value={temp}>
-                              {temp}
-                            </option>
-                          ))}
-                        </select>
                       </div>
 
                       <div className="team-modal-table-wrap">
-                        <table className="team-modal-table team-modal-table-compact">
+                        <table className="team-modal-table team-modal-table-compact crm-auto-responsive-table">
                           <thead>
                             <tr>
                               <th>Company</th>
-                              <th>Status</th>
-                              <th>Temperature</th>
+                              <th>Stage</th>
                               <th>Estimated Value</th>
                               <th>Last Contact</th>
                               <th>Next Action</th>
@@ -1445,8 +1401,7 @@ export default function TeamDashboard() {
                               filteredMemberLeads.map((lead) => (
                                 <tr key={lead._id}>
                                   <td title={lead.companyName}>{lead.companyName || "-"}</td>
-                                  <td>{lead.status || "-"}</td>
-                                  <td>{lead.temperature || "-"}</td>
+                                  <td>{lead.stage || "-"}</td>
                                   <td>{formatCurrency(lead.estimatedValue || 0)}</td>
                                   <td>{formatDateTime(lead.lastContactDate)}</td>
                                   <td title={lead.nextAction}>{lead.nextAction || "-"}</td>
@@ -1463,7 +1418,7 @@ export default function TeamDashboard() {
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={8} className="team-table-empty">
+                                <td colSpan={6} className="team-table-empty">
                                   No leads match current filters.
                                 </td>
                               </tr>
@@ -1542,7 +1497,7 @@ export default function TeamDashboard() {
                       </div>
 
                       <div className="team-modal-table-wrap">
-                        <table className="team-modal-table team-modal-table-compact">
+                        <table className="team-modal-table team-modal-table-compact crm-auto-responsive-table">
                           <thead>
                             <tr>
                               <th>Title</th>
@@ -1564,11 +1519,7 @@ export default function TeamDashboard() {
                                   <td>{formatDateTime(followup.dueDateTime)}</td>
                                   <td>
                                     <span
-                                      className={`team-member-pill ${
-                                        followup.isCompleted
-                                          ? "team-member-pill-completed"
-                                          : "team-member-pill-pending"
-                                      }`}
+                                      className={`team-member-pill ${getFollowupStatusClass(followup)}`}
                                     >
                                       {followup.isCompleted ? "Completed" : "Pending"}
                                     </span>

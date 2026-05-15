@@ -3,6 +3,7 @@ const AiGeneratedLead = require("../models/ai_generated_leads");
 const AiLeadContact = require("../models/ai_lead_contacts");
 const Location = require("../models/location");
 const Source = require("../models/sources");
+const { normalizeEmail, normalizeIndustry } = require("../utils/leadNormalization");
 
 const getScrapedLeadCollectionName = () => process.env.LEAD_SCRAPER_COLLECTION_NAME || "scraped_leads";
 
@@ -29,6 +30,16 @@ function firstFilled(...values) {
   return values.map(clean).find(Boolean) || "";
 }
 
+function sanitizeEmployeeCount(value) {
+  const digits = clean(value).replace(/[^\d]/g, "");
+  if (!digits) return "";
+  const count = Number(digits);
+  if (!Number.isFinite(count) || count <= 0) return "";
+  // Scraped pages often join unrelated numbers into fake headcounts. Keep only plausible CRM lead sizes.
+  if (count > 10000) return "";
+  return String(count);
+}
+
 async function resolveSourceId(sourceKey) {
   const name = titleFromSourceKey(sourceKey);
   const now = new Date();
@@ -44,7 +55,7 @@ async function resolveSourceId(sourceKey) {
         is_deleted: false,
       },
     },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   ).lean();
   return source?._id || null;
 }
@@ -77,14 +88,21 @@ async function resolveLocationId(row) {
         updatedAt: now,
       },
     },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   ).lean();
   return location?._id || null;
 }
 
 function buildEmployeeRange(row) {
-  const hint = row.companySizeSignals?.employeeCountHint;
-  return clean(hint);
+  const signals = row.companySizeSignals || {};
+  const exactHint = sanitizeEmployeeCount(signals.employeeCountHint);
+  if (exactHint) return exactHint;
+
+  const rangeHint = clean(signals.employeeRangeHint);
+  if (!rangeHint) return "";
+  const numbers = rangeHint.match(/\d+/g) || [];
+  const maxValue = Math.max(...numbers.map((item) => Number(item)).filter(Number.isFinite), 0);
+  return maxValue > 0 && maxValue <= 10000 ? rangeHint : "";
 }
 
 function buildTurnoverRange(row) {
@@ -99,7 +117,7 @@ function collectContacts(row) {
     contacts.push({
       name: clean(contact.name),
       designation: clean(contact.role || contact.designation),
-      email: clean(contact.email).toLowerCase(),
+      email: normalizeEmail(contact.email),
       phone: compactPhone(contact.phone),
       linkedin: clean(contact.linkedin),
     });
@@ -123,7 +141,7 @@ function collectContacts(row) {
     contacts.push({
       name: "Company Contact",
       designation: "",
-      email: clean(genericEmail).toLowerCase(),
+      email: normalizeEmail(genericEmail),
       phone: compactPhone(genericPhone),
       linkedin: "",
     });
@@ -176,12 +194,25 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
     if (companyName && clean(row.address)) {
       filterOptions.push({ company_name: companyName, Address: clean(row.address) });
     }
+    if (companyName) {
+      filterOptions.push({ company_name: companyName });
+    }
 
+    const existing = await AiGeneratedLead.findOne({ $or: filterOptions })
+      .select("_id status is_deleted industry")
+      .lean();
+
+    if (existing?.status === "imported" || existing?.is_deleted === true) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const scrapedIndustry = normalizeIndustry(firstFilled(row.normalizedCategory, row.sourceCategory, row.category));
     const score = Number(row.scoreMeta?.finalScore || 0);
     const updateDoc = {
       company_name: companyName,
       website,
-      industry: firstFilled(row.normalizedCategory, row.sourceCategory, row.category),
+      industry: scrapedIndustry,
       Address: clean(row.address),
       employee_range: buildEmployeeRange(row),
       turnover_range: buildTurnoverRange(row),
@@ -199,7 +230,6 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
       scraped_at: row.updatedAt || row.createdAt || new Date(),
     };
 
-    const existing = await AiGeneratedLead.findOne({ $or: filterOptions }).select("_id status").lean();
     const saved = await AiGeneratedLead.findOneAndUpdate(
       { $or: filterOptions },
       {
@@ -208,7 +238,7 @@ async function syncScrapedLeads({ limit = 0 } = {}) {
           created_at: row.createdAt || new Date(),
         },
       },
-      { new: true, upsert: true }
+      { returnDocument: "after", upsert: true }
     ).lean();
 
     if (existing) {

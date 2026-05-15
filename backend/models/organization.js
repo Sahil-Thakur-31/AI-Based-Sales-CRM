@@ -7,7 +7,17 @@ const organizationSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    shortName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     logoUrl: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    iconUrl: {
       type: String,
       trim: true,
       default: ""

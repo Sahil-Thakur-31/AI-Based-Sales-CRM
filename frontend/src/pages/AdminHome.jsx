@@ -16,9 +16,10 @@ import {
   CProgress,
   CSpinner,
   CAlert,
-  CFormSelect,
   CButton,
 } from "@coreui/react";
+import Pagination from "../components/Pagination";
+import DashboardDateFilter from "../components/DashboardDateFilter";
 import "../styles/AdminHome.css";
 
 // ✅ Switch this to true only if you want mock data
@@ -61,20 +62,6 @@ function AiBadge({ children, tone = "ai" }) {
   return <span className={cx("badge", `badge--${tone}`)}>{children}</span>;
 }
 
-// risk badge
-function Risk({ level }) {
-  const colorMap = { low: "success", medium: "warning", high: "danger" };
-  return (
-    <CBadge
-      color={colorMap[level] || "secondary"}
-      className={cx("risk-badge", `risk--${level}`)}
-      shape="rounded-pill"
-    >
-      {level}
-    </CBadge>
-  );
-}
-
 // stage
 function StagePill({ stage }) {
   return (
@@ -84,6 +71,7 @@ function StagePill({ stage }) {
   );
 }
 
+<<<<<<< HEAD
 function buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeals, range) {
   const highRiskDeals = (recentDeals || []).filter(
     (deal) => String(deal?.risk || "").toLowerCase() === "high"
@@ -147,6 +135,44 @@ function buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeal
   }
 
   return insights.slice(0, 3);
+=======
+const DASHBOARD_PERIOD_OPTIONS = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" }
+];
+
+const QUARTER_LABELS = {
+  q1: "Q1 (Jan-Mar)",
+  q2: "Q2 (Apr-Jun)",
+  q3: "Q3 (Jul-Sep)",
+  q4: "Q4 (Oct-Dec)"
+};
+
+function mapPeriodToRange(period) {
+  if (period === "quarterly") return "quarter";
+  if (period === "yearly") return "year";
+  return "month";
+}
+
+function getMonthYearLabel(month, year) {
+  const normalizedYear = Number.parseInt(year, 10);
+  const safeYear = Number.isFinite(normalizedYear) ? normalizedYear : new Date().getFullYear();
+  return new Date(safeYear, month, 1).toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function getQuarterYearLabel(quarter, year) {
+  return `${QUARTER_LABELS[quarter] || QUARTER_LABELS.q1} ${year}`;
+}
+
+function getPeriodLabel(period, month, quarter, year) {
+  if (period === "quarterly") return getQuarterYearLabel(quarter, year);
+  if (period === "yearly") return String(year);
+  return getMonthYearLabel(month, year);
+>>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
 }
 
 async function apiGet(path, params = {}, signal) {
@@ -259,35 +285,35 @@ function getMockDashboard(range = "month", pipelineType = "deal") {
   const recentDeals =
     range === "week"
       ? [
-          { id: "d2", client: "Reliance Infra", stage: "P4", value: 4500000, risk: "medium", closeDate: "This week" },
-          { id: "d4", client: "Medanta Hospitals", stage: "P6", value: 3200000, risk: "low", closeDate: "This week" },
+          { id: "d2", dealName: "Reliance Infra Renewal", stage: "P4", value: 4500000, closeDate: "This week" },
+          { id: "d4", dealName: "Medanta Expansion", stage: "P6", value: 3200000, closeDate: "This week" },
         ]
       : range === "quarter"
       ? [
-          { id: "d1", client: "TechNova Pvt Ltd", stage: "P5", value: 2800000, risk: "low", closeDate: "Apr 2025" },
-          { id: "d2", client: "Reliance Infra", stage: "P4", value: 6500000, risk: "medium", closeDate: "May 2025" },
-          { id: "d3", client: "Greenfield Solar", stage: "P3", value: 9200000, risk: "high", closeDate: "Jun 2025" },
-          { id: "d4", client: "Medanta Hospitals", stage: "P6", value: 4200000, risk: "low", closeDate: "Apr 2025" },
-          { id: "d5", client: "Apex Logistics", stage: "P2", value: 1800000, risk: "medium", closeDate: "Jun 2025" },
+          { id: "d1", dealName: "TechNova Platform Rollout", stage: "P5", value: 2800000, closeDate: "Apr 2025" },
+          { id: "d2", dealName: "Reliance Infra Renewal", stage: "P4", value: 6500000, closeDate: "May 2025" },
+          { id: "d3", dealName: "Greenfield Solar Procurement", stage: "P3", value: 9200000, closeDate: "Jun 2025" },
+          { id: "d4", dealName: "Medanta Expansion", stage: "P6", value: 4200000, closeDate: "Apr 2025" },
+          { id: "d5", dealName: "Apex Logistics Upgrade", stage: "P2", value: 1800000, closeDate: "Jun 2025" },
         ]
       : [
-          { id: "d1", client: "TechNova Pvt Ltd", stage: "P5", value: 1800000, risk: "low", closeDate: "28 Mar 2025" },
-          { id: "d2", client: "Reliance Infra", stage: "P4", value: 4500000, risk: "medium", closeDate: "15 Apr 2025" },
-          { id: "d3", client: "Greenfield Solar", stage: "P3", value: 7200000, risk: "high", closeDate: "02 May 2025" },
-          { id: "d4", client: "Medanta Hospitals", stage: "P6", value: 3200000, risk: "low", closeDate: "22 Mar 2025" },
+          { id: "d1", dealName: "TechNova Platform Rollout", stage: "P5", value: 1800000, closeDate: "28 Mar 2025" },
+          { id: "d2", dealName: "Reliance Infra Renewal", stage: "P4", value: 4500000, closeDate: "15 Apr 2025" },
+          { id: "d3", dealName: "Greenfield Solar Procurement", stage: "P3", value: 7200000, closeDate: "02 May 2025" },
+          { id: "d4", dealName: "Medanta Expansion", stage: "P6", value: 3200000, closeDate: "22 Mar 2025" },
         ];
 
   return { summary, pipeline, teamPerformance, followups, recentDeals };
 }
 
 /* ---------------- BACKEND ---------------- */
-async function fetchDashboard(range, pipelineType, signal) {
+async function fetchDashboard(range, pipelineType, filters, signal) {
   const [sum, pipe, team, fu, deals] = await Promise.all([
-    apiGet("/api/admin/dashboard/summary", { range }, signal),
-    apiGet("/api/admin/dashboard/pipeline", { range, pipelineType }, signal),
-    apiGet("/api/admin/dashboard/team-performance", { range }, signal),
-    apiGet("/api/admin/dashboard/followups", { range }, signal),
-    apiGet("/api/admin/dashboard/recent-deals", { range }, signal),
+    apiGet("/api/admin/dashboard/summary", { range, ...filters }, signal),
+    apiGet("/api/admin/dashboard/pipeline", { range, pipelineType, ...filters }, signal),
+    apiGet("/api/admin/dashboard/team-performance", { range, ...filters }, signal),
+    apiGet("/api/admin/dashboard/followups", { range, ...filters }, signal),
+    apiGet("/api/admin/dashboard/recent-deals", { range, ...filters }, signal),
   ]);
 
   return {
@@ -300,8 +326,17 @@ async function fetchDashboard(range, pipelineType, signal) {
 }
 
 export default function AdminHome() {
-  const [range, setRange] = useState("month");
+  const DEALS_PER_PAGE = 4;
+  const FOLLOWUPS_PER_PAGE = 5;
+  const today = new Date();
+
+  const [period, setPeriod] = useState("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
+  const [selectedYear, setSelectedYear] = useState(String(today.getFullYear()));
   const [pipelineType, setPipelineType] = useState("deal");
+  const [recentDealsPage, setRecentDealsPage] = useState(1);
+  const [followupsPage, setFollowupsPage] = useState(1);
 
   // first load skeleton
   const [loading, setLoading] = useState(true);
@@ -330,20 +365,67 @@ export default function AdminHome() {
   const [recentDeals, setRecentDeals] = useState([]);
 
   const navigate = useNavigate();
+  const range = mapPeriodToRange(period);
+  const rangeLabel = getPeriodLabel(period, selectedMonth, selectedQuarter, selectedYear);
+  const dashboardFilters = useMemo(
+    () => ({
+      period,
+      month: selectedMonth + 1,
+      quarter: selectedQuarter,
+      year: selectedYear,
+    }),
+    [period, selectedMonth, selectedQuarter, selectedYear]
+  );
 
   const totalPipelineCount = useMemo(
     () => pipeline.reduce((acc, p) => acc + (p.count || 0), 0),
     [pipeline]
   );
 
-  const visibleRecentDeals = useMemo(
-    () => recentDeals.slice(0, 4),
-    [recentDeals]
+  const totalRecentDealsPages = useMemo(
+    () => Math.max(1, Math.ceil(recentDeals.length / DEALS_PER_PAGE)),
+    [recentDeals.length]
   );
   const adminAiInsights = useMemo(
     () => buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeals, range),
     [followups, pipeline, range, recentDeals, summary, teamPerf]
   );
+
+  const totalFollowupsPages = useMemo(
+    () => Math.max(1, Math.ceil(followups.length / FOLLOWUPS_PER_PAGE)),
+    [followups.length]
+  );
+
+  const visibleRecentDeals = useMemo(
+    () =>
+      recentDeals.slice(
+        (recentDealsPage - 1) * DEALS_PER_PAGE,
+        recentDealsPage * DEALS_PER_PAGE
+      ),
+    [recentDeals, recentDealsPage]
+  );
+
+  const visibleFollowups = useMemo(
+    () =>
+      followups.slice(
+        (followupsPage - 1) * FOLLOWUPS_PER_PAGE,
+        followupsPage * FOLLOWUPS_PER_PAGE
+      ),
+    [followups, followupsPage]
+  );
+
+  useEffect(() => {
+    setRecentDealsPage(1);
+    setFollowupsPage(1);
+  }, [period, pipelineType, selectedMonth, selectedQuarter, selectedYear]);
+
+  useEffect(() => {
+    setRecentDealsPage((current) => Math.min(current, totalRecentDealsPages));
+  }, [totalRecentDealsPages]);
+
+  useEffect(() => {
+    setFollowupsPage((current) => Math.min(current, totalFollowupsPages));
+  }, [totalFollowupsPages]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -370,7 +452,7 @@ export default function AdminHome() {
           setFollowups(mock.followups);
           setRecentDeals(mock.recentDeals);
         } else {
-          const data = await fetchDashboard(range, pipelineType, controller.signal);
+          const data = await fetchDashboard(range, pipelineType, dashboardFilters, controller.signal);
           setSummary(data.summary);
           setPipeline(data.pipeline);
           setTeamPerf(data.teamPerformance);
@@ -389,7 +471,7 @@ export default function AdminHome() {
     load();
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, pipelineType]);
+  }, [dashboardFilters, pipelineType, range]);
 
   const kpis = [
     {
@@ -397,7 +479,7 @@ export default function AdminHome() {
       value: formatINR(summary.revenueWon),
       sub: `${summary.revenueDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.revenueDeltaPct
-      )}% vs last ${range}`,
+      )}% vs previous ${rangeLabel.toLowerCase()}`,
       accent: "green",
     },
     {
@@ -405,7 +487,7 @@ export default function AdminHome() {
       value: String(summary.activeDeals),
       sub: `${summary.activeDealsDelta >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.activeDealsDelta
-      )} this ${range}`,
+      )} added in ${rangeLabel.toLowerCase()}`,
       accent: "blue",
     },
     {
@@ -413,7 +495,7 @@ export default function AdminHome() {
       value: `${summary.winRatePct}%`,
       sub: `${summary.winRateDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.winRateDeltaPct
-      )}% this ${range}`,
+      )}% in ${rangeLabel.toLowerCase()}`,
       accent: "cyan",
     },
     {
@@ -446,16 +528,18 @@ export default function AdminHome() {
       {/* Top Bar */}
       <div className="topBar">
         <div className="topActions">
-          <CFormSelect
-            className="select"
-            value={range}
+          <DashboardDateFilter
+            period={period}
+            periodOptions={DASHBOARD_PERIOD_OPTIONS}
+            month={selectedMonth}
+            quarter={selectedQuarter}
+            year={selectedYear}
+            onPeriodChange={setPeriod}
+            onMonthChange={setSelectedMonth}
+            onQuarterChange={setSelectedQuarter}
+            onYearChange={setSelectedYear}
             disabled={refreshing}
-            onChange={(e) => setRange(e.target.value)}
-          >
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="quarter">This Quarter</option>
-          </CFormSelect>
+          />
         </div>
       </div>
 
@@ -499,7 +583,7 @@ export default function AdminHome() {
             {/* Deal Pipeline */}
             <CCard className="panel panel--pipeline">
               <CCardHeader className="panel__header">
-                <div className="panel__titleRow panel__titleRow--space">
+                <div className="panel__titleRow">
                   <div className="panel__titleRow">
                     <span className="panel__title">
                       {pipelineType === "lead" ? "Lead Pipeline" : "Deal Pipeline"}
@@ -523,7 +607,6 @@ export default function AdminHome() {
                       </button>
                     </div>
                   </div>
-                  <span className="panel__meta">{range.toUpperCase()}</span>
                 </div>
               </CCardHeader>
 
@@ -626,9 +709,9 @@ export default function AdminHome() {
                   </div>
                 </CCardHeader>
 
-                <CCardBody>
+                <CCardBody className="followupsPanelBody">
                   <div className="followList">
-                    {followups.slice(0, 2).map((f) => (
+                    {visibleFollowups.map((f) => (
                       <div key={f.id} className="followItem">
                         <div className="followIcon">{f.icon}</div>
 
@@ -638,8 +721,12 @@ export default function AdminHome() {
                             <span className="muted">{f.itemType || "Follow-up"}</span>
                             <span className="dot" />
                             <span className="muted">{f.title}</span>
-                            <span className="dot" />
-                            <span className="muted">Score: {f.score}</span>
+                            {f.itemType !== "Meeting" && f.contactPhone ? (
+                              <>
+                                <span className="dot" />
+                                <span className="muted">Mob: {f.contactPhone}</span>
+                              </>
+                            ) : null}
                           </div>
                         </div>
 
@@ -661,6 +748,14 @@ export default function AdminHome() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                  <div className="admin-panel-pagination">
+                    <Pagination
+                      currentPage={followupsPage}
+                      totalPages={totalFollowupsPages}
+                      handlePageChange={setFollowupsPage}
+                      showSinglePage
+                    />
                   </div>
                 </CCardBody>
               </CCard>
@@ -688,11 +783,10 @@ export default function AdminHome() {
                   <CTable hover responsive className="tbl mb-0">
                     <CTableHead>
                       <CTableRow>
-                        <CTableHeaderCell>Client</CTableHeaderCell>
+                        <CTableHeaderCell>Deal</CTableHeaderCell>
                         <CTableHeaderCell>Stage</CTableHeaderCell>
                         <CTableHeaderCell>Value</CTableHeaderCell>
-                        <CTableHeaderCell>Risk</CTableHeaderCell>
-                        <CTableHeaderCell>Close Date</CTableHeaderCell>
+                        <CTableHeaderCell>Expected Close Date</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
 
@@ -700,7 +794,7 @@ export default function AdminHome() {
                       {visibleRecentDeals.map((d) => (
                         <CTableRow key={d.id}>
                           <CTableDataCell className="tbl__client">
-                            {d.client}
+                            {d.dealName}
                           </CTableDataCell>
                           <CTableDataCell>
                             <StagePill stage={d.stage} />
@@ -708,16 +802,21 @@ export default function AdminHome() {
                           <CTableDataCell className="tbl__value">
                             {formatINR(d.value)}
                           </CTableDataCell>
-                          <CTableDataCell>
-                            <Risk level={d.risk} />
-                          </CTableDataCell>
                           <CTableDataCell className="muted">
-                            {d.closeDate}
+                            {d.expectedCloseDate}
                           </CTableDataCell>
                         </CTableRow>
                       ))}
                     </CTableBody>
                   </CTable>
+                  <div className="admin-panel-pagination admin-panel-pagination--table">
+                    <Pagination
+                      currentPage={recentDealsPage}
+                      totalPages={totalRecentDealsPages}
+                      handlePageChange={setRecentDealsPage}
+                      showSinglePage
+                    />
+                  </div>
                 </CCardBody>
               </CCard>
 

@@ -5,6 +5,7 @@ import CustomTab from "./tabs/CustomTab";
 import SalesTab from "./tabs/SalesTab";
 import LeadsTab from "./tabs/LeadsTab";
 import ExpenseTab from "./tabs/ExpenseTab";
+import { exportReportElementAsPdf } from "./utils/exportPdf";
 import "./styles/Reports.css";
 
 const REPORT_TYPES = [
@@ -23,9 +24,19 @@ function createDefaultSalesFilters() {
   return {
     period: "monthly",
     month,
-    quarter: now.getMonth() < 4 ? "jan-apr" : now.getMonth() < 8 ? "may-aug" : "sep-dec",
+    quarter: now.getMonth() < 3 ? "q1" : now.getMonth() < 6 ? "q2" : now.getMonth() < 9 ? "q3" : "q4",
     year,
     assignedTo: "all",
+  };
+}
+
+function createDefaultPeriodFilters() {
+  const now = new Date();
+  return {
+    period: "monthly",
+    month: String(now.getMonth() + 1),
+    quarter: now.getMonth() < 3 ? "q1" : now.getMonth() < 6 ? "q2" : now.getMonth() < 9 ? "q3" : "q4",
+    year: String(now.getFullYear()),
   };
 }
 
@@ -33,10 +44,25 @@ function normalizeRoleName(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function getReportSelector(activeType) {
+  if (activeType === "sales") return ".sales-tab";
+  if (activeType === "leads") return ".leads-tab";
+  if (activeType === "expense") return ".expense-tab";
+  return ".custom-tab";
+}
+
+function getReportTitle(activeType) {
+  if (activeType === "sales") return "Sales Report";
+  if (activeType === "leads") return "Leads Report";
+  if (activeType === "expense") return "Expense Report";
+  return "Custom Report";
+}
+
 function Reports() {
   const [activeType, setActiveType] = useState("custom");
   const [salesFilters, setSalesFilters] = useState(createDefaultSalesFilters);
-  const [leadsPeriod, setLeadsPeriod] = useState("monthly");
+  const [leadsFilters, setLeadsFilters] = useState(createDefaultPeriodFilters);
+  const [expenseFilters, setExpenseFilters] = useState(createDefaultPeriodFilters);
   const [salesUsers, setSalesUsers] = useState([]);
   const [canUseAllSalesUsers, setCanUseAllSalesUsers] = useState(true);
   const [salesAllOptionLabel, setSalesAllOptionLabel] = useState("All Users");
@@ -157,13 +183,24 @@ function Reports() {
       case "sales":
         return <SalesTab filters={salesFilters} selectedUser={selectedSalesUser} />;
       case "leads":
-        return <LeadsTab period={leadsPeriod} />;
+        return <LeadsTab filters={leadsFilters} />;
       case "expense":
-        return <ExpenseTab />;
+        return <ExpenseTab filters={expenseFilters} />;
       default:
         return null;
     }
   };
+
+  function handleExportPdf() {
+    const selector = getReportSelector(activeType);
+    const element = document.querySelector(selector);
+    if (!element) return;
+
+    exportReportElementAsPdf({
+      element,
+      title: getReportTitle(activeType),
+    });
+  }
 
   return (
     <div className="reports-page">
@@ -175,9 +212,12 @@ function Reports() {
         salesUsers={salesUsers}
         canUseAllSalesUsers={canUseAllSalesUsers}
         salesAllOptionLabel={salesAllOptionLabel}
-        leadsPeriod={leadsPeriod}
-        setLeadsPeriod={setLeadsPeriod}
+        leadsFilters={leadsFilters}
+        setLeadsFilters={setLeadsFilters}
+        expenseFilters={expenseFilters}
+        setExpenseFilters={setExpenseFilters}
         reportTypes={REPORT_TYPES}
+        onExportPdf={handleExportPdf}
       />
       {renderContent()}
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import API from "../../../api";
+import { notifyOrganizationBrandUpdated } from "../../../utils/branding";
 import "./admin-config.css";
 
 const ACCOUNT_TYPE_OPTIONS = ["Savings", "Current", "Salary", "OD/CC", "NRE", "NRO"];
@@ -7,7 +8,9 @@ const ACCOUNT_TYPE_OPTIONS = ["Savings", "Current", "Salary", "OD/CC", "NRE", "N
 function createEmptyForm() {
   return {
     name: "",
+    shortName: "",
     logoUrl: "",
+    iconUrl: "",
     signatureUrl: "",
     stampUrl: "",
     address: "",
@@ -39,6 +42,7 @@ function createEmptyForm() {
 
 export default function Organization() {
   const fileInputRef = useRef(null);
+  const iconInputRef = useRef(null);
   const signatureInputRef = useRef(null);
   const stampInputRef = useRef(null);
 
@@ -51,13 +55,17 @@ export default function Organization() {
   const [metrics, setMetrics] = useState({
     employeesCount: 0,
     clientsCount: 0,
-    dealsCount: 0
+    activeDealsCount: 0,
+    wonDealsCount: 0
   });
   const [form, setForm] = useState(createEmptyForm());
   const [snapshot, setSnapshot] = useState(createEmptyForm());
   const [logoFile, setLogoFile] = useState(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [logoPreview, setLogoPreview] = useState("");
+  const [iconFile, setIconFile] = useState(null);
+  const [iconRemoved, setIconRemoved] = useState(false);
+  const [iconPreview, setIconPreview] = useState("");
   const [signatureFile, setSignatureFile] = useState(null);
   const [signatureRemoved, setSignatureRemoved] = useState(false);
   const [signaturePreview, setSignaturePreview] = useState("");
@@ -90,7 +98,9 @@ export default function Organization() {
 
   const mapProfileToForm = (profile) => ({
     name: profile?.name || "",
+    shortName: profile?.shortName || "",
     logoUrl: profile?.logoUrl || "",
+    iconUrl: profile?.iconUrl || "",
     signatureUrl: profile?.signatureUrl || "",
     stampUrl: profile?.stampUrl || "",
     address: profile?.address || "",
@@ -135,17 +145,21 @@ export default function Organization() {
       setMetrics({
         employeesCount: Number(stats.employeesCount || profile?.employeesCount || 0),
         clientsCount: Number(stats.clientsCount || profile?.clientsCount || 0),
-        dealsCount: Number(stats.dealsCount || profile?.dealsCount || 0)
+        activeDealsCount: Number(stats.activeDealsCount || profile?.activeDealsCount || 0),
+        wonDealsCount: Number(stats.wonDealsCount || profile?.wonDealsCount || 0)
       });
 
       const mapped = mapProfileToForm(profile);
       setForm(mapped);
       setSnapshot(mapped);
       setLogoPreview(withCacheBust(resolveLogoUrl(mapped.logoUrl || "")));
+      setIconPreview(withCacheBust(resolveLogoUrl(mapped.iconUrl || "")));
       setSignaturePreview(withCacheBust(resolveLogoUrl(mapped.signatureUrl || "")));
       setStampPreview(withCacheBust(resolveLogoUrl(mapped.stampUrl || "")));
       setLogoFile(null);
       setLogoRemoved(false);
+      setIconFile(null);
+      setIconRemoved(false);
       setSignatureFile(null);
       setSignatureRemoved(false);
       setStampFile(null);
@@ -163,6 +177,7 @@ export default function Organization() {
     setSuccess("");
     setError("");
     setLogoRemoved(false);
+    setIconRemoved(false);
     setSignatureRemoved(false);
     setStampRemoved(false);
   };
@@ -170,10 +185,13 @@ export default function Organization() {
   const cancelEdit = () => {
     setForm(snapshot);
     setLogoPreview(withCacheBust(resolveLogoUrl(snapshot.logoUrl || "")));
+    setIconPreview(withCacheBust(resolveLogoUrl(snapshot.iconUrl || "")));
     setSignaturePreview(withCacheBust(resolveLogoUrl(snapshot.signatureUrl || "")));
     setStampPreview(withCacheBust(resolveLogoUrl(snapshot.stampUrl || "")));
     setLogoFile(null);
     setLogoRemoved(false);
+    setIconFile(null);
+    setIconRemoved(false);
     setSignatureFile(null);
     setSignatureRemoved(false);
     setStampFile(null);
@@ -240,6 +258,28 @@ export default function Organization() {
     setForm((prev) => ({ ...prev, logoUrl: "" }));
   };
 
+  const handleChangeIcon = () => {
+    if (!isEditing) return;
+    iconInputRef.current?.click();
+  };
+
+  const handleIconFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setIconFile(file);
+    if (file) {
+      setIconPreview(URL.createObjectURL(file));
+      setIconRemoved(false);
+    }
+  };
+
+  const handleDeleteIcon = () => {
+    if (!isEditing) return;
+    setIconFile(null);
+    setIconRemoved(true);
+    setIconPreview("");
+    setForm((prev) => ({ ...prev, iconUrl: "" }));
+  };
+
   const handleChangeSignature = () => {
     if (!isEditing) return;
     signatureInputRef.current?.click();
@@ -297,10 +337,13 @@ export default function Organization() {
 
       const payload = new FormData();
       payload.append("name", form.name || "");
+      payload.append("shortName", form.shortName || "");
       payload.append("logoUrl", form.logoUrl || "");
+      payload.append("iconUrl", form.iconUrl || "");
       payload.append("signatureUrl", form.signatureUrl || "");
       payload.append("stampUrl", form.stampUrl || "");
       payload.append("removeLogo", logoRemoved ? "true" : "false");
+      payload.append("removeIcon", iconRemoved ? "true" : "false");
       payload.append("removeSignature", signatureRemoved ? "true" : "false");
       payload.append("removeStamp", stampRemoved ? "true" : "false");
       payload.append("address", form.address || "");
@@ -329,6 +372,7 @@ export default function Organization() {
       payload.append("headEmail", form.headEmail || "");
 
       if (logoFile) payload.append("logo", logoFile);
+      if (iconFile) payload.append("icon", iconFile);
       if (signatureFile) payload.append("signature", signatureFile);
       if (stampFile) payload.append("stamp", stampFile);
 
@@ -339,7 +383,8 @@ export default function Organization() {
       setMetrics({
         employeesCount: Number(stats.employeesCount || metrics.employeesCount),
         clientsCount: Number(stats.clientsCount || metrics.clientsCount),
-        dealsCount: Number(stats.dealsCount || metrics.dealsCount)
+        activeDealsCount: Number(stats.activeDealsCount || metrics.activeDealsCount),
+        wonDealsCount: Number(stats.wonDealsCount || metrics.wonDealsCount)
       });
 
       if (org) {
@@ -347,14 +392,18 @@ export default function Organization() {
         setForm(savedProfile);
         setSnapshot(savedProfile);
         setLogoPreview(withCacheBust(resolveLogoUrl(savedProfile.logoUrl || "")));
+        setIconPreview(withCacheBust(resolveLogoUrl(savedProfile.iconUrl || "")));
         setSignaturePreview(withCacheBust(resolveLogoUrl(savedProfile.signatureUrl || "")));
         setStampPreview(withCacheBust(resolveLogoUrl(savedProfile.stampUrl || "")));
         setLogoFile(null);
         setLogoRemoved(false);
+        setIconFile(null);
+        setIconRemoved(false);
         setSignatureFile(null);
         setSignatureRemoved(false);
         setStampFile(null);
         setStampRemoved(false);
+        notifyOrganizationBrandUpdated(org);
       }
 
       setSuccess("Organization profile saved successfully");
@@ -378,9 +427,18 @@ export default function Organization() {
           <span>Clients</span>
           <strong>{metrics.clientsCount}</strong>
         </div>
-        <div className="org-metric-card">
+        <div className="org-metric-card org-metric-deals-card">
           <span>Deals</span>
-          <strong>{metrics.dealsCount}</strong>
+          <div className="org-deal-metric-split">
+            <div>
+              <strong>{metrics.activeDealsCount}</strong>
+              <small>Active</small>
+            </div>
+            <div>
+              <strong>{metrics.wonDealsCount}</strong>
+              <small>Won</small>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -440,11 +498,12 @@ export default function Organization() {
                     </button>
                   </div>
                 )}
+
               </aside>
 
               <section className="org-details-column">
                 <div className="org-profile-grid">
-                  <div className="org-profile-field org-profile-field-full">
+                  <div className="org-profile-field org-company-name-field">
                     <label>Company Name</label>
                     {isEditing ? (
                       <input
@@ -454,6 +513,19 @@ export default function Organization() {
                       />
                     ) : (
                       <p className="org-view-value">{form.name || "-"}</p>
+                    )}
+                  </div>
+
+                  <div className="org-profile-field org-short-name-field">
+                    <label>Short Name</label>
+                    {isEditing ? (
+                      <input
+                        value={form.shortName}
+                        onChange={(e) => updateField("shortName", e.target.value)}
+                        placeholder="e.g. ACME"
+                      />
+                    ) : (
+                      <p className="org-view-value">{form.shortName || "-"}</p>
                     )}
                   </div>
 
@@ -761,6 +833,38 @@ export default function Organization() {
             </div>
 
             <div className="org-sign-assets-row">
+              <div className="org-sign-asset-card org-icon-asset-card">
+                <label>Organization Icon</label>
+                <div className="org-logo-block org-icon-block">
+                  {iconPreview ? (
+                    <img className="org-logo-preview org-icon-preview" src={iconPreview} alt="Organization icon" />
+                  ) : (
+                    <div className="org-logo-preview-empty org-icon-preview-empty">No icon uploaded</div>
+                  )}
+                </div>
+                {isEditing ? (
+                  <div className="org-logo-actions">
+                    <input
+                      ref={iconInputRef}
+                      className="org-logo-hidden-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleIconFileChange}
+                    />
+                    <button className="admin-config-btn" type="button" onClick={handleChangeIcon}>
+                      Change
+                    </button>
+                    <button
+                      className="admin-config-btn admin-config-btn-danger"
+                      type="button"
+                      onClick={handleDeleteIcon}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="org-sign-asset-card">
                 <label>Signature</label>
                 <div className="org-logo-block">

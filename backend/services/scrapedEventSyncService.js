@@ -150,6 +150,41 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+function textDeclaresFreeEventFee(value) {
+  const text = cleanText(value).replace(/\s+/g, " ");
+  if (!text) return false;
+
+  return [
+    /\bfree entry\b/i,
+    /\bfree event\b/i,
+    /\bfree registration\b/i,
+    /\bno registration fee\b/i,
+    /\bentry free\b/i,
+    /\bthis meetup is free\b/i,
+    /\bthis event is free\b/i,
+    /\bfree to attend\b/i,
+    /\bfree\s+to\s+(?:attend|join|register)\b/i,
+    /\bfee\s*[:\-]?\s*(?:free|0|zero)\b/i,
+    /\b(?:registration|ticket|pass)\s+(?:is\s+)?free\b/i,
+    /\bcomplimentary\s+(?:entry|registration|pass|ticket)\b/i,
+  ].some((pattern) => pattern.test(text));
+}
+
+function normalizeScrapedRegistrationFee(scrapedEvent = {}, sourceName = "") {
+  if (textDeclaresFreeEventFee(`${scrapedEvent.name || ""} ${scrapedEvent.description || ""}`)) {
+    return 0;
+  }
+
+  const normalizedSource = cleanText(sourceName || scrapedEvent.source || scrapedEvent?.scoreMeta?.source).toLowerCase();
+  const currency = cleanText(scrapedEvent.registrationCurrency || "").toUpperCase() || "INR";
+  const fee = toOptionalNumber(scrapedEvent.registrationFee);
+  if (normalizedSource === "meetup" && currency === "INR" && fee !== null && fee <= 5) {
+    return 0;
+  }
+
+  return fee;
+}
+
 function normalizeComparableText(value) {
   return cleanText(value)
     .toLowerCase()
@@ -878,7 +913,7 @@ function buildUpdatePayload(scrapedEvent, industryId, sourceId, locationId, sour
   );
   const externalIdentityKey = buildExternalIdentityKey(scrapedEvent, sourceName);
   const dedupeSignature = buildDedupeSignature(scrapedEvent, sourceName);
-  const registrationFee = toOptionalNumber(scrapedEvent.registrationFee);
+  const registrationFee = normalizeScrapedRegistrationFee(scrapedEvent, sourceName);
   const attendeesCount = toOptionalNumber(scrapedEvent.attendeesCount);
   const exhibitorsCount = toOptionalNumber(scrapedEvent.exhibitorsCount);
   const latitude = toOptionalNumber(scrapedEvent.latitude ?? scoreMeta.latitude);

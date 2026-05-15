@@ -16,6 +16,7 @@ const { processPendingNotificationEmails } = require("../services/notificationEm
 const { normalizePhone } = require("../utils/phoneUtils");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
+const INACTIVE_LEAD_STAGES = new Set(["P4", "P6", "P7"]);
 
 function getRoleName(user = {}) {
   return String(user?.role || "").trim().toLowerCase();
@@ -100,6 +101,8 @@ function stripLeadPayloadFields(payload) {
   delete cleaned.contact_history;
   delete cleaned.next_action_date;
   delete cleaned.ai_score;
+  delete cleaned.lead_temperature;
+  delete cleaned.status;
 
   if (cleaned.is_existing_company !== undefined && cleaned.is_existing_client === undefined) {
     cleaned.is_existing_client = cleaned.is_existing_company;
@@ -130,6 +133,14 @@ function applyLeadDerivations(payload) {
     const amount = Number(normalized.deal_value_estimate);
     if (!Number.isNaN(amount)) {
       normalized.deal_value_estimate = amount;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalized, "stage")) {
+    const stage = String(normalized.stage || "").trim().toUpperCase();
+    if (["P1", "P2", "P3", "P4", "P5", "P6", "P7"].includes(stage)) {
+      normalized.stage = stage;
+      normalized.is_active = !INACTIVE_LEAD_STAGES.has(stage);
     }
   }
 
@@ -344,10 +355,7 @@ async function resolveIndustryId(leadIndustry) {
   return created._id;
 }
 
-function computeAiRiskScore(leadTemperature) {
-  const temp = (leadTemperature || "").toLowerCase();
-  if (temp === "hot") return 25;
-  if (temp === "warm") return 50;
+function computeAiRiskScore() {
   return 70;
 }
 
@@ -501,7 +509,6 @@ exports.searchCompany = async (req, res) => {
         referred_by_user: lead.referred_by_user || "",
         expo_event_id: lead.expo_event_id || "",
         deal_value_estimate: lead.deal_value_estimate || "",
-        lead_temperature: lead.lead_temperature || "cold",
         assigned_to: lead.assigned_to || "",
         country: location?.country || "",
         State: location?.State || "",
@@ -554,7 +561,6 @@ exports.searchCompany = async (req, res) => {
         website: client.website || "",
         source: client.source || "",
         deal_value_estimate: "",
-        lead_temperature: "cold",
         assigned_to: "",
         country: location?.country || "",
         State: location?.State || "",
@@ -584,21 +590,25 @@ exports.getLeads = async (req, res) => {
     await normalizeLegacyLeadFlagsOnce();
     const deletedOnly =
       req.query.deleted_only === "true" || req.query.deleted_only === true;
+    const includeConverted =
+      req.query.include_converted === "true" || req.query.include_converted === true;
     const limit = Number(req.query.limit);
 
     const filter = deletedOnly
       ? { is_deleted: true }
-      : {
-        $and: [
-          { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
-          {
-            $or: [
-              { converted_to_deal: { $ne: true } },
-              { is_active: false },
-            ],
-          },
-        ],
-      };
+      : includeConverted
+        ? { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] }
+        : {
+          $and: [
+            { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
+            {
+              $or: [
+                { converted_to_deal: { $ne: true } },
+                { is_active: false },
+              ],
+            },
+          ],
+        };
 
     if (!isPrivilegedUser(req.user)) {
       filter.assigned_to = req.user?._id || null;
@@ -622,7 +632,6 @@ exports.getLeads = async (req, res) => {
 
       for (const lead of leads) {
         if (lead.is_deleted === true || lead.is_active === false) continue;
-        if (lead.status === "rejected") continue;
         const leadId = String(lead._id || "");
         const nextFollowup = nextFollowupMap.get(leadId);
         const nextFollowupDate = toValidDate(nextFollowup?.dueDateTime);
@@ -690,14 +699,6 @@ exports.getLeads = async (req, res) => {
         primary_contact: primaryContact,
         next_action: followup?.title || lead.next_action || "",
         next_action_date: followup?.dueDateTime || null,
-        ai_score:
-          lead.lead_temperature === "hot"
-            ? 90
-            : lead.lead_temperature === "warm"
-              ? 70
-              : lead.lead_temperature === "cold"
-                ? 50
-                : null,
         country: location?.country || "",
         State: location?.State || "",
         city: location?.city || "",
@@ -797,7 +798,7 @@ exports.createLead = async (req, res) => {
       leadPayload.assigned_to = actorId;
     }
     if (!leadPayload.stage) {
-      leadPayload.stage = "P1";
+      leadPayload.stage = "P3";
     }
     if (leadPayload.assigned_to && (await isAdminAssignee(leadPayload.assigned_to))) {
       return res.status(400).json({ message: "Lead cannot be assigned to an admin user" });
@@ -886,7 +887,7 @@ exports.updateLead = async (req, res) => {
 
     const lead = await Leads.findOneAndUpdate(
       accessFilter,
-      leadPayload,
+      { $set: leadPayload, $unset: { status: "" } },
       { returnDocument: "after" }
     ).lean();
 
@@ -1106,7 +1107,7 @@ exports.convertLeadToDeal = async (req, res) => {
     }
 
     const expectedCloseDate = new Date();
-    expectedCloseDate.setDate(expectedCloseDate.getDate() + 30);
+    expectedCloseDate.setDate(expectedCloseDate.getDate() + 60);
 
     const deal = await Deal.create({
       deal_name: requestedDealName,
@@ -1114,19 +1115,18 @@ exports.convertLeadToDeal = async (req, res) => {
       lead_id: lead._id,
       assignedTo: lead.assigned_to || null,
       assignedBy: actorId,
-      stage: "P1",
+      stage: "P3",
       dealValue: Number(lead.deal_value_estimate) || 0,
       probability: 10,
       expectedCloseDate,
-      status: "open",
-      aiRiskScore: computeAiRiskScore(lead.lead_temperature),
+      aiRiskScore: computeAiRiskScore(),
       isActive: true,
       is_deleted: false,
     });
 
     await DealStageHistory.create({
       dealId: deal._id,
-      stage: "P1",
+      stage: "P3",
       movedAt: new Date(),
       movedBy: actorId,
     });
@@ -1137,7 +1137,8 @@ exports.convertLeadToDeal = async (req, res) => {
 
     lead.converted_to_deal = true;
     lead.is_existing_client = true;
-    lead.status = "converted";
+    lead.stage = "P7";
+    lead.is_active = false;
     lead.converted_deal_id = deal._id;
     lead.deal_name = requestedDealName;
     await lead.save();
@@ -1178,25 +1179,65 @@ function _addDays(d, n) {
   return r;
 }
 
-function getLeadsReportRange(period, now = new Date()) {
-  const p = (period || "monthly").toLowerCase();
-  if (p === "weekly") {
-    const s = _startOfWeek(now);
-    return { currentStart: s, currentEnd: _addDays(s, 7), comparisonLabel: "last week" };
+function normalizeLeadsReportPeriod(period) {
+  const value = String(period || "monthly").trim().toLowerCase();
+  if (value === "quarterly" || value === "quarter") return "quarterly";
+  if (value === "yearly" || value === "year") return "yearly";
+  return "monthly";
+}
+
+function normalizeLeadsReportYear(year, now = new Date()) {
+  const parsed = Number.parseInt(year, 10);
+  if (!Number.isFinite(parsed) || parsed < 2000 || parsed > 9999) {
+    return now.getFullYear();
   }
-  if (p === "quarterly") {
-    const s = _startOfQuarter(now);
+  return parsed;
+}
+
+function normalizeLeadsReportMonth(month, now = new Date()) {
+  const parsed = Number.parseInt(month, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 12) {
+    return now.getMonth() + 1;
+  }
+  return parsed;
+}
+
+function normalizeLeadsReportQuarter(quarter, now = new Date()) {
+  const value = String(quarter || "").trim().toLowerCase();
+  if (["q1", "q2", "q3", "q4"].includes(value)) return value;
+  const month = now.getMonth();
+  if (month < 3) return "q1";
+  if (month < 6) return "q2";
+  if (month < 9) return "q3";
+  return "q4";
+}
+
+function getLeadsReportSelection(input, now = new Date()) {
+  const period = normalizeLeadsReportPeriod(input?.period);
+  return {
+    period,
+    year: normalizeLeadsReportYear(input?.year, now),
+    month: normalizeLeadsReportMonth(input?.month, now),
+    quarter: normalizeLeadsReportQuarter(input?.quarter, now),
+  };
+}
+
+function getLeadsReportRange(input, now = new Date()) {
+  const selection = getLeadsReportSelection(input, now);
+
+  if (selection.period === "quarterly") {
+    const quarterMonthMap = { q1: 0, q2: 3, q3: 6, q4: 9 };
+    const s = new Date(selection.year, quarterMonthMap[selection.quarter], 1);
     return { currentStart: s, currentEnd: _addMonths(s, 3), comparisonLabel: "previous quarter" };
   }
-  if (p === "yearly") {
-    const s = _startOfYear(now);
+  if (selection.period === "yearly") {
     return {
-      currentStart: new Date(now.getFullYear(), 0, 1),
-      currentEnd: new Date(now.getFullYear() + 1, 0, 1),
+      currentStart: new Date(selection.year, 0, 1),
+      currentEnd: new Date(selection.year + 1, 0, 1),
       comparisonLabel: "previous year"
     };
   }
-  const s = _startOfMonth(now);
+  const s = new Date(selection.year, selection.month - 1, 1);
   return { currentStart: s, currentEnd: _addMonths(s, 1), comparisonLabel: "previous month" };
 }
 
@@ -1207,13 +1248,16 @@ const getLeadsAnalytics = async (req, res) => {
     const actorRole = String(req.user.role || "").toLowerCase();
     const isPrivileged = actorRole === "admin" || actorRole === "manager";
 
-    const ranges = getLeadsReportRange(req.query?.period);
+    const ranges = getLeadsReportRange(req.query, new Date());
     const { currentStart, currentEnd, comparisonLabel } = ranges;
 
     const currentMatch = { is_deleted: { $ne: true }, created_at: { $gte: currentStart, $lt: currentEnd } };
     
     // Calculate previous period for growth comparison
-    const { currentStart: prevStart, currentEnd: prevEnd } = getLeadsReportRange(req.query?.period, new Date(currentStart.getTime() - 1));
+    const { currentStart: prevStart, currentEnd: prevEnd } = getLeadsReportRange(
+      req.query,
+      new Date(currentStart.getTime() - 1)
+    );
     const prevMatch = { is_deleted: { $ne: true }, created_at: { $gte: prevStart, $lt: prevEnd } };
 
     if (!isPrivileged) {
@@ -1222,7 +1266,8 @@ const getLeadsAnalytics = async (req, res) => {
       prevMatch.assigned_to = oid;
     }
 
-    const [currentStats, prevStats, uncontactedCount] = await Promise.all([
+    const now = new Date();
+    const [currentStats, prevStats, sourceAgg, agingAgg, trendData, currentLeadRows, followupAgg] = await Promise.all([
       Leads.aggregate([
         { $match: currentMatch },
         {
@@ -1230,40 +1275,203 @@ const getLeadsAnalytics = async (req, res) => {
             _id: null,
             total: { $sum: 1 },
             converted: { $sum: { $cond: [{ $eq: ["$converted_to_deal", true] }, 1, 0] } },
-            newCount: { $sum: { $cond: [{ $eq: ["$status", "new"] }, 1, 0] } },
-            contactedCount: { $sum: { $cond: [{ $eq: ["$status", "contacted"] }, 1, 0] } },
-            qualifiedCount: { $sum: { $cond: [{ $eq: ["$status", "qualified"] }, 1, 0] } },
-            rejectedCount: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+            qualifiedCount: {
+              $sum: {
+                $cond: [{ $in: ["$stage", ["P4", "P5", "P6", "P7"]] }, 1, 0]
+              }
+            },
           }
         }
       ]),
       Leads.countDocuments(prevMatch),
-      Leads.countDocuments({ ...currentMatch, last_contact_date: { $eq: null } })
+      // Source Performance
+      Leads.aggregate([
+        { $match: currentMatch },
+        { $group: { _id: "$source", total: { $sum: 1 }, converted: { $sum: { $cond: [{ $eq: ["$converted_to_deal", true] }, 1, 0] } } } },
+        { $lookup: { from: "sources", localField: "_id", foreignField: "_id", as: "sourceDoc" } },
+        { $unwind: { path: "$sourceDoc", preserveNullAndEmptyArrays: true } },
+        { $project: { label: { $ifNull: ["$sourceDoc.name", "Unknown"] }, total: 1, converted: 1 } },
+        { $sort: { total: -1 } }
+      ]),
+      // Lead Aging (Unconverted leads)
+      Leads.aggregate([
+        { $match: { ...currentMatch, converted_to_deal: { $ne: true }, stage: { $ne: "P7" } } },
+        { $project: { days: { $divide: [{ $subtract: [now, "$created_at"] }, 1000 * 60 * 60 * 24] } } },
+        { $bucket: { groupBy: "$days", boundaries: [0, 3, 8], default: 8, output: { count: { $sum: 1 } } } }
+      ]),
+      // Trend Data for chart
+      Leads.aggregate([
+        { $match: currentMatch },
+        { $group: { _id: { year: { $year: "$created_at" }, month: { $month: "$created_at" }, day: { $dayOfMonth: "$created_at" } }, count: { $sum: 1 } } },
+        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
+      ]),
+      Leads.find(currentMatch)
+        .select("_id company_name stage converted_to_deal last_contact_date created_at assigned_to source")
+        .sort({ created_at: -1 })
+        .lean(),
+      Followup.aggregate([
+        { $match: { is_deleted: false, leadId: { $ne: null } } },
+        {
+          $group: {
+            _id: "$leadId",
+            totalFollowups: { $sum: 1 },
+            meetingCount: {
+              $sum: {
+                $cond: [{ $eq: ["$kind", "meeting"] }, 1, 0]
+              }
+            }
+          }
+        }
+      ])
     ]);
 
-    const stats = currentStats[0] || { total: 0, converted: 0, newCount: 0, contactedCount: 0, qualifiedCount: 0, rejectedCount: 0 };
+    const stats = currentStats[0] || { total: 0, converted: 0, qualifiedCount: 0 };
     
     // Growth formula: ((Current - Previous) / Previous) * 100
     const growth = prevStats > 0 ? ((stats.total - prevStats) / prevStats) * 100 : (stats.total > 0 ? 100 : 0);
 
+    const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const leadsTrend = (trendData || []).map(t => ({
+      label: `${t._id.day} ${MONTHS[(t._id.month || 1) - 1]}`,
+      total: t.count
+    }));
+
+    const agingMap = { "0-2": 0, "3-7": 0, "7+": 0 };
+    (agingAgg || []).forEach(b => {
+      if (b._id === 0) agingMap["0-2"] = b.count;
+      else if (b._id === 3) agingMap["3-7"] = b.count;
+      else agingMap["7+"] = b.count;
+    });
+
+    const followupMap = new Map(
+      (followupAgg || [])
+        .filter((row) => row?._id)
+        .map((row) => [
+          String(row._id),
+          {
+            totalFollowups: Number(row.totalFollowups || 0),
+            meetingCount: Number(row.meetingCount || 0),
+          },
+        ])
+    );
+    const leadRows = Array.isArray(currentLeadRows) ? currentLeadRows : [];
+    const assigneeIds = [...new Set(
+      leadRows
+        .map((row) => String(row?.assigned_to || "").trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    )].map((id) => new mongoose.Types.ObjectId(id));
+    const sourceIds = [...new Set(
+      leadRows
+        .map((row) => String(row?.source || "").trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    )].map((id) => new mongoose.Types.ObjectId(id));
+    const [assignees, sources] = await Promise.all([
+      assigneeIds.length ? User.find({ _id: { $in: assigneeIds } }).select("name email").lean() : [],
+      sourceIds.length ? Source.find({ _id: { $in: sourceIds } }).select("name").lean() : [],
+    ]);
+    const assigneeMap = new Map(
+      (assignees || []).map((user) => [String(user?._id || ""), user])
+    );
+    const sourceMap = new Map(
+      (sources || []).map((sourceDoc) => [String(sourceDoc?._id || ""), sourceDoc])
+    );
+    let contactedCount = 0;
+    let uncontactedCount = 0;
+    let leadsWithFollowupsCount = 0;
+
+    let convertedWithMeetings = 0;
+    let convertedWithActivity = 0;
+    let convertedWithoutActivity = 0;
+    let totalWithMeetings = 0;
+    let totalWithActivity = 0;
+    let totalWithoutActivity = 0;
+    const tableRows = [];
+
+    for (const leadRow of leadRows) {
+      const leadId = String(leadRow?._id || "");
+      const leadFollowupStats = followupMap.get(leadId) || { totalFollowups: 0, meetingCount: 0 };
+      const hasMeetings = leadFollowupStats.meetingCount > 0;
+      const hasFollowups = leadFollowupStats.totalFollowups > 0;
+      const hasLastContact = Boolean(leadRow?.last_contact_date);
+      const hasActivity = hasFollowups || hasLastContact;
+      const isConverted =
+        leadRow?.converted_to_deal === true ||
+        String(leadRow?.stage || "").toUpperCase() === "P7";
+
+      if (hasFollowups) leadsWithFollowupsCount += 1;
+      if (hasActivity) contactedCount += 1;
+      else uncontactedCount += 1;
+      if (hasMeetings) totalWithMeetings += 1;
+      if (hasActivity) totalWithActivity += 1;
+      else totalWithoutActivity += 1;
+
+      tableRows.push({
+        id: leadId,
+        companyName: leadRow?.company_name || "Unnamed Lead",
+        sourceLabel: sourceMap.get(String(leadRow?.source || ""))?.name || "Unknown",
+        status: isConverted ? "converted" : "active",
+        assignedToName:
+          assigneeMap.get(String(leadRow?.assigned_to || ""))?.name ||
+          assigneeMap.get(String(leadRow?.assigned_to || ""))?.email ||
+          "Unassigned",
+        createdAt: leadRow?.created_at || null,
+        lastContactDate: leadRow?.last_contact_date || null,
+        isContacted: hasActivity,
+        isConverted,
+        totalFollowups: leadFollowupStats.totalFollowups,
+        meetingCount: leadFollowupStats.meetingCount,
+      });
+
+      if (!isConverted) continue;
+
+      if (hasMeetings) convertedWithMeetings += 1;
+      if (hasActivity) convertedWithActivity += 1;
+      else convertedWithoutActivity += 1;
+    }
+
+    const conversionInsights = {
+      withMeetings: {
+        leads: totalWithMeetings,
+        converted: convertedWithMeetings,
+        rate: totalWithMeetings ? Math.round((convertedWithMeetings / totalWithMeetings) * 100) : 0,
+      },
+      withActivity: {
+        leads: totalWithActivity,
+        converted: convertedWithActivity,
+        rate: totalWithActivity ? Math.round((convertedWithActivity / totalWithActivity) * 100) : 0,
+      },
+      withoutActivity: {
+        leads: totalWithoutActivity,
+        converted: convertedWithoutActivity,
+        rate: totalWithoutActivity ? Math.round((convertedWithoutActivity / totalWithoutActivity) * 100) : 0,
+      },
+    };
+
     res.json({
+      comparisonLabel,
       kpis: {
         total: stats.total,
+        contacted: contactedCount,
         converted: stats.converted,
+        notConverted: Math.max(0, stats.total - stats.converted),
         uncontacted: uncontactedCount,
         growth: growth,
-        // Helpers for funnel
-        new: stats.newCount,
-        contacted: stats.contactedCount,
-        qualified: stats.qualifiedCount,
-        rejected: stats.rejectedCount,
       },
       funnel: [
-        { label: "New Leads", count: stats.newCount },
-        { label: "Contacted", count: stats.contactedCount },
+        { label: "Leads", count: stats.total },
+        { label: "Contacted", count: contactedCount },
         { label: "Qualified", count: stats.qualifiedCount },
         { label: "Converted", count: stats.converted },
       ],
+      sourcePerformance: sourceAgg,
+      leadAging: [
+        { label: "0–2 days", count: agingMap["0-2"] },
+        { label: "3–7 days", count: agingMap["3-7"] },
+        { label: "7+ days", count: agingMap["7+"] },
+      ],
+      leadsTrend,
+      conversionInsights,
+      tableRows,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

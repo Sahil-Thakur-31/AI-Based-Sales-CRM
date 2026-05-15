@@ -13,6 +13,24 @@ let ocrUnavailableReason = "";
 let activePythonExec = "";
 let allowAutoRestart = true;
 
+function uniqueCommandEntries(entries) {
+  const seen = new Set();
+  return entries.filter((entry) => {
+    const key = `${entry.command}::${(entry.args || []).join(" ")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function commandExists(command) {
+  if (!command) return false;
+  if (command.includes("\\") || command.includes("/") || command.endsWith(".exe")) {
+    return fs.existsSync(command);
+  }
+  return true;
+}
+
 function collectExistingPythonPaths(baseDir) {
   try {
     if (!baseDir || !fs.existsSync(baseDir)) {
@@ -28,28 +46,42 @@ function collectExistingPythonPaths(baseDir) {
   }
 }
 
-function resolvePythonExec() {
-  const candidates = [
-    process.env.OCR_PYTHON_EXEC,
-    process.env.EXPENSE_OCR_PYTHON_EXEC,
-    LOCAL_PYTHON_EXEC,
+function getPythonCommands() {
+  const discoveredPythonCandidates = [
     ...collectExistingPythonPaths(path.join(process.env.LOCALAPPDATA || "", "Programs", "Python")),
     ...collectExistingPythonPaths(path.join(process.env.ProgramFiles || "", "Python")),
     ...collectExistingPythonPaths(path.join(process.env["ProgramFiles(x86)"] || "", "Python")),
-    "python",
-    "py",
-  ].filter(Boolean);
+  ].map((command) => ({ command, args: [] }));
 
-  for (const candidate of candidates) {
-    if (candidate === "python" || candidate === "py") {
-      return candidate;
-    }
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
+  const windowsCandidates = [
+    { command: process.env.OCR_PYTHON_EXEC, args: [] },
+    { command: process.env.EXPENSE_OCR_PYTHON_EXEC, args: [] },
+    { command: LOCAL_PYTHON_EXEC, args: [] },
+    { command: "C:\\Python314\\python.exe", args: [] },
+    ...discoveredPythonCandidates,
+    { command: "py", args: ["-3.14"] },
+    { command: "C:\\Windows\\py.exe", args: ["-3.14"] },
+    { command: "python", args: [] },
+    { command: "python.exe", args: [] },
+    { command: "py", args: ["-3"] },
+    { command: "py", args: [] },
+    { command: "C:\\Windows\\py.exe", args: ["-3"] },
+    { command: "C:\\Windows\\py.exe", args: [] },
+  ];
 
-  return "";
+  const fallbackCommands = process.platform === "win32"
+    ? windowsCandidates
+    : [
+        { command: process.env.OCR_PYTHON_EXEC, args: [] },
+        { command: process.env.EXPENSE_OCR_PYTHON_EXEC, args: [] },
+        { command: LOCAL_PYTHON_EXEC, args: [] },
+        { command: "python3.14", args: [] },
+        { command: "python3", args: [] },
+        { command: "python", args: [] },
+      ];
+
+  return uniqueCommandEntries(fallbackCommands.filter((entry) => entry.command))
+    .filter((entry) => commandExists(entry.command));
 }
 
 function markOcrUnavailable(reason) {
@@ -72,29 +104,35 @@ function disableAutoRestart(reason) {
 function startPythonBridge() {
   if (pythonProcess) return;
 
-  const pythonExec = resolvePythonExec();
-  if (!pythonExec) {
+  const pythonCommands = getPythonCommands();
+  const pythonCommand = pythonCommands[0];
+  if (!pythonCommand) {
     disableAutoRestart("OCR Python executable not found. Set OCR_PYTHON_EXEC or restore backend/ocr/runtime/.venv.");
     return;
   }
 
   ocrUnavailableReason = "";
-  activePythonExec = pythonExec;
+  activePythonExec = [pythonCommand.command, ...(pythonCommand.args || [])].join(" ");
 
-  console.log(`[OCR] Starting Python bridge with ${pythonExec}...`);
+  console.log(`[OCR] Starting Python bridge with ${activePythonExec}...`);
   let proc;
   try {
-    proc = spawn(pythonExec, [BRIDGE_SCRIPT], {
-      env: { ...process.env, OCR_USE_GPU: process.env.OCR_USE_GPU || "1" },
+    proc = spawn(pythonCommand.command, [...(pythonCommand.args || []), BRIDGE_SCRIPT], {
+      env: {
+        ...process.env,
+        OCR_USE_GPU: process.env.OCR_USE_GPU || "1",
+        PYTHONIOENCODING: process.env.PYTHONIOENCODING || "utf-8",
+        PYTHONUTF8: process.env.PYTHONUTF8 || "1",
+      },
     });
   } catch (err) {
-    disableAutoRestart(`Failed to start OCR Python bridge using ${pythonExec}: ${err.message || err}`);
+    disableAutoRestart(`Failed to start OCR Python bridge using ${activePythonExec}: ${err.message || err}`);
     return;
   }
   pythonProcess = proc;
 
   proc.once("error", (err) => {
-    disableAutoRestart(`Failed to start OCR Python bridge using ${pythonExec}: ${err.message || err}`);
+    disableAutoRestart(`Failed to start OCR Python bridge using ${activePythonExec}: ${err.message || err}`);
   });
 
   proc.stdout.on("data", (data) => {
@@ -110,6 +148,10 @@ function startPythonBridge() {
 
       try {
         const result = JSON.parse(line);
+        if (result?.error && /EasyOCR init failed|Import failed/i.test(String(result.error))) {
+          disableAutoRestart(result.error);
+          continue;
+        }
         const req = pendingRequests.shift();
         if (req) {
           req.resolve(result);

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
+import DashboardDateFilter from "../components/DashboardDateFilter";
 import FormErrorSlot from "../components/FormErrorSlot";
 import MeetingsEventsPanel from "../components/MeetingsEventsPanel";
 import StatCard from "../components/StatCard";
@@ -24,9 +25,13 @@ const EMPTY_CANCEL_MODAL = {
 
 function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
   const navigate = useNavigate();
+  const today = new Date();
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState("");
-  const [range, setRange] = useState("month");
+  const [period, setPeriod] = useState("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
+  const [selectedYear, setSelectedYear] = useState(String(today.getFullYear()));
   const [selectedItem, setSelectedItem] = useState(null);
   const [doneModal, setDoneModal] = useState(EMPTY_DONE_MODAL);
   const [doneModalError, setDoneModalError] = useState("");
@@ -84,6 +89,18 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
     return "Not Completed";
   }
 
+  const range = period === "quarterly" ? "quarter" : period === "yearly" ? "year" : "month";
+  const dashboardParams = useMemo(
+    () => ({
+      period,
+      range,
+      month: selectedMonth + 1,
+      quarter: selectedQuarter,
+      year: selectedYear
+    }),
+    [period, range, selectedMonth, selectedQuarter, selectedYear]
+  );
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -91,7 +108,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
       try {
         setError("");
         const response = await API.get(dashboardEndpoint, {
-          params: { range },
+          params: dashboardParams,
           signal: controller.signal
         });
         setDashboardData(response.data);
@@ -103,10 +120,10 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
 
     loadDashboard();
     return () => controller.abort();
-  }, [dashboardEndpoint, range]);
+  }, [dashboardEndpoint, dashboardParams]);
 
   const refreshDashboard = async () => {
-    const response = await API.get(dashboardEndpoint, { params: { range } });
+    const response = await API.get(dashboardEndpoint, { params: dashboardParams });
     setDashboardData(response.data);
   };
 
@@ -258,6 +275,24 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
       <div className="dashboard container-fluid">
         {error ? <p>{error}</p> : null}
 
+        <div className="manager-dashboard-toolbar">
+            <DashboardDateFilter
+            period={period}
+            periodOptions={[
+              { value: "monthly", label: "Monthly" },
+              { value: "quarterly", label: "Quarterly" },
+              { value: "yearly", label: "Yearly" }
+            ]}
+            month={selectedMonth}
+            quarter={selectedQuarter}
+            year={selectedYear}
+            onPeriodChange={setPeriod}
+            onMonthChange={setSelectedMonth}
+            onQuarterChange={setSelectedQuarter}
+            onYearChange={setSelectedYear}
+          />
+        </div>
+
         <div className="manager-stats-grid mt-2">
           {stats.map((stat, index) => (
             <div key={index} className="manager-stat-col">
@@ -272,7 +307,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
               <MeetingsEventsPanel
                 activityData={dashboardData.activity}
                 range={range}
-                onRangeChange={setRange}
+                showRangeSelect={false}
               />
             </div>
           </div>

@@ -20,8 +20,8 @@ const dealsSchema = new mongoose.Schema(
 
     stage: {
       type: String,
-      enum: ["P1", "P2", "P3", "P7"],
-      default: "P1",
+      enum: ["P1", "P2", "P3", "P6", "P7"],
+      default: "P3",
     },
 
     dealValue: {
@@ -34,18 +34,16 @@ const dealsSchema = new mongoose.Schema(
 
     expectedCloseDate: {
       type: Date,
+      default: () => {
+        const date = new Date();
+        date.setDate(date.getDate() + 60);
+        return date;
+      },
     },
 
     actualCloseDate: {
       type: Date,
     },
-
-    status: {
-      type: String,
-      enum: ["open", "won", "lost"],
-      default: "open",
-    },
-
     aiRiskScore: {
       type: Number,
     },
@@ -66,6 +64,12 @@ const dealsSchema = new mongoose.Schema(
     },
 
     deleted_reason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    reason_for_lost: {
       type: String,
       trim: true,
       default: "",

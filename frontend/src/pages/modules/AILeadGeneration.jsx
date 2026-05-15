@@ -2,19 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import API from "../../api";
 import "./styles/AILeadGeneration.css";
 
-function formatDateTime(value) {
-  if (!value) return "Not run yet";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not run yet";
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function normalizeText(value) {
   return String(value || "").trim();
 }
@@ -32,6 +19,7 @@ export default function AILeadGeneration() {
     total: 0,
     imported: 0,
     industries: 0,
+    todayFetchedCount: 0,
     lastRunAt: null,
     lastRunStatus: "",
     lastImportedCount: 0,
@@ -42,6 +30,8 @@ export default function AILeadGeneration() {
   const [importingId, setImportingId] = useState("");
   const [bulkImporting, setBulkImporting] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [sortBy, setSortBy] = useState("company-asc");
 
@@ -98,19 +88,38 @@ export default function AILeadGeneration() {
   }, [remainingLeads]);
 
   const filteredLeads = useMemo(() => {
+    const query = normalizeText(searchQuery).toLowerCase();
     const rows = remainingLeads.filter((lead) => {
-      return selectedIndustry === "All Industries" || lead.industry === selectedIndustry;
+      const matchesIndustry = selectedIndustry === "All Industries" || lead.industry === selectedIndustry;
+      if (!matchesIndustry) return false;
+      if (!query) return true;
+
+      return [
+        lead.company,
+        lead.industry,
+        lead.location,
+        lead.employees,
+        lead.turnover,
+        lead.phone,
+        lead.email,
+        lead.source,
+        lead.status,
+      ].some((value) => String(value || "").toLowerCase().includes(query));
     });
 
     return [...rows].sort((a, b) => {
+      const generatedA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+      const generatedB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
       if (sortBy === "company-desc") return compareText(b.company, a.company);
       if (sortBy === "industry-asc") return compareText(a.industry, b.industry) || compareText(a.company, b.company);
       if (sortBy === "industry-desc") return compareText(b.industry, a.industry) || compareText(a.company, b.company);
+      if (sortBy === "generated-desc") return generatedB - generatedA || compareText(a.company, b.company);
+      if (sortBy === "generated-asc") return generatedA - generatedB || compareText(a.company, b.company);
       if (sortBy === "rating-desc") return Number(b.rating || 0) - Number(a.rating || 0) || compareText(a.company, b.company);
       if (sortBy === "reviews-desc") return Number(b.reviewsCount || 0) - Number(a.reviewsCount || 0) || compareText(a.company, b.company);
       return compareText(a.company, b.company);
     });
-  }, [remainingLeads, selectedIndustry, sortBy]);
+  }, [remainingLeads, searchQuery, selectedIndustry, sortBy]);
 
   useEffect(() => {
     setSelectedLeadIds((prev) =>
@@ -118,10 +127,26 @@ export default function AILeadGeneration() {
     );
   }, [remainingLeads]);
 
+  const filteredLeadIds = useMemo(
+    () => filteredLeads.map((lead) => String(lead._id || "")).filter(Boolean),
+    [filteredLeads]
+  );
+  const allFilteredSelected =
+    filteredLeadIds.length > 0 && filteredLeadIds.every((id) => selectedLeadIds.includes(id));
+
   const toggleLeadSelection = (leadId) => {
     setSelectedLeadIds((prev) =>
       prev.includes(leadId) ? prev.filter((id) => id !== leadId) : [...prev, leadId]
     );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedLeadIds((prev) => {
+      if (allFilteredSelected) {
+        return prev.filter((id) => !filteredLeadIds.includes(id));
+      }
+      return Array.from(new Set([...prev, ...filteredLeadIds]));
+    });
   };
 
   const handleBulkImportSelected = async () => {
@@ -143,7 +168,7 @@ export default function AILeadGeneration() {
   const totalLeads = Number(summary.total || remainingLeads.length || 0);
   const importedLeads = Number(summary.imported || 0);
   const industryCount = Number(summary.industries || Math.max(0, industryOptions.length - 1));
-  const lastRunText = formatDateTime(summary.lastRunAt);
+  const todayFetchedCount = Number(summary.todayFetchedCount || 0);
 
   return (
     <div className="aiLead-container">
@@ -161,14 +186,24 @@ export default function AILeadGeneration() {
           <p>Industries Found</p>
         </div>
         <div className="aiLead-summaryCard">
-          <h3>{summary.lastRunStatus || "Waiting"}</h3>
-          <p>{lastRunText}</p>
+          <h3>{loading ? "..." : `${todayFetchedCount} new`}</h3>
+          <p>Today's Fetch</p>
         </div>
       </div>
 
       <div className="aiLead-tableSection">
         <div className="aiLead-tableHeader">
           <div className="aiLead-filterRow">
+            <label className="aiLead-filterLabel aiLead-searchLabel">
+              Search
+              <input
+                className="aiLead-searchInput"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search company, phone, email, location..."
+              />
+            </label>
+
             <label className="aiLead-filterLabel">
               Industry
               <select
@@ -195,29 +230,32 @@ export default function AILeadGeneration() {
                 <option value="company-desc">Company Z-A</option>
                 <option value="industry-asc">Industry A-Z</option>
                 <option value="industry-desc">Industry Z-A</option>
-                <option value="rating-desc">Rating High-Low</option>
-                <option value="reviews-desc">Reviews High-Low</option>
+                <option value="generated-desc">Generated Newest</option>
+                <option value="generated-asc">Generated Oldest</option>
               </select>
             </label>
-
-            <button className="aiLead-refreshBtn" type="button" onClick={loadAiLeads} disabled={loading}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
           </div>
         </div>
 
-        <table className="aiLead-table">
+        <table className="aiLead-table crm-auto-responsive-table">
           <thead>
             <tr>
-              <th className="aiLead-checkCol"></th>
+              <th className="aiLead-checkCol" data-label="Select">
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAllFiltered}
+                  disabled={!filteredLeadIds.length}
+                  aria-label="Select all visible AI leads"
+                />
+              </th>
               <th>Company</th>
               <th>Industry</th>
-              <th>Source</th>
               <th>Location</th>
               <th>Employees</th>
               <th>Turnover</th>
-              <th>Decision Maker</th>
-              <th>Rating</th>
+              <th>Phone</th>
+              <th>Email</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -225,7 +263,7 @@ export default function AILeadGeneration() {
           <tbody>
             {loading && (
               <tr>
-                <td className="aiLead-emptyCell" colSpan={10}>
+                <td className="aiLead-emptyCell" colSpan={9}>
                   Loading fetched leads...
                 </td>
               </tr>
@@ -235,32 +273,37 @@ export default function AILeadGeneration() {
               const leadId = String(lead._id || "");
               const isImporting = importingId === leadId;
               const checked = selectedLeadIds.includes(leadId);
-              const rating = Number(lead.rating || 0);
-              const reviews = Number(lead.reviewsCount || 0);
 
               return (
-                <tr key={leadId || lead.company}>
+                <tr
+                  key={leadId || lead.company}
+                  className="aiLead-clickableRow"
+                  onClick={() => setSelectedLead(lead)}
+                >
                   <td className="aiLead-checkCol">
                     <input
                       type="checkbox"
                       checked={checked}
+                      onClick={(event) => event.stopPropagation()}
                       onChange={() => toggleLeadSelection(leadId)}
                       aria-label={`Select ${lead.company || "lead"}`}
                     />
                   </td>
                   <td>{lead.company || "-"}</td>
                   <td>{lead.industry || "-"}</td>
-                  <td>{lead.source || "-"}</td>
                   <td>{lead.location || "-"}</td>
                   <td>{lead.employees || "-"}</td>
                   <td>{lead.turnover || "-"}</td>
-                  <td>{lead.decisionMaker || "-"}</td>
-                  <td>{rating ? `${rating}${reviews ? ` (${reviews})` : ""}` : "-"}</td>
+                  <td>{lead.phone || "-"}</td>
+                  <td>{lead.email || "-"}</td>
                   <td>
                     <button
                       className="aiLead-importBtn"
                       type="button"
-                      onClick={() => handleImport(leadId)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleImport(leadId);
+                      }}
                       disabled={isImporting || bulkImporting}
                     >
                       {isImporting ? "Importing..." : "Import"}
@@ -272,7 +315,7 @@ export default function AILeadGeneration() {
 
             {!loading && filteredLeads.length === 0 && (
               <tr>
-                <td className="aiLead-emptyCell" colSpan={10}>
+                <td className="aiLead-emptyCell" colSpan={9}>
                   No fetched leads found for the selected industry.
                 </td>
               </tr>
@@ -300,6 +343,60 @@ export default function AILeadGeneration() {
         </div>
         {error && <p className="aiLead-errorText">{error}</p>}
       </div>
+
+      {selectedLead ? (
+        <div className="aiLead-modalOverlay" role="presentation" onClick={() => setSelectedLead(null)}>
+          <div className="aiLead-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="aiLead-modalHeader">
+              <div>
+                <h3>{selectedLead.company || "AI Lead Details"}</h3>
+                <p>{selectedLead.industry || "-"} | {selectedLead.location || "-"}</p>
+              </div>
+              <button type="button" className="aiLead-modalClose" onClick={() => setSelectedLead(null)}>
+                x
+              </button>
+            </div>
+
+            <div className="aiLead-detailGrid">
+              {[
+                ["Company", selectedLead.company],
+                ["Industry", selectedLead.industry],
+                ["Location", selectedLead.location],
+                ["Employees", selectedLead.employees],
+                ["Turnover", selectedLead.turnover],
+                ["Phone", selectedLead.phone],
+                ["Email", selectedLead.email],
+                ["Website", selectedLead.website],
+                ["Source", selectedLead.source],
+                ["Decision Maker", selectedLead.decisionMaker],
+                ["Rating", selectedLead.rating],
+                ["Reviews", selectedLead.reviewsCount],
+                ["Generated At", selectedLead.generatedAt ? new Date(selectedLead.generatedAt).toLocaleString("en-IN") : ""],
+                ["Status", selectedLead.status],
+              ].map(([label, value]) => (
+                <div className="aiLead-detailItem" key={label}>
+                  <span>{label}</span>
+                  <strong>{value === null || value === undefined || value === "" ? "-" : value}</strong>
+                </div>
+              ))}
+            </div>
+
+            <div className="aiLead-modalActions">
+              <button
+                className="aiLead-importBtn"
+                type="button"
+                onClick={async () => {
+                  const ok = await handleImport(String(selectedLead._id || ""));
+                  if (ok) setSelectedLead(null);
+                }}
+                disabled={importingId === String(selectedLead._id || "") || bulkImporting}
+              >
+                {importingId === String(selectedLead._id || "") ? "Importing..." : "Import Lead"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -87,12 +87,11 @@ export default function ClientDeals() {
       </div>
 
       <div className="table-wrapper">
-        <table>
+        <table className="crm-responsive-table">
           <thead>
             <tr>
               <th>Company</th>
               <th>Stage</th>
-              <th>Status</th>
               <th>Value</th>
               <th>Updated</th>
               <th>Actions</th>
@@ -100,24 +99,23 @@ export default function ClientDeals() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={6}>Loading deals...</td>
+              <tr className="crm-table-status-row">
+                <td colSpan={5}>Loading deals...</td>
               </tr>
             ) : error ? (
-              <tr>
-                <td colSpan={6}>{error}</td>
+              <tr className="crm-table-status-row">
+                <td colSpan={5}>{error}</td>
               </tr>
             ) : paginatedDeals.length ? (
               paginatedDeals.map((deal) => {
                 const dealId = String(deal?._id || deal?.deal_id || "");
                 return (
                   <tr key={dealId}>
-                    <td className="company-cell">{deal.company_name || "-"}</td>
-                    <td>{deal.stage || "-"}</td>
-                    <td>{deal.status || "-"}</td>
-                    <td>{formatCurrency(deal.deal_value_estimate || deal.dealValue)}</td>
-                    <td>{formatDate(deal.updatedAt || deal.last_contact_date)}</td>
-                    <td>
+                    <td className="company-cell" data-label="Company">{deal.company_name || "-"}</td>
+                    <td data-label="Stage">{deal.stage || "-"}</td>
+                    <td data-label="Value">{formatCurrency(deal.deal_value_estimate || deal.dealValue)}</td>
+                    <td data-label="Updated">{formatDate(deal.updatedAt || deal.last_contact_date)}</td>
+                    <td data-label="Actions">
                       <div className="row-actions">
                         <button
                           className="view-btn"
@@ -132,8 +130,8 @@ export default function ClientDeals() {
                 );
               })
             ) : (
-              <tr>
-                <td colSpan={6}>No deals found for this client.</td>
+              <tr className="crm-table-status-row">
+                <td colSpan={5}>No deals found for this client.</td>
               </tr>
             )}
           </tbody>
@@ -146,4 +144,3 @@ export default function ClientDeals() {
     </div>
   );
 }
-

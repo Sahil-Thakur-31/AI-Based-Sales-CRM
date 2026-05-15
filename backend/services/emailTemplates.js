@@ -6,6 +6,8 @@ const Event = require("../models/events");
 const User = require("../models/users");
 
 const TEMPLATE_KEYS = {
+  MEETING_ASSIGNED: "meeting_assigned",
+  FOLLOWUP_ASSIGNED: "followup_assigned",
   MEETING_SCHEDULED: "meeting_scheduled",
   FOLLOWUP_SCHEDULED: "followup_scheduled",
   MEETING_COMPLETED: "meeting_completed",
@@ -60,36 +62,57 @@ function formatCurrency(value) {
   }).format(n);
 }
 
-function buildLayout({ heading, intro, rows = [], ctaUrl = "", ctaLabel = "Open CRM" }) {
+function buildLayout({ heading, intro, rows = [], ctaUrl = "", ctaLabel = "Open CRM", notes = "", footer = "" }) {
   const rowsHtml = rows
     .filter((row) => row && row.label && row.value !== undefined && row.value !== null && row.value !== "")
     .map(
       (row) => `
         <tr>
-          <td style="padding:8px 0;color:#6b7280;font-size:13px;">${escapeHtml(row.label)}</td>
-          <td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;text-align:right;">${escapeHtml(row.value)}</td>
+          <td style="padding:10px 0;color:#6b7280;font-size:13px;font-weight:500;">${escapeHtml(row.label)}</td>
+          <td style="padding:10px 0;color:#111827;font-size:14px;font-weight:600;text-align:right;">${escapeHtml(row.value)}</td>
         </tr>
       `
     )
     .join("");
 
+  const notesHtml = notes
+    ? `
+      <div style="margin-top:16px;padding:12px;background:#f0f9ff;border-left:4px solid #2563eb;border-radius:4px;">
+        <p style="margin:0;color:#1e40af;font-size:13px;font-weight:600;">Additional Information:</p>
+        <p style="margin:6px 0 0;color:#374151;font-size:13px;line-height:1.6;">${escapeHtml(notes)}</p>
+      </div>
+    `
+    : "";
+
   const ctaHtml = ctaUrl
     ? `
-      <div style="margin-top:20px;">
-        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:600;">
+      <div style="margin-top:20px;text-align:center;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:14px;">
           ${escapeHtml(ctaLabel)}
         </a>
       </div>
     `
     : "";
 
+  const footerHtml = footer
+    ? `
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+        <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.5;">${escapeHtml(footer)}</p>
+      </div>
+    `
+    : "";
+
   return `
-    <div style="font-family:Segoe UI,Arial,sans-serif;background:#f3f4f6;padding:24px;">
-      <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px;">
-        <h2 style="margin:0 0 10px;color:#111827;">${escapeHtml(heading)}</h2>
-        <p style="margin:0 0 14px;color:#374151;line-height:1.5;">${escapeHtml(intro)}</p>
-        <table style="width:100%;border-collapse:collapse;">${rowsHtml}</table>
+    <div style="font-family:'Segoe UI',Arial,sans-serif;background:#f3f4f6;padding:24px;margin:0;">
+      <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <div style="margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #f3f4f6;">
+          <h2 style="margin:0;color:#111827;font-size:20px;font-weight:700;">${escapeHtml(heading)}</h2>
+        </div>
+        <p style="margin:0 0 16px;color:#374151;line-height:1.6;font-size:14px;">${escapeHtml(intro)}</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">${rowsHtml}</table>
+        ${notesHtml}
         ${ctaHtml}
+        ${footerHtml}
       </div>
     </div>
   `;
@@ -102,6 +125,8 @@ function inferTemplateKey(notification = {}) {
   const blob = `${notification.title || ""} ${notification.message || ""} ${notification.relatedType || ""}`.toLowerCase();
 
   if (blob.includes("lead") && blob.includes("assigned")) return TEMPLATE_KEYS.LEAD_ASSIGNED;
+  if (blob.includes("meeting") && blob.includes("assigned")) return TEMPLATE_KEYS.MEETING_ASSIGNED;
+  if (blob.includes("follow") && blob.includes("assigned")) return TEMPLATE_KEYS.FOLLOWUP_ASSIGNED;
   if (blob.includes("meeting") && blob.includes("completed")) return TEMPLATE_KEYS.MEETING_COMPLETED;
   if (blob.includes("meeting") && (blob.includes("scheduled") || blob.includes("schedule") || blob.includes("rescheduled"))) {
     return TEMPLATE_KEYS.MEETING_SCHEDULED;
@@ -146,7 +171,6 @@ async function resolveRelatedData(notification = {}) {
     return User.findById(relatedId).lean();
   }
 
-  // Fallback: try likely collections
   const [meeting, followup, lead, expense, event, user] = await Promise.all([
     Meeting.findById(relatedId).lean(),
     Followup.findById(relatedId).lean(),
@@ -185,40 +209,123 @@ function buildTemplateByKey({
         })()
       : appBaseUrl;
 
+  const meetingDate = formatDate(relatedData?.meetingDate || relatedData?.startTime);
+  const meetingTime = formatDateTime(relatedData?.startTime || relatedData?.meetingDate);
+  const followupDateTime = formatDateTime(relatedData?.dueDateTime || relatedData?.nextActionDate);
+  const meetingAgenda = relatedData?.agenda_of_meating || relatedData?.agenda || relatedData?.notes || "";
+  const followupNotes = relatedData?.notes || relatedData?.agenda || "";
+
   switch (templateKey) {
-    case TEMPLATE_KEYS.MEETING_SCHEDULED: {
-      const subject = `Meeting Scheduled: ${relatedData?.title || notification.title || "New Meeting"}`;
-      const intro = `Hi ${safeRecipient}, a meeting has been scheduled for you.`;
+    case TEMPLATE_KEYS.MEETING_ASSIGNED: {
+      const subject = `Meeting Scheduled: ${relatedData?.title || notification.title || "Upcoming Meeting"}`;
+      const intro = `Hello ${safeRecipient}, a meeting has been scheduled and assigned to you. Please review the details below and prepare accordingly.`;
       const rows = [
-        { label: "Title", value: relatedData?.title || "" },
-        { label: "Client", value: relatedData?.clientName || "" },
-        { label: "Date", value: formatDate(relatedData?.meetingDate || relatedData?.startTime) },
-        { label: "Start Time", value: formatDateTime(relatedData?.startTime) },
-        { label: "Type", value: relatedData?.meetingType || "" },
-        { label: "Priority", value: relatedData?.priority || "" },
-        { label: "Location", value: relatedData?.Address || "" },
+        { label: "Meeting Title", value: relatedData?.title || "" },
+        { label: "Client/Company", value: relatedData?.clientName || "" },
+        { label: "Date", value: meetingDate },
+        { label: "Time", value: meetingTime },
+        { label: "Duration", value: relatedData?.durationMinutes ? `${relatedData.durationMinutes} minutes` : "Not specified" },
+        { label: "Meeting Type", value: relatedData?.meetingType || relatedData?.actionType || "" },
+        { label: "Location", value: relatedData?.meetingLocation || relatedData?.Address || relatedData?.address || "To be confirmed" },
+        { label: "Priority", value: (relatedData?.priority || "").toUpperCase() || "MEDIUM" },
       ];
+      const footer = "This is an automated CRM message. Please review the meeting details in the CRM and update the schedule if any changes are required.";
       return {
         subject,
-        html: buildLayout({ heading: "New Meeting Scheduled", intro, rows, ctaUrl, ctaLabel: "View Meeting" }),
-        text: `${intro}\nTitle: ${rows[0].value}\nDate: ${rows[2].value}\nTime: ${rows[3].value}\nLocation: ${rows[6].value}`,
+        html: buildLayout({
+          heading: "Meeting Scheduled",
+          intro,
+          rows,
+          ctaUrl,
+          ctaLabel: "Open Meeting",
+          notes: meetingAgenda ? `Agenda: ${meetingAgenda}` : "",
+          footer,
+        }),
+        text: `${intro}\n\nMeeting: ${rows[0].value}\nClient: ${rows[1].value}\nDate: ${rows[2].value}\nTime: ${rows[3].value}\nLocation: ${rows[6].value}${meetingAgenda ? `\nAgenda: ${meetingAgenda}` : ""}`,
+      };
+    }
+
+    case TEMPLATE_KEYS.FOLLOWUP_ASSIGNED: {
+      const subject = `Follow-up Scheduled: ${relatedData?.title || notification.title || "Upcoming Follow-up"}`;
+      const intro = `Hello ${safeRecipient}, a follow-up activity has been scheduled and assigned to you. Please review the details below and take action on time.`;
+      const rows = [
+        { label: "Follow-up Title", value: relatedData?.title || "" },
+        { label: "Client/Company", value: relatedData?.clientName || "" },
+        { label: "Due Date & Time", value: followupDateTime },
+        { label: "Action Type", value: relatedData?.actionType || "Phone Call" },
+        { label: "Priority", value: (relatedData?.priority || "medium").toUpperCase() },
+        { label: "Stage", value: relatedData?.stage || "P1" },
+      ];
+      const footer = "This is an automated CRM message. Please update the follow-up status in the CRM once the activity is completed or rescheduled.";
+      return {
+        subject,
+        html: buildLayout({
+          heading: "Follow-up Scheduled",
+          intro,
+          rows,
+          ctaUrl,
+          ctaLabel: "Open Follow-up",
+          notes: followupNotes ? `Details: ${followupNotes}` : "",
+          footer,
+        }),
+        text: `${intro}\n\nFollow-up: ${rows[0].value}\nClient: ${rows[1].value}\nDue: ${rows[2].value}\nAction Type: ${rows[3].value}\nPriority: ${rows[4].value}${followupNotes ? `\nDetails: ${followupNotes}` : ""}`,
+      };
+    }
+
+    case TEMPLATE_KEYS.MEETING_SCHEDULED: {
+      const subject = `Meeting Reminder: ${relatedData?.title || notification.title || "Upcoming Meeting"}`;
+      const intro = `Hello ${safeRecipient}, this is a reminder about your upcoming meeting. Please review the meeting details below and be prepared before the scheduled time.`;
+      const rows = [
+        { label: "Meeting Title", value: relatedData?.title || "" },
+        { label: "Client/Company", value: relatedData?.clientName || "" },
+        { label: "Date", value: meetingDate },
+        { label: "Time", value: meetingTime },
+        { label: "Duration", value: relatedData?.durationMinutes ? `${relatedData?.durationMinutes} minutes` : "Not specified" },
+        { label: "Meeting Type", value: relatedData?.meetingType || relatedData?.actionType || "" },
+        { label: "Location", value: relatedData?.meetingLocation || relatedData?.Address || relatedData?.address || "To be confirmed" },
+        { label: "Priority", value: (relatedData?.priority || "").toUpperCase() || "MEDIUM" },
+        { label: "Stage", value: relatedData?.stage || "" },
+      ];
+      const footer = "This is an automated reminder from CRM. Please log in to review, reschedule, or update the meeting if needed.";
+      return {
+        subject,
+        html: buildLayout({
+          heading: "Upcoming Meeting Reminder",
+          intro,
+          rows,
+          ctaUrl,
+          ctaLabel: "View Meeting Details",
+          notes: meetingAgenda ? `Agenda: ${meetingAgenda}` : "",
+          footer,
+        }),
+        text: `${intro}\n\nMeeting: ${rows[0].value}\nClient: ${rows[1].value}\nDate: ${rows[2].value}\nTime: ${rows[3].value}\nLocation: ${rows[6].value}${meetingAgenda ? `\nAgenda: ${meetingAgenda}` : ""}`,
       };
     }
 
     case TEMPLATE_KEYS.FOLLOWUP_SCHEDULED: {
-      const subject = `Follow-up Scheduled: ${relatedData?.title || "Action Required"}`;
-      const intro = `Hi ${safeRecipient}, a follow-up has been scheduled for you.`;
+      const subject = `Follow-up Reminder: ${relatedData?.title || "Upcoming Follow-up"}`;
+      const intro = `Hello ${safeRecipient}, this is a reminder about your upcoming follow-up activity. Please review the details below and take the necessary action on time.`;
       const rows = [
-        { label: "Title", value: relatedData?.title || "" },
-        { label: "Client", value: relatedData?.clientName || "" },
-        { label: "Due", value: formatDateTime(relatedData?.dueDateTime) },
-        { label: "Priority", value: relatedData?.priority || "" },
-        { label: "Stage", value: relatedData?.stage || "" },
+        { label: "Follow-up Title", value: relatedData?.title || "" },
+        { label: "Client/Company", value: relatedData?.clientName || "" },
+        { label: "Due Date & Time", value: followupDateTime },
+        { label: "Priority", value: (relatedData?.priority || "medium").toUpperCase() },
+        { label: "Stage", value: relatedData?.stage || "P1" },
+        { label: "Action Type", value: relatedData?.actionType || "Phone Call" },
       ];
+      const footer = "This is an automated reminder from CRM. Please update the follow-up in the CRM once it is completed or rescheduled.";
       return {
         subject,
-        html: buildLayout({ heading: "Follow-up Scheduled", intro, rows, ctaUrl, ctaLabel: "View Follow-up" }),
-        text: `${intro}\nTitle: ${rows[0].value}\nDue: ${rows[2].value}\nPriority: ${rows[3].value}`,
+        html: buildLayout({
+          heading: "Follow-up Action Reminder",
+          intro,
+          rows,
+          ctaUrl,
+          ctaLabel: "View Follow-up Details",
+          notes: followupNotes ? `Details: ${followupNotes}` : "",
+          footer,
+        }),
+        text: `${intro}\n\nFollow-up: ${rows[0].value}\nClient: ${rows[1].value}\nDue: ${rows[2].value}\nPriority: ${rows[3].value}\nStage: ${rows[4].value}${followupNotes ? `\nDetails: ${followupNotes}` : ""}`,
       };
     }
 
@@ -247,7 +354,6 @@ function buildTemplateByKey({
         { label: "Company", value: relatedData?.company_name || "" },
         { label: "Industry", value: relatedData?.industry || "" },
         { label: "Value Estimate", value: formatCurrency(relatedData?.deal_value_estimate) },
-        { label: "Temperature", value: relatedData?.lead_temperature || "" },
         { label: "Status", value: relatedData?.status || "" },
       ];
       return {

@@ -3,33 +3,39 @@
 
 const svc = require("../services/adminDashboardService");
 
+function getFilters(query = {}) {
+  return {
+    period: query.period,
+    range: query.range || "month",
+    month: query.month,
+    quarter: query.quarter,
+    year: query.year
+  };
+}
+
 exports.summary = async (req, res) => {
-  const range = req.query.range || "month";
-  const data = await svc.getSummary(range);
+  const data = await svc.getSummary(getFilters(req.query));
   res.json(data);
 };
 
 exports.pipeline = async (req, res) => {
-  const range = req.query.range || "month";
+  const filters = getFilters(req.query);
   const pipelineType = String(req.query.pipelineType || req.query.type || "deal").toLowerCase();
-  const data = await svc.getPipeline(range, pipelineType);
+  const data = await svc.getPipeline(filters, pipelineType);
   res.json(data);
 };
 
 exports.teamPerformance = async (req, res) => {
-  const range = req.query.range || "month";
-  const data = await svc.getTeamPerformance(range);
+  const data = await svc.getTeamPerformance(getFilters(req.query));
   res.json(data);
 };
 
 exports.followups = async (req, res) => {
-  const range = req.query.range || "month";
-  const data = await svc.getFollowups(range, req.user?._id);
+  const data = await svc.getFollowups(getFilters(req.query), req.user?._id);
   res.json(data);
 };
 
 exports.recentDeals = async (req, res) => {
-  const range = req.query.range || "month";
-  const data = await svc.getRecentDeals(range);
+  const data = await svc.getRecentDeals(getFilters(req.query));
   res.json(data);
 };

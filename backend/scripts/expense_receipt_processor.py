@@ -8,6 +8,17 @@ import cv2
 import numpy as np
 
 
+def patch_bidi_for_easyocr():
+    try:
+        import bidi  # type: ignore
+        if hasattr(bidi, "get_display"):
+            return
+        from bidi.algorithm import get_display as bidi_get_display  # type: ignore
+        bidi.get_display = bidi_get_display
+    except Exception:
+        pass
+
+
 def load_payload():
     if len(sys.argv) < 2:
         raise ValueError("Missing payload")
@@ -16,6 +27,7 @@ def load_payload():
 
 def maybe_run_easyocr(image_paths):
     try:
+        patch_bidi_for_easyocr()
         import easyocr  # type: ignore
     except Exception:
         return [{

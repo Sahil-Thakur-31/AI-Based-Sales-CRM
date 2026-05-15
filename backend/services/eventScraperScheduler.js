@@ -7,7 +7,6 @@ const MIN_SCORE = 50;
 
 let schedulerStarted = false;
 let cronJob = null;
-let nextScheduledRunDate = null; // Date object representing the next scheduled run at 12:00 AM
 let runInProgress = false;
 
 const compactSyncResult = (result = null) => {
@@ -143,22 +142,6 @@ async function runScheduledScrape() {
   }
 }
 
-function calculateNextScheduledRunDate() {
-  // Calculate the date 2 days from now at 12:00 AM
-  const now = new Date();
-  const nextRun = new Date(now);
-  nextRun.setDate(nextRun.getDate() + 2); // Add 2 days
-  nextRun.setHours(0, 0, 0, 0); // Set time to 12:00 AM
-  return nextRun;
-}
-
-function getDateAtMidnight(date) {
-  // Get a date object representing midnight (12:00 AM) of the given date
-  const midnight = new Date(date);
-  midnight.setHours(0, 0, 0, 0);
-  return midnight;
-}
-
 function startEventScraperScheduler() {
   if (schedulerStarted) {
     return;
@@ -170,27 +153,10 @@ function startEventScraperScheduler() {
   console.log("[event-scheduler] Scheduler initialized. Running scraper immediately...");
   void runScheduledScrape();
   
-  // Calculate next scheduled run (2 days from now at 12:00 AM)
-  nextScheduledRunDate = calculateNextScheduledRunDate();
-  console.log(`[event-scheduler] Next scheduled run: ${nextScheduledRunDate.toISOString()}`);
-  
   // Schedule scraper to run at 12:00 AM every day
   cronJob = cron.schedule("0 0 * * *", async () => {
-    const now = new Date();
-    const todayAtMidnight = getDateAtMidnight(now);
-    
-    // Check if today at midnight matches the next scheduled run date
-    if (todayAtMidnight.getTime() === nextScheduledRunDate.getTime()) {
-      console.log(`[event-scheduler] Scheduled run triggered at ${now.toISOString()}`);
-      void runScheduledScrape();
-      
-      // Update next scheduled run to 2 days from now at 12:00 AM
-      nextScheduledRunDate = calculateNextScheduledRunDate();
-      console.log(`[event-scheduler] Next scheduled run: ${nextScheduledRunDate.toISOString()}`);
-    } else {
-      const daysUntilRun = Math.ceil((nextScheduledRunDate - todayAtMidnight) / (1000 * 60 * 60 * 24));
-      console.log(`[event-scheduler] Scheduled run skipped at ${now.toISOString()}. Next run in ${daysUntilRun} days (${nextScheduledRunDate.toLocaleDateString("en-IN")} at 12:00 AM).`);
-    }
+    console.log(`[event-scheduler] Scheduled daily run triggered at ${new Date().toISOString()}`);
+    void runScheduledScrape();
   });
 
   // Make the cron job non-blocking
@@ -198,7 +164,7 @@ function startEventScraperScheduler() {
     cronJob.start();
   }
   
-  console.log("[event-scheduler] Enabled automatic event scrape schedule (run on server start, then every 2 days at 12:00 AM).");
+  console.log("[event-scheduler] Enabled automatic event scrape schedule (run on server start, then daily at 12:00 AM).");
 }
 
 function stopEventScraperScheduler() {

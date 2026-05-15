@@ -1,11 +1,11 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import { routeConfig } from "../config/routeConfig";
 import API from "../api";
 import Logout from "./Logout";
 import userIcon from "./user.gif";
 import scheduleIcon from "./schedule.gif";
 import notificationIcon from "./notification.gif";
+import { getPageTitle } from "../utils/pageMeta";
 import "./navBar.css";
 
 const SEEN_NOTIFICATIONS_KEY = "seenNotificationIds";
@@ -28,19 +28,7 @@ function saveSeenNotificationIds(ids) {
   }
 }
 
-function toPathRegex(pathPattern = "") {
-  const escaped = String(pathPattern)
-    .split("/")
-    .map((segment) => {
-      if (!segment) return "";
-      if (segment.startsWith(":")) return "[^/]+";
-      return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    })
-    .join("/");
-  return new RegExp(`^${escaped}$`);
-}
-
-function Navbar() {
+function Navbar({ onOpenSidebar, isMobileViewport = false }) {
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -220,30 +208,10 @@ function Navbar() {
 
 
   /* Module title */
-  const moduleName = useMemo(() => {
-
-    const currentPath = location.pathname;
-    const query = new URLSearchParams(location.search);
-
-    if (currentPath === "/leads/new") {
-      return query.get("view") === "deal" ? "Add Deal" : "Add Lead";
-    }
-
-    if (currentPath.startsWith("/leads/")) {
-      return query.get("view") === "deal" ? "Deal Details" : "Lead Details";
-    }
-
-    const exactRoute = routeConfig.find((route) => currentPath === route.path);
-    if (exactRoute) return exactRoute.title;
-
-    const dynamicRoute = [...routeConfig]
-      .filter((route) => route.dynamic)
-      .sort((a, b) => b.path.length - a.path.length)
-      .find((route) => toPathRegex(route.path).test(currentPath));
-
-    return dynamicRoute?.title || "Dashboard";
-
-  }, [location.pathname, location.search]);
+  const moduleName = useMemo(
+    () => getPageTitle(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
 
   /* Initials fallback */
   const getInitials = (name) => {
@@ -294,11 +262,30 @@ function Navbar() {
 
   return (
 
-    <div className="navbar">
+    <div className={`navbar ${isMobileViewport ? "navbar-mobile" : ""}`.trim()}>
 
 
       {/* LEFT */}
       <div className="navbar-left">
+
+        <button
+          type="button"
+          className="mobile-profile-trigger"
+          onClick={onOpenSidebar}
+          aria-label="Open navigation menu"
+        >
+          {displayUser.photoUrl ? (
+            <img
+              src={resolvePhotoUrl(displayUser.photoUrl)}
+              className="mobile-profile-trigger-avatar"
+              alt={displayUser.name}
+            />
+          ) : (
+            <span className="mobile-profile-trigger-fallback" aria-hidden="true">
+              {getInitials(displayUser.name)}
+            </span>
+          )}
+        </button>
 
         <h2 className="module-title">
           {moduleName}

@@ -26,6 +26,7 @@ FEATURE_COLUMNS = [
     "meeting_count",
     "overdue_followup_count",
     "last_contact_days",
+    
 ]
 
 # Keep deal_value outside the ML feature set so forecast revenue can still be derived
@@ -38,6 +39,8 @@ REVENUE_COLUMNS = [
 CATEGORICAL_COLUMNS = [
     "deal_stage",
 ]
+
+
 
 # Numeric columns are imputed and scaled before they reach the classifier.
 NUMERIC_COLUMNS = [

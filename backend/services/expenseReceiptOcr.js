@@ -204,12 +204,14 @@ const getPythonCommands = () => {
     const windowsCandidates = [
       ...envPythonCandidates,
       { command: LOCAL_OCR_PYTHON_CMD, args: [] },
+      { command: "C:\\Python314\\python.exe", args: [] },
       ...discoveredPythonCandidates,
+      { command: "py", args: ["-3.14"] },
+      { command: "C:\\Windows\\py.exe", args: ["-3.14"] },
       { command: "python", args: [] },
       { command: "python.exe", args: [] },
       { command: "py", args: ["-3"] },
       { command: "py", args: [] },
-      { command: "C:\\Python314\\python.exe", args: [] },
       { command: "C:\\Windows\\py.exe", args: ["-3"] },
       { command: "C:\\Windows\\py.exe", args: [] },
     ];

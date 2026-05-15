@@ -1,18 +1,131 @@
 const Expense = require("../models/expenses");
 const OcrFeedback = require("../models/ocrFeedback");
 const Notification = require("../models/notifications");
+const Team = require("../models/teams");
 const getNextCounter = require("../utils/getNextCounter");
 const { extractReceiptData } = require("../services/expenseReceiptOcr");
 const fs = require("fs").promises;
+const mongoose = require("mongoose");
 require("../models/users");
 
 const isAdmin = (role) => String(role || "").toLowerCase() === "admin";
+const isManager = (role) => String(role || "").toLowerCase() === "manager";
 const normalizeVendorKey = (value) =>
   String(value || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+const startOfMonth = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), 1);
+const startOfQuarter = (date = new Date()) => new Date(date.getFullYear(), Math.floor(date.getMonth() / 3) * 3, 1);
+const startOfYear = (date = new Date()) => new Date(date.getFullYear(), 0, 1);
+const addMonths = (date, count) => new Date(date.getFullYear(), date.getMonth() + count, 1);
+
+function normalizeExpenseReportPeriod(period) {
+  const value = String(period || "monthly").trim().toLowerCase();
+  if (value === "quarterly" || value === "quarter") return "quarterly";
+  if (value === "yearly" || value === "year") return "yearly";
+  return "monthly";
+}
+
+function normalizeExpenseReportYear(year, now = new Date()) {
+  const parsed = Number.parseInt(year, 10);
+  if (!Number.isFinite(parsed) || parsed < 2000 || parsed > 9999) {
+    return now.getFullYear();
+  }
+  return parsed;
+}
+
+function normalizeExpenseReportMonth(month, now = new Date()) {
+  const parsed = Number.parseInt(month, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 12) {
+    return now.getMonth() + 1;
+  }
+  return parsed;
+}
+
+function normalizeExpenseReportQuarter(quarter, now = new Date()) {
+  const value = String(quarter || "").trim().toLowerCase();
+  if (["q1", "q2", "q3", "q4"].includes(value)) return value;
+  const month = now.getMonth();
+  if (month < 3) return "q1";
+  if (month < 6) return "q2";
+  if (month < 9) return "q3";
+  return "q4";
+}
+
+function getExpenseReportSelection(input, now = new Date()) {
+  return {
+    period: normalizeExpenseReportPeriod(input?.period),
+    year: normalizeExpenseReportYear(input?.year, now),
+    month: normalizeExpenseReportMonth(input?.month, now),
+    quarter: normalizeExpenseReportQuarter(input?.quarter, now),
+  };
+}
+
+function getExpenseReportRange(input, now = new Date()) {
+  const selection = getExpenseReportSelection(input, now);
+
+  if (selection.period === "quarterly") {
+    const quarterMonthMap = { q1: 0, q2: 3, q3: 6, q4: 9 };
+    const start = new Date(selection.year, quarterMonthMap[selection.quarter], 1);
+    return { start, end: addMonths(start, 3) };
+  }
+
+  if (selection.period === "yearly") {
+    const start = new Date(selection.year, 0, 1);
+    return { start, end: new Date(selection.year + 1, 0, 1) };
+  }
+
+  const start = new Date(selection.year, selection.month - 1, 1);
+  return { start, end: addMonths(start, 1) };
+}
+
+async function getExpenseReportScopeFilter(user = {}) {
+  if (!user?._id) {
+    return { userFilter: {}, scopeLabel: "All Expenses" };
+  }
+
+  if (isAdmin(user.role)) {
+    return { userFilter: {}, scopeLabel: "All Expenses" };
+  }
+
+  if (!isManager(user.role)) {
+    return {
+      userFilter: { userId: user._id },
+      scopeLabel: "My Expenses",
+    };
+  }
+
+  const teams = await Team.find({ "teamLeads.userId": user._id })
+    .select("teamLeads members")
+    .lean();
+
+  const scopedIds = [
+    String(user._id),
+    ...teams.flatMap((team) => [
+      ...(team.teamLeads || []).map((lead) => String(lead.userId || "")),
+      ...(team.members || []).map((member) => String(member.userId || "")),
+    ]),
+  ].filter(Boolean);
+
+  const objectIds = [...new Set(scopedIds)]
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  if (!objectIds.length) {
+    return {
+      userFilter: { userId: user._id },
+      scopeLabel: "My Team + Me",
+    };
+  }
+
+  return {
+    userFilter: { userId: { $in: objectIds } },
+    scopeLabel: "My Team + Me",
+  };
+}
 
 const levenshteinDistance = (source, target) => {
   const a = String(source || "");
@@ -385,6 +498,9 @@ exports.getExpenses = async (req, res) => {
   try {
     const admin = isAdmin(req.user?.role);
     const filter = { is_deleted: false };
+    const { start, end } = getExpenseReportRange(req.query, new Date());
+
+    filter.expenseDate = { $gte: start, $lt: end };
 
     if (!admin) {
       filter.userId = req.user._id;
@@ -395,6 +511,29 @@ exports.getExpenses = async (req, res) => {
       .sort({ expenseDate: -1, updatedAt: -1 });
 
     res.json(expenses);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getExpenseReportAnalytics = async (req, res) => {
+  try {
+    const filter = { is_deleted: false };
+    const { start, end } = getExpenseReportRange(req.query, new Date());
+    const { userFilter, scopeLabel } = await getExpenseReportScopeFilter(req.user);
+
+    filter.expenseDate = { $gte: start, $lt: end };
+    Object.assign(filter, userFilter);
+
+    const expenses = await Expense.find(filter)
+      .populate("userId", "name email")
+      .sort({ expenseDate: -1, updatedAt: -1 });
+
+    res.json({
+      expenses,
+      scopeLabel,
+      selection: getExpenseReportSelection(req.query, new Date()),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

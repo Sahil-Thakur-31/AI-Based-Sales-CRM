@@ -1,7 +1,20 @@
 .forecast-container {
-  padding: 25px;
+  position: relative;
+  padding: 14px 25px 25px;
   background: #f5f7fb;
   min-height: 100vh;
+}
+
+.forecast-refresh-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 120px;
+  background: rgba(246, 248, 252, 0.35);
+  backdrop-filter: blur(2px);
 }
 
 .page-title {
@@ -116,13 +129,21 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 15px;
+  align-items: stretch;
 }
 
 .pipeline-card {
   background: #f9fafc;
   padding: 15px;
   border-radius: 10px;
-  min-height: 280px;
+  height: 100%;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.deal-list {
+  flex: 1;
 }
 
 .stage-header h4 {
@@ -147,25 +168,36 @@
   margin-top: 10px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: stretch;
   border-left: 3px solid #4f46e5;
   font-size: 14px;
   gap: 10px;
+  min-height: 92px;
 }
 
 .deal-card-main {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .deal-card-main span {
   font-weight: 600;
+  line-height: 1.35;
 }
 
 .deal-card-main small {
   color: #64748b;
   line-height: 1.35;
+}
+
+.deal-card strong {
+  display: flex;
+  align-items: center;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .forecast-message {
@@ -181,6 +213,12 @@
   color: #b91c1c;
 }
 
+.forecast-stage-pagination .pagination-container {
+  padding: 12px 0 0;
+  background: transparent;
+  border-top: none;
+}
+
 /* ================= RESPONSIVE ================= */
 
 /* Tablet */
@@ -192,6 +230,10 @@
   .pipeline-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .forecast-stage-pagination .pagination-container {
+    padding-top: 10px;
+  }
 }
 
 /* Mobile */
@@ -199,6 +241,10 @@
   .topBar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .forecast-container {
+    padding: 10px 16px 16px;
   }
 
   .topActions {

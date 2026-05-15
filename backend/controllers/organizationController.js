@@ -136,13 +136,21 @@ function resolveUploadedAssetUrl(req, fieldName) {
 }
 
 async function buildStats() {
-  const [employeesCount, clientsCount, dealsCount] = await Promise.all([
+  const dealBaseFilter = { is_deleted: { $ne: true } };
+  const [employeesCount, clientsCount, activeDealsCount, wonDealsCount] = await Promise.all([
     User.countDocuments({ is_deleted: { $ne: true } }),
     Client.countDocuments({ is_deleted: { $ne: true } }),
-    Deal.countDocuments({ is_deleted: { $ne: true } })
+    Deal.countDocuments({ ...dealBaseFilter, stage: { $nin: ["P6", "P7"] } }),
+    Deal.countDocuments({ ...dealBaseFilter, stage: "P7" })
   ]);
 
-  return { employeesCount, clientsCount, dealsCount };
+  return {
+    employeesCount,
+    clientsCount,
+    dealsCount: activeDealsCount + wonDealsCount,
+    activeDealsCount,
+    wonDealsCount
+  };
 }
 
 function mapOrganization(row, stats) {
@@ -151,7 +159,9 @@ function mapOrganization(row, stats) {
   return {
     _id: row._id,
     name: row.name || "",
+    shortName: row.shortName || "",
     logoUrl: row.logoUrl || "",
+    iconUrl: row.iconUrl || "",
     signatureUrl: row.signatureUrl || "",
     stampUrl: row.stampUrl || "",
     address: row.address || "",
@@ -184,6 +194,8 @@ function mapOrganization(row, stats) {
     employeesCount: stats.employeesCount,
     clientsCount: stats.clientsCount,
     dealsCount: stats.dealsCount,
+    activeDealsCount: stats.activeDealsCount,
+    wonDealsCount: stats.wonDealsCount,
     createdAt: row.createdAt || null,
     updatedAt: row.updatedAt || null
   };
@@ -237,9 +249,33 @@ exports.getOrganizations = async (req, res) => {
   }
 };
 
+exports.getPublicOrganizationBrand = async (_req, res) => {
+  try {
+    const row = await Organization.findOne({ is_deleted: false })
+      .sort({ createdAt: -1 })
+      .select("name shortName logoUrl iconUrl")
+      .lean();
+
+    res.json({
+      organization: row
+        ? {
+            name: row.name || "",
+            shortName: row.shortName || "",
+            logoUrl: row.logoUrl || "",
+            iconUrl: row.iconUrl || ""
+          }
+        : null
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch organization brand" });
+  }
+};
+
 exports.createOrganization = async (req, res) => {
   try {
     const name = normalizeText(req.body.name);
+    const shortName = normalizeText(req.body.shortName);
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
@@ -275,6 +311,7 @@ exports.createOrganization = async (req, res) => {
     }
 
     const logoUrl = resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const iconUrl = resolveUploadedAssetUrl(req, "icon") || normalizeText(req.body.iconUrl);
     const signatureUrl =
       resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
     const stampUrl = resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
@@ -287,7 +324,9 @@ exports.createOrganization = async (req, res) => {
 
     const organization = await Organization.create({
       name,
+      shortName,
       logoUrl,
+      iconUrl,
       signatureUrl,
       stampUrl,
       ...resolvedLocation,
@@ -341,6 +380,7 @@ exports.getOrganizationProfile = async (req, res) => {
 exports.upsertOrganizationProfile = async (req, res) => {
   try {
     const name = normalizeText(req.body.name);
+    const shortName = normalizeText(req.body.shortName);
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
@@ -383,17 +423,22 @@ exports.upsertOrganizationProfile = async (req, res) => {
 
     const incomingLogoUrl =
       resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const incomingIconUrl =
+      resolveUploadedAssetUrl(req, "icon") || normalizeText(req.body.iconUrl);
     const incomingSignatureUrl =
       resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
     const incomingStampUrl =
       resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
     const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
+    const removeIcon = String(req.body.removeIcon || "").toLowerCase() === "true";
     const removeSignature = String(req.body.removeSignature || "").toLowerCase() === "true";
     const removeStamp = String(req.body.removeStamp || "").toLowerCase() === "true";
 
     const payload = {
       name,
+      shortName,
       logoUrl: incomingLogoUrl || "",
+      iconUrl: incomingIconUrl || "",
       signatureUrl: incomingSignatureUrl || "",
       stampUrl: incomingStampUrl || "",
       website: normalizeText(req.body.website),
@@ -422,7 +467,7 @@ exports.upsertOrganizationProfile = async (req, res) => {
         _id: existing._id,
         is_deleted: false
       })
-        .select("logoUrl signatureUrl stampUrl address area city pincode district state country latitude longitude locationResolvedAt")
+        .select("logoUrl iconUrl signatureUrl stampUrl address area city pincode district state country latitude longitude locationResolvedAt")
         .lean();
       const resolvedLocation = await resolveOrganizationLocationFields(req.body, existingOrganization);
 
@@ -435,6 +480,9 @@ exports.upsertOrganizationProfile = async (req, res) => {
             logoUrl: removeLogo
               ? ""
               : incomingLogoUrl || existingOrganization?.logoUrl || "",
+            iconUrl: removeIcon
+              ? ""
+              : incomingIconUrl || existingOrganization?.iconUrl || "",
             signatureUrl: removeSignature
               ? ""
               : incomingSignatureUrl || existingOrganization?.signatureUrl || "",
@@ -482,6 +530,7 @@ exports.upsertOrganizationProfile = async (req, res) => {
 exports.updateOrganization = async (req, res) => {
   try {
     const name = normalizeText(req.body.name);
+    const shortName = normalizeText(req.body.shortName);
     const panNumber = normalizeUpper(req.body.panNumber);
     const cinNumber = normalizeUpper(req.body.cinNumber);
     const gstNumber = normalizeUpper(req.body.gstNumber);
@@ -508,10 +557,12 @@ exports.updateOrganization = async (req, res) => {
     }
 
     const logoUrl = resolveUploadedAssetUrl(req, "logo") || normalizeText(req.body.logoUrl);
+    const iconUrl = resolveUploadedAssetUrl(req, "icon") || normalizeText(req.body.iconUrl);
     const signatureUrl =
       resolveUploadedAssetUrl(req, "signature") || normalizeText(req.body.signatureUrl);
     const stampUrl = resolveUploadedAssetUrl(req, "stamp") || normalizeText(req.body.stampUrl);
     const removeLogo = String(req.body.removeLogo || "").toLowerCase() === "true";
+    const removeIcon = String(req.body.removeIcon || "").toLowerCase() === "true";
     const removeSignature = String(req.body.removeSignature || "").toLowerCase() === "true";
     const removeStamp = String(req.body.removeStamp || "").toLowerCase() === "true";
 
@@ -529,7 +580,7 @@ exports.updateOrganization = async (req, res) => {
       _id: req.params.id,
       is_deleted: false
     })
-      .select("logoUrl signatureUrl stampUrl address area city pincode district state country latitude longitude locationResolvedAt")
+      .select("logoUrl iconUrl signatureUrl stampUrl address area city pincode district state country latitude longitude locationResolvedAt")
       .lean();
 
     if (!existingOrganization) {
@@ -543,7 +594,9 @@ exports.updateOrganization = async (req, res) => {
       {
         $set: {
           name,
+          shortName,
           logoUrl: removeLogo ? "" : logoUrl || existingOrganization.logoUrl || "",
+          iconUrl: removeIcon ? "" : iconUrl || existingOrganization.iconUrl || "",
           signatureUrl: removeSignature
             ? ""
             : signatureUrl || existingOrganization.signatureUrl || "",

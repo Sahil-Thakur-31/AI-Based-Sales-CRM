@@ -4,11 +4,14 @@ const FollowupHistory = require("../models/followUpHistory");
 const Meeting = require("../models/meetings");
 const Lead = require("../models/leads");
 const Deal = require("../models/deals");
+const LeadContacts = require("../models/leadContacts");
+const ClientContact = require("../models/client_contact");
 const Notification = require("../models/notifications");
 const UserDailyActivity = require("../models/user_daily_activity");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const CRMSettings = require("../models/crmSettings");
+const { TEMPLATE_KEYS } = require("../services/emailTemplates");
 const { syncSingleMeetingToGoogle, deleteSingleMeetingFromGoogle } = require("../services/googleCalendarSync");
 const { refreshPrioritiesForFollowupAndMeeting } = require("../services/followupPriorityAiService");
 
@@ -208,6 +211,115 @@ function getStageFromLinkedMaps(doc, { leadStageMap, dealStageMap }) {
   return dealStageMap.get(dealId) || leadStageMap.get(leadId) || "";
 }
 
+function getPrimaryPhone(value) {
+  if (typeof value === "string") return value.split(",")[0].trim();
+  if (Array.isArray(value)) return String(value[0] || "").trim();
+  return "";
+}
+
+async function buildFollowupPhoneMap(docs = []) {
+  const followupLeadIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.leadId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+  const dealIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.dealId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+  const followupClientIds = [
+    ...new Set(
+      docs
+        .map((doc) => String(doc?.clientId || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+
+  const deals = dealIds.length
+    ? await Deal.find({ _id: { $in: dealIds } }).select("_id lead_id client_id").lean()
+    : [];
+  const dealMap = new Map(deals.map((deal) => [String(deal._id), deal]));
+
+  const derivedLeadIds = [
+    ...new Set(
+      deals
+        .map((deal) => String(deal?.lead_id || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+  const derivedClientIds = [
+    ...new Set(
+      deals
+        .map((deal) => String(deal?.client_id || ""))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ),
+  ];
+
+  const leadIds = [...new Set([...followupLeadIds, ...derivedLeadIds])];
+  const clientIds = [...new Set([...followupClientIds, ...derivedClientIds])];
+
+  const [leadContacts, clientContacts] = await Promise.all([
+    leadIds.length
+      ? LeadContacts.find({ lead_id: { $in: leadIds } })
+        .sort({ is_primary: -1, created_at: 1 })
+        .select("lead_id phone")
+        .lean()
+      : [],
+    clientIds.length
+      ? ClientContact.find({ client_id: { $in: clientIds }, is_active: true })
+        .sort({ is_primary: -1, createdAt: 1 })
+        .select("client_id phone")
+        .lean()
+      : [],
+  ]);
+
+  const leadPhoneMap = new Map();
+  for (const contact of leadContacts) {
+    const leadId = String(contact?.lead_id || "");
+    const phone = getPrimaryPhone(contact?.phone);
+    if (!leadId || !phone || leadPhoneMap.has(leadId)) continue;
+    leadPhoneMap.set(leadId, phone);
+  }
+
+  const clientPhoneMap = new Map();
+  for (const contact of clientContacts) {
+    const clientId = String(contact?.client_id || "");
+    const phone = getPrimaryPhone(contact?.phone);
+    if (!clientId || !phone || clientPhoneMap.has(clientId)) continue;
+    clientPhoneMap.set(clientId, phone);
+  }
+
+  const phoneMap = new Map();
+  for (const doc of docs) {
+    const docId = String(doc?._id || "");
+    const deal = dealMap.get(String(doc?.dealId || ""));
+    const leadId = String(doc?.leadId || deal?.lead_id || "");
+    const clientId = String(doc?.clientId || deal?.client_id || "");
+    const phone = leadPhoneMap.get(leadId) || clientPhoneMap.get(clientId) || "";
+    if (docId && phone) phoneMap.set(docId, phone);
+  }
+
+  return phoneMap;
+}
+
+async function serializeFollowupDocs(docs = []) {
+  const stageMaps = await buildLinkedStageMaps(docs);
+  const phoneMap = await buildFollowupPhoneMap(docs);
+
+  return docs.map((doc) => {
+    const plain = typeof doc?.toObject === "function" ? doc.toObject() : { ...doc };
+    const linkedStage = getStageFromLinkedMaps(doc, stageMaps);
+    if (linkedStage) plain.stage = linkedStage;
+    plain.mob = phoneMap.get(String(doc?._id || "")) || "";
+    return plain;
+  });
+}
+
 async function appendHistory({ followupId, actionType, notes, performedBy }) {
   const historyDoc = await FollowupHistory.create({
     followupId,
@@ -244,6 +356,7 @@ function getUtcDayRangeFromQuery(query) {
 function mapFollowupStatusToMeetingStatus(status) {
   if (status === "completed") return "completed";
   if (status === "cancelled") return "cancelled";
+  if (status === "overdue") return "overdue";
   return "scheduled";
 }
 
@@ -282,6 +395,7 @@ async function ensureNoMeetingTimeConflict({
   assignedTo,
   dueDateTime,
   durationMinutes,
+  kind = "followup",
   excludeFollowupId = null,
 }) {
   const assigneeId = String(assignedTo || "").trim();
@@ -289,15 +403,21 @@ async function ensureNoMeetingTimeConflict({
 
   const start = new Date(dueDateTime);
   if (Number.isNaN(start.getTime())) return;
-  const end = new Date(start.getTime() + getDurationMinutes(durationMinutes) * 60 * 1000);
+  
+  // Determine time window based on kind: meetings 45 min, followups 15 min
+  const windowDuration = kind === "meeting" ? 45 : 15;
+  
+  // New event's actual duration time slot
+  const newEnd = new Date(start.getTime() + windowDuration * 60 * 1000);
 
   const query = {
     is_deleted: { $ne: true },
     assignedTo: new mongoose.Types.ObjectId(assigneeId),
     status: { $nin: ["cancelled", "completed"] },
+    // Find existing records that might overlap with our new event
     dueDateTime: {
-      $gte: new Date(start.getTime() - 24 * 60 * 60 * 1000),
-      $lt: new Date(end.getTime() + 24 * 60 * 60 * 1000),
+      $gte: new Date(start.getTime() - windowDuration * 2 * 60 * 1000),
+      $lt: new Date(start.getTime() + windowDuration * 2 * 60 * 1000),
     },
   };
 
@@ -309,17 +429,25 @@ async function ensureNoMeetingTimeConflict({
     .select("_id title dueDateTime durationMinutes kind actionType status")
     .lean();
 
+  // Check for conflicts: new event's actual time must not overlap with existing event's actual time
   const conflict = candidates.find((row) => {
     const rowStart = new Date(row.dueDateTime);
     if (Number.isNaN(rowStart.getTime())) return false;
-    const rowEnd = new Date(rowStart.getTime() + getDurationMinutes(row.durationMinutes) * 60 * 1000);
-    return intervalsOverlap(start, end, rowStart, rowEnd);
+    
+    // Existing event's actual duration: 45 min for meeting, 15 min for followup
+    const existingDuration = row.kind === "meeting" ? 45 : 15;
+    const rowEnd = new Date(rowStart.getTime() + existingDuration * 60 * 1000);
+    
+    // Check if new event [start, newEnd] overlaps with existing event [rowStart, rowEnd]
+    // NO lookback applied to existing events
+    return intervalsOverlap(start, newEnd, rowStart, rowEnd);
   });
 
   if (conflict) {
     const when = new Date(conflict.dueDateTime).toLocaleString("en-IN");
+    const typeLabel = kind === "meeting" ? "meeting" : "followup";
     const err = new Error(
-      `You cant schedule this! Assignee already has an event at this time (${conflict.title || "Meeting"} on ${when}).`
+      `Cannot schedule this ${typeLabel}! Assignee already has a ${conflict.kind} at this time (${conflict.title || conflict.kind} on ${when}).`
     );
     err.statusCode = 409;
     throw err;
@@ -463,7 +591,9 @@ async function createFollowupNotification(doc, userId, eventType) {
   if (!doc || !userId) return;
   if (doc.reminderEnabled === false && eventType === "created") return;
   const settings = await CRMSettings.findOne({ userId }).lean();
-  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) return;
+  // Check if smart reminders are enabled and at least one method (inApp OR email) is enabled
+  if (!settings?.smartFollowupRemindersEnabled) return;
+  if (!settings?.reminderMethodInApp && !settings?.reminderMethodEmail) return;
 
   const isMeeting = doc.kind === "meeting";
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
@@ -505,7 +635,9 @@ async function createFollowupAssignmentNotification(doc) {
   if (!userId) return;
 
   const settings = await CRMSettings.findOne({ userId }).lean();
-  if (!settings?.smartFollowupRemindersEnabled || !settings?.reminderMethodInApp || !settings?.reminderMethodEmail) return;
+  // Check if smart reminders are enabled and at least one method (inApp OR email) is enabled
+  if (!settings?.smartFollowupRemindersEnabled) return;
+  if (!settings?.reminderMethodInApp && !settings?.reminderMethodEmail) return;
 
   const isMeeting = doc.kind === "meeting";
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
@@ -520,7 +652,254 @@ async function createFollowupAssignmentNotification(doc) {
     type: "info",
     relatedId: doc._id,
     relatedType: "Followup",
+    templateKey: isMeeting ? TEMPLATE_KEYS.MEETING_ASSIGNED : TEMPLATE_KEYS.FOLLOWUP_ASSIGNED,
   });
+}
+
+async function runCreateSideEffects({
+  doc,
+  created,
+  payload,
+  actorId,
+  assignedTo,
+}) {
+  try {
+    await syncStageToLinkedEntity(payload.stage, payload);
+  } catch (stageSyncErr) {
+    console.error("followups.create stage sync error:", stageSyncErr);
+  }
+
+  try {
+    await appendHistory({
+      followupId: doc._id,
+      actionType: "created",
+      notes: `Created ${payload.kind}`,
+      performedBy: actorId,
+    });
+  } catch (historyErr) {
+    console.error("followups.create history error:", historyErr);
+  }
+
+  let mirrorReady = false;
+  try {
+    await syncMeetingMirrorFromFollowup(doc, actorId);
+    mirrorReady = true;
+  } catch (syncErr) {
+    console.error("followups.create syncMeetingMirror error:", syncErr);
+  }
+
+  try {
+    await syncAiPriorityForDoc(doc);
+  } catch (aiErr) {
+    console.error("followups.create ai priority error:", aiErr);
+  }
+
+  try {
+    await createFollowupAssignmentNotification(created || doc);
+  } catch (notifErr) {
+    console.error("followups.create notification error:", notifErr);
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: doc._id,
+      activityStatus: payload.status,
+      title: payload.title,
+      description: `Created ${payload.kind}`,
+    });
+  } catch (activityErr) {
+    console.error("followups.create activity log error:", activityErr);
+  }
+
+  try {
+    const assigneeId = created?.assignedTo?._id || created?.assignedTo || assignedTo;
+    await createFollowupNotification(doc, assigneeId, "created");
+  } catch (notificationErr) {
+    console.error("followups.create notification error:", notificationErr);
+  }
+
+  if (mirrorReady && isMeetingLikeFollowup(created || doc)) {
+    try {
+      await syncSingleMeetingToGoogle(created || doc, created?.assignedTo?._id || created?.assignedTo || assignedTo);
+    } catch (gcalErr) {
+      console.error("followups.create gcal sync error:", gcalErr);
+    }
+  }
+}
+
+async function runUpdateSideEffects({
+  current,
+  updatedDoc,
+  updated,
+  merged,
+  actorId,
+}) {
+  try {
+    await syncStageToLinkedEntity(merged.stage, merged);
+  } catch (stageSyncErr) {
+    console.error("followups.update stage sync error:", stageSyncErr);
+  }
+
+  try {
+    await appendHistory({
+      followupId: current._id,
+      actionType: "details_updated",
+      notes: `Updated ${merged.kind} details`,
+      performedBy: actorId,
+    });
+  } catch (historyErr) {
+    console.error("followups.update history error:", historyErr);
+  }
+
+  try {
+    await syncMeetingMirrorFromFollowup(updatedDoc, actorId);
+  } catch (syncErr) {
+    console.error("followups.update syncMeetingMirror error:", syncErr);
+  }
+
+  try {
+    await syncAiPriorityForDoc(updatedDoc);
+  } catch (aiErr) {
+    console.error("followups.update ai priority error:", aiErr);
+  }
+
+  const oldAssignee = String(current.assignedTo || "");
+  const newAssignee = String(merged.assignedTo || "");
+  const dueDateChanged =
+    new Date(current.dueDateTime || 0).getTime() !== new Date(merged.dueDateTime || 0).getTime();
+  if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged)) {
+    try {
+      await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id });
+    } catch (notifErr) {
+      console.error("followups.update notification error:", notifErr);
+    }
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: current._id,
+      activityStatus: merged.status,
+      title: merged.title,
+      description: `Updated ${merged.kind} details`,
+    });
+  } catch (activityErr) {
+    console.error("followups.update activity log error:", activityErr);
+  }
+
+  if (isMeetingLikeFollowup(updated)) {
+    try {
+      const assigneeId = updated.assignedTo?._id || updated.assignedTo;
+      if (String(updated.status || "").toLowerCase() === "cancelled") {
+        await deleteSingleMeetingFromGoogle(updated, assigneeId);
+      } else {
+        await syncSingleMeetingToGoogle(updated, assigneeId);
+      }
+    } catch (gcalErr) {
+      console.error("followups.update gcal sync error:", gcalErr);
+    }
+  }
+}
+
+async function runUpdateStatusSideEffects({
+  updated,
+  status,
+  actorId,
+}) {
+  try {
+    await appendHistory({
+      followupId: updated._id,
+      actionType: "status_changed",
+      notes:
+        status === "completed"
+          ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
+          : status === "cancelled"
+            ? `Status changed to cancelled${updated.cancelReason ? ` | Reason: ${updated.cancelReason}` : ""}`
+            : `Status changed to ${status}`,
+      performedBy: actorId,
+    });
+  } catch (historyErr) {
+    console.error("followups.updateStatus history error:", historyErr);
+  }
+
+  try {
+    await syncMeetingMirrorFromFollowup(updated, actorId);
+  } catch (syncErr) {
+    console.error("followups.updateStatus syncMeetingMirror error:", syncErr);
+  }
+
+  try {
+    await syncAiPriorityForDoc(updated);
+  } catch (aiErr) {
+    console.error("followups.updateStatus ai priority error:", aiErr);
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: updated._id,
+      activityStatus: updated.status,
+      title: updated.title,
+      description: `Changed status to ${status}`,
+    });
+  } catch (activityErr) {
+    console.error("followups.updateStatus activity log error:", activityErr);
+  }
+
+  if (status === "completed") {
+    try {
+      await createFollowupNotification(updated, actorId, "completed");
+    } catch (notificationErr) {
+      console.error("followups.updateStatus notification error:", notificationErr);
+    }
+  }
+
+  if (isMeetingLikeFollowup(updated)) {
+    try {
+      const assigneeId = updated.assignedTo?._id || updated.assignedTo;
+      if (status === "cancelled") {
+        await deleteSingleMeetingFromGoogle(updated, assigneeId);
+      } else {
+        await syncSingleMeetingToGoogle(updated, assigneeId);
+      }
+    } catch (gcalErr) {
+      console.error("followups.updateStatus gcal sync error:", gcalErr);
+    }
+  }
+}
+
+async function runRemoveSideEffects({
+  existing,
+  actorId,
+}) {
+  if (existing.kind === "meeting") {
+    try {
+      await softDeleteMeetingMirror(existing._id);
+    } catch (mirrorErr) {
+      console.error("followups.remove mirror delete error:", mirrorErr);
+    }
+  }
+
+  if (isMeetingLikeFollowup(existing)) {
+    try {
+      await deleteSingleMeetingFromGoogle(existing, existing.assignedTo);
+    } catch (gcalErr) {
+      console.error("followups.remove gcal delete error:", gcalErr);
+    }
+  }
+
+  try {
+    await logUserDailyActivity({
+      userId: actorId,
+      activityId: existing._id,
+      activityStatus: "cancelled",
+      title: existing.title,
+      description: `Deleted ${existing.kind}`,
+    });
+  } catch (activityErr) {
+    console.error("followups.remove activity log error:", activityErr);
+  }
 }
 
 exports.list = async (req, res) => {
@@ -547,14 +926,6 @@ exports.list = async (req, res) => {
 
     const docs = await Followup.find(q).sort({ dueDateTime: 1, createdAt: -1 }).populate("assignedTo", "name email");
 
-    const stageMaps = await buildLinkedStageMaps(docs);
-    docs.forEach((doc) => {
-      const linkedStage = getStageFromLinkedMaps(doc, stageMaps);
-      if (linkedStage) {
-        doc.stage = linkedStage;
-      }
-    });
-
     if (req.query.kind === "meeting") {
       await Promise.all(
         docs
@@ -569,9 +940,10 @@ exports.list = async (req, res) => {
       );
     }
 
+    const serializedDocs = await serializeFollowupDocs(docs);
     const responseDocs = requestedStage
-      ? docs.filter((doc) => normalizeStageValue(doc?.stage) === requestedStage)
-      : docs;
+      ? serializedDocs.filter((doc) => normalizeStageValue(doc?.stage) === requestedStage)
+      : serializedDocs;
 
     res.json(responseDocs);
   } catch (err) {
@@ -591,7 +963,7 @@ exports.listTodayMeetings = async (req, res) => {
       sourceFollowupId: { $exists: true },
       assignedTo: { $in: assignedObjectIds },
       startTime: { $gte: startUtc, $lt: endUtc },
-      status: { $in: ["pending", "scheduled", "rescheduled"] },
+      status: { $in: ["pending", "scheduled", "rescheduled", "overdue"] },
     };
 
     const fallbackMeetings = await Followup.find({
@@ -684,7 +1056,8 @@ exports.getOne = async (req, res) => {
     }).populate("assignedTo", "name email");
 
     if (!doc) return res.status(404).json({ message: "Followup not found" });
-    res.json(doc);
+    const [serializedDoc] = await serializeFollowupDocs([doc]);
+    res.json(serializedDoc);
   } catch (err) {
     console.error("followups.getOne error:", err);
     res.status(500).json({ message: "Failed to fetch followup" });
@@ -757,69 +1130,22 @@ exports.create = async (req, res) => {
       assignedTo,
       dueDateTime: payload.dueDateTime,
       durationMinutes: payload.durationMinutes,
+      kind: payload.kind,
     });
 
     const doc = await Followup.create(payload);
 
-    try {
-      await syncStageToLinkedEntity(payload.stage, payload);
-    } catch (stageSyncErr) {
-      console.error("followups.create stage sync error:", stageSyncErr);
-    }
-
-    await appendHistory({
-      followupId: doc._id,
-      actionType: "created",
-      notes: `Created ${payload.kind}`,
-      performedBy: req.user._id,
-    });
-
-    try {
-      await syncMeetingMirrorFromFollowup(doc, req.user._id);
-    } catch (syncErr) {
-      console.error("followups.create syncMeetingMirror error:", syncErr);
-    }
-
-    try {
-      await syncAiPriorityForDoc(doc);
-    } catch (aiErr) {
-      console.error("followups.create ai priority error:", aiErr);
-    }
-
     const created = await Followup.findById(doc._id).populate("assignedTo", "name email");
-    try {
-      await createFollowupAssignmentNotification(doc);
-    } catch (notifErr) {
-      console.error("followups.create notification error:", notifErr);
-    }
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: doc._id,
-        activityStatus: payload.status,
-        title: payload.title,
-        description: `Created ${payload.kind}`,
-      });
-    } catch (activityErr) {
-      console.error("followups.create activity log error:", activityErr);
-    }
+    const [serializedCreated] = await serializeFollowupDocs(created ? [created] : []);
+    res.status(201).json(serializedCreated || created);
 
-    try {
-      await createFollowupNotification(doc, req.user._id, "created");
-    } catch (notificationErr) {
-      console.error("followups.create notification error:", notificationErr);
-    }
-
-    if (isMeetingLikeFollowup(created)) {
-      try {
-        // Sync only newly created meetings to Google Calendar.
-        await syncSingleMeetingToGoogle(created, created.assignedTo._id || created.assignedTo);
-      } catch (gcalErr) {
-        console.error("followups.create gcal sync error:", gcalErr);
-      }
-    }
-
-    res.status(201).json(created);
+    void runCreateSideEffects({
+      doc,
+      created,
+      payload,
+      actorId: req.user._id,
+      assignedTo,
+    });
   } catch (err) {
     console.error("followups.create error:", err);
     if (err?.statusCode === 409) {
@@ -902,78 +1228,23 @@ exports.update = async (req, res) => {
       assignedTo: nextAssigned,
       dueDateTime: merged.dueDateTime,
       durationMinutes: merged.durationMinutes,
+      kind: merged.kind,
       excludeFollowupId: current._id,
     });
 
     await Followup.updateOne({ _id: current._id }, { $set: merged });
     const updatedDoc = await Followup.findById(current._id);
-
-    try {
-      await syncStageToLinkedEntity(merged.stage, merged);
-    } catch (stageSyncErr) {
-      console.error("followups.update stage sync error:", stageSyncErr);
-    }
-
-    await appendHistory({
-      followupId: current._id,
-      actionType: "details_updated",
-      notes: `Updated ${merged.kind} details`,
-      performedBy: req.user._id,
-    });
-
-    try {
-      await syncMeetingMirrorFromFollowup(updatedDoc, req.user._id);
-    } catch (syncErr) {
-      console.error("followups.update syncMeetingMirror error:", syncErr);
-    }
-
-    try {
-      await syncAiPriorityForDoc(updatedDoc);
-    } catch (aiErr) {
-      console.error("followups.update ai priority error:", aiErr);
-    }
-
     const updated = await Followup.findById(current._id).populate("assignedTo", "name email");
+    const [serializedUpdated] = await serializeFollowupDocs(updated ? [updated] : []);
+    res.json(serializedUpdated || updated);
 
-    const oldAssignee = String(current.assignedTo || "");
-    const newAssignee = String(merged.assignedTo || "");
-    const dueDateChanged =
-      new Date(current.dueDateTime || 0).getTime() !== new Date(merged.dueDateTime || 0).getTime();
-    if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged)) {
-      try {
-        await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id });
-      } catch (notifErr) {
-        console.error("followups.update notification error:", notifErr);
-      }
-    }
-
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: current._id,
-        activityStatus: merged.status,
-        title: merged.title,
-        description: `Updated ${merged.kind} details`,
-      });
-    } catch (activityErr) {
-      console.error("followups.update activity log error:", activityErr);
-    }
-
-    if (isMeetingLikeFollowup(updated)) {
-      try {
-        const assigneeId = updated.assignedTo?._id || updated.assignedTo;
-        if (String(updated.status || "").toLowerCase() === "cancelled") {
-          await deleteSingleMeetingFromGoogle(updated, assigneeId);
-        } else {
-          // Sync only updated meetings to Google Calendar.
-          await syncSingleMeetingToGoogle(updated, assigneeId);
-        }
-      } catch (gcalErr) {
-        console.error("followups.update gcal sync error:", gcalErr);
-      }
-    }
-
-    res.json(updated);
+    void runUpdateSideEffects({
+      current,
+      updatedDoc,
+      updated,
+      merged,
+      actorId: req.user._id,
+    });
   } catch (err) {
     console.error("followups.update error:", err);
     if (err?.statusCode === 409) {
@@ -1030,66 +1301,15 @@ exports.updateStatus = async (req, res) => {
     ).populate("assignedTo", "name email");
 
     if (!updated) return res.status(404).json({ message: "Followup not found" });
-
-    await appendHistory({
-      followupId: updated._id,
-      actionType: "status_changed",
-      notes:
-        status === "completed"
-          ? `Status changed to completed${updated.durationMinutes ? ` | Duration: ${updated.durationMinutes} min` : ""}${updated.notes ? ` | MOM: ${updated.notes}` : ""}`
-          : status === "cancelled"
-            ? `Status changed to cancelled${updated.cancelReason ? ` | Reason: ${updated.cancelReason}` : ""}`
-            : `Status changed to ${status}`,
-      performedBy: req.user._id,
-    });
-
-    try {
-      await syncMeetingMirrorFromFollowup(updated, req.user._id);
-    } catch (syncErr) {
-      console.error("followups.updateStatus syncMeetingMirror error:", syncErr);
-    }
-
-    try {
-      await syncAiPriorityForDoc(updated);
-    } catch (aiErr) {
-      console.error("followups.updateStatus ai priority error:", aiErr);
-    }
-
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: updated._id,
-        activityStatus: updated.status,
-        title: updated.title,
-        description: `Changed status to ${status}`,
-      });
-    } catch (activityErr) {
-      console.error("followups.updateStatus activity log error:", activityErr);
-    }
-
-    if (status === "completed") {
-      try {
-        await createFollowupNotification(updated, req.user._id, "completed");
-      } catch (notificationErr) {
-        console.error("followups.updateStatus notification error:", notificationErr);
-      }
-    }
-
-    if (isMeetingLikeFollowup(updated)) {
-      try {
-        const assigneeId = updated.assignedTo?._id || updated.assignedTo;
-        if (status === "cancelled") {
-          await deleteSingleMeetingFromGoogle(updated, assigneeId);
-        } else {
-          await syncSingleMeetingToGoogle(updated, assigneeId);
-        }
-      } catch (gcalErr) {
-        console.error("followups.updateStatus gcal sync error:", gcalErr);
-      }
-    }
-
     const refreshed = await Followup.findById(updated._id).populate("assignedTo", "name email");
-    res.json(refreshed);
+    const [serializedRefreshed] = await serializeFollowupDocs(refreshed ? [refreshed] : []);
+    res.json(serializedRefreshed || refreshed);
+
+    void runUpdateStatusSideEffects({
+      updated,
+      status,
+      actorId: req.user._id,
+    });
   } catch (err) {
     console.error("followups.updateStatus error:", err);
     res.status(500).json({ message: "Failed to update status" });
@@ -1114,32 +1334,12 @@ exports.remove = async (req, res) => {
       { is_deleted: true },
       { returnDocument: "after" }
     );
-
-    if (existing.kind === "meeting") {
-      await softDeleteMeetingMirror(existing._id);
-    }
-
-    if (isMeetingLikeFollowup(existing)) {
-      try {
-        await deleteSingleMeetingFromGoogle(existing, existing.assignedTo);
-      } catch (gcalErr) {
-        console.error("followups.remove gcal delete error:", gcalErr);
-      }
-    }
-
-    try {
-      await logUserDailyActivity({
-        userId: req.user._id,
-        activityId: existing._id,
-        activityStatus: "cancelled",
-        title: existing.title,
-        description: `Deleted ${existing.kind}`,
-      });
-    } catch (activityErr) {
-      console.error("followups.remove activity log error:", activityErr);
-    }
-
     res.json({ message: "Followup deleted" });
+
+    void runRemoveSideEffects({
+      existing: updated || existing,
+      actorId: req.user._id,
+    });
   } catch (err) {
     console.error("followups.remove error:", err);
     res.status(500).json({ message: "Failed to delete followup" });

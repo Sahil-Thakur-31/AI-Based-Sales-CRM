@@ -249,7 +249,7 @@ export default function Clients() {
       </div>
 
       <div className="table-wrapper">
-        <table>
+        <table className="crm-responsive-table">
           <thead>
             <tr>
               <th>Client</th>
@@ -262,13 +262,13 @@ export default function Clients() {
           </thead>
           <tbody>
             {loading && (
-              <tr>
+              <tr className="crm-table-status-row">
                 <td colSpan={6}>Loading clients...</td>
               </tr>
             )}
 
             {!loading && paginatedRows.length === 0 && (
-              <tr>
+              <tr className="crm-table-status-row">
                 <td colSpan={6}>No clients found</td>
               </tr>
             )}
@@ -287,17 +287,17 @@ export default function Clients() {
                       className={activeTab === "active" ? "client-latest-row client-latest-row-clickable" : ""}
                       onClick={() => handleClientRowToggle(clientId)}
                     >
-                      <td className="company-cell">{client.name || "-"}</td>
-                      <td>{client.industryName || "-"}</td>
-                      <td>{client.sourceName || "-"}</td>
-                      <td>
+                      <td className="company-cell" data-label="Client">{client.name || "-"}</td>
+                      <td data-label="Industry">{client.industryName || "-"}</td>
+                      <td data-label="Source">{client.sourceName || "-"}</td>
+                      <td data-label="Contact">
                         <div className="deal-contact-cell">
                           <span className="contact-name">{client.primaryContact?.name || "-"}</span>
                           <span className="contact-subtext">{client.primaryContact?.email || "-"}</span>
                         </div>
                       </td>
-                      <td>{client.deal_count || 0}</td>
-                      <td>
+                      <td data-label="Deals">{client.deal_count || 0}</td>
+                      <td data-label="Actions">
                         <div className="row-actions">
                           {activeTab === "active" ? (
                             <>
@@ -363,7 +363,6 @@ export default function Clients() {
                                       </span>
                                       <strong>{deal?.company_name || client.name || "Untitled Deal"}</strong>
                                       <span>Stage: {deal?.stage || "-"}</span>
-                                      <span>Status: {deal?.status || "-"}</span>
                                       <span>Value: {formatCurrency(deal?.deal_value_estimate || 0)}</span>
                                       <span>Updated: {formatDate(updatedOn)}</span>
                                     </div>
@@ -405,4 +404,3 @@ export default function Clients() {
     </div>
   );
 }
-

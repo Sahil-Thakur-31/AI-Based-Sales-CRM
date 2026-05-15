@@ -2400,6 +2400,7 @@ input[type="range"].premium-slider::-webkit-slider-thumb {
   }
 }
 
+<<<<<<< HEAD
 .expense-ocr-modal {
   background:
     radial-gradient(circle at top right, rgba(31, 122, 236, 0.08), transparent 24%),
@@ -2731,10 +2732,198 @@ input[type="range"].premium-slider::-webkit-slider-thumb {
   .expense-ocr-page-toolbar {
     flex-direction: column;
     align-items: stretch;
+=======
+/* Mobile-first layout overrides for the main Expenses dashboard */
+.expense-dashboard * {
+  box-sizing: border-box;
+}
+
+.expense-dropdown,
+.expense-log-btn,
+.expense-ocr-btn {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1100px) {
+  .expense-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .expense-middle-section {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .expense-ledger-header {
+    align-items: flex-start;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .expense-ledger-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .expense-dashboard {
+    padding: 8px;
+  }
+
+  .expense-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .expense-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .expense-card h4 {
+    font-size: 12px;
+  }
+
+  .expense-card h2 {
+    margin: 8px 0 5px;
+    font-size: 24px;
+  }
+
+  .expense-card p,
+  .expense-total-period {
+    font-size: 12px;
+  }
+
+  .expense-middle-section {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .expense-box,
+  .expense-ledger {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .expense-box h3,
+  .expense-ledger-header h3 {
+    font-size: 17px;
+  }
+
+  .expense-box-header,
+  .expense-ledger-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .expense-progress-item,
+  .expense-user-row {
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .expense-by-user-search,
+  .expense-dropdown {
+    width: 100%;
+  }
+
+  .expense-ledger-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .expense-dropdown {
+    grid-column: 1 / -1;
+  }
+
+  .expense-dropdown-selected,
+  .expense-log-btn,
+  .expense-ocr-btn {
+    width: 100%;
+  }
+
+  .expense-log-btn,
+  .expense-ocr-btn {
+    min-height: 40px;
+    margin-right: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .expense-pagination,
+  .expense-by-user-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .expense-pagination span,
+  .expense-by-user-pagination span {
+    width: 100%;
+    text-align: center;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody {
+    padding: 6px 0 0;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr {
+    margin-bottom: 10px;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Status"] {
+    align-items: flex-start;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Status"] select,
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Status"] .expense-status-stack {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Actions"] {
+    display: block;
+    padding: 10px;
+    text-align: left;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Actions"]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 8px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Actions"] > * {
+    max-width: none;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Actions"] button {
+    min-width: calc(50% - 6px);
+    margin: 0 6px 6px 0;
+>>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
   }
 }
 
 @media (max-width: 640px) {
+<<<<<<< HEAD
   .expense-ocr-modal .expense-modal-header {
     gap: 12px;
   }
@@ -4010,3 +4199,40 @@ appearance: none;
     display: none;
   }
 }
+=======
+  .expense-dashboard {
+    padding: 6px;
+  }
+
+  .expense-box,
+  .expense-ledger {
+    padding: 14px;
+  }
+
+  .expense-progress-item,
+  .expense-user-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .expense-ledger-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-dropdown {
+    grid-column: auto;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Actions"] button {
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 8px;
+  }
+
+  .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Actions"] button:last-child {
+    margin-bottom: 0;
+  }
+}
+
+>>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292

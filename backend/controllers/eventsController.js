@@ -165,6 +165,41 @@ const populateEventQuery = (query) =>
     .populate({ path: "registrations.user", model: "User", select: "name email" })
     .populate({ path: "registrations.attendeeUsers", model: "User", select: "name email" });
 
+const textDeclaresFreeEventFee = (value) => {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+
+  return [
+    /\bfree entry\b/i,
+    /\bfree event\b/i,
+    /\bfree registration\b/i,
+    /\bno registration fee\b/i,
+    /\bentry free\b/i,
+    /\bthis meetup is free\b/i,
+    /\bthis event is free\b/i,
+    /\bfree to attend\b/i,
+    /\bfree\s+to\s+(?:attend|join|register)\b/i,
+    /\bfee\s*[:\-]?\s*(?:free|0|zero)\b/i,
+    /\b(?:registration|ticket|pass)\s+(?:is\s+)?free\b/i,
+    /\bcomplimentary\s+(?:entry|registration|pass|ticket)\b/i,
+  ].some((pattern) => pattern.test(text));
+};
+
+const normalizeEventRegistrationFeeForDisplay = (event = {}) => {
+  if (textDeclaresFreeEventFee(`${event.name || ""} ${event.description || ""}`)) {
+    return 0;
+  }
+
+  const sourceName = String(event.source?.name || event.source || "").trim().toLowerCase();
+  const currency = String(event.registrationCurrency || "INR").trim().toUpperCase();
+  const fee = Number(event.registrationFee);
+  if (sourceName === "meetup" && (!currency || currency === "INR") && Number.isFinite(fee) && fee <= 5) {
+    return 0;
+  }
+
+  return event.registrationFee;
+};
+
 const formatEvent = (eventDoc, userId) => {
   const event = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
   const currentUserId = String(userId || "");
@@ -180,9 +215,12 @@ const formatEvent = (eventDoc, userId) => {
   );
   const isRegisteredInRegistration = registrationRows.some(
     (registration) =>
-      String(registration?.user?._id || registration?.user) === currentUserId ||
-      (Array.isArray(registration?.attendeeUsers) &&
-        registration.attendeeUsers.some((entry) => String(entry?._id || entry) === currentUserId))
+      String(registration?.user?._id || registration?.user) === currentUserId
+  );
+  const isPendingInvitation = registrationRows.some(
+    (registration) =>
+      Array.isArray(registration?.attendeeUsers) &&
+      registration.attendeeUsers.some((entry) => String(entry?._id || entry) === currentUserId)
   );
   const isAttendingInLegacy = event.attendedBy?.some(
     (id) => String(id?._id || id) === currentUserId
@@ -200,7 +238,9 @@ const formatEvent = (eventDoc, userId) => {
 
   return {
     ...event,
+    registrationFee: normalizeEventRegistrationFeeForDisplay(event),
     isRegistered: Boolean(isRegisteredInLegacy || isRegisteredInRegistration),
+    isPendingInvitation: Boolean(isPendingInvitation && !isRegisteredInLegacy && !isRegisteredInRegistration && !isAttendingInLegacy),
     isAttending: Boolean(isAttendingInLegacy),
     isMissed,
     myRegistration,
@@ -581,7 +621,6 @@ exports.getEventSummary = async (req, res) => {
         $or: [
           { registeredBy: userId },
           { "registrations.user": userId },
-          { "registrations.attendeeUsers": userId },
         ],
       }
       : {
@@ -676,7 +715,13 @@ exports.getEventSummary = async (req, res) => {
       ],
     };
 
-    const [upcomingEvents, registeredEvents, attendingEvents, missedPastEvents, uninterestedPastEvents, avgAi, lastUpdated, lastScraperRun] = await Promise.all([
+    const startOfTomorrow = addDays(startOfToday, 1);
+    const todayFetchedFilter = {
+      ...baseVisibilityFilter,
+      createdAt: { $gte: startOfToday, $lt: startOfTomorrow },
+    };
+
+    const [upcomingEvents, registeredEvents, attendingEvents, missedPastEvents, uninterestedPastEvents, avgAi, lastUpdated, todayFetchedCount, lastScraperRun] = await Promise.all([
       Event.countDocuments(upcomingFilter),
       Event.countDocuments(registeredFilter),
       Event.countDocuments(attendingFilter),
@@ -687,6 +732,7 @@ exports.getEventSummary = async (req, res) => {
         { $group: { _id: null, avgScore: { $avg: "$aiRelevanceScore" } } }
       ]),
       Event.findOne(baseVisibilityFilter).sort({ updatedAt: -1 }).select("updatedAt").lean(),
+      Event.countDocuments(todayFetchedFilter),
       EventScraperRun.findOne({
         finishedAt: { $ne: null },
       })
@@ -703,6 +749,7 @@ exports.getEventSummary = async (req, res) => {
       uninterestedPastEvents,
       avgAiScore: Number(avgAi?.[0]?.avgScore || 0),
       lastUpdatedAt: lastUpdated?.updatedAt || null,
+      todayFetchedCount,
       lastScraperRunAt: lastScraperRun?.finishedAt || null,
       lastScraperNewEvents: Number(lastScraperRun?.syncResult?.importedCount || 0),
       lastScraperUpdatedEvents: Number(lastScraperRun?.syncResult?.updatedCount || 0),
@@ -1153,6 +1200,52 @@ exports.getMyEventRegistration = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to fetch registration details" });
+  }
+};
+
+exports.acceptEventInvitation = async (req, res) => {
+  try {
+    const currentUserId = String(req.user?._id || "");
+    if (!currentUserId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const event = await Event.findOne({
+      _id: req.params.id,
+      is_deleted: false,
+      "registrations.attendeeUsers": req.user._id,
+    });
+
+    if (!event) {
+      return res.status(404).json({ message: "Pending invitation not found" });
+    }
+
+    const isAlreadyRegistered =
+      event.registeredBy.some((id) => String(id) === currentUserId) ||
+      (event.registrations || []).some((reg) => String(reg.user) === currentUserId);
+
+    if (!isAlreadyRegistered) {
+      event.registeredBy.push(req.user._id);
+    }
+
+    event.missedReason = "";
+    event.missedAt = null;
+    event.missedBy = null;
+    event.engagementLabel = "positive";
+    await event.save();
+
+    const populated = await populateEventQuery(Event.findById(event._id));
+    const attendeesList = [
+      ...(populated.registeredBy || []),
+      ...(populated.attendedBy || []),
+      ...(populated.registrations || []).flatMap((r) => r.attendeeUsers || [])
+    ];
+    await syncEventToGoogleForAttendees(populated, attendeesList);
+
+    return res.json(formatEvent(populated, req.user?._id));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to accept event invitation" });
   }
 };
 

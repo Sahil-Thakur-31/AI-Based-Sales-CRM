@@ -602,19 +602,20 @@ def get_source_definition(source: str) -> dict[str, Any]:
 def source_seed_urls(source: str) -> list[str]:
     config = get_source_definition(source)
     urls: list[str] = []
-    search_terms = [term for term in industry_search_terms() if term][:5]
-    primary_search_term = search_terms[0] if search_terms else ""
+    search_terms = [term for term in industry_search_terms() if term][:12]
+    broad_terms = ("technology", "business", "startup", "ai", "conference", "expo", "manufacturing", "pharma")
+    for term in broad_terms:
+        if term not in search_terms:
+            search_terms.append(term)
     if source == "meetup":
-        params: dict[str, str] = {}
-        if primary_search_term:
-            params["keywords"] = primary_search_term
         location_query = TARGET_LOCATION_CONTEXT.search_query()
-        if location_query:
-            params["location"] = location_query
-        if params:
+        for term in search_terms:
+            params: dict[str, str] = {"keywords": term}
+            if location_query:
+                params["location"] = location_query
             urls.append(f"https://www.meetup.com/find/?{urlencode(params)}")
-        else:
-            urls.append("https://www.meetup.com/find/")
+        params = {"location": location_query} if location_query else {}
+        urls.append(f"https://www.meetup.com/find/?{urlencode(params)}" if params else "https://www.meetup.com/find/")
     elif source == "eventbrite":
         city_slug = slugify_fragment(TARGET_LOCATION_CONTEXT.city)
         country_slug = slugify_fragment(TARGET_LOCATION_CONTEXT.country)
@@ -622,13 +623,12 @@ def source_seed_urls(source: str) -> list[str]:
             urls.append(f"https://www.eventbrite.com/d/{country_slug}--{city_slug}/events/")
         elif country_slug:
             urls.append(f"https://www.eventbrite.com/d/{country_slug}/events/")
-        query: dict[str, str] = {}
-        if primary_search_term:
-            query["q"] = primary_search_term
         location_query = TARGET_LOCATION_CONTEXT.search_query()
-        if location_query:
-            query["loc"] = location_query
-        urls.append(f"https://www.eventbrite.com/d/?{urlencode(query)}" if query else "https://www.eventbrite.com/d/")
+        for term in search_terms:
+            query: dict[str, str] = {"q": term}
+            if location_query:
+                query["loc"] = location_query
+            urls.append(f"https://www.eventbrite.com/d/?{urlencode(query)}")
     configured_urls = [str(item).strip() for item in config.get("fallback_urls", []) if str(item).strip()]
     for item in configured_urls:
         if item not in urls:
@@ -903,7 +903,10 @@ class EventScraper:
             plain_text = self._plain_text(html)
             registration_fee, registration_currency = self._extract_fee_info(payload)
             text_fee, text_currency = self._extract_fee_info_from_text(plain_text)
-            if self.source == "eventbrite" and text_fee is not None:
+            if text_fee == 0:
+                registration_fee = 0.0
+                registration_currency = text_currency or registration_currency
+            elif self.source == "eventbrite" and text_fee is not None:
                 registration_fee = text_fee
                 registration_currency = text_currency or registration_currency
             elif registration_fee is None and text_fee is not None:
@@ -1547,16 +1550,7 @@ class EventScraper:
         cleaned = clean_text(text)
         if not cleaned:
             return None, ""
-        free_patterns = [
-            r"\bfree entry\b",
-            r"\bfree registration\b",
-            r"\bno registration fee\b",
-            r"\bentry free\b",
-            r"\bthis meetup is free\b",
-            r"\bfree to attend\b",
-            r"\bcomplimentary\s+(?:entry|registration|pass|ticket)\b",
-        ]
-        if any(re.search(pattern, cleaned, re.I) for pattern in free_patterns):
+        if EventScraper._text_declares_free_fee(cleaned):
             return 0.0, ""
 
         inr_token = r"(?<![a-zA-Z])(?:rs\.?|inr|₹|â‚¹)(?![a-zA-Z])"
@@ -1596,6 +1590,27 @@ class EventScraper:
             except ValueError:
                 continue
         return None, ""
+
+    @staticmethod
+    def _text_declares_free_fee(text: str) -> bool:
+        cleaned = clean_text(text)
+        if not cleaned:
+            return False
+        free_patterns = [
+            r"\bfree entry\b",
+            r"\bfree event\b",
+            r"\bfree registration\b",
+            r"\bno registration fee\b",
+            r"\bentry free\b",
+            r"\bthis meetup is free\b",
+            r"\bthis event is free\b",
+            r"\bfree to attend\b",
+            r"\bfree\s+to\s+(?:attend|join|register)\b",
+            r"\bfee\s*[:\-]?\s*(?:free|0|zero)\b",
+            r"\b(?:registration|ticket|pass)\s+(?:is\s+)?free\b",
+            r"\bcomplimentary\s+(?:entry|registration|pass|ticket)\b",
+        ]
+        return any(re.search(pattern, cleaned, re.I) for pattern in free_patterns)
 
     def _extract_attendees_count(self, html: str, plain_text: str) -> int | None:
         if self.source == "meetup":
@@ -2194,7 +2209,7 @@ class LocalROIPredictor:
             deal_rows = list(
                 deals_collection.find(
                     {"is_deleted": {"$ne": True}},
-                    {"_id": 1, "lead_id": 1, "client_id": 1, "status": 1, "dealValue": 1},
+                    {"_id": 1, "lead_id": 1, "client_id": 1, "stage": 1, "dealValue": 1},
                 )
             )
 
@@ -2251,11 +2266,11 @@ class LocalROIPredictor:
                 revenue = estimated_revenue_by_event.get(event_id, 0.0)
                 for lead_id in lead_ids_by_event.get(event_id, []):
                     for deal in deals_by_lead.get(lead_id, []):
-                        if clean_text(str(deal.get("status"))).lower() == "won":
+                        if clean_text(str(deal.get("stage"))).upper() == "P7":
                             revenue += max(0.0, parse_float(deal.get("dealValue")) or 0.0)
                 for client_id in client_ids_by_event.get(event_id, []):
                     for deal in deals_by_client.get(client_id, []):
-                        if clean_text(str(deal.get("status"))).lower() == "won":
+                        if clean_text(str(deal.get("stage"))).upper() == "P7":
                             revenue += max(0.0, parse_float(deal.get("dealValue")) or 0.0)
 
                 if revenue <= 0:

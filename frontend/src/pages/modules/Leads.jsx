@@ -837,7 +837,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [showDeletedLeads, setShowDeletedLeads] = useState(false);
   const [search, setSearch] = useState("");
   const [industryFilter, setIndustryFilter] = useState("All");
-  const [temperatureFilter, setTemperatureFilter] = useState("All");
   const [stageFilter, setStageFilter] = useState("All");
   const [industryOptions, setIndustryOptions] = useState([]);
 
@@ -1064,11 +1063,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
       "contact_location",
     ]);
 
-    const leadTemperatureRaw = firstFilled(row, ["lead_temperature", "temperature", "lead_temp"]).toLowerCase();
-    const leadTemperature = ["cold", "warm", "hot"].includes(leadTemperatureRaw)
-      ? leadTemperatureRaw
-      : undefined;
-
     const payload = {
       company_name: companyName,
       industry: firstFilled(row, ["industry", "sector", "business_industry"]),
@@ -1077,14 +1071,13 @@ function LeadsDashboard({ defaultView = "leads" }) {
       Address: firstFilled(row, ["address", "company_address", "office_address", "location"]),
       website: firstFilled(row, ["website", "url", "website_url", "company_website"]),
       source: normalizeObjectId(firstFilled(row, ["source_id", "source", "lead_source"])),
-      lead_temperature: leadTemperature,
       deal_value_estimate: parseNumber(
         firstFilled(row, ["deal_value_estimate", "deal_value", "value", "amount", "deal_amount", "estimated_value"])
       ),
       assigned_to: normalizeObjectId(
         firstFilled(row, ["assigned_to", "owner", "user_id", "assignee", "lead_owner"])
       ),
-      status: normalizeStatus(firstFilled(row, ["status", "lead_status"])),
+      stage: firstFilled(row, ["stage", "pipeline_stage"]) || "P3",
       country: firstFilled(row, ["country", "nation"]),
       State: firstFilled(row, ["state", "province", "region"]),
       city: firstFilled(row, ["city", "town"]),
@@ -1204,23 +1197,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
     }
   };
 
-  const getTemperature = (row) => {
-    const raw = (row.lead_temperature || row.temperature || "").toLowerCase();
-    if (["hot", "warm", "cold"].includes(raw)) return raw;
-    const score = Number(row.ai_score);
-    if (Number.isNaN(score)) return "";
-    if (score >= 80) return "hot";
-    if (score >= 50) return "warm";
-    return "cold";
-  };
-
-  const getTemperatureLabel = (value) => {
-    if (value === "hot") return "Hot";
-    if (value === "warm") return "Warm";
-    if (value === "cold") return "Cold";
-    return "-";
-  };
-
   const formatCurrency = (value) => {
     const amount = Number(value);
     if (Number.isNaN(amount)) return "-";
@@ -1243,12 +1219,12 @@ function LeadsDashboard({ defaultView = "leads" }) {
     if (!row) return true;
     if (row.is_active === false || row.isActive === false) return false;
     if (mode === "deals") {
-      const s = (row.status || "open").toLowerCase();
-      if (s === "won" || s === "lost") return false;
+      const stage = String(row.stage || "").toUpperCase();
+      if (stage === "P7" || stage === "P6") return false;
     }
     if (mode === "leads") {
-      const s = (row.status || "").toLowerCase();
-      if (s === "rejected") return false;
+      const stage = String(row.stage || "").toUpperCase();
+      if (stage === "P4" || stage === "P6" || stage === "P7") return false;
     }
     return true;
   };
@@ -1291,8 +1267,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
       const industry = (row.industry || "").toLowerCase();
       const valueText = String(row.deal_value_estimate ?? "").toLowerCase();
       const formattedValue = formatCurrency(row.deal_value_estimate).toLowerCase();
-      const aiScore = String(row.ai_score ?? "").toLowerCase();
-      const aiLabel = getTemperatureLabel(getTemperature(row)).toLowerCase();
       const lastContactText = String(row.last_contact_date || "").toLowerCase();
       const formattedLastContact = formatDate(row.last_contact_date).toLowerCase();
       const nextAction = (row.next_action || "").toLowerCase();
@@ -1304,17 +1278,14 @@ function LeadsDashboard({ defaultView = "leads" }) {
         industry.includes(q) ||
         valueText.includes(q) ||
         formattedValue.includes(q) ||
-        aiScore.includes(q) ||
-        aiLabel.includes(q) ||
         lastContactText.includes(q) ||
         formattedLastContact.includes(q) ||
         nextAction.includes(q);
       const matchesIndustry = industryFilter === "All" || row.industry === industryFilter;
-      const matchesTemp = temperatureFilter === "All" || getTemperature(row) === temperatureFilter;
       const matchesStage = stageFilter === "All" || row.stage === stageFilter;
-      return matchesSearch && matchesIndustry && (viewMode === "deals" ? matchesStage : matchesTemp);
+      return matchesSearch && matchesIndustry && (viewMode === "deals" ? matchesStage : true);
     });
-  }, [sourceRows, search, industryFilter, temperatureFilter, stageFilter, viewMode]);
+  }, [sourceRows, search, industryFilter, stageFilter, viewMode]);
 
   // Reset pagination when data or filters change
   useEffect(() => {
@@ -1420,17 +1391,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
               <option value="P6">P6</option>
               <option value="P7">P7</option>
             </select>
-          ) : (
-            <select
-              value={temperatureFilter}
-              onChange={(e) => setTemperatureFilter(e.target.value)}
-            >
-              <option value="All">All Temperatures</option>
-              <option value="hot">Hot</option>
-              <option value="warm">Warm</option>
-              <option value="cold">Cold</option>
-            </select>
-          )}
+          ) : null}
 
           <select
             value={industryFilter}
@@ -1456,7 +1417,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
       </div>
 
       <div className="table-wrapper">
-        <table>
+        <table className="crm-responsive-table">
           <thead>
             <tr>
               <th>Company</th>
@@ -1464,72 +1425,67 @@ function LeadsDashboard({ defaultView = "leads" }) {
               <th>Industry</th>
               <th>Value</th>
               {viewMode === "leads" && <th>Stage</th>}
-              {viewMode === "leads" && <th>AI Score</th>}
               {viewMode === "deals" && <th>Stage</th>}
               <th className="col-last-contact">Last Contact</th>
               {!(viewMode === "deals" && activeTab === "inactive") && <th>Next Action</th>}
-              {viewMode === "deals" && activeTab === "inactive" && <th>Status</th>}
+              {viewMode === "deals" && activeTab === "inactive" && <th>Stage</th>}
               {activeTab === "deleted" && <th>Delete Reason</th>}
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
-            {!loading && paginatedRows.length === 0 && <tr><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
+            {loading && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 8 : 7)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
+            {!loading && paginatedRows.length === 0 && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 8 : 7)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
             {!loading && paginatedRows.map((row) => {
-              const t = getTemperature(row);
               return (
                 <tr key={row._id}>
-                  <td className="company-cell" title={viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}>
+                  <td
+                    className="company-cell"
+                    data-label="Company"
+                    title={viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}
+                  >
                     {viewMode === "deals" ? (row.deal_name || row.company_name || "-") : (row.deal_name || row.company_name || "-")}
                   </td>
                   {viewMode === "deals" && (
-                    <td className="deal-contact-cell">
+                    <td className="deal-contact-cell" data-label="Contact">
                       <div className="contact-name">{row.primary_contact?.name || "-"}</div>
                       <small className="contact-subtext">{row.primary_contact?.email || row.primary_contact?.phone || "-"}</small>
                     </td>
                   )}
-                  <td>{row.industry || "-"}</td>
-                  <td>{formatCurrency(row.deal_value_estimate)}</td>
+                  <td data-label="Industry">{row.industry || "-"}</td>
+                  <td data-label="Value">{formatCurrency(row.deal_value_estimate)}</td>
                   {viewMode === "leads" && (
-                    <td>
+                    <td data-label="Stage">
                       <span className="stage-chip">
                         {row.stage || "-"}
-                      </span>
-                    </td>
-                  )}
-                  {viewMode === "leads" && (
-                    <td>
-                      <span className={`ai-chip ${t}`}>
-                        {`${row.ai_score ?? "-"} - ${getTemperatureLabel(t)}`}
                       </span>
                     </td>
                   )}
 
                   {viewMode === "deals" && (
-                    <td>
+                    <td data-label="Stage">
                       <span className="stage-chip">
                         {row.stage || "-"}
                       </span>
                     </td>
                   )}
-                  <td className="last-contact-cell">{formatDate(row.last_contact_date)}</td>
-                  {!(viewMode === "deals" && activeTab === "inactive") && <td>{row.next_action || "-"}</td>}
+                  <td className="last-contact-cell" data-label="Last Contact">{formatDate(row.last_contact_date)}</td>
+                  {!(viewMode === "deals" && activeTab === "inactive") && <td data-label="Next Action">{row.next_action || "-"}</td>}
                   {viewMode === "deals" && activeTab === "inactive" && (
-                    <td>
-                      <span className={`stage-chip ${(row.status || "").toLowerCase()}`} style={{ textTransform: "capitalize" }}>
-                        {row.status || "-"}
+                    <td data-label="Stage">
+                      <span className="stage-chip">
+                        {row.stage || "-"}
                       </span>
                     </td>
                   )}
                   {activeTab === "deleted" && (
-                    <td>
+                    <td data-label="Delete Reason">
                       <span className="delete-reason">
                         {row.delete_reason || row.deleted_reason || "No reason provided"}
                       </span>
                     </td>
                   )}
-                  <td>
+                  <td data-label="Actions">
                     <div className="row-actions">
                       <button
                         className="view-btn"
@@ -1588,44 +1544,13 @@ function LeadsDashboard({ defaultView = "leads" }) {
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      {
-        !loading && totalPages > 1 && (
-          <div className="pagination-container">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-            <div className="pagination-numbers">
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
-                .map((page, index, array) => (
-                  <React.Fragment key={page}>
-                    {index > 0 && page - array[index - 1] > 1 && (
-                      <span className="pagination-ellipses">...</span>
-                    )}
-                    <button
-                      className={`pagination-number ${currentPage === page ? "active" : ""}`}
-                      onClick={() => handlePageChange(page)}
-                    >
-                      {page}
-                    </button>
-                  </React.Fragment>
-                ))}
-            </div>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-          </div>
-        )
-      }
+      {!loading && totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          handlePageChange={handlePageChange}
+        />
+      )}
 
       {
         showOcrModal &&

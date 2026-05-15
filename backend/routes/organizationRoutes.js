@@ -3,6 +3,7 @@ const auth = require("../middlewares/auth");
 const organizationLogoUpload = require("../config/organizationLogoMulter");
 const {
   getOrganizations,
+  getPublicOrganizationBrand,
   getOrganizationProfile,
   createOrganization,
   upsertOrganizationProfile,
@@ -13,6 +14,7 @@ const {
 
 const organizationAssetUpload = organizationLogoUpload.fields([
   { name: "logo", maxCount: 1 },
+  { name: "icon", maxCount: 1 },
   { name: "signature", maxCount: 1 },
   { name: "stamp", maxCount: 1 }
 ]);
@@ -25,6 +27,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+router.get("/public-brand", getPublicOrganizationBrand);
 router.get("/", auth, requireAdmin, getOrganizations);
 router.get("/profile", auth, getOrganizationProfile);
 router.post("/", auth, requireAdmin, organizationAssetUpload, createOrganization);

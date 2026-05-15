@@ -44,7 +44,7 @@
 }
 
 .fuStagesDeal {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .fuStageTitle {
@@ -66,13 +66,13 @@
   opacity: 0.92;
 }
 
-.fuStageCard:nth-child(1) { background: linear-gradient(135deg, #6a5acd, #7b68ee); }
-.fuStageCard:nth-child(2) { background: linear-gradient(135deg, #2ecc71, #27ae60); }
-.fuStageCard:nth-child(3) { background: linear-gradient(135deg, #3498db, #2980b9); }
-.fuStageCard:nth-child(4) { background: linear-gradient(135deg, #e67e22, #d35400); }
-.fuStageCard:nth-child(5) { background: linear-gradient(135deg, #f1c40f, #d4ac0d); color: #1b1b1b; }
-.fuStageCard:nth-child(6) { background: linear-gradient(135deg, #ff5a5f, #e74c3c); }
-.fuStageCard:nth-child(7) { background: linear-gradient(135deg, #16a085, #0e7c6f); }
+.fuStageCard.stage-p1 { background: linear-gradient(135deg, #6a5acd, #7b68ee); }
+.fuStageCard.stage-p2 { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+.fuStageCard.stage-p3 { background: linear-gradient(135deg, #3498db, #2980b9); }
+.fuStageCard.stage-p4 { background: linear-gradient(135deg, #e67e22, #d35400); }
+.fuStageCard.stage-p5 { background: linear-gradient(135deg, #f1c40f, #d4ac0d); color: #1b1b1b; }
+.fuStageCard.stage-p6 { background: linear-gradient(135deg, #ff5a5f, #e74c3c); }
+.fuStageCard.stage-p7 { background: linear-gradient(135deg, #16a085, #0e7c6f); }
 
 .fuGrid {
   display: grid;
@@ -475,6 +475,50 @@
   color: #4f46e5;
 }
 
+.fuSuccessModalCard {
+  max-width: 400px;
+  background: #ffffff;
+  border: 2px solid #10b981;
+  border-radius: 16px;
+  padding: 32px 24px;
+  box-shadow: 0 10px 40px rgba(16, 185, 129, 0.1);
+}
+
+.fuSuccessContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.fuSuccessCheckmark {
+  width: 60px;
+  height: 60px;
+  background: #10b981;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.fuSuccessTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+}
+
+.fuSuccessSubtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+  text-align: center;
+}
+
 .fuAiPriorityChip.high {
   background: #fee2e2;
   border-color: #fecaca;
@@ -667,20 +711,6 @@
   margin-top: 14px;
 }
 
-.fuPager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 2px 10px 12px;
-}
-
-.fuPagerText {
-  font-size: 12px;
-  color: #475569;
-  font-weight: 700;
-}
-
 .fuFooterRow {
   padding: 10px 12px;
   border-top: 1px solid #e6ebf2;
@@ -745,8 +775,43 @@
 }
 
 @media (max-width: 900px) {
-  .fuStages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .fuStagesDeal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fuPage {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+  .fuStages { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fuStagesDeal { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fuStageCard {
+    min-height: 116px;
+  }
+  .fuTopbar {
+    align-items: stretch;
+  }
+  .fuTopbarLeft,
+  .fuTopbarRight,
+  .fuTopbarGroup,
+  .fuTopbarFilters {
+    width: 100%;
+  }
+  .fuTopbarGroup {
+    flex-wrap: wrap;
+  }
+  .fuTopbarBtn,
+  .fuTopbarSelect {
+    min-height: 40px;
+  }
+  .fuTopbarSelect {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+  .fuPanelFixed,
+  .fuFullPagePanel {
+    min-height: 0;
+  }
+  .fuPanelBody {
+    overflow: visible;
+  }
   .fuItem {
     flex-wrap: wrap;
     align-items: flex-start;
@@ -760,4 +825,230 @@
   .fuFormGrid { grid-template-columns: 1fr; }
   .fuLocationRow { grid-template-columns: 1fr; }
   .fuDetailsGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .fuPage {
+    padding: 10px;
+  }
+
+  .fuStages,
+  .fuStagesDeal {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+    margin-inline: 0;
+    padding-bottom: 0;
+  }
+
+  .fuStageCard {
+    min-height: 110px;
+    padding: 10px;
+  }
+
+  .fuStageTitle {
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .fuStageCount {
+    font-size: 22px;
+  }
+
+  .fuStageSub {
+    font-size: 10px;
+  }
+
+  .fuTopbar {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .fuTopbarLeft {
+    gap: 10px;
+  }
+
+  .fuTopbarGroup {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .fuTopbarGroup:first-child {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fuTopbarBtn {
+    width: 100%;
+    padding: 9px 10px;
+    font-size: 11px;
+  }
+
+  .fuTopbarFilters {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .fuTopbarSelect {
+    width: 100%;
+  }
+
+  .fuPanelHeader {
+    padding: 12px 12px 10px;
+    min-height: 0;
+    align-items: flex-start;
+  }
+
+  .fuPanelHeader h3 {
+    font-size: 14px;
+  }
+
+  .fuList,
+  .fuAllWrap,
+  .fuDetailsWrap {
+    padding: 8px;
+  }
+
+  .fuItem {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr);
+    align-items: start;
+    padding: 10px;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .fuItemTitle {
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .fuItemMeta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .fuMetaChip {
+    width: 100%;
+    font-size: 10px;
+    padding: 3px 7px;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .fuItemActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .fuMiniBtn,
+  .fuBtn {
+    min-height: 38px;
+    justify-content: center;
+  }
+
+  .fuMiniBtn {
+    width: 100%;
+    margin: 0;
+  }
+
+  .fuItemMain {
+    min-width: 0;
+  }
+
+  .fuPriorityDot {
+    margin-top: 4px;
+  }
+
+  .fuDetailsHead,
+  .fuPanelActions,
+  .fuFormActions,
+  .fuFooterRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fuPanelActions .fuBtn,
+  .fuFormActions .fuBtn {
+    width: 100%;
+  }
+
+  .fuDetailCard {
+    padding: 9px;
+  }
+
+  .fuDetailCard .v {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .fuModalOverlay {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .fuModalCard {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    border-radius: 16px 16px 12px 12px;
+    padding: 14px;
+  }
+
+  .fuSuccessModalCard {
+    padding: 24px 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .fuPage {
+    padding: 8px;
+  }
+
+  .fuTopbarGroup,
+  .fuTopbarGroup:first-child {
+    grid-template-columns: 1fr;
+  }
+
+  .fuStages,
+  .fuStagesDeal {
+    grid-template-columns: 1fr;
+  }
+
+  .fuStageCard {
+    min-height: 96px;
+  }
+
+  .fuList,
+  .fuAllWrap,
+  .fuDetailsWrap {
+    padding: 6px;
+  }
+
+  .fuItem {
+    padding: 9px;
+    gap: 8px;
+  }
+
+  .fuItemMeta {
+    grid-template-columns: 1fr;
+  }
+
+  .fuItemActions {
+    grid-template-columns: 1fr;
+  }
+
+  .fuPanelHeader,
+  .fuTopbar,
+  .fuModalCard {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
 }

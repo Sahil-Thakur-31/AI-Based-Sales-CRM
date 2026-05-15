@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../../api";
 import FormErrorSlot from "../../components/FormErrorSlot";
+import Pagination from "../../components/Pagination";
 import { minLength, required } from "../../utils/formValidation";
 import "./styles/Followups.css";
 
@@ -15,14 +16,18 @@ const STAGES = [
 ];
 
 const LEAD_STAGES = STAGES.map((stage) =>
-  stage.key === "P7"
-    ? { ...stage, title: "P7 - Lead Convert to Deal", sub: "Converted leads" }
-    : stage
+  stage.key === "P3"
+    ? { ...stage, title: "P3 - Fresh Leads", sub: "When we create new leads" }
+    : stage.key === "P7"
+      ? { ...stage, title: "P7 - Lead Convert to Deal", sub: "Converted leads" }
+      : stage
 );
 
-const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P7"]);
+const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P6", "P7"]);
 const DEAL_STAGES = STAGES.map((stage) => ({
-  ...stage,
+  ...(stage.key === "P3"
+    ? { ...stage, title: "P3 - Fresh Deals", sub: "New deals and converted leads" }
+    : stage),
   hidden: !DEAL_STAGE_KEYS.has(stage.key),
 }));
 
@@ -54,6 +59,7 @@ const EMPTY_DONE_MODAL = {
   nextFollowupDate: "",
   nextReminder: "yes",
   nextStage: "P1",
+  reasonForLost: "",
   sourceData: null,
 };
 
@@ -64,7 +70,7 @@ const EMPTY_CANCEL_MODAL = {
   reason: "",
 };
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 5;
 
 function cx(...arr) {
   return arr.filter(Boolean).join(" ");
@@ -189,10 +195,44 @@ function mapDocToFollowup(doc) {
     notes: doc.notes || "",
     agenda: doc.agenda || "",
     aiPriority: doc.aiPriority || "",
+    mob: doc.mob || "",
     reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
     completedAt: doc.completedAt || null,
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
     assignedToName: doc.assignedTo?.name || "",
+  };
+}
+
+function getAssignedUserId(record = {}) {
+  return String(
+    record?.assigned_to?._id ||
+    record?.assigned_to ||
+    record?.assignedTo?._id ||
+    record?.assignedTo ||
+    record?.assignedToId ||
+    ""
+  );
+}
+
+function mapDealToPipelineItem(doc) {
+  return {
+    id: String(doc?._id || ""),
+    stage: String(doc?.stage || "").trim().toUpperCase(),
+    status: String(doc?.status || "").trim().toLowerCase(),
+    reasonForLost: String(doc?.reason_for_lost || ""),
+    assignedToId: getAssignedUserId(doc),
+  };
+}
+
+function mapLeadToPipelineItem(doc) {
+  return {
+    id: String(doc?._id || ""),
+    stage: String(doc?.stage || "").trim().toUpperCase(),
+    status: String(doc?.status || "").trim().toLowerCase(),
+    reasonForLost: String(doc?.reason_for_lost || ""),
+    convertedToDeal:
+      doc?.converted_to_deal === true || String(doc?.status || "").trim().toLowerCase() === "converted",
+    assignedToId: getAssignedUserId(doc),
   };
 }
 
@@ -223,6 +263,14 @@ function inferRecordBucket(doc) {
   return "deal";
 }
 
+function requiresReasonForLost(nextStage = "", sourceData = null) {
+  const stage = String(nextStage || "").trim().toUpperCase();
+  const bucket = inferRecordBucket(sourceData || {});
+  if (bucket === "lead") return stage === "P4" || stage === "P6";
+  if (bucket === "deal") return stage === "P6";
+  return false;
+}
+
 function matchesAssigneeFilter({
   item,
   recordScope,
@@ -231,7 +279,7 @@ function matchesAssigneeFilter({
   currentUserId,
   teamOptions,
 }) {
-  const assignedToId = String(item?.assignedToId || "");
+  const assignedToId = getAssignedUserId(item);
 
   if (selectedEmployeeId) {
     const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
@@ -255,12 +303,21 @@ function matchesAssigneeFilter({
   return true;
 }
 
+function shouldCountDealInStage(deal = {}, stageKey = "") {
+  const stage = String(stageKey || "").trim().toUpperCase();
+  const dealStage = String(deal?.stage || "").trim().toUpperCase();
+
+  return dealStage === stage;
+}
+
 export default function Followups() {
   const [activeStage, setActiveStage] = useState("P1");
   const [recordBucket, setRecordBucket] = useState("lead");
   const [followupMode, setFollowupMode] = useState("list");
   const [followups, setFollowups] = useState([]);
   const [meetings, setMeetings] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [meetingMode, setMeetingMode] = useState("list");
   const [statusFilter, setStatusFilter] = useState("all");
   const [meetingPage, setMeetingPage] = useState(1);
@@ -283,6 +340,7 @@ export default function Followups() {
   const [cancelModal, setCancelModal] = useState(EMPTY_CANCEL_MODAL);
   const [cancelModalError, setCancelModalError] = useState("");
   const [savingCancel, setSavingCancel] = useState(false);
+  const [successModal, setSuccessModal] = useState({ open: false, title: "", subtitle: "" });
   const [scopeLabel, setScopeLabel] = useState("My Records");
   const [currentRole, setCurrentRole] = useState("");
   const [teamOptions, setTeamOptions] = useState([]);
@@ -302,9 +360,11 @@ export default function Followups() {
     try {
       setLoading(true);
       setError("");
-      const [meetingRes, followupRes] = await Promise.all([
+      const [meetingRes, followupRes, dealRes, leadRes] = await Promise.all([
         API.get("/followups", { params: { kind: "meeting" } }),
         API.get("/followups", { params: { kind: "followup" } }),
+        API.get("/deals"),
+        API.get("/leads", { params: { include_converted: true } }),
       ]);
 
       const stageById = new Map(
@@ -339,6 +399,8 @@ export default function Followups() {
 
       setMeetings(mergedMeetings);
       setFollowups((followupRes.data || []).map(mapDocToFollowup));
+      setDeals((dealRes.data || []).map(mapDealToPipelineItem));
+      setLeads((leadRes.data || []).map(mapLeadToPipelineItem));
     } catch (err) {
       console.error(err);
       setError("Failed to load followups");
@@ -426,15 +488,54 @@ export default function Followups() {
     [bucketedFollowups, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
   );
 
+  const assigneeFilteredDeals = useMemo(
+    () =>
+      deals.filter((deal) =>
+        matchesAssigneeFilter({
+          item: deal,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [deals, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
+  const assigneeFilteredLeads = useMemo(
+    () =>
+      leads.filter((lead) =>
+        matchesAssigneeFilter({
+          item: lead,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        })
+      ),
+    [leads, recordScope, selectedEmployeeId, selectedTeamId, currentUserId, teamOptions]
+  );
+
   const stageCounts = useMemo(() => {
     const map = Object.fromEntries(visibleStageOptions.map((s) => [s.key, 0]));
-    [...assigneeFilteredFollowups, ...assigneeFilteredMeetings].forEach((item) => {
-      if (!isOnLocalDate(item?.dueDateTime, getLocalDateISO())) return;
-      if (!item?.stage || !(item.stage in map)) return;
-      map[item.stage] = (map[item.stage] || 0) + 1;
+
+    if (recordBucket === "deal") {
+      assigneeFilteredDeals.forEach((deal) => {
+        if (!deal?.stage || !(deal.stage in map)) return;
+        if (!shouldCountDealInStage(deal, deal.stage)) return;
+        map[deal.stage] = (map[deal.stage] || 0) + 1;
+      });
+      return map;
+    }
+
+    assigneeFilteredLeads.forEach((lead) => {
+      if (!lead?.stage || !(lead.stage in map)) return;
+      map[lead.stage] = (map[lead.stage] || 0) + 1;
     });
     return map;
-  }, [assigneeFilteredFollowups, assigneeFilteredMeetings, visibleStageOptions]);
+  }, [assigneeFilteredDeals, assigneeFilteredLeads, recordBucket, visibleStageOptions]);
 
   const visibleFollowups = useMemo(
     () => (useStageFilter ? assigneeFilteredFollowups.filter((f) => f.stage === activeStage) : assigneeFilteredFollowups),
@@ -443,7 +544,6 @@ export default function Followups() {
 
   const filteredMeetings = useMemo(
     () => assigneeFilteredMeetings.filter((m) => {
-      const stageMatch = useStageFilter ? m.stage === activeStage : true;
       const todayMatch = isOnLocalDate(
         getRelevantDateForStatus(m, statusFilter),
         getLocalDateISO()
@@ -454,13 +554,13 @@ export default function Followups() {
           : statusFilter === "remaining"
             ? !isCompletedStatus(m.status)
             : true;
-      return stageMatch && todayMatch && statusMatch;
+      return todayMatch && statusMatch;
     }),
-    [assigneeFilteredMeetings, activeStage, useStageFilter, statusFilter]
+    [assigneeFilteredMeetings, statusFilter]
   );
 
   const filteredFollowupsByStatus = useMemo(
-    () => visibleFollowups.filter((f) => {
+    () => assigneeFilteredFollowups.filter((f) => {
       const todayMatch = isOnLocalDate(
         getRelevantDateForStatus(f, statusFilter),
         getLocalDateISO()
@@ -473,7 +573,7 @@ export default function Followups() {
             : true;
       return todayMatch && statusMatch;
     }),
-    [visibleFollowups, statusFilter]
+    [assigneeFilteredFollowups, statusFilter]
   );
 
   const meetingTotalPages = useMemo(
@@ -495,6 +595,16 @@ export default function Followups() {
     return filteredFollowupsByStatus.slice(start, start + PAGE_SIZE);
   }, [filteredFollowupsByStatus, followupPage]);
 
+  const handleMeetingPageChange = (page) => {
+    const nextPage = Math.min(Math.max(page, 1), meetingTotalPages);
+    setMeetingPage(nextPage);
+  };
+
+  const handleFollowupPageChange = (page) => {
+    const nextPage = Math.min(Math.max(page, 1), followupTotalPages);
+    setFollowupPage(nextPage);
+  };
+
   const statusCounts = useMemo(() => {
     const meetingRemaining = assigneeFilteredMeetings.filter(
       (m) =>
@@ -506,12 +616,12 @@ export default function Followups() {
         isOnLocalDate(getRelevantDateForStatus(m, "completed"), getLocalDateISO()) &&
         isCompletedStatus(m.status)
     ).length;
-    const followupRemaining = visibleFollowups.filter(
+    const followupRemaining = assigneeFilteredFollowups.filter(
       (f) =>
         isOnLocalDate(getRelevantDateForStatus(f, "remaining"), getLocalDateISO()) &&
         !isCompletedStatus(f.status)
     ).length;
-    const followupCompleted = visibleFollowups.filter(
+    const followupCompleted = assigneeFilteredFollowups.filter(
       (f) =>
         isOnLocalDate(getRelevantDateForStatus(f, "completed"), getLocalDateISO()) &&
         isCompletedStatus(f.status)
@@ -521,7 +631,7 @@ export default function Followups() {
       remaining: meetingRemaining + followupRemaining,
       completed: meetingCompleted + followupCompleted,
     };
-  }, [assigneeFilteredMeetings, visibleFollowups]);
+  }, [assigneeFilteredMeetings, assigneeFilteredFollowups]);
 
   useEffect(() => {
     if (!useStageFilter) return;
@@ -543,6 +653,16 @@ export default function Followups() {
     if (followupPage > followupTotalPages) setFollowupPage(followupTotalPages);
   }, [followupPage, followupTotalPages]);
 
+  const getExistingReasonForLost = (source = {}) => {
+    if (source?.dealId) {
+      return deals.find((deal) => String(deal.id) === String(source.dealId))?.reasonForLost || "";
+    }
+    if (source?.leadId) {
+      return leads.find((lead) => String(lead.id) === String(source.leadId))?.reasonForLost || "";
+    }
+    return "";
+  };
+
   const handleMeetingDone = async (id) => {
     const meeting = meetings.find((m) => String(m.id) === String(id)) || selectedMeeting;
     if (!meeting || isCompletedStatus(meeting.status) || isCancelledStatus(meeting.status)) return;
@@ -556,6 +676,7 @@ export default function Followups() {
       nextFollowupDate: "",
       nextReminder: "yes",
       nextStage: meeting?.stage || activeStage || "P1",
+      reasonForLost: getExistingReasonForLost(meeting),
       sourceData: meeting || null,
     });
     setDoneModalError("");
@@ -565,6 +686,13 @@ export default function Followups() {
     if (savingDone) return;
     setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
     setDoneModalError("");
+  };
+
+  const showSuccessModal = (title, subtitle = "") => {
+    setSuccessModal({ open: true, title, subtitle });
+    setTimeout(() => {
+      setSuccessModal({ open: false, title: "", subtitle: "" });
+    }, 3000);
   };
 
   const submitMeetingDone = async (e) => {
@@ -583,6 +711,13 @@ export default function Followups() {
     if (doneModal.nextFollowup === "yes" && !doneModal.nextFollowupDate) {
       return setDoneModalError("Next follow-up date is required");
     }
+    const needsReasonForLost = requiresReasonForLost(doneModal.nextStage, doneModal.sourceData);
+    const trimmedReasonForLost = String(doneModal.reasonForLost || "").trim();
+    const existingReasonForLost = String(getExistingReasonForLost(doneModal.sourceData) || "").trim();
+    if (needsReasonForLost) {
+      const reasonError = minLength(trimmedReasonForLost, 3, "Reason for lost");
+      if (reasonError) return setDoneModalError(reasonError);
+    }
 
     try {
       setSavingDone(true);
@@ -592,6 +727,55 @@ export default function Followups() {
         durationMinutes: Number(doneModal.durationMinutes),
         notes: doneModal.minutesOfMeeting.trim(),
       });
+
+      // Update lead/deal stage to match the selected stage
+      const source = doneModal.sourceData || {};
+      const shouldSyncLinkedEntity =
+        Boolean(doneModal.nextStage) &&
+        (
+          doneModal.nextStage !== source.stage ||
+          (needsReasonForLost && trimmedReasonForLost !== existingReasonForLost)
+        );
+      if (shouldSyncLinkedEntity) {
+        try {
+          if (source.leadId) {
+            await API.put(`/leads/${source.leadId}`, {
+              stage: doneModal.nextStage,
+              ...(needsReasonForLost ? { reason_for_lost: trimmedReasonForLost } : {}),
+            });
+            setLeads((prev) =>
+              prev.map((lead) =>
+                String(lead.id) === String(source.leadId)
+                  ? {
+                      ...lead,
+                      stage: doneModal.nextStage,
+                      reasonForLost: needsReasonForLost ? trimmedReasonForLost : lead.reasonForLost,
+                    }
+                  : lead
+              )
+            );
+          } else if (source.dealId) {
+            await API.put(`/deals/${source.dealId}`, {
+              stage: doneModal.nextStage,
+              ...(needsReasonForLost ? { reason_for_lost: trimmedReasonForLost } : {}),
+            });
+            setDeals((prev) =>
+              prev.map((deal) =>
+                String(deal.id) === String(source.dealId)
+                  ? {
+                      ...deal,
+                      stage: doneModal.nextStage,
+                      reasonForLost: needsReasonForLost ? trimmedReasonForLost : deal.reasonForLost,
+                    }
+                  : deal
+              )
+            );
+          }
+        } catch (err) {
+          console.error("Failed to update lead/deal stage:", err);
+          // Continue with the rest of the process even if stage update fails
+        }
+      }
 
       if (doneModal.nextFollowup === "yes") {
         const source = doneModal.sourceData || {};
@@ -626,13 +810,20 @@ export default function Followups() {
       }
 
       if (doneModal.kind === "meeting") {
-        const updated = mapDocToMeeting(res.data);
-        setMeetings((prev) => prev.map((m) => (m.id === doneModal.id ? { ...m, ...updated, status: "completed" } : m)));
+        const updated = {
+          ...mapDocToMeeting(res.data),
+          stage: doneModal.nextStage || mapDocToMeeting(res.data).stage,
+          status: "completed",
+        };
+        setMeetings((prev) => prev.map((m) => (m.id === doneModal.id ? { ...m, ...updated } : m)));
         if (selectedMeeting?.id === doneModal.id) {
-          setSelectedMeeting((prev) => ({ ...prev, ...updated, status: "completed" }));
+          setSelectedMeeting((prev) => ({ ...prev, ...updated }));
         }
       } else {
-        const updated = mapDocToFollowup(res.data);
+        const updated = {
+          ...mapDocToFollowup(res.data),
+          stage: doneModal.nextStage || mapDocToFollowup(res.data).stage,
+        };
         setFollowups((prev) => prev.map((x) => (x.id === doneModal.id ? updated : x)));
         if (selectedFollowup?.id === doneModal.id) {
           setSelectedFollowup(updated);
@@ -648,6 +839,9 @@ export default function Followups() {
           setFollowups((prev) => [nextFollowup, ...prev]);
         }
       }
+
+      const messageType = doneModal.kind === "meeting" ? "Meeting" : "Followup";
+      showSuccessModal(`${messageType} Completed Successfully`);
 
       setDoneModal({ open: false, ...EMPTY_DONE_MODAL });
     } catch (err) {
@@ -671,6 +865,7 @@ export default function Followups() {
       nextFollowupDate: "",
       nextReminder: "yes",
       nextStage: followup?.stage || activeStage || "P1",
+      reasonForLost: getExistingReasonForLost(followup),
       sourceData: followup || null,
     });
     setDoneModalError("");
@@ -724,6 +919,9 @@ export default function Followups() {
         }
       }
       setCancelModal(EMPTY_CANCEL_MODAL);
+      showSuccessModal(
+        `${cancelModal.kind === "meeting" ? "Meeting" : "Follow-up"} Cancelled Successfully`
+      );
     } catch (err) {
       console.error(err);
       setCancelModalError(err?.response?.data?.message || "Failed to cancel record");
@@ -807,6 +1005,7 @@ export default function Followups() {
       setSelectedMeeting(updated);
       setEditingMeetingId(null);
       setMeetingMode("view");
+      showSuccessModal("Meeting Updated Successfully");
     } catch (err) {
       console.error(err);
       setMeetingFormError(err?.response?.data?.errors?.[0] || "Failed to update meeting");
@@ -836,6 +1035,7 @@ export default function Followups() {
       setSelectedFollowup(updated);
       setEditingFollowupId(null);
       setFollowupMode("list");
+      showSuccessModal("Follow-up Updated Successfully");
     } catch (err) {
       console.error(err);
       setFormError(err?.response?.data?.errors?.[0] || "Failed to update follow-up");
@@ -850,7 +1050,7 @@ export default function Followups() {
             !s.hidden ? (
               <button
                 key={s.key}
-                className={cx("fuStageCard", activeStage === s.key && "active")}
+                className={cx("fuStageCard", `stage-${String(s.key || "").toLowerCase()}`, activeStage === s.key && "active")}
                 onClick={() => {
                   setActiveStage(s.key);
                   if (followupMode === "all") setFollowupMode("list");
@@ -1013,11 +1213,11 @@ export default function Followups() {
                   )}
                 </div>
                 {filteredMeetings.length > 0 && (
-                  <div className="fuPager">
-                    <button className="fuMiniBtn" type="button" onClick={() => setMeetingPage((p) => Math.max(1, p - 1))} disabled={meetingPage <= 1}>Prev</button>
-                    <span className="fuPagerText">Page {meetingPage} / {meetingTotalPages}</span>
-                    <button className="fuMiniBtn" type="button" onClick={() => setMeetingPage((p) => Math.min(meetingTotalPages, p + 1))} disabled={meetingPage >= meetingTotalPages}>Next</button>
-                  </div>
+                  <Pagination
+                    currentPage={meetingPage}
+                    totalPages={meetingTotalPages}
+                    handlePageChange={handleMeetingPageChange}
+                  />
                 )}
               </>
             )}
@@ -1028,13 +1228,7 @@ export default function Followups() {
           <header className="fuPanelHeader">
             <div>
               <h3>Active Follow-ups</h3>
-              <div className="fuHint">
-                {recordBucket === "existingClient" ? null : followupMode === "all" ? (
-                  <>Showing: <span className="fuHintStrong">All stages</span></>
-                ) : (
-                  <>Stage: <span className="fuHintStrong">{activeStage}</span></>
-                )}
-              </div>
+              <div className="fuHint">Showing: <span className="fuHintStrong">Today's follow-ups</span></div>
             </div>
           </header>
 
@@ -1046,10 +1240,10 @@ export default function Followups() {
                 ) : visibleFollowupsByStatus.length === 0 ? (
                   <div className="fuEmptyBox">
                     {statusFilter === "completed"
-                      ? `No completed follow-ups in ${activeStage}.`
+                      ? "No completed follow-ups for today."
                       : statusFilter === "remaining"
-                        ? `No remaining follow-ups in ${activeStage}.`
-                        : `No follow-ups in ${activeStage}.`}
+                        ? "No remaining follow-ups for today."
+                        : "No follow-ups for today."}
                   </div>
                 ) : (
                   visibleFollowupsByStatus.map((f) => (
@@ -1060,6 +1254,7 @@ export default function Followups() {
                         <div className="fuItemMeta">
                           <span className="fuMetaChip">{String(f.actionType || "").replace(/^follow\s*up\s*/i, "").trim() || "Phone Call"}</span>
                           <span className="fuMetaChip">Time: {f.time || "--:--"}</span>
+                          <span className="fuMetaChip">Mob: {f.mob || "-"}</span>
                           {f.aiPriority ? (
                             <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(f.aiPriority))}>AI: {f.aiPriority}</span>
                           ) : null}
@@ -1082,11 +1277,11 @@ export default function Followups() {
                 )}
               </div>
               {filteredFollowupsByStatus.length > 0 && (
-                <div className="fuPager">
-                  <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.max(1, p - 1))} disabled={followupPage <= 1}>Prev</button>
-                  <span className="fuPagerText">Page {followupPage} / {followupTotalPages}</span>
-                  <button className="fuMiniBtn" type="button" onClick={() => setFollowupPage((p) => Math.min(followupTotalPages, p + 1))} disabled={followupPage >= followupTotalPages}>Next</button>
-                </div>
+                <Pagination
+                  currentPage={followupPage}
+                  totalPages={followupTotalPages}
+                  handlePageChange={handleFollowupPageChange}
+                />
               )}
             </>
           </div>
@@ -1403,10 +1598,21 @@ export default function Followups() {
                   {doneModalStageOptions
                     .filter((s) => !s.hidden || s.key === doneModal.nextStage)
                     .map((s) => (
-                      <option key={s.key} value={s.key}>{s.key}</option>
+                      <option key={s.key} value={s.key}>{s.title || s.key}</option>
                     ))}
                 </select>
               </label>
+              {requiresReasonForLost(doneModal.nextStage, doneModal.sourceData) && (
+                <label className="fuFormLabel fuFull">
+                  Reason For Lost*
+                  <textarea
+                    className="fuField fuTextarea"
+                    rows={4}
+                    value={doneModal.reasonForLost}
+                    onChange={(e) => setDoneModal((prev) => ({ ...prev, reasonForLost: e.target.value }))}
+                  />
+                </label>
+              )}
             </div>
             <FormErrorSlot message={doneModalError} className="form-error-slot-global" />
             <div className="fuFormActions">
@@ -1447,6 +1653,17 @@ export default function Followups() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {successModal.open && (
+        <div className="fuModalOverlay" role="dialog" aria-modal="true" aria-label={successModal.title}>
+          <div className="fuModalCard fuSuccessModalCard">
+            <div className="fuSuccessContent">
+              <div className="fuSuccessCheckmark">✓</div>
+              <h3 className="fuSuccessTitle">{successModal.title}</h3>
+              {successModal.subtitle ? <p className="fuSuccessSubtitle">{successModal.subtitle}</p> : null}
+            </div>
+          </div>
         </div>
       )}
     </div>
