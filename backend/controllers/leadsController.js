@@ -101,6 +101,7 @@ function stripLeadPayloadFields(payload) {
   delete cleaned.contact_history;
   delete cleaned.next_action_date;
   delete cleaned.ai_score;
+  delete cleaned.lead_temperature;
   delete cleaned.status;
 
   if (cleaned.is_existing_company !== undefined && cleaned.is_existing_client === undefined) {
@@ -354,10 +355,7 @@ async function resolveIndustryId(leadIndustry) {
   return created._id;
 }
 
-function computeAiRiskScore(leadTemperature) {
-  const temp = (leadTemperature || "").toLowerCase();
-  if (temp === "hot") return 25;
-  if (temp === "warm") return 50;
+function computeAiRiskScore() {
   return 70;
 }
 
@@ -511,7 +509,6 @@ exports.searchCompany = async (req, res) => {
         referred_by_user: lead.referred_by_user || "",
         expo_event_id: lead.expo_event_id || "",
         deal_value_estimate: lead.deal_value_estimate || "",
-        lead_temperature: lead.lead_temperature || "cold",
         assigned_to: lead.assigned_to || "",
         country: location?.country || "",
         State: location?.State || "",
@@ -564,7 +561,6 @@ exports.searchCompany = async (req, res) => {
         website: client.website || "",
         source: client.source || "",
         deal_value_estimate: "",
-        lead_temperature: "cold",
         assigned_to: "",
         country: location?.country || "",
         State: location?.State || "",
@@ -703,14 +699,6 @@ exports.getLeads = async (req, res) => {
         primary_contact: primaryContact,
         next_action: followup?.title || lead.next_action || "",
         next_action_date: followup?.dueDateTime || null,
-        ai_score:
-          lead.lead_temperature === "hot"
-            ? 90
-            : lead.lead_temperature === "warm"
-              ? 70
-              : lead.lead_temperature === "cold"
-                ? 50
-                : null,
         country: location?.country || "",
         State: location?.State || "",
         city: location?.city || "",
@@ -1131,7 +1119,7 @@ exports.convertLeadToDeal = async (req, res) => {
       dealValue: Number(lead.deal_value_estimate) || 0,
       probability: 10,
       expectedCloseDate,
-      aiRiskScore: computeAiRiskScore(lead.lead_temperature),
+      aiRiskScore: computeAiRiskScore(),
       isActive: true,
       is_deleted: false,
     });
@@ -1279,7 +1267,7 @@ const getLeadsAnalytics = async (req, res) => {
     }
 
     const now = new Date();
-    const [currentStats, prevStats, sourceAgg, qualityAgg, agingAgg, trendData, currentLeadRows, followupAgg] = await Promise.all([
+    const [currentStats, prevStats, sourceAgg, agingAgg, trendData, currentLeadRows, followupAgg] = await Promise.all([
       Leads.aggregate([
         { $match: currentMatch },
         {
@@ -1305,11 +1293,6 @@ const getLeadsAnalytics = async (req, res) => {
         { $project: { label: { $ifNull: ["$sourceDoc.name", "Unknown"] }, total: 1, converted: 1 } },
         { $sort: { total: -1 } }
       ]),
-      // Lead Quality (Temperature)
-      Leads.aggregate([
-        { $match: currentMatch },
-        { $group: { _id: { $toLower: { $ifNull: ["$lead_temperature", "cold"] } }, count: { $sum: 1 } } }
-      ]),
       // Lead Aging (Unconverted leads)
       Leads.aggregate([
         { $match: { ...currentMatch, converted_to_deal: { $ne: true }, stage: { $ne: "P7" } } },
@@ -1323,7 +1306,7 @@ const getLeadsAnalytics = async (req, res) => {
         { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
       ]),
       Leads.find(currentMatch)
-        .select("_id company_name lead_temperature stage converted_to_deal last_contact_date created_at assigned_to source")
+        .select("_id company_name stage converted_to_deal last_contact_date created_at assigned_to source")
         .sort({ created_at: -1 })
         .lean(),
       Followup.aggregate([
@@ -1427,7 +1410,6 @@ const getLeadsAnalytics = async (req, res) => {
         companyName: leadRow?.company_name || "Unnamed Lead",
         sourceLabel: sourceMap.get(String(leadRow?.source || ""))?.name || "Unknown",
         status: isConverted ? "converted" : "active",
-        leadTemperature: String(leadRow?.lead_temperature || "cold"),
         assignedToName:
           assigneeMap.get(String(leadRow?.assigned_to || ""))?.name ||
           assigneeMap.get(String(leadRow?.assigned_to || ""))?.email ||
@@ -1482,7 +1464,6 @@ const getLeadsAnalytics = async (req, res) => {
         { label: "Converted", count: stats.converted },
       ],
       sourcePerformance: sourceAgg,
-      leadQuality: qualityAgg,
       leadAging: [
         { label: "0–2 days", count: agingMap["0-2"] },
         { label: "3–7 days", count: agingMap["3-7"] },

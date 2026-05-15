@@ -51,11 +51,6 @@ const leadsSchema = new mongoose.Schema(
       ref: "events",
     },
 
-    lead_temperature: {
-      type: String,
-      enum: ["cold", "warm", "hot"],
-    },
-
     deal_value_estimate: {
       type: Number,
     },

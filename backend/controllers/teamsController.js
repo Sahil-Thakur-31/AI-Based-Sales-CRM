@@ -435,7 +435,6 @@ function formatMemberLeadRow(leadDoc = {}) {
     _id: leadDoc._id || null,
     companyName: leadDoc.company_name || "Unknown company",
     stage: leadDoc.stage || "",
-    temperature: leadDoc.lead_temperature || "cold",
     estimatedValue: Number(leadDoc.deal_value_estimate || 0),
     nextAction: leadDoc.next_action || "",
     lastContactDate: leadDoc.last_contact_date || null,
@@ -553,7 +552,6 @@ function summarizeLeadPipeline({
       dueDateTime: lead.last_contact_date || null,
       updatedAt: lead.updated_at || lead.created_at || null,
       estimatedValue,
-      temperature: lead?.lead_temperature || "cold",
       assignedTo: assignedUser ? mapUserForApi(assignedUser) : null
     });
 
@@ -633,10 +631,7 @@ function getEmptyLeadSummary() {
     contacted: 0,
     qualified: 0,
     converted: 0,
-    rejected: 0,
-    hot: 0,
-    warm: 0,
-    cold: 0
+    rejected: 0
   };
 }
 
@@ -1197,7 +1192,6 @@ exports.getTeamDashboard = async (req, res) => {
       followupRows,
       followupByMemberAgg,
       leadStatusAgg,
-      leadTempAgg,
       recentLeadRows,
       memberLeadAgg,
       leadPipelineRows
@@ -1308,20 +1302,6 @@ exports.getTeamDashboard = async (req, res) => {
           }
         }
       ]),
-      Lead.aggregate([
-        {
-          $match: getActiveLeadMatch({
-            assigned_to: { $in: memberObjectIds },
-            ...leadDateMatch
-          })
-        },
-        {
-          $group: {
-            _id: "$lead_temperature",
-            count: { $sum: 1 }
-          }
-        }
-      ]),
       Lead.find(
         getActiveLeadMatch({
           assigned_to: { $in: memberObjectIds },
@@ -1331,7 +1311,7 @@ exports.getTeamDashboard = async (req, res) => {
         .sort({ updated_at: -1, created_at: -1 })
         .limit(8)
         .select(
-          "company_name stage lead_temperature assigned_to next_action last_contact_date deal_value_estimate converted_to_deal created_at updated_at"
+          "company_name stage assigned_to next_action last_contact_date deal_value_estimate converted_to_deal created_at updated_at"
         )
         .populate("assigned_to", "name email")
         .lean(),
@@ -1345,10 +1325,7 @@ exports.getTeamDashboard = async (req, res) => {
         {
           $group: {
             _id: "$assigned_to",
-            totalLeads: { $sum: 1 },
-            hotLeads: {
-              $sum: { $cond: [{ $eq: ["$lead_temperature", "hot"] }, 1, 0] }
-            }
+            totalLeads: { $sum: 1 }
           }
         }
       ]),
@@ -1359,7 +1336,7 @@ exports.getTeamDashboard = async (req, res) => {
         })
       )
         .select(
-          "company_name stage lead_temperature assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
+          "company_name stage assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
         )
         .sort({ updated_at: -1, created_at: -1 })
         .lean()
@@ -1422,8 +1399,7 @@ exports.getTeamDashboard = async (req, res) => {
           wonRevenue: 0
         };
         const leadPerf = memberLeadMap.get(String(userId)) || {
-          totalLeads: 0,
-          hotLeads: 0
+          totalLeads: 0
         };
 
         const userClosed = (perf.wonDeals || 0) + (perf.lostDeals || 0);
@@ -1436,7 +1412,6 @@ exports.getTeamDashboard = async (req, res) => {
           user: mapUserForApi(user),
           totalLeads,
           convertedLeads,
-          hotLeads: Number(leadPerf.hotLeads || 0),
           leadConversionRate,
           openDeals: perf.openDeals || 0,
           wonDeals: perf.wonDeals || 0,
@@ -1468,7 +1443,6 @@ exports.getTeamDashboard = async (req, res) => {
 
     const leadSummary = getEmptyLeadSummary();
     const statusMap = new Map((leadStatusAgg || []).map((item) => [String(item?._id || ""), Number(item?.count || 0)]));
-    const tempMap = new Map((leadTempAgg || []).map((item) => [String(item?._id || ""), Number(item?.count || 0)]));
 
     leadSummary.new = statusMap.get("P1") || 0;
     leadSummary.contacted = statusMap.get("P2") || 0;
@@ -1480,9 +1454,6 @@ exports.getTeamDashboard = async (req, res) => {
     leadSummary.converted = 0;
     leadSummary.rejected = 0;
     leadSummary.total = Array.from(statusMap.values()).reduce((acc, count) => acc + count, 0);
-    leadSummary.hot = tempMap.get("hot") || 0;
-    leadSummary.warm = tempMap.get("warm") || 0;
-    leadSummary.cold = tempMap.get("cold") || 0;
 
     const recentLeads = (recentLeadRows || []).map((lead) => {
       const row = formatMemberLeadRow(lead);
@@ -1641,7 +1612,7 @@ exports.getTeamMemberDetail = async (req, res) => {
         })
       )
         .select(
-          "company_name stage lead_temperature deal_value_estimate next_action last_contact_date converted_to_deal created_at updated_at"
+          "company_name stage deal_value_estimate next_action last_contact_date converted_to_deal created_at updated_at"
         )
         .sort({ updated_at: -1, created_at: -1 })
         .lean(),
@@ -1746,9 +1717,6 @@ exports.getTeamMemberDetail = async (req, res) => {
         acc.total += 1;
         if (lead.convertedToDeal) acc.converted += 1;
         else acc.new += 1;
-        if (lead.temperature === "hot") acc.hot += 1;
-        if (lead.temperature === "warm") acc.warm += 1;
-        if (lead.temperature === "cold") acc.cold += 1;
         return acc;
       },
       {
@@ -1757,10 +1725,7 @@ exports.getTeamMemberDetail = async (req, res) => {
         contacted: 0,
         qualified: 0,
         converted: 0,
-        rejected: 0,
-        hot: 0,
-        warm: 0,
-        cold: 0
+        rejected: 0
       }
     );
 
@@ -1885,7 +1850,7 @@ exports.getTeamPipelineDetail = async (req, res) => {
       })
     )
       .select(
-        "company_name stage lead_temperature assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
+        "company_name stage assigned_to next_action last_contact_date deal_value_estimate created_at updated_at"
       )
       .sort({ stage: 1, updated_at: -1, created_at: -1 })
       .lean();

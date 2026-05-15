@@ -30,10 +30,6 @@ function matchesLeadTableFilter(row, filterValue) {
       return String(row.status || "").toLowerCase() === "qualified";
     case "rejected":
       return String(row.status || "").toLowerCase() === "rejected";
-    case "hot":
-    case "warm":
-    case "cold":
-      return String(row.leadTemperature || "").toLowerCase() === filterValue;
     default:
       return true;
   }
@@ -60,7 +56,6 @@ function matchesLeadSearch(row, searchValue) {
     row.sourceLabel,
     row.status,
     row.isContacted ? "Contacted" : "Not Contacted",
-    row.leadTemperature,
     row.assignedToName,
     row.totalFollowups,
     row.meetingCount,
@@ -150,17 +145,11 @@ export default function LeadsTab({ filters }) {
   const trend = data?.leadsTrend || [];
   const funnelMax = Math.max(...funnel.map((f) => f.count), 1);
   const sourcePerformance = data?.sourcePerformance || [];
-  const leadQuality = data?.leadQuality || [];
   const leadAging = data?.leadAging || [];
   const tableRows = data?.tableRows || [];
   const filteredLeadRows = tableRows.filter(
     (row) => matchesLeadTableFilter(row, tableFilter) && matchesLeadSearch(row, tableSearch)
   );
-
-  const qualityMap = { hot: 0, warm: 0, cold: 0 };
-  leadQuality.forEach((q) => {
-    qualityMap[q._id || "cold"] = q.count;
-  });
 
   function handleExportExcel() {
     const headers = [
@@ -169,7 +158,6 @@ export default function LeadsTab({ filters }) {
       "Source",
       "Status",
       "Activity",
-      "Temperature",
       "Assigned To",
       "Follow-Ups",
       "Meetings",
@@ -181,7 +169,6 @@ export default function LeadsTab({ filters }) {
       row.sourceLabel || "Unknown",
       row.status || "new",
       row.isContacted ? "Contacted" : "Not Contacted",
-      row.leadTemperature || "cold",
       row.assignedToName || "Unassigned",
       Number(row.totalFollowups || 0),
       Number(row.meetingCount || 0),
@@ -445,25 +432,6 @@ export default function LeadsTab({ filters }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "24px" }}>
         <section className="reports-card">
-          <h2 className="reports-card-title">Lead Quality</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", background: "#fff1f2", borderLeft: "4px solid #f43f5e", borderRadius: "0 8px 8px 0" }}>
-              <span style={{ fontWeight: 600, color: "#9f1239" }}>Hot</span>
-              <span style={{ fontWeight: 700, color: "#881337" }}>{qualityMap.hot || 0} leads</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", background: "#fffbeb", borderLeft: "4px solid #f59e0b", borderRadius: "0 8px 8px 0" }}>
-              <span style={{ fontWeight: 600, color: "#b45309" }}>Warm</span>
-              <span style={{ fontWeight: 700, color: "#78350f" }}>{qualityMap.warm || 0} leads</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", background: "#f0f9ff", borderLeft: "4px solid #3b82f6", borderRadius: "0 8px 8px 0" }}>
-              <span style={{ fontWeight: 600, color: "#1e3a8a" }}>Cold</span>
-              <span style={{ fontWeight: 700, color: "#172554" }}>{qualityMap.cold || 0} leads {qualityMap.cold > 0 ? "!" : ""}</span>
-            </div>
-          </div>
-          <p style={{ marginTop: 16, fontSize: 13, color: "#64748b", fontWeight: 500 }}>Cold leads need nurturing.</p>
-        </section>
-
-        <section className="reports-card">
           <h2 className="reports-card-title">Lead Aging (Unconverted)</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
             {leadAging.map((age, index) => (
@@ -508,9 +476,6 @@ export default function LeadsTab({ filters }) {
               <option value="notConverted">Not Converted</option>
               <option value="qualified">Qualified</option>
               <option value="rejected">Rejected</option>
-              <option value="hot">Hot</option>
-              <option value="warm">Warm</option>
-              <option value="cold">Cold</option>
             </select>
 
             <button
@@ -536,10 +501,10 @@ export default function LeadsTab({ filters }) {
         </div>
 
         <div style={{ marginTop: 18, overflowX: "auto" }}>
-          <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
+          <table className="crm-auto-responsive-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 840 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
-                {["Company", "Created On", "Source", "Status", "Activity", "Temperature", "Assigned To", "Follow-Ups", "Meetings"].map((header) => (
+                {["Company", "Created On", "Source", "Status", "Activity", "Assigned To", "Follow-Ups", "Meetings"].map((header) => (
                   <th
                     key={header}
                     style={{
@@ -559,7 +524,7 @@ export default function LeadsTab({ filters }) {
             <tbody>
               {filteredLeadRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
+                  <td colSpan={8} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
                     No leads match this search or filter.
                   </td>
                 </tr>
@@ -573,7 +538,6 @@ export default function LeadsTab({ filters }) {
                     <td style={{ padding: "12px 14px", color: row.isContacted ? "#0f766e" : "#b45309", fontWeight: 600 }}>
                       {row.isContacted ? "Contacted" : "Not Contacted"}
                     </td>
-                    <td style={{ padding: "12px 14px", color: "#475569", textTransform: "capitalize" }}>{row.leadTemperature || "cold"}</td>
                     <td style={{ padding: "12px 14px", color: "#475569" }}>{row.assignedToName || "Unassigned"}</td>
                     <td style={{ padding: "12px 14px", color: "#475569" }}>{Number(row.totalFollowups || 0)}</td>
                     <td style={{ padding: "12px 14px", color: "#475569" }}>{Number(row.meetingCount || 0)}</td>

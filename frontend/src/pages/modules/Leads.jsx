@@ -837,7 +837,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [showDeletedLeads, setShowDeletedLeads] = useState(false);
   const [search, setSearch] = useState("");
   const [industryFilter, setIndustryFilter] = useState("All");
-  const [temperatureFilter, setTemperatureFilter] = useState("All");
   const [stageFilter, setStageFilter] = useState("All");
   const [industryOptions, setIndustryOptions] = useState([]);
 
@@ -1064,11 +1063,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
       "contact_location",
     ]);
 
-    const leadTemperatureRaw = firstFilled(row, ["lead_temperature", "temperature", "lead_temp"]).toLowerCase();
-    const leadTemperature = ["cold", "warm", "hot"].includes(leadTemperatureRaw)
-      ? leadTemperatureRaw
-      : undefined;
-
     const payload = {
       company_name: companyName,
       industry: firstFilled(row, ["industry", "sector", "business_industry"]),
@@ -1077,7 +1071,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
       Address: firstFilled(row, ["address", "company_address", "office_address", "location"]),
       website: firstFilled(row, ["website", "url", "website_url", "company_website"]),
       source: normalizeObjectId(firstFilled(row, ["source_id", "source", "lead_source"])),
-      lead_temperature: leadTemperature,
       deal_value_estimate: parseNumber(
         firstFilled(row, ["deal_value_estimate", "deal_value", "value", "amount", "deal_amount", "estimated_value"])
       ),
@@ -1204,23 +1197,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
     }
   };
 
-  const getTemperature = (row) => {
-    const raw = (row.lead_temperature || row.temperature || "").toLowerCase();
-    if (["hot", "warm", "cold"].includes(raw)) return raw;
-    const score = Number(row.ai_score);
-    if (Number.isNaN(score)) return "";
-    if (score >= 80) return "hot";
-    if (score >= 50) return "warm";
-    return "cold";
-  };
-
-  const getTemperatureLabel = (value) => {
-    if (value === "hot") return "Hot";
-    if (value === "warm") return "Warm";
-    if (value === "cold") return "Cold";
-    return "-";
-  };
-
   const formatCurrency = (value) => {
     const amount = Number(value);
     if (Number.isNaN(amount)) return "-";
@@ -1291,8 +1267,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
       const industry = (row.industry || "").toLowerCase();
       const valueText = String(row.deal_value_estimate ?? "").toLowerCase();
       const formattedValue = formatCurrency(row.deal_value_estimate).toLowerCase();
-      const aiScore = String(row.ai_score ?? "").toLowerCase();
-      const aiLabel = getTemperatureLabel(getTemperature(row)).toLowerCase();
       const lastContactText = String(row.last_contact_date || "").toLowerCase();
       const formattedLastContact = formatDate(row.last_contact_date).toLowerCase();
       const nextAction = (row.next_action || "").toLowerCase();
@@ -1304,17 +1278,14 @@ function LeadsDashboard({ defaultView = "leads" }) {
         industry.includes(q) ||
         valueText.includes(q) ||
         formattedValue.includes(q) ||
-        aiScore.includes(q) ||
-        aiLabel.includes(q) ||
         lastContactText.includes(q) ||
         formattedLastContact.includes(q) ||
         nextAction.includes(q);
       const matchesIndustry = industryFilter === "All" || row.industry === industryFilter;
-      const matchesTemp = temperatureFilter === "All" || getTemperature(row) === temperatureFilter;
       const matchesStage = stageFilter === "All" || row.stage === stageFilter;
-      return matchesSearch && matchesIndustry && (viewMode === "deals" ? matchesStage : matchesTemp);
+      return matchesSearch && matchesIndustry && (viewMode === "deals" ? matchesStage : true);
     });
-  }, [sourceRows, search, industryFilter, temperatureFilter, stageFilter, viewMode]);
+  }, [sourceRows, search, industryFilter, stageFilter, viewMode]);
 
   // Reset pagination when data or filters change
   useEffect(() => {
@@ -1420,17 +1391,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
               <option value="P6">P6</option>
               <option value="P7">P7</option>
             </select>
-          ) : (
-            <select
-              value={temperatureFilter}
-              onChange={(e) => setTemperatureFilter(e.target.value)}
-            >
-              <option value="All">All Temperatures</option>
-              <option value="hot">Hot</option>
-              <option value="warm">Warm</option>
-              <option value="cold">Cold</option>
-            </select>
-          )}
+          ) : null}
 
           <select
             value={industryFilter}
@@ -1464,7 +1425,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
               <th>Industry</th>
               <th>Value</th>
               {viewMode === "leads" && <th>Stage</th>}
-              {viewMode === "leads" && <th>AI Score</th>}
               {viewMode === "deals" && <th>Stage</th>}
               <th className="col-last-contact">Last Contact</th>
               {!(viewMode === "deals" && activeTab === "inactive") && <th>Next Action</th>}
@@ -1474,10 +1434,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
             </tr>
           </thead>
           <tbody>
-            {loading && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
-            {!loading && paginatedRows.length === 0 && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 9 : 8)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
+            {loading && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 8 : 7)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
+            {!loading && paginatedRows.length === 0 && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 8 : 7)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
             {!loading && paginatedRows.map((row) => {
-              const t = getTemperature(row);
               return (
                 <tr key={row._id}>
                   <td
@@ -1499,13 +1458,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
                     <td data-label="Stage">
                       <span className="stage-chip">
                         {row.stage || "-"}
-                      </span>
-                    </td>
-                  )}
-                  {viewMode === "leads" && (
-                    <td data-label="AI Score">
-                      <span className={`ai-chip ${t}`}>
-                        {`${row.ai_score ?? "-"} - ${getTemperatureLabel(t)}`}
                       </span>
                     </td>
                   )}

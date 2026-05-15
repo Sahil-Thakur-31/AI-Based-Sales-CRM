@@ -77,7 +77,6 @@ async function createLeadForDeal({
 }) {
   const lead = await Leads.create({
     company_name: companyName,
-    lead_temperature: "hot",
     status: converted ? "converted" : "qualified",
     assigned_to: owner._id,
     deal_value_estimate: dealEstimate,
