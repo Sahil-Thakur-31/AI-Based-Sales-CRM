@@ -86,12 +86,6 @@ function Notifications() {
 
   return (
     <div className="notifications-page">
-      <div className="notifications-header">
-        <div>
-          <h2>Notifications Center</h2>
-          <p>Track all alerts and your upcoming reminders.</p>
-        </div>
-      </div>
 
       <div className="notifications-tabs">
         <button
