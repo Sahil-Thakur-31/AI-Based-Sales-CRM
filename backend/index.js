@@ -83,12 +83,9 @@ app.use("/ocr", ocrRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/auth/google", googleAuthRoutes);
 app.use("/sales-forecast", salesForecastRoutes);
-<<<<<<< HEAD
 app.use("/api/ai-insights", require("./routes/aiInsightRoutes"));
 
-=======
 app.use("/reports", reportRoutes);
->>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
 
 
 let backgroundWorkersStarted = false;

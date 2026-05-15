@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import API from "../../api";
 import FormErrorSlot from "../../components/FormErrorSlot";
@@ -133,7 +133,7 @@ const ExpenseDashboard = () => {
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState("");
   const [ocrImageAdjustments, setOcrImageAdjustments] = useState({});
   const [ocrProcessing, setOcrProcessing] = useState(false);
-  const [ocrResultMeta, setOcrResultMeta] = useState(null);
+  const [, setOcrResultMeta] = useState(null);
   const [appliedReceiptOcrData, setAppliedReceiptOcrData] = useState(null);
   const [ocrCropInteraction, setOcrCropInteraction] = useState(null);
   const ocrPreviewStageRef = useRef(null);
@@ -249,7 +249,7 @@ const ExpenseDashboard = () => {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     if (!isAdmin) {
       setUsersList(["All Users"]);
       return;
@@ -262,18 +262,16 @@ const ExpenseDashboard = () => {
     } catch (err) {
       console.error("Users fetch error:", err);
     }
-  };
+  }, [isAdmin]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCurrentUser();
     fetchExpenses();
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers();
-  }, [isAdmin]);
+  }, [fetchUsers]);
 
   const filteredUsers = usersList.filter((user) =>
     user.toLowerCase().includes(search.toLowerCase())
@@ -618,15 +616,6 @@ const ExpenseDashboard = () => {
       contrast: 100,
       cropRect: null,
     };
-  const ocrReviewItems = [...(ocrResultMeta?.warnings || []), ...(ocrResultMeta?.validation || [])];
-  const selectedOcrModeLabel = selectedOcrReceipt
-    ? (selectedOcrReceipt.isPdf ? "PDF document" : "Image receipt")
-    : "No file selected";
-  const selectedCropStatus = selectedOcrReceipt?.isPdf
-    ? "Not available for PDF"
-    : selectedOcrAdjustment.cropRect
-      ? "Crop applied"
-      : "Full page scan";
   const appliedOcrConfidence = appliedReceiptOcrData?.overallConfidence || 0;
   const appliedOcrConfidenceTone = getConfidenceTone(appliedOcrConfidence);
   const appliedOcrConfidenceLabel = getConfidenceLabel(appliedOcrConfidence);
@@ -728,7 +717,7 @@ const ExpenseDashboard = () => {
     if (ocrPreviewStageRef.current?.setPointerCapture && event.pointerId !== undefined) {
       try {
         ocrPreviewStageRef.current.setPointerCapture(event.pointerId);
-      } catch (error) {
+      } catch {
         // Ignore capture errors and keep the crop interaction usable.
       }
     }
@@ -795,7 +784,7 @@ const ExpenseDashboard = () => {
     if (ocrPreviewStageRef.current?.releasePointerCapture && event?.pointerId !== undefined) {
       try {
         ocrPreviewStageRef.current.releasePointerCapture(event.pointerId);
-      } catch (error) {
+      } catch {
         // Ignore release errors and finish the interaction cleanly.
       }
     }
@@ -1278,7 +1267,6 @@ const ExpenseDashboard = () => {
                 </div>
               </div>
 
-<<<<<<< HEAD
               <div className="ocr-toolbar-actions">
                 <div className="ocr-status-pill">
                   <div className="status-dot"></div>
@@ -1289,7 +1277,7 @@ const ExpenseDashboard = () => {
                     <line x1="18" y1="6" x2="6" y2="18"/>
                     <line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
-=======
+                </button>
             <button className="expense-ocr-btn" onClick={openOcrModal}>
               OCR
             </button>
@@ -1410,7 +1398,6 @@ const ExpenseDashboard = () => {
                 <h3>OCR Expense Import</h3>
                 <button type="button" className="expense-close-btn" onClick={closeOcrModal} aria-label="Close OCR import">
                   x
->>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
                 </button>
               </div>
             </div>
@@ -1590,7 +1577,9 @@ const ExpenseDashboard = () => {
                 </aside>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
+        )}
         </section>
       )}
 

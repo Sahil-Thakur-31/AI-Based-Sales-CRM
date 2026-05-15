@@ -2400,7 +2400,6 @@ input[type="range"].premium-slider::-webkit-slider-thumb {
   }
 }
 
-<<<<<<< HEAD
 .expense-ocr-modal {
   background:
     radial-gradient(circle at top right, rgba(31, 122, 236, 0.08), transparent 24%),
@@ -2732,7 +2731,6 @@ input[type="range"].premium-slider::-webkit-slider-thumb {
   .expense-ocr-page-toolbar {
     flex-direction: column;
     align-items: stretch;
-=======
 /* Mobile-first layout overrides for the main Expenses dashboard */
 .expense-dashboard * {
   box-sizing: border-box;
@@ -2918,12 +2916,10 @@ input[type="range"].premium-slider::-webkit-slider-thumb {
   .expense-ledger table.crm-auto-responsive-table tbody tr td[data-label="Actions"] button {
     min-width: calc(50% - 6px);
     margin: 0 6px 6px 0;
->>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
   }
 }
 
 @media (max-width: 640px) {
-<<<<<<< HEAD
   .expense-ocr-modal .expense-modal-header {
     gap: 12px;
   }
@@ -4199,7 +4195,6 @@ appearance: none;
     display: none;
   }
 }
-=======
   .expense-dashboard {
     padding: 6px;
   }
@@ -4235,4 +4230,3 @@ appearance: none;
   }
 }
 
->>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292

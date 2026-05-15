@@ -71,7 +71,6 @@ function StagePill({ stage }) {
   );
 }
 
-<<<<<<< HEAD
 function buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeals, range) {
   const highRiskDeals = (recentDeals || []).filter(
     (deal) => String(deal?.risk || "").toLowerCase() === "high"
@@ -135,7 +134,8 @@ function buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeal
   }
 
   return insights.slice(0, 3);
-=======
+}
+
 const DASHBOARD_PERIOD_OPTIONS = [
   { value: "monthly", label: "Monthly" },
   { value: "quarterly", label: "Quarterly" },
@@ -172,7 +172,6 @@ function getPeriodLabel(period, month, quarter, year) {
   if (period === "quarterly") return getQuarterYearLabel(quarter, year);
   if (period === "yearly") return String(year);
   return getMonthYearLabel(month, year);
->>>>>>> 782f60f35defc9ab5f0bf20373a3202c7d2c6292
 }
 
 async function apiGet(path, params = {}, signal) {
