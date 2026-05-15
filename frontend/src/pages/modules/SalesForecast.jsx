@@ -64,7 +64,7 @@ const SalesForecasting = () => {
         if (!ignore) {
           setError(
             err?.response?.data?.message ||
-              "Unable to load model predictions for the sales forecast page."
+            "Unable to load model predictions for the sales forecast page."
           );
         }
       } finally {
