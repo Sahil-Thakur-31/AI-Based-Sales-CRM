@@ -12,7 +12,12 @@ const Source = require("../models/sources");
 const Event = require("../models/events");
 const DealStageHistory = require("../models/dealStageHistory");
 const Notification = require("../models/notifications");
+const CRMSettings = require("../models/crmSettings");
 const { processPendingNotificationEmails } = require("../services/notificationEmailWorker");
+const { TEMPLATE_KEYS } = require("../services/emailTemplates");
+const {
+  getNotificationChannels,
+} = require("../services/notificationPreferences");
 const { normalizePhone } = require("../utils/phoneUtils");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
@@ -250,6 +255,11 @@ async function isAdminAssignee(userId) {
     .lean();
   const roleName = String(user?.role?.name || "").toLowerCase();
   return roleName === "admin";
+}
+
+async function getLeadNotificationChannels(userId) {
+  const settings = await CRMSettings.findOne({ userId }).lean();
+  return getNotificationChannels(settings, "leads");
 }
 
 async function applySourceDependentValidation(payload) {
@@ -825,6 +835,10 @@ exports.createLead = async (req, res) => {
     // Send notification if lead is assigned to someone
     if (lead.assigned_to) {
       try {
+        const deliveryChannels = await getLeadNotificationChannels(lead.assigned_to);
+        if (!deliveryChannels.inApp && !deliveryChannels.email) {
+          throw new Error("Lead notifications disabled");
+        }
         await Notification.create({
           userId: lead.assigned_to,
           title: "New Lead Assigned",
@@ -832,12 +846,16 @@ exports.createLead = async (req, res) => {
           type: "info",
           relatedId: lead._id,
           relatedType: "Lead",
+          templateKey: TEMPLATE_KEYS.LEAD_ASSIGNED,
+          deliveryChannels,
         });
         processPendingNotificationEmails().catch((err) => {
           console.error("lead assignment email dispatch error:", err);
         });
       } catch (notifErr) {
-        console.error("Failed to create assignment notification:", notifErr);
+        if (String(notifErr?.message || "") !== "Lead notifications disabled") {
+          console.error("Failed to create assignment notification:", notifErr);
+        }
       }
     }
 
@@ -910,6 +928,10 @@ exports.updateLead = async (req, res) => {
     const newAssignee = lead.assigned_to ? String(lead.assigned_to) : "";
     if (newAssignee && newAssignee !== oldAssignee) {
       try {
+        const deliveryChannels = await getLeadNotificationChannels(lead.assigned_to);
+        if (!deliveryChannels.inApp && !deliveryChannels.email) {
+          throw new Error("Lead notifications disabled");
+        }
         await Notification.create({
           userId: lead.assigned_to,
           title: "Lead Assigned to You",
@@ -917,12 +939,16 @@ exports.updateLead = async (req, res) => {
           type: "info",
           relatedId: lead._id,
           relatedType: "Lead",
+          templateKey: TEMPLATE_KEYS.LEAD_ASSIGNED,
+          deliveryChannels,
         });
         processPendingNotificationEmails().catch((err) => {
           console.error("lead reassignment email dispatch error:", err);
         });
       } catch (notifErr) {
-        console.error("Failed to create assignment notification:", notifErr);
+        if (String(notifErr?.message || "") !== "Lead notifications disabled") {
+          console.error("Failed to create assignment notification:", notifErr);
+        }
       }
     }
 

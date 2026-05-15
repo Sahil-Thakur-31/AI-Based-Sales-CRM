@@ -1,4 +1,7 @@
 const CRMSettings = require("../models/crmSettings");
+const {
+  normalizeNotificationSettings,
+} = require("../services/notificationPreferences");
 
 function normalizeReminderOptions(options = []) {
   if (!Array.isArray(options)) return [{ value: 10, unit: "minutes" }];
@@ -37,7 +40,7 @@ exports.getMySettings = async (req, res) => {
 
     }
 
-    res.json(settings);
+    res.json(normalizeNotificationSettings(settings));
 
   }
   catch (err) {
@@ -61,40 +64,48 @@ exports.updateMySettings = async (req, res) => {
 
   try {
 
+    const normalizedSettings = normalizeNotificationSettings(req.body || {});
+
     const settings = await CRMSettings.findOneAndUpdate(
 
       { userId: req.user._id },
 
       {
         smartFollowupRemindersEnabled:
-          req.body.smartFollowupRemindersEnabled,
+          true,
 
         aiLeadScoringEnabled:
-          req.body.aiLeadScoringEnabled,
+          normalizedSettings.aiLeadScoringEnabled,
 
         predictiveAnalyticsEnabled:
-          req.body.predictiveAnalyticsEnabled,
+          normalizedSettings.predictiveAnalyticsEnabled,
 
         calendarSyncEnabled:
-          req.body.calendarSyncEnabled,
+          normalizedSettings.calendarSyncEnabled,
 
         reminderMethodInApp:
-          req.body.reminderMethodInApp,
+          normalizedSettings.reminderMethodInApp,
 
         reminderMethodEmail:
-          req.body.reminderMethodEmail,
+          normalizedSettings.reminderMethodEmail,
 
         reminderMethodWhatsApp:
-          req.body.reminderMethodWhatsApp,
+          normalizedSettings.reminderMethodWhatsApp,
+
+        appNotifications:
+          normalizedSettings.appNotifications,
+
+        emailNotifications:
+          normalizedSettings.emailNotifications,
 
         reminderOptions:
-          normalizeReminderOptions(req.body.reminderOptions),
+          normalizeReminderOptions(normalizedSettings.reminderOptions),
 
         reminderTiming:
-          req.body.reminderTiming,
+          normalizedSettings.reminderTiming,
 
         customReminderOffsetMinutes:
-          req.body.customReminderOffsetMinutes
+          normalizedSettings.customReminderOffsetMinutes
       },
 
       {
@@ -104,7 +115,7 @@ exports.updateMySettings = async (req, res) => {
 
     );
 
-    res.json(settings);
+    res.json(normalizeNotificationSettings(settings));
 
   }
   catch (err) {
