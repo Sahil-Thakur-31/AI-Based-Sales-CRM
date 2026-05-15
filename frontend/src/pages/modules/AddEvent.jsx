@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import FormErrorSlot from "../../components/FormErrorSlot";
+import SuccessPrompt from "../../components/SuccessPrompt";
 import { minLength, required } from "../../utils/formValidation";
 import "./styles/AddEvent.css";
 
@@ -200,15 +201,7 @@ const AddEvent = () => {
 
       <div className="add-event-layout">
         <section className="add-event-form-card">
-          {submitted ? (
-            <div className="submit-success">
-              <h3>Event Created Successfully</h3>
-              <p>Your event has been saved. You can now view it in the Events module.</p>
-              <button type="button" onClick={() => navigate("/events")}>
-                Go to Events
-              </button>
-            </div>
-          ) : (
+          {!submitted ? (
             <form className="add-event-form" onSubmit={handleSubmit}>
               <p className="form-note">Fields marked with * are required.</p>
               <div className="form-grid">
@@ -422,9 +415,17 @@ const AddEvent = () => {
                 </button>
               </div>
             </form>
-          )}
+          ) : null}
         </section>
       </div>
+
+      <SuccessPrompt
+        open={submitted}
+        title="Event Created Successfully"
+        subtitle="Your event has been saved. You can now view it in the Events module."
+        buttonText="Go to Events"
+        onClose={() => navigate("/events")}
+      />
     </div>
   );
 };

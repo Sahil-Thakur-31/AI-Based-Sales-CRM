@@ -736,9 +736,8 @@ const EventExpo = () => {
       const isAttending = Boolean(eventItem.isAttending);
       const attendedByCount = Array.isArray(eventItem.attendedBy) ? eventItem.attendedBy.length : 0;
       const registeredByCount = Array.isArray(eventItem.registeredBy) ? eventItem.registeredBy.length : 0;
-      const registrationCount = Array.isArray(eventItem.registrations) ? eventItem.registrations.length : 0;
       const hasAnyAttendance = attendedByCount > 0;
-      const hasAnyRegistration = registrationCount > 0 || registeredByCount > 0 || Boolean(eventItem.isRegistered);
+      const hasAnyRegistration = registeredByCount > 0 || Boolean(eventItem.isRegistered);
       const explicitlyMissed = Boolean(eventItem.isMissed || String(eventItem.missedReason || "").trim());
       const markedAttending = isRestrictedUser ? isAttending : hasAnyAttendance;
       const registrationFlag = isRestrictedUser ? Boolean(eventItem.isRegistered) : hasAnyRegistration;
@@ -836,9 +835,8 @@ const EventExpo = () => {
     return dedupedEvents.filter((eventItem) => {
       const eventStart = eventItem.startDate ? new Date(eventItem.startDate) : null;
       const registeredByCount = Array.isArray(eventItem.registeredBy) ? eventItem.registeredBy.length : 0;
-      const registrationCount = Array.isArray(eventItem.registrations) ? eventItem.registrations.length : 0;
       const attendedByCount = Array.isArray(eventItem.attendedBy) ? eventItem.attendedBy.length : 0;
-      const hasRegistration = registrationCount > 0 || registeredByCount > 0 || Boolean(eventItem.isRegistered);
+      const hasRegistration = registeredByCount > 0 || Boolean(eventItem.isRegistered);
       const hasAttendance = attendedByCount > 0 || Boolean(eventItem.isAttending);
       return Boolean(eventStart && !Number.isNaN(eventStart.getTime()) && eventStart >= prepReadyDate && !hasRegistration && !hasAttendance);
     }).length;
@@ -1265,12 +1263,12 @@ const EventExpo = () => {
                       Update Outcome
                     </button>
                   )}
-                  {isRegisteredTab && (
+                  {(isRegisteredTab || isAttendedTab || isMissedTab) && (
                     <button
                       onClick={() => registrationWebsiteUrl && window.open(registrationWebsiteUrl, "_blank", "noopener,noreferrer")}
                       disabled={!registrationWebsiteUrl}
                     >
-                      {registrationWebsiteUrl ? "Visit Website" : "No Website URL"}
+                      {registrationWebsiteUrl ? "View Website" : "No Website URL"}
                     </button>
                   )}
                   {isUpcomingTab && (
@@ -1283,10 +1281,10 @@ const EventExpo = () => {
                   )}
                   {isMissedTab && (
                     <button
-                      onClick={() => searchEventUrl && window.open(searchEventUrl, "_blank", "noopener,noreferrer")}
-                      disabled={!searchEventUrl}
+                      className="miss-btn"
+                      onClick={() => openMissedDialog(eventItem)}
                     >
-                      {searchEventUrl ? "Search Event" : "No Search Link"}
+                      Update Reason
                     </button>
                   )}
                 </div>
@@ -1363,7 +1361,7 @@ const EventExpo = () => {
       <ConfirmDialog
         isOpen={missedConfirmOpen}
         title="Mark as Missed"
-        message="Provide the reason for missing this event. This will move it to Missed tab."
+        message="Provide the reason for missing this event."
         confirmText="Mark Missed"
         cancelText="Cancel"
         isWarning={true}
