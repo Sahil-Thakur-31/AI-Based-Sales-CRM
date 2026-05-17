@@ -52,6 +52,7 @@ const locationSchema = new mongoose.Schema({
 locationSchema.index({ pincode: 1 });
 locationSchema.index({ city: 1 });
 locationSchema.index({ country: 1, state: 1, city: 1, area: 1 });
+locationSchema.index({ importKey: 1 }, { unique: true, sparse: true });
 
 locationSchema.pre("save", function syncLegacyAndNewFields() {
   if (this.state && !this.State) this.State = this.state;
