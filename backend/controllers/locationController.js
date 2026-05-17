@@ -4,7 +4,6 @@ exports.getLocations = async (req, res) => {
   try {
     const country = String(req.query.country || "").trim();
     const State = String(req.query.State || req.query.state || "").trim();
-    const city = String(req.query.city || "").trim();
 
     let groupKey = "$country";
     let projectKey = "country";
@@ -22,12 +21,6 @@ exports.getLocations = async (req, res) => {
       };
       groupKey = "$city";
       projectKey = "city";
-    }
-
-    if (country && State && city) {
-      match.city = city;
-      groupKey = { $ifNull: ["$zone", "$area"] };
-      projectKey = "zone";
     }
 
     const rows = await Location.aggregate([
@@ -80,20 +73,18 @@ exports.getLocationByPincode = async (req, res) => {
       state: location.state || location.State || "",
       district: location.district || "",
       city: location.city || "",
-      area: location.area || location.zone || "",
+      area: location.area || "",
       pincode: location.pincode || "",
       State: location.State || location.state || "",
-      zone: location.zone || location.area || "",
       matches: locations.map((row) => ({
         _id: row._id,
         country: row.country || "",
         state: row.state || row.State || "",
         district: row.district || "",
         city: row.city || "",
-        area: row.area || row.zone || "",
+        area: row.area || "",
         pincode: row.pincode || "",
-        State: row.State || row.state || "",
-        zone: row.zone || row.area || ""
+        State: row.State || row.state || ""
       }))
     });
   } catch (err) {

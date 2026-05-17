@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import API from "../../api";
 import PhoneInput from "react-phone-number-input";
+import flags from "react-phone-number-input/flags";
 import "react-phone-number-input/style.css";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import "./styles/profile.css";
@@ -374,6 +375,7 @@ export default function Profile() {
                 autoComplete="tel"
                 international
                 defaultCountry="IN"
+                flags={flags}
                 value={user.phone || ""}
                 disabled={!editing}
                 onChange={(val) => setUser({ ...user, phone: val })}

@@ -180,7 +180,7 @@ exports.getClientById = async (req, res) => {
     })
       .populate("industry", "name")
       .populate("source", "name")
-      .populate("location", "country state State city zone area district pincode")
+      .populate("location", "country state State city area district pincode")
       .lean();
 
     if (!client) {
@@ -222,8 +222,7 @@ exports.getClientById = async (req, res) => {
         State: client.location?.State || client.location?.state || "",
         district: client.location?.district || "",
         city: client.location?.city || "",
-        area: client.location?.area || client.location?.zone || "",
-        zone: client.location?.zone || client.location?.area || "",
+        area: client.location?.area || "",
         pincode: client.location?.pincode || "",
         createdAt: client.createdAt || null,
         updatedAt: client.updatedAt || null
