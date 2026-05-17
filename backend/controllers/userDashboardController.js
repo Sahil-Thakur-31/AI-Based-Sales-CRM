@@ -9,6 +9,9 @@ const SalesTarget = require("../models/sales_targets");
 const DEAL_WON_STAGE = "P7";
 const DEAL_LOST_STAGE = "P6";
 const OPEN_DEAL_STAGE_FILTER = { $nin: [DEAL_WON_STAGE, DEAL_LOST_STAGE] };
+const ACTIVE_DEAL_PIPELINE_STAGES = ["P1", "P2", "P3"];
+const ACTIVE_LEAD_PIPELINE_STAGES = ["P1", "P2", "P3", "P5"];
+const EXCLUDED_ACTIVE_LEAD_STAGES = ["P4", "P6", "P7"];
 
 function startOfDay(date = new Date()) {
   const value = new Date(date);
@@ -93,6 +96,99 @@ function canAccessDashboard(role) {
     value === "manager" ||
     value === "admin"
   );
+}
+
+function isCancelledLikeStatus(status) {
+  const value = String(status || "").toLowerCase();
+  return value === "cancelled" || value === "canceled" || value === "no_show";
+}
+
+function isOverdueLikeStatus(status) {
+  return String(status || "").toLowerCase() === "overdue";
+}
+
+function isTimelineItemOverdueOrCancelled(item, now = new Date()) {
+  const status = String(item?.status || "").toLowerCase();
+  if (isCancelledLikeStatus(status) || isOverdueLikeStatus(status)) return true;
+  const dueAt = item?.dueAt ? new Date(item.dueAt) : null;
+  if (!dueAt || Number.isNaN(dueAt.getTime())) return false;
+  if (item?.kind === "meeting") {
+    return ["scheduled", "rescheduled"].includes(status) && dueAt < now;
+  }
+  return status === "pending" && dueAt < now;
+}
+
+function buildClosedDealRangeMatch(rangeStart, rangeEnd) {
+  return {
+    $or: [
+      { actualCloseDate: { $gte: rangeStart, $lt: rangeEnd } },
+      {
+        actualCloseDate: null,
+        updatedAt: { $gte: rangeStart, $lt: rangeEnd }
+      }
+    ]
+  };
+}
+
+async function getRevenueTargetForRange(userId, selectedRange) {
+  const baseMatch = {
+    user_id: userId,
+    status: { $ne: "archived" }
+  };
+
+  const aggregateTargetForPeriod = async (periodType) => {
+    const result = await SalesTarget.aggregate([
+      {
+        $match: {
+          ...baseMatch,
+          period_type: periodType,
+          period_start: { $gte: selectedRange.start },
+          period_end: { $lte: selectedRange.end }
+        }
+      },
+      { $sort: { period_start: 1, updated_at: -1, created_at: -1 } },
+      {
+        $group: {
+          _id: {
+            period_start: "$period_start",
+            period_end: "$period_end"
+          },
+          revenueTarget: { $first: { $ifNull: ["$revenue_target", 0] } }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$revenueTarget" },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    return {
+      total: Number(result?.[0]?.total || 0),
+      count: Number(result?.[0]?.count || 0)
+    };
+  };
+
+  if (selectedRange.targetPeriodType === "yearly") {
+    const quarterly = await aggregateTargetForPeriod("quarterly");
+    if (quarterly.count > 0) return quarterly.total;
+
+    const monthly = await aggregateTargetForPeriod("monthly");
+    return monthly.total;
+  }
+
+  const targetDoc = await SalesTarget.findOne({
+    ...baseMatch,
+    period_type: selectedRange.targetPeriodType,
+    period_start: { $lte: selectedRange.start },
+    period_end: { $gte: selectedRange.start }
+  })
+    .sort({ period_start: -1, updated_at: -1, created_at: -1 })
+    .lean();
+
+  return Number(targetDoc?.revenue_target || 0);
 }
 
 function normalizeRange(range) {
@@ -319,9 +415,9 @@ exports.getDashboard = async (req, res) => {
     });
     const rangeStart = selectedRange.start;
     const rangeEnd = selectedRange.end;
-    const targetLookupDate = rangeStart;
     const staleLeadCutoff = new Date(todayStart);
     staleLeadCutoff.setDate(staleLeadCutoff.getDate() - 7);
+    const closedDealRangeMatch = buildClosedDealRangeMatch(rangeStart, rangeEnd);
 
     const [
       followupDocs,
@@ -329,17 +425,17 @@ exports.getDashboard = async (req, res) => {
       activeDeals,
       activeLeads,
       newDealsThisWeek,
-      dealStageAgg,
+      closedStageAgg,
       pipelineValueAgg,
       leadPipelineValueAgg,
       highProbabilityDeals,
       staleLeads,
-      targetDoc,
       meetingsAgg,
       eventStatsAgg,
       upcomingMeetings,
       upcomingEvents,
-      monthlyAchievedAgg
+      monthlyAchievedAgg,
+      monthlyTarget
     ] = await Promise.all([
       Followup.find({
         assignedTo: assignedUserMatch,
@@ -360,18 +456,23 @@ exports.getDashboard = async (req, res) => {
         .lean(),
       Deal.countDocuments({
         assignedTo: assignedUserMatch,
-        stage: OPEN_DEAL_STAGE_FILTER,
+        stage: { $in: ACTIVE_DEAL_PIPELINE_STAGES },
+        isActive: { $ne: false },
+        createdAt: { $gte: rangeStart, $lt: rangeEnd },
         is_deleted: { $ne: true }
       }),
       Lead.countDocuments({
         assigned_to: assignedUserMatch,
         is_deleted: { $ne: true },
         converted_to_deal: { $ne: true },
-        is_active: true
+        is_active: true,
+        stage: { $nin: EXCLUDED_ACTIVE_LEAD_STAGES },
+        created_at: { $gte: rangeStart, $lt: rangeEnd }
       }),
       Deal.countDocuments({
         assignedTo: assignedUserMatch,
-        stage: OPEN_DEAL_STAGE_FILTER,
+        stage: { $in: ACTIVE_DEAL_PIPELINE_STAGES },
+        isActive: { $ne: false },
         createdAt: { $gte: rangeStart, $lt: rangeEnd },
         is_deleted: { $ne: true }
       }),
@@ -379,14 +480,15 @@ exports.getDashboard = async (req, res) => {
         {
           $match: {
             assignedTo: assignedUserMatch,
-            is_deleted: { $ne: true }
+            is_deleted: { $ne: true },
+            stage: { $in: [DEAL_WON_STAGE, DEAL_LOST_STAGE] },
+            ...closedDealRangeMatch
           }
         },
         {
           $group: {
             _id: "$stage",
-            count: { $sum: 1 },
-            value: { $sum: { $ifNull: ["$dealValue", 0] } }
+            count: { $sum: 1 }
           }
         }
       ]),
@@ -394,6 +496,9 @@ exports.getDashboard = async (req, res) => {
         {
           $match: {
             assignedTo: assignedUserMatch,
+            isActive: { $ne: false },
+            stage: { $in: ACTIVE_DEAL_PIPELINE_STAGES },
+            createdAt: { $gte: rangeStart, $lt: rangeEnd },
             is_deleted: { $ne: true }
           }
         },
@@ -409,7 +514,10 @@ exports.getDashboard = async (req, res) => {
           $match: {
             assigned_to: assignedUserMatch,
             is_deleted: { $ne: true },
-            converted_to_deal: { $ne: true }
+            converted_to_deal: { $ne: true },
+            is_active: true,
+            stage: { $in: ACTIVE_LEAD_PIPELINE_STAGES },
+            created_at: { $gte: rangeStart, $lt: rangeEnd }
           }
         },
         {
@@ -433,16 +541,11 @@ exports.getDashboard = async (req, res) => {
       Lead.countDocuments({
         assigned_to: assignedUserMatch,
         is_deleted: { $ne: true },
+        converted_to_deal: { $ne: true },
+        is_active: true,
+        stage: { $nin: EXCLUDED_ACTIVE_LEAD_STAGES },
         last_contact_date: { $lt: staleLeadCutoff }
       }),
-      SalesTarget.findOne({
-        user_id: userId,
-        period_type: selectedRange.targetPeriodType,
-        period_start: { $lte: targetLookupDate },
-        period_end: { $gte: targetLookupDate }
-      })
-        .sort({ period_start: -1 })
-        .lean(),
       Meeting.aggregate([
         {
           $match: {
@@ -511,13 +614,7 @@ exports.getDashboard = async (req, res) => {
             assignedTo: assignedUserMatch,
             stage: DEAL_WON_STAGE,
             is_deleted: { $ne: true },
-            $or: [
-              { actualCloseDate: { $gte: rangeStart, $lt: rangeEnd } },
-              {
-                actualCloseDate: null,
-                updatedAt: { $gte: rangeStart, $lt: rangeEnd }
-              }
-            ]
+            ...closedDealRangeMatch
           }
         },
         {
@@ -526,18 +623,18 @@ exports.getDashboard = async (req, res) => {
             total: { $sum: { $ifNull: ["$dealValue", 0] } }
           }
         }
-      ])
+      ]),
+      getRevenueTargetForRange(userId, selectedRange)
     ]);
 
-    const dealStageMap = new Map(dealStageAgg.map((item) => [String(item._id), item]));
-    const wonDeals = dealStageMap.get(DEAL_WON_STAGE)?.count || 0;
-    const lostDeals = dealStageMap.get(DEAL_LOST_STAGE)?.count || 0;
+    const closedStageMap = new Map(closedStageAgg.map((item) => [String(item._id), item.count]));
+    const wonDeals = closedStageMap.get(DEAL_WON_STAGE) || 0;
+    const lostDeals = closedStageMap.get(DEAL_LOST_STAGE) || 0;
     const closedDeals = wonDeals + lostDeals;
     const winRate = closedDeals ? Math.round((wonDeals / closedDeals) * 100) : 0;
     const dealPipelineValue = Number(pipelineValueAgg?.[0]?.total || 0);
     const leadPipelineValue = Number(leadPipelineValueAgg?.[0]?.total || 0);
     const pipelineValue = dealPipelineValue + leadPipelineValue;
-    const monthlyTarget = Number(targetDoc?.revenue_target || 0);
     const monthlyAchieved = Number(monthlyAchievedAgg?.[0]?.total || 0);
     const monthlyAchievedPct = monthlyTarget
       ? clampPercent((monthlyAchieved / monthlyTarget) * 100)
@@ -608,6 +705,8 @@ exports.getDashboard = async (req, res) => {
       resolvedScheduledMeetings + resolvedCompletedMeetings + resolvedCancelledMeetings;
     const totalEvents = registeredEvents + attendedEvents + missedEvents;
     const rangeLabels = getRangeLabels(selectedRange.range, selectedRange.label);
+    const filteredTimelineFollowups = mappedFollowups;
+    const filteredTimelineMeetings = mappedMeetings;
     const followupsDueToday = mappedFollowups.filter((item) => {
       const dueAt = item.dueAt ? new Date(item.dueAt) : null;
       if (!dueAt || Number.isNaN(dueAt.getTime())) return false;
@@ -618,13 +717,13 @@ exports.getDashboard = async (req, res) => {
       if (!dueAt || Number.isNaN(dueAt.getTime())) return false;
       return dueAt >= todayStart && dueAt < tomorrow;
     }).length;
-    const meetingsInRange = mappedMeetings.length || meetingLikeFollowups.length;
+    const meetingsInRange = filteredTimelineMeetings.length;
     const summary = {
       followupsToday: followupsDueToday,
-      followupsInRange: mappedFollowups.length,
+      followupsInRange: filteredTimelineFollowups.length,
       meetingsToday: meetingsDueToday,
       meetingsInRange,
-      highPriorityFollowups: mappedFollowups.filter((item) => item.priority === "High").length,
+      highPriorityFollowups: filteredTimelineFollowups.filter((item) => item.priority === "High").length,
       activeDeals,
       activeLeads,
       dealsAddedThisWeek: newDealsThisWeek,
@@ -644,35 +743,35 @@ exports.getDashboard = async (req, res) => {
       {
         title: "Follow-ups & Meetings",
         value: summary.followupsInRange + summary.meetingsInRange,
-        sub: `${summary.highPriorityFollowups} high priority follow-ups, ${summary.meetingsInRange} meetings in ${selectedRange.label || selectedRange.range}`,
+        sub: `${summary.followupsInRange} follow-ups and ${summary.meetingsInRange} meetings in ${selectedRange.label || selectedRange.range}`,
         icon: "📞",
         color: "blue"
       },
       {
         title: "Active Deals",
         value: summary.activeDeals,
-        sub: `+${summary.dealsAddedThisWeek} in ${selectedRange.label || selectedRange.range}`,
+        sub: `${summary.dealsAddedThisWeek} new deals added in ${selectedRange.label || selectedRange.range}`,
         icon: "💼",
         color: "green"
       },
       {
         title: "Active Leads",
         value: summary.activeLeads,
-        sub: "Assigned active leads",
+        sub: `Active leads created in ${selectedRange.label || selectedRange.range}`,
         icon: "🧲",
         color: "cyan"
       },
       {
         title: "Target",
         value: formatCurrency(summary.monthlyTarget),
-        sub: `${summary.monthlyAchievedPct}% achieved (${formatCurrency(summary.monthlyAchieved)})`,
+        sub: `${summary.monthlyAchievedPct}% of target achieved, totaling ${formatCurrency(summary.monthlyAchieved)}`,
         icon: "🎯",
         color: "orange"
       },
       {
         title: "Win Rate",
         value: `${summary.winRate}%`,
-        sub: `${summary.wonDeals} won of ${summary.closedDeals} closed deals`,
+        sub: `${summary.wonDeals} wins from ${summary.closedDeals} closed deals`,
         icon: "⭐",
         color: "purple"
       }
@@ -683,8 +782,8 @@ exports.getDashboard = async (req, res) => {
       labels: rangeLabels,
       summary,
       statCards,
-      followups: mappedFollowups,
-      meetings: mappedMeetings,
+      followups: filteredTimelineFollowups,
+      meetings: filteredTimelineMeetings,
       insights: buildInsights({
         followupsDueToday,
         staleLeads,

@@ -23,6 +23,8 @@ const EMPTY_CANCEL_MODAL = {
   reason: ""
 };
 
+const FOLLOWUPS_VISIBLE_ITEMS = 5;
+
 function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
   const navigate = useNavigate();
   const today = new Date();
@@ -253,22 +255,23 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
     }
   };
 
+  const allTimelineItems = [
+    ...((dashboardData?.followups) || []),
+    ...((dashboardData?.meetings) || [])
+  ]
+    .sort((a, b) => {
+      const priorityDiff = getPriorityRank(b.priority) - getPriorityRank(a.priority);
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(a.dueAt || 0).getTime() - new Date(b.dueAt || 0).getTime();
+    });
+
   if (!dashboardData) {
     return <p>{error || "Loading..."}</p>;
   }
 
   const labels = dashboardData.labels || {};
   const stats = Array.isArray(dashboardData.statCards) ? dashboardData.statCards : [];
-  const timelineItems = [
-    ...(dashboardData.followups || []),
-    ...(dashboardData.meetings || [])
-  ]
-    .sort((a, b) => {
-      const priorityDiff = getPriorityRank(b.priority) - getPriorityRank(a.priority);
-      if (priorityDiff !== 0) return priorityDiff;
-      return new Date(a.dueAt || 0).getTime() - new Date(b.dueAt || 0).getTime();
-    })
-    .slice(0, 3);
+  const timelineItems = allTimelineItems.slice(0, FOLLOWUPS_VISIBLE_ITEMS);
 
   return (
     <div className="ManagerDashboard">
@@ -328,44 +331,46 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
               </div>
 
               {timelineItems.length ? (
-                timelineItems.map((item) => (
-                  <div key={item.id} className={`follow-item ${getFollowupColor(item.priority)}`}>
-                    <div>
-                      <strong>{item.company}</strong>
-                      <div className="follow-item-meta">
-                        <span className={`follow-kind follow-kind--${item.kind || "followup"}`}>
-                          {item.kind === "meeting" ? "Meeting" : "Follow-up"}
-                        </span>
-                        {item.aiPriority ? (
-                          <span className={`follow-ai-priority follow-ai-priority--${String(item.aiPriority).toLowerCase()}`}>
-                            AI: {item.aiPriority}
+                <div className="manager-followups-scroll">
+                  {timelineItems.map((item) => (
+                    <div key={item.id} className={`follow-item ${getFollowupColor(item.priority)}`}>
+                      <div>
+                        <strong>{item.company}</strong>
+                        <div className="follow-item-meta">
+                          <span className={`follow-kind follow-kind--${item.kind || "followup"}`}>
+                            {item.kind === "meeting" ? "Meeting" : "Follow-up"}
                           </span>
-                        ) : null}
-                        <span
-                          className={`follow-status ${
-                            isCompletedStatus(item.status)
-                              ? "completed"
-                              : isCancelledStatus(item.status)
-                                ? "cancelled"
-                                : "pending"
-                          }`}
-                        >
-                          {formatStatus(item.status)}
-                        </span>
+                          {item.aiPriority ? (
+                            <span className={`follow-ai-priority follow-ai-priority--${String(item.aiPriority).toLowerCase()}`}>
+                              AI: {item.aiPriority}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`follow-status ${
+                              isCompletedStatus(item.status)
+                                ? "completed"
+                                : isCancelledStatus(item.status)
+                                  ? "cancelled"
+                                  : "pending"
+                            }`}
+                          >
+                            {formatStatus(item.status)}
+                          </span>
+                        </div>
+                        <p>{item.message}</p>
                       </div>
-                      <p>{item.message}</p>
-                    </div>
-                    <div className="text-end follow-item-right">
-                      <small>{formatTime(item.dueAt)}</small>
-                      <div>{item.priority}</div>
-                      <div className="follow-item-actions">
-                        <button className="manager-mini-btn done" type="button" onClick={() => openView(item)}>
-                          View
-                        </button>
+                      <div className="text-end follow-item-right">
+                        <small>{formatTime(item.dueAt)}</small>
+                        <div>{item.priority}</div>
+                        <div className="follow-item-actions">
+                          <button className="manager-mini-btn done" type="button" onClick={() => openView(item)}>
+                            View
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               ) : (
                 <p>No follow-ups or meetings found for this range.</p>
               )}

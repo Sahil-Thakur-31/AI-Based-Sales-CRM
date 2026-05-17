@@ -71,6 +71,12 @@
   width: 100%;
 }
 
+.ManagerDashboard .manager-followups-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .ManagerDashboard .manager-followups-head {
   display: flex;
   align-items: center;

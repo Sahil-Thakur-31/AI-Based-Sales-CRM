@@ -891,9 +891,17 @@ exports.updateLead = async (req, res) => {
       accessFilter.assigned_to = req.user?._id || null;
     }
 
-    const oldLead = await Leads.findOne(accessFilter).select("assigned_to company_name").lean();
+    const oldLead = await Leads.findOne(accessFilter).select("assigned_to company_name stage").lean();
     if (!oldLead) {
       return res.status(404).json({ message: "Lead not found" });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(leadPayload, "stage")) {
+      const requestedStage = String(leadPayload.stage || "").trim().toUpperCase();
+      const currentStage = String(oldLead.stage || "").trim().toUpperCase();
+      if (currentStage === "P7" && requestedStage && requestedStage !== "P7") {
+        return res.status(400).json({ message: "Lead stage cannot be changed once it is P7" });
+      }
     }
 
     const lead = await Leads.findOneAndUpdate(

@@ -693,8 +693,6 @@
   border: 1px solid #dbe2ff;
   border-radius: 8px;
   background: #ffffff;
-  max-height: 220px;
-  overflow-y: auto;
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
 }
 
