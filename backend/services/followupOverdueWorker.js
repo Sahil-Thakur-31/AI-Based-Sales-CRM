@@ -4,6 +4,8 @@ const Meeting = require("../models/meetings");
 
 const OVERDUE_AFTER_MINUTES = 120;
 const BATCH_SIZE = 200;
+const ACTIVE_FOLLOWUP_STATUSES = ["pending", "scheduled", "rescheduled"];
+const ACTIVE_MEETING_STATUSES = ["pending", "scheduled", "rescheduled"];
 
 let isProcessing = false;
 let workerTimer = null;
@@ -21,7 +23,7 @@ async function processOverdueFollowups() {
     const cutoff = getOverdueCutoff();
     const overdueDocs = await Followup.find({
       is_deleted: { $ne: true },
-      status: "pending",
+      status: { $in: ACTIVE_FOLLOWUP_STATUSES },
       dueDateTime: { $lte: cutoff },
     })
       .select("_id")
@@ -37,7 +39,7 @@ async function processOverdueFollowups() {
     await Followup.updateMany(
       {
         _id: { $in: overdueIds },
-        status: "pending",
+        status: { $in: ACTIVE_FOLLOWUP_STATUSES },
         is_deleted: { $ne: true },
       },
       {
@@ -48,11 +50,29 @@ async function processOverdueFollowups() {
       }
     );
 
+    const directOverdueMeetings = await Meeting.find({
+      is_deleted: { $ne: true },
+      status: { $in: ACTIVE_MEETING_STATUSES },
+      $or: [
+        { sourceFollowupId: { $in: overdueIds } },
+        { startTime: { $lte: cutoff } },
+        { meetingDate: { $lte: cutoff } },
+      ],
+    })
+      .select("_id")
+      .sort({ startTime: 1, meetingDate: 1 })
+      .limit(BATCH_SIZE)
+      .lean();
+
+    const meetingIds = directOverdueMeetings.map((doc) => doc._id);
+
+    if (!meetingIds.length) return;
+
     await Meeting.updateMany(
       {
-        sourceFollowupId: { $in: overdueIds },
+        _id: { $in: meetingIds },
         is_deleted: { $ne: true },
-        status: { $nin: ["completed", "cancelled"] },
+        status: { $in: ACTIVE_MEETING_STATUSES },
       },
       {
         $set: {

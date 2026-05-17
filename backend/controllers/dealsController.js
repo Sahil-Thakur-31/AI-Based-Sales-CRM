@@ -1244,6 +1244,10 @@ exports.updateDeal = async (req, res) => {
     }
     if (Object.prototype.hasOwnProperty.call(update, "stage")) {
       const stage = String(update.stage || "P1").trim().toUpperCase();
+      const currentStage = String(existingDeal.stage || "").trim().toUpperCase();
+      if (currentStage === "P7" && stage !== "P7") {
+        return res.status(400).json({ message: "Deal stage cannot be changed once it is P7" });
+      }
       if (["P1", "P2", "P3", "P6", "P7"].includes(stage)) {
         dealUpdate.stage = stage;
         if (stage === "P7" || stage === "P6") {
@@ -1251,6 +1255,7 @@ exports.updateDeal = async (req, res) => {
           if (!existingDeal.actualCloseDate) dealUpdate.actualCloseDate = new Date();
         } else {
           dealUpdate.isActive = true;
+          dealUpdate.actualCloseDate = null;
         }
       }
     }

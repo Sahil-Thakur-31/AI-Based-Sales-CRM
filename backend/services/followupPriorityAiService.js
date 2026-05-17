@@ -66,7 +66,7 @@ function shouldPredictFollowup(doc) {
 }
 
 function shouldPredictMeeting(doc) {
-  return String(doc?.status || "").trim().toLowerCase() === "scheduled";
+  return ["pending", "scheduled"].includes(String(doc?.status || "").trim().toLowerCase());
 }
 
 function getEntityType(doc = {}) {
@@ -195,7 +195,6 @@ async function buildFollowupFeatures(doc) {
     ? {
         ...entityFilter,
         is_deleted: { $ne: true },
-        kind: "followup",
       }
     : null;
 
@@ -205,6 +204,7 @@ async function buildFollowupFeatures(doc) {
     baseFilter
       ? Followup.countDocuments({
           ...baseFilter,
+          status: "completed",
           ...(selfId ? { _id: { $ne: selfId } } : {}),
         })
       : 0,
@@ -245,24 +245,25 @@ async function buildMeetingFeatures(doc) {
       }
     : null;
 
-  const selfId = toObjectId(doc?._id);
+  const selfId = toObjectId(doc?.sourceFollowupId || doc?._id);
   const meetingDate = doc?.startTime || doc?.meetingDate || doc?.dueDateTime || null;
 
   const [relatedCount, overdueCount] = await Promise.all([
     baseFilter
-      ? Meeting.countDocuments({
+      ? Followup.countDocuments({
           ...baseFilter,
+          status: "completed",
           ...(selfId ? { _id: { $ne: selfId } } : {}),
         })
       : 0,
     baseFilter
-      ? Meeting.countDocuments({
+      ? Followup.countDocuments({
           ...baseFilter,
           $or: [
-            { status: "no_show" },
+            { status: "overdue" },
             {
-              status: { $in: ["scheduled", "rescheduled"] },
-              meetingDate: { $lt: now },
+              status: "pending",
+              dueDateTime: { $lt: now },
             },
           ],
         })
