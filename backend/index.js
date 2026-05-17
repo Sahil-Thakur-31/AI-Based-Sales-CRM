@@ -49,9 +49,15 @@ const myServer = http.createServer(app);
 
 const PORT = process.env.PORT || 8080;
 
+app.use(cors({
+  origin: "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
 app.use(bodyparser.json({ limit: "50mb" }));
 app.use(bodyparser.urlencoded({ limit: "50mb", extended: true }));
-app.use(cors());
 
 app.use('/auth', authRoute);
 app.use("/users", userRoutes);
