@@ -459,7 +459,7 @@ export default function QuotationClauses() {
                     }))
                   }
                 />
-                <small className="qc-priority-helper">Lower number = higher priority (1 beats 100).</small>
+                <small className="qc-priority-helper">Lower number = higher priority (1 {">"} 100).</small>
               </div>
             </div>
 

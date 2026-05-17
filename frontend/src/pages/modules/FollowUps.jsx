@@ -1497,7 +1497,7 @@ export default function Followups() {
               <label className="fuFormLabel">
                 Stage
                 <select className="fuField" value={followupForm.stage} onChange={(e) => setFollowupForm((p) => ({ ...p, stage: e.target.value }))}>
-                  {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
+                  {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.title || s.key}</option>)}
                 </select>
               </label>
               <label className="fuFormLabel fuFull">

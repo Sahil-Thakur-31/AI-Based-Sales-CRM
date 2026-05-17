@@ -4,6 +4,7 @@ import API from "../../api";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import BackButton from "../../components/BackButton";
+import { DEAL_STAGE_OPTIONS, LEAD_STAGE_OPTIONS, getStageTitle } from "../../utils/stages";
 import "./styles/LeadsDashboard.css";
 
 function getUserIdFromToken() {
@@ -391,7 +392,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     country: "",
     State: "",
     city: "",
-    zone: "",
     deal_value_estimate: "",
     stage: "P3",
     next_action: "",
@@ -407,7 +407,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const [locations, setLocations] = useState([]);
   const [stateOptions, setStateOptions] = useState([]);
   const [cityOptions, setCityOptions] = useState([]);
-  const [zoneOptions, setZoneOptions] = useState([]);
   const [industries, setIndustries] = useState([]);
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
@@ -538,16 +537,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             State:
               loadedClient?.State ||
               loadedClient?.state ||
-              loadedLocation?.State ||
+            loadedLocation?.State ||
               loadedLocation?.state ||
               "",
             city: loadedClient?.city || loadedLocation?.city || "",
-            zone:
-              loadedClient?.zone ||
-              loadedClient?.area ||
-              loadedLocation?.zone ||
-              loadedLocation?.area ||
-              "",
             location: loadedClient?.location?._id || loadedClient?.location || "",
             contact_history: [],
             assigned_to: "",
@@ -678,13 +671,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             prev.State ||
             "",
           city: loadedClient?.city || loadedLocation?.city || prev.city || "",
-          zone:
-            loadedClient?.zone ||
-            loadedClient?.area ||
-            loadedLocation?.zone ||
-            loadedLocation?.area ||
-            prev.zone ||
-            "",
           assigned_to: prev.assigned_to || currentUserId || "",
           is_existing_company: true,
         }));
@@ -752,7 +738,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       if (!lead.country) {
         setStateOptions([]);
         setCityOptions([]);
-        setZoneOptions([]);
         return;
       }
       try {
@@ -771,7 +756,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     const loadCities = async () => {
       if (!lead.country || !lead.State) {
         setCityOptions([]);
-        setZoneOptions([]);
         return;
       }
       try {
@@ -787,26 +771,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
     loadCities();
   }, [lead.country, lead.State]);
-
-  useEffect(() => {
-    const loadZones = async () => {
-      if (!lead.country || !lead.State || !lead.city) {
-        setZoneOptions([]);
-        return;
-      }
-      try {
-        const { data } = await API.get("/location", {
-          params: { country: lead.country, State: lead.State, city: lead.city },
-        });
-        setZoneOptions(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("zones load error", err);
-        setZoneOptions([]);
-      }
-    };
-
-    loadZones();
-  }, [lead.country, lead.State, lead.city]);
 
   useEffect(() => {
     if (!isNew || isAdminOrManager || !currentUserId) return;
@@ -859,16 +823,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       if (name === "country") {
         updated.State = "";
         updated.city = "";
-        updated.zone = "";
       }
 
       if (name === "State") {
         updated.city = "";
-        updated.zone = "";
-      }
-
-      if (name === "city") {
-        updated.zone = "";
       }
 
       if (name === "source") {
@@ -1119,9 +1077,9 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   }, [industries]);
 
   const selectedLocationId = useMemo(() => {
-    const selectedZone = zoneOptions.find((item) => item?.zone === lead.zone);
-    return selectedZone?._id || null;
-  }, [zoneOptions, lead.zone]);
+    const selectedCity = cityOptions.find((item) => item?.city === lead.city);
+    return selectedCity?._id || null;
+  }, [cityOptions, lead.city]);
 
   const closePopup = () => {
     setDealDeleteReason("");
@@ -1567,7 +1525,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                           country: s.country || prev.country,
                           State: s.State || prev.State,
                           city: s.city || prev.city,
-                          zone: s.zone || prev.zone,
                           is_existing_company: true,
                         }));
                         setCompanySuggestions([]);
@@ -1631,14 +1588,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             <label>Stage</label>
             {editMode ? (
               <select name="stage" value={lead.stage || "P3"} onChange={handleLeadChange}>
-                <option value="P1">P1</option>
-                <option value="P2">P2</option>
-                <option value="P3">P3</option>
-                <option value="P6">P6</option>
-                <option value="P7">P7</option>
+                {DEAL_STAGE_OPTIONS.map((stage) => (
+                  <option key={stage.key} value={stage.key}>{stage.title}</option>
+                ))}
               </select>
             ) : (
-              <p>{lead.stage || "P3"}</p>
+              <p>{getStageTitle(lead.stage || "P3", { bucket: "deal" })}</p>
             )}
           </div>
         )}
@@ -1649,16 +1604,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             <label>Stage</label>
             {editMode ? (
               <select name="stage" value={lead.stage || "P3"} onChange={handleLeadChange}>
-                <option value="P1">P1</option>
-                <option value="P2">P2</option>
-                <option value="P3">P3</option>
-                <option value="P4">P4</option>
-                <option value="P5">P5</option>
-                <option value="P6">P6</option>
-                <option value="P7">P7</option>
+                {LEAD_STAGE_OPTIONS.map((stage) => (
+                  <option key={stage.key} value={stage.key}>{stage.title}</option>
+                ))}
               </select>
             ) : (
-              <p>{lead.stage || "P3"}</p>
+              <p>{getStageTitle(lead.stage || "P3", { bucket: "lead" })}</p>
             )}
           </div>
         )}
@@ -1731,29 +1682,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           </div>
         )}
 
-        {/* ZONE */}
-        {!isFromOCR && (
-          <div className="field">
-            <label>Zone</label>
-            {editMode ? (
-              <select
-                name="zone"
-                value={lead.zone}
-                onChange={handleLeadChange}
-                disabled={!lead.city}
-              >
-                <option value="">Select Zone</option>
-                {zoneOptions.map((item, i) => (
-                  <option key={item?._id || i} value={item?.zone || ""}>
-                    {item?.zone || ""}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p>{lead.zone || "-"}</p>
-            )}
-          </div>
-        )}
         <Field label="Website" name="website" value={lead.website} onChange={handleLeadChange} editMode={editMode} />
 
         {/* SOURCE */}

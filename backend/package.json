@@ -10,7 +10,10 @@
     "start": "node index.js",
     "start:watch": "node --watch index.js",
     "start:nodemon": "nodemon index.js",
-    "seed:events": "node seed/seedEvents.js"
+    "seed:events": "node seed/seedEvents.js",
+    "seed:locations": "node seedLocations.js",
+    "seed:locations:force": "node seedLocations.js --force",
+    "seed:scraper-master": "node seedScraperMasterData.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

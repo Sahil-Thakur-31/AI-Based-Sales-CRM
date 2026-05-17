@@ -1,17 +1,23 @@
-requests>=2.32.0,<3.0.0
-pymongo>=4.8.0,<5.0.0
+# Core data / ML
 joblib>=1.4.2,<2.0.0
+numpy==2.4.4
 pandas>=2.2.2,<3.0.0
 scikit-learn>=1.5.1,<2.0.0
 
-# Business Card ocr
-opencv-python==4.13.0.92
-pytesseract==0.3.13
+# Networking / database
+pymongo>=4.8.0,<5.0.0
+requests>=2.32.0,<3.0.0
+urllib3>=2.0.0,<3.0.0
+
+# Scraping / browser automation
+playwright>=1.47.0,<2.0.0
+scrapy>=2.11.0,<3.0.0
+
+# OCR / image processing
 easyocr==1.7.2
+opencv-python==4.13.0.92
+Pillow==12.2.0
+pytesseract==0.3.13
 python-bidi==0.4.2
 torch==2.10.0
 torchvision==0.25.0
-numpy==2.4.4
-Pillow==12.2.0
-scikit-learn==1.8.0
-joblib==1.4.2

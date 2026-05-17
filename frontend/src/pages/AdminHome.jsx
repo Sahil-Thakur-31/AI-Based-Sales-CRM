@@ -62,7 +62,6 @@ function AiBadge({ children, tone = "ai" }) {
   return <span className={cx("badge", `badge--${tone}`)}>{children}</span>;
 }
 
-// stage
 function StagePill({ stage }) {
   return (
     <CBadge color="light" className="stage-pill" shape="rounded-pill">

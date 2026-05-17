@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
 import Pagination from "../../components/Pagination";
+import { ALL_STAGE_OPTIONS } from "../../utils/stages";
 import "./styles/LeadsDashboard.css";
 import "./styles/Expense.css";
 
@@ -1081,7 +1082,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
       country: firstFilled(row, ["country", "nation"]),
       State: firstFilled(row, ["state", "province", "region"]),
       city: firstFilled(row, ["city", "town"]),
-      zone: firstFilled(row, ["zone", "area", "territory"]),
       is_active: parseBoolean(firstFilled(row, ["is_active", "active", "enabled"]), undefined),
     };
 
@@ -1383,13 +1383,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
               onChange={(e) => setStageFilter(e.target.value)}
             >
               <option value="All">All Stages</option>
-              <option value="P1">P1</option>
-              <option value="P2">P2</option>
-              <option value="P3">P3</option>
-              <option value="P4">P4</option>
-              <option value="P5">P5</option>
-              <option value="P6">P6</option>
-              <option value="P7">P7</option>
+              {ALL_STAGE_OPTIONS.map((stage) => (
+                <option key={stage.key} value={stage.key}>{stage.title}</option>
+              ))}
             </select>
           ) : null}
 

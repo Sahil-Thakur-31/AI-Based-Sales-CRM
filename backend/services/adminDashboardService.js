@@ -11,6 +11,7 @@ const ClientContact = require("../models/client_contact");
 const User = require("../models/users");
 const Team = require("../models/teams");
 const Role = require("../models/roles");
+const SalesTarget = require("../models/sales_targets");
 
 // Optional model - if file exists in your models folder
 let AiGeneratedLeads = null;
@@ -57,6 +58,13 @@ function pctChange(curr, prev) {
   return Number((((curr - prev) / prev) * 100).toFixed(1));
 }
 
+function getTargetPeriodType(period) {
+  const normalized = String(period || "").toLowerCase();
+  if (normalized === "quarterly") return "quarterly";
+  if (normalized === "monthly") return "monthly";
+  return null;
+}
+
 function iconFromActionType(actionType = "") {
   const a = String(actionType).toLowerCase();
   if (a.includes("call")) return "📞";
@@ -101,20 +109,14 @@ async function getSummary(filters = {}) {
   ]);
   const revenuePrev = prevWonAgg[0]?.total || 0;
 
-  // Active deals are current pipeline counts, not created-in-range counts.
+  // Active deals are range-filtered open deals created in the selected window.
   const activeDeals = await Deal.countDocuments({
-    ...dealClosedNorMatch,
-    is_deleted: { $ne: true },
-    assignedTo: { $in: nonAdminUserIds },
-  });
-
-  // Delta still tells how many active deals were created in the selected range.
-  const activeDealsCreatedInRange = await Deal.countDocuments({
     ...dealClosedNorMatch,
     is_deleted: { $ne: true },
     assignedTo: { $in: nonAdminUserIds },
     createdAt: { $gte: start, $lte: end },
   });
+
   const activeDealsPrev = await Deal.countDocuments({
     ...dealClosedNorMatch,
     is_deleted: { $ne: true },
@@ -155,30 +157,62 @@ async function getSummary(filters = {}) {
   const prevTotalClosed = prevWonCount + prevLostCount;
   const prevWinRate = prevTotalClosed === 0 ? 0 : Math.round((prevWonCount / prevTotalClosed) * 100);
 
-  // Pipeline value is current live pipeline value.
+  // Pipeline value is range-filtered open deal value created in the selected window.
   const pipeAgg = await Deal.aggregate([
     {
       $match: {
         ...dealClosedNorMatch,
         is_deleted: { $ne: true },
         assignedTo: { $in: nonAdminUserIds },
+        createdAt: { $gte: start, $lte: end },
       }
     },
     { $group: { _id: null, total: { $sum: "$dealValue" } } },
   ]);
   const pipelineValue = pipeAgg[0]?.total || 0;
 
-  // (Optional) pipeline vs target
-  // For now: keep 0 to avoid wrong info until target logic is final.
-  const pipelineDeltaPct = 0;
+  const targetPeriodType = getTargetPeriodType(filters.period);
+  let pipelineDeltaPct = 0;
+  if (targetPeriodType && nonAdminUserIds.length) {
+    const targetAgg = await SalesTarget.aggregate([
+      {
+        $match: {
+          status: { $ne: "archived" },
+          scope_type: "user",
+          user_id: { $in: nonAdminUserIds },
+          period_type: targetPeriodType,
+          period_start: { $lte: start },
+          period_end: { $gte: start },
+        },
+      },
+      { $sort: { user_id: 1, period_start: -1, updated_at: -1 } },
+      {
+        $group: {
+          _id: "$user_id",
+          pipelineTarget: { $first: { $ifNull: ["$pipeline_target", 0] } },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalTarget: { $sum: "$pipelineTarget" },
+        },
+      },
+    ]);
+    const pipelineTargetTotal = Number(targetAgg[0]?.totalTarget || 0);
+    pipelineDeltaPct = pipelineTargetTotal
+      ? Number((((pipelineValue - pipelineTargetTotal) / pipelineTargetTotal) * 100).toFixed(1))
+      : 0;
+  }
 
-  // Open leads are current lead pipeline counts.
+  // Open leads are range-filtered early-stage leads created in the selected window.
   const openLeads = await Lead.countDocuments({
     is_active: true,
     is_deleted: { $ne: true },
     assigned_to: { $in: nonAdminUserIds },
     converted_to_deal: { $ne: true },
-    stage: { $ne: "P7" },
+    stage: { $nin: ["P4", "P6", "P7"] },
+    created_at: { $gte: start, $lte: end },
   });
 
   // AI-sourced leads created in this range (if model exists)
@@ -197,7 +231,7 @@ async function getSummary(filters = {}) {
     revenueDeltaPct: pctChange(revenueWon, revenuePrev),
 
     activeDeals,
-    activeDealsDelta: activeDealsCreatedInRange - activeDealsPrev,
+    activeDealsDelta: activeDeals - activeDealsPrev,
 
     winRatePct,
     winRateDeltaPct: winRatePct - prevWinRate,
@@ -216,6 +250,7 @@ async function getSummary(filters = {}) {
  * [{ code, label, count, amount }, ...]
  */
 async function getPipeline(filters = {}, pipelineType = "deal") {
+  const { start, end } = getRangeDates(filters.range, filters);
   const normalizedType = String(pipelineType || "deal").toLowerCase() === "lead" ? "lead" : "deal";
   const nonAdminUserIds = await getNonAdminUserIds();
   const stages = normalizedType === "deal"
@@ -232,6 +267,7 @@ async function getPipeline(filters = {}, pipelineType = "deal") {
                 assigned_to: { $in: nonAdminUserIds },
                 converted_to_deal: { $ne: true },
                 stage: { $in: ["P1", "P2", "P3", "P4", "P5", "P6"] },
+                created_at: { $gte: start, $lte: end },
               },
             },
             {
@@ -251,6 +287,7 @@ async function getPipeline(filters = {}, pipelineType = "deal") {
                   is_deleted: { $ne: true },
                   assignedTo: { $in: nonAdminUserIds },
                   ...dealClosedNorMatch,
+                  createdAt: { $gte: start, $lte: end },
                 }
               },
               { $group: { _id: "$stage", count: { $sum: 1 }, amount: { $sum: "$dealValue" } } },
@@ -261,6 +298,7 @@ async function getPipeline(filters = {}, pipelineType = "deal") {
                   stage: DEAL_LOST_STAGE,
                   is_deleted: { $ne: true },
                   assignedTo: { $in: nonAdminUserIds },
+                  actualCloseDate: { $gte: start, $lte: end },
                 }
               },
               {
@@ -277,6 +315,7 @@ async function getPipeline(filters = {}, pipelineType = "deal") {
                   stage: DEAL_WON_STAGE,
                   is_deleted: { $ne: true },
                   assignedTo: { $in: nonAdminUserIds },
+                  actualCloseDate: { $gte: start, $lte: end },
                 }
               },
               {

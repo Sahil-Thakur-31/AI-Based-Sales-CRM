@@ -343,6 +343,38 @@
   color: #000000;
 }
 
+body:has(.event-page) .confirm-dialog,
+body:has(.event-registration-page) .confirm-dialog,
+body:has(.add-event-page) .confirm-dialog {
+  border: 2px solid #10b981;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(16, 185, 129, 0.16);
+}
+
+body:has(.event-page) .confirm-dialog-header,
+body:has(.event-registration-page) .confirm-dialog-header,
+body:has(.add-event-page) .confirm-dialog-header,
+body:has(.event-page) .confirm-dialog-footer,
+body:has(.event-registration-page) .confirm-dialog-footer,
+body:has(.add-event-page) .confirm-dialog-footer {
+  background: #ffffff;
+  border-color: #d1fae5;
+}
+
+body:has(.event-page) .btn-confirm,
+body:has(.event-registration-page) .btn-confirm,
+body:has(.add-event-page) .btn-confirm {
+  background: #10b981;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+body:has(.event-page) .btn-confirm:hover,
+body:has(.event-registration-page) .btn-confirm:hover,
+body:has(.add-event-page) .btn-confirm:hover {
+  background: #059669;
+}
+
 /* =========================================
    EVENT ITEM CARD
 ========================================= */

@@ -305,6 +305,26 @@
   background: #fff;
   text-align: center;
 }
+
+.stageChip__code { font-weight: 900; font-size: 12px; color: #0f172a; }
+.stageChip__count { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+.stageChip--1 { background: rgba(59,130,246,0.10); border-color: rgba(59,130,246,0.18); }
+.stageChip--2 { background: rgba(109,94,252,0.10); border-color: rgba(109,94,252,0.18); }
+.stageChip--3 { background: rgba(34,197,94,0.10);  border-color: rgba(34,197,94,0.18); }
+.stageChip--4 { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.22); }
+.stageChip--5 { background: rgba(236,72,153,0.10); border-color: rgba(236,72,153,0.18); }
+.stageChip--6 { background: rgba(249,115,22,0.10); border-color: rgba(249,115,22,0.18); }
+.stageChip--7 { background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.22); }
+
+.stageChip {
+  min-width: 70px;
+  border-radius: var(--r12);
+  padding: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  text-align: center;
+}
 .stageChip__code { font-weight: 900; font-size: 12px; color: #0f172a; }
 .stageChip__count { margin-top: 6px; font-size: 12px; color: var(--muted); }
 

@@ -225,6 +225,13 @@
   gap: 10px;
 }
 
+.aiLead-pagination {
+  margin-top: 4px;
+  border: 1px solid #e3eaf4;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
 .aiLead-bulkPrimary,
 .aiLead-bulkSecondary {
   border: none;

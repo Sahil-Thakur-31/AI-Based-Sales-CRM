@@ -13,6 +13,7 @@ const { syncSingleCrmItemToGoogle } = require("../services/googleCalendarSync");
 const { TEMPLATE_KEYS } = require("../services/emailTemplates");
 const { getNotificationChannels } = require("../services/notificationPreferences");
 const REGISTRATION_GRACE_DAYS = 4;
+const EVENT_ASSIGNMENT_BUFFER_DAYS = 2;
 
 const sanitizeObjectIdList = (values = []) => {
   if (!Array.isArray(values)) return [];
@@ -44,6 +45,18 @@ const normalizeDedupDate = (value) => {
 const addDays = (dateValue, days) => {
   const date = new Date(dateValue);
   date.setDate(date.getDate() + Number(days || 0));
+  return date;
+};
+
+const startOfDayLocal = (dateValue) => {
+  const date = new Date(dateValue);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const endOfDayLocal = (dateValue) => {
+  const date = new Date(dateValue);
+  date.setHours(23, 59, 59, 999);
   return date;
 };
 
@@ -165,7 +178,7 @@ const getEventNotificationChannels = async (userId) => {
 const populateEventQuery = (query) =>
   query
     .populate({ path: "industry", model: "industries", select: "name" })
-    .populate({ path: "location", model: "location", select: "city State country zone" })
+    .populate({ path: "location", model: "location", select: "city State country" })
     .populate({ path: "source", model: "sources", select: "name" })
     .populate({ path: "missedBy", model: "User", select: "name email" })
     .populate({ path: "attendedBy", model: "User", select: "name email" })
@@ -461,8 +474,7 @@ exports.getEventMeta = async (req, res) => {
                 }
               }
             },
-            country: 1,
-            zone: 1
+            country: 1
           }
         },
         {
@@ -478,8 +490,7 @@ exports.getEventMeta = async (req, res) => {
             },
             city: { $first: "$city" },
             State: { $first: "$State" },
-            country: { $first: "$country" },
-            zone: { $first: "$zone" }
+            country: { $first: "$country" }
           }
         },
         { $sort: { city: 1 } },
@@ -960,7 +971,7 @@ exports.updateEvent = async (req, res) => {
       { returnDocument: "after", runValidators: true }
     )
       .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" })
+      .populate({ path: "location", model: "location", select: "city State country" })
       .populate({ path: "source", model: "sources", select: "name" });
 
     if (!event) {
@@ -988,8 +999,7 @@ exports.updateEvent = async (req, res) => {
     const attendeesList = [
       String(req.user?._id),
       ...(event.registeredBy || []),
-      ...(event.attendedBy || []),
-      ...(event.registrations || []).flatMap((r) => r.attendeeUsers || [])
+      ...(event.attendedBy || [])
     ];
     await syncEventToGoogleForAttendees(event, attendeesList);
 
@@ -1097,6 +1107,28 @@ exports.registerForEvent = async (req, res) => {
       }
     }
 
+    const assignedUserIds = [...new Set([eventManagerUserId, ...attendeeUsers].map(String))];
+    const bufferedStart = startOfDayLocal(addDays(event.startDate, -EVENT_ASSIGNMENT_BUFFER_DAYS));
+    const bufferedEnd = endOfDayLocal(addDays(event.endDate || event.startDate, EVENT_ASSIGNMENT_BUFFER_DAYS));
+    const conflictingEvent = await Event.findOne({
+      _id: { $ne: event._id },
+      is_deleted: false,
+      startDate: { $lte: bufferedEnd },
+      endDate: { $gte: bufferedStart },
+      $or: [
+        { "registrations.eventManagerUser": { $in: assignedUserIds } },
+        { "registrations.attendeeUsers": { $in: assignedUserIds } }
+      ]
+    })
+      .select("name startDate endDate registrations.eventManagerUser registrations.attendeeUsers")
+      .lean();
+
+    if (conflictingEvent) {
+      return res.status(400).json({
+        message: `Selected person already has "${conflictingEvent.name}" within the 2-day event buffer.`
+      });
+    }
+
     if (!event.registeredBy.some((id) => String(id) === currentUserId)) {
       event.registeredBy.push(req.user._id);
     }
@@ -1147,12 +1179,9 @@ exports.registerForEvent = async (req, res) => {
 
     await event.save();
 
-    // Notify only newly added attendee users for this event registration
-    const previousSet = new Set(previousAttendeeUsers.map(String));
-    const newAttendeeUsers = attendeeUsers.filter((id) => !previousSet.has(String(id)));
-    if (newAttendeeUsers.length) {
+    if (attendeeUsers.length) {
       const deliveries = await Promise.all(
-        newAttendeeUsers.map(async (userId) => ({
+        attendeeUsers.map(async (userId) => ({
           userId,
           deliveryChannels: await getEventNotificationChannels(userId),
         }))
@@ -1163,7 +1192,7 @@ exports.registerForEvent = async (req, res) => {
         .map(({ userId, deliveryChannels }) => ({
           userId,
           title: "Event Invitation",
-          message: `You have been added as an attendee for "${event.name}".`,
+          message: `You are invited to attend "${event.name}". Please accept the invitation.`,
           type: "info",
           relatedId: event._id,
           relatedType: "event",
@@ -1181,7 +1210,6 @@ exports.registerForEvent = async (req, res) => {
     const allAttendeesList = [
       ...(populated.registeredBy || []),
       ...(populated.attendedBy || []),
-      ...(populated.registrations || []).flatMap((r) => r.attendeeUsers || [])
     ];
     await syncEventToGoogleForAttendees(populated, allAttendeesList);
 
@@ -1258,8 +1286,7 @@ exports.acceptEventInvitation = async (req, res) => {
     const populated = await populateEventQuery(Event.findById(event._id));
     const attendeesList = [
       ...(populated.registeredBy || []),
-      ...(populated.attendedBy || []),
-      ...(populated.registrations || []).flatMap((r) => r.attendeeUsers || [])
+      ...(populated.attendedBy || [])
     ];
     await syncEventToGoogleForAttendees(populated, attendeesList);
 
@@ -1371,8 +1398,7 @@ exports.toggleAttending = async (req, res) => {
 
     const allAttendeesList = [
       ...(event.registeredBy || []),
-      ...(event.attendedBy || []),
-      ...(event.registrations || []).flatMap((r) => r.attendeeUsers || [])
+      ...(event.attendedBy || [])
     ];
     await syncEventToGoogleForAttendees(event, allAttendeesList);
 
@@ -1525,7 +1551,7 @@ exports.saveEventOutcome = async (req, res) => {
       { returnDocument: "after" }
     )
       .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" })
+      .populate({ path: "location", model: "location", select: "city State country" })
       .populate({ path: "source", model: "sources", select: "name" })
       .populate({ path: "attendedBy", model: "User", select: "name email" })
       .populate({ path: "registrations.eventManagerUser", model: "User", select: "name email" })

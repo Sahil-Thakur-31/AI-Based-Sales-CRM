@@ -1,22 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import API from "../../api";
+import DashboardDateFilter from "../../components/DashboardDateFilter";
 import FormErrorSlot from "../../components/FormErrorSlot";
+import Pagination from "../../components/Pagination";
+import { ALL_STAGE_OPTIONS } from "../../utils/stages";
 import { minLength } from "../../utils/formValidation";
-import { handleError, handleSuccess } from "../../utils";
+import { handleError } from "../../utils";
 import LeadFormPage from "./LeadFormPage";
 import "./styles/Followups.css";
 import "./styles/FollowupAddPage.css";
 
-const STAGES = [
-  { key: "P1", title: "P1 - Quote Sent" },
-  { key: "P2", title: "P2 - Meeting Scheduled" },
-  { key: "P3", title: "P3 - In Conversation" },
-  { key: "P4", title: "P4 - No Service" },
-  { key: "P5", title: "P5 - RNR" },
-  { key: "P6", title: "P6 - No Response" },
-  { key: "P7", title: "P7 - Won" },
-];
+const STAGES = ALL_STAGE_OPTIONS;
 const STAGE_KEYS = new Set(STAGES.map((s) => s.key));
 const EVENT_TYPES = new Set(["Physical Meeting", "Online Meeting", "Follow Up Phone Call"]);
 const PRIORITIES = new Set(["high", "medium", "low"]);
@@ -49,6 +44,8 @@ const EMPTY_CANCEL_MODAL = {
   reason: "",
 };
 
+const LIST_PAGE_SIZE = 5;
+
 function cx(...arr) {
   return arr.filter(Boolean).join(" ");
 }
@@ -72,14 +69,6 @@ function toDateInputValue(rawDate) {
   const d = new Date(rawDate);
   if (Number.isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
-}
-
-function getTodayISO() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 function getNowTimeHHMM() {
@@ -108,6 +97,58 @@ function buildOsmEmbedUrl(lat, lng) {
 
 function normalizeValue(value = "") {
   return String(value || "").trim().toLowerCase();
+}
+
+function matchesAssigneeFilter({
+  item,
+  recordScope,
+  selectedEmployeeId,
+  selectedTeamId,
+  currentUserId,
+  teamOptions,
+}) {
+  const assignedToId = String(item?.assignedToId || "");
+
+  if (selectedEmployeeId) {
+    const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
+    return assignedToId === String(targetUserId || "");
+  }
+
+  if (recordScope === "mine") {
+    return assignedToId === String(currentUserId || "");
+  }
+
+  if (selectedTeamId) {
+    if (selectedTeamId === "__mine__") {
+      return assignedToId === String(currentUserId || "");
+    }
+
+    const team = teamOptions.find((t) => String(t.id) === String(selectedTeamId));
+    const userIds = (team?.userIds || []).map((id) => String(id));
+    return userIds.includes(assignedToId);
+  }
+
+  return true;
+}
+
+function getQuarterFromMonth(monthIndex = 0) {
+  return `q${Math.floor(Number(monthIndex || 0) / 3) + 1}`;
+}
+
+function isRecordInSelectedPeriod(item, period, month, quarter, year) {
+  const rawDate = item?.dueDateTime;
+  if (!rawDate) return false;
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const itemYear = String(date.getFullYear());
+  if (itemYear !== String(year || "")) return false;
+
+  if (period === "yearly") return true;
+  if (period === "quarterly") {
+    return getQuarterFromMonth(date.getMonth()) === String(quarter || "q1");
+  }
+  return date.getMonth() === Number(month || 0);
 }
 
 function extractAssignedUserId(row = {}) {
@@ -213,23 +254,21 @@ function isCancelledStatus(status = "") {
 function getStageOptionLabel(stage = {}) {
   const key = String(stage?.key || "").trim();
   const rawTitle = String(stage?.title || "").trim();
-  const name = rawTitle.replace(/^[Pp]\d+\s*-\s*/, "").trim();
   if (!key) return rawTitle || "";
-  return name ? `${key} (${name})` : key;
+  return rawTitle || key;
 }
 
 export default function FollowupsAddPage() {
   const location = useLocation();
+  const today = new Date();
   const [activeAction, setActiveAction] = useState("add");
-  const [activeStage, setActiveStage] = useState("P1");
-  const [formTarget, setFormTarget] = useState("followup");
+  const activeStage = "P1";
   const [meetings, setMeetings] = useState([]);
   const [followups, setFollowups] = useState([]);
   const [formData, setFormData] = useState({ ...EMPTY_FORM, stage: "P1" });
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [editingRecord, setEditingRecord] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
   const [dealRows, setDealRows] = useState([]);
   const [leadRows, setLeadRows] = useState([]);
@@ -240,7 +279,6 @@ export default function FollowupsAddPage() {
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [loadingLocationSuggestions, setLoadingLocationSuggestions] = useState(false);
   const [locatingCurrent, setLocatingCurrent] = useState(false);
-  const [scopeLabel, setScopeLabel] = useState("Sales Scope: My Records");
   const [currentRole, setCurrentRole] = useState("");
   const [teamOptions, setTeamOptions] = useState([]);
   const [employeeOptions, setEmployeeOptions] = useState([]);
@@ -248,6 +286,14 @@ export default function FollowupsAddPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
   const [recordScope, setRecordScope] = useState("mine");
+  const [filterStage, setFilterStage] = useState("all");
+  const [filterSourceType, setFilterSourceType] = useState("all");
+  const [filterPeriod, setFilterPeriod] = useState("monthly");
+  const [filterMonth, setFilterMonth] = useState(today.getMonth());
+  const [filterQuarter, setFilterQuarter] = useState(getQuarterFromMonth(today.getMonth()));
+  const [filterYear, setFilterYear] = useState(String(today.getFullYear()));
+  const [followupPage, setFollowupPage] = useState(1);
+  const [meetingPage, setMeetingPage] = useState(1);
   const [hasExistingClient, setHasExistingClient] = useState("yes");
   const [quickCreateType, setQuickCreateType] = useState("");
   const [cancelModal, setCancelModal] = useState(EMPTY_CANCEL_MODAL);
@@ -264,63 +310,103 @@ export default function FollowupsAddPage() {
     return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : "";
   }, [location.search, location.state?.selectedDate]);
 
-  const visibleFollowups = useMemo(
+  const filteredFollowups = useMemo(
     () =>
       followups.filter((f) => {
-        const stageMatch = (f.stage || "P1") === activeStage;
-        let assigneeMatch = true;
-        if (selectedEmployeeId) {
-          const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
-          assigneeMatch = String(f.assignedToId || "") === String(targetUserId);
-        } else if (recordScope === "mine") {
-          assigneeMatch = String(f.assignedToId || "") === String(currentUserId);
-        } else if (selectedTeamId) {
-          if (selectedTeamId === "__mine__") {
-            assigneeMatch = String(f.assignedToId || "") === String(currentUserId);
-          } else {
-            const team = teamOptions.find((t) => t.id === selectedTeamId);
-            const users = team?.userIds || [];
-            assigneeMatch = users.includes(String(f.assignedToId || ""));
-          }
-        }
-        return stageMatch && assigneeMatch;
+        const assigneeMatch = matchesAssigneeFilter({
+          item: f,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        });
+        const stageMatch = filterStage === "all" || String(f.stage || "P1") === String(filterStage);
+        const sourceTypeMatch =
+          filterSourceType === "all" || String(f.sourceType || "").toLowerCase() === filterSourceType;
+        const periodMatch = isRecordInSelectedPeriod(
+          f,
+          filterPeriod,
+          filterMonth,
+          filterQuarter,
+          filterYear
+        );
+        return assigneeMatch && stageMatch && sourceTypeMatch && periodMatch;
       }),
-    [followups, activeStage, selectedEmployeeId, currentUserId, selectedTeamId, teamOptions, recordScope]
+    [
+      followups,
+      recordScope,
+      selectedEmployeeId,
+      selectedTeamId,
+      currentUserId,
+      teamOptions,
+      filterStage,
+      filterSourceType,
+      filterPeriod,
+      filterMonth,
+      filterQuarter,
+      filterYear,
+    ]
   );
 
-  const visibleMeetings = useMemo(
+  const filteredMeetings = useMemo(
     () =>
       meetings.filter((m) => {
-        const stageMatch = (m.stage || "P1") === activeStage;
-        let assigneeMatch = true;
-        if (selectedEmployeeId) {
-          const targetUserId = selectedEmployeeId === "__mine__" ? currentUserId : selectedEmployeeId;
-          assigneeMatch = String(m.assignedToId || "") === String(targetUserId);
-        } else if (recordScope === "mine") {
-          assigneeMatch = String(m.assignedToId || "") === String(currentUserId);
-        } else if (selectedTeamId) {
-          if (selectedTeamId === "__mine__") {
-            assigneeMatch = String(m.assignedToId || "") === String(currentUserId);
-          } else {
-            const team = teamOptions.find((t) => t.id === selectedTeamId);
-            const users = team?.userIds || [];
-            assigneeMatch = users.includes(String(m.assignedToId || ""));
-          }
-        }
-        return stageMatch && assigneeMatch;
+        const assigneeMatch = matchesAssigneeFilter({
+          item: m,
+          recordScope,
+          selectedEmployeeId,
+          selectedTeamId,
+          currentUserId,
+          teamOptions,
+        });
+        const stageMatch = filterStage === "all" || String(m.stage || "P1") === String(filterStage);
+        const sourceTypeMatch =
+          filterSourceType === "all" || String(m.sourceType || "").toLowerCase() === filterSourceType;
+        const periodMatch = isRecordInSelectedPeriod(
+          m,
+          filterPeriod,
+          filterMonth,
+          filterQuarter,
+          filterYear
+        );
+        return assigneeMatch && stageMatch && sourceTypeMatch && periodMatch;
       }),
-    [meetings, activeStage, selectedEmployeeId, currentUserId, selectedTeamId, teamOptions, recordScope]
+    [
+      meetings,
+      recordScope,
+      selectedEmployeeId,
+      selectedTeamId,
+      currentUserId,
+      teamOptions,
+      filterStage,
+      filterSourceType,
+      filterPeriod,
+      filterMonth,
+      filterQuarter,
+      filterYear,
+    ]
   );
 
-  const ownFollowups = useMemo(
-    () => followups.filter((f) => String(f.assignedToId || "") === String(currentUserId || "")),
-    [followups, currentUserId]
+  const totalFollowupPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredFollowups.length / LIST_PAGE_SIZE)),
+    [filteredFollowups.length]
   );
 
-  const ownMeetings = useMemo(
-    () => meetings.filter((m) => String(m.assignedToId || "") === String(currentUserId || "")),
-    [meetings, currentUserId]
+  const totalMeetingPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredMeetings.length / LIST_PAGE_SIZE)),
+    [filteredMeetings.length]
   );
+
+  const paginatedFollowups = useMemo(() => {
+    const start = (followupPage - 1) * LIST_PAGE_SIZE;
+    return filteredFollowups.slice(start, start + LIST_PAGE_SIZE);
+  }, [filteredFollowups, followupPage]);
+
+  const paginatedMeetings = useMemo(() => {
+    const start = (meetingPage - 1) * LIST_PAGE_SIZE;
+    return filteredMeetings.slice(start, start + LIST_PAGE_SIZE);
+  }, [filteredMeetings, meetingPage]);
 
   const visibleEmployeeOptions = useMemo(() => {
     if (!selectedTeamId || selectedTeamId === "__mine__") return employeeOptions;
@@ -449,7 +535,6 @@ export default function FollowupsAddPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      setError("");
       const [mRes, fRes, dRes, lRes] = await Promise.all([
         API.get("/followups", { params: { kind: "meeting" } }),
         API.get("/followups", { params: { kind: "followup" } }),
@@ -462,7 +547,6 @@ export default function FollowupsAddPage() {
       setLeadRows(lRes.data || []);
     } catch (err) {
       console.error(err);
-      setError("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -487,9 +571,6 @@ export default function FollowupsAddPage() {
   useEffect(() => {
     const rawRole = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
     setCurrentRole(rawRole);
-    if (rawRole === "admin") setScopeLabel("Admin Scope: My + Managers + Sales");
-    else if (rawRole === "manager") setScopeLabel("Manager Scope: My + Team");
-    else setScopeLabel("Sales Scope: My Records");
   }, []);
 
   useEffect(() => {
@@ -532,6 +613,33 @@ export default function FollowupsAddPage() {
     formData.sourceType,
     selectedSourceId,
   ]);
+
+  useEffect(() => {
+    setFollowupPage(1);
+    setMeetingPage(1);
+  }, [
+    recordScope,
+    selectedTeamId,
+    selectedEmployeeId,
+    filterStage,
+    filterSourceType,
+    filterPeriod,
+    filterMonth,
+    filterQuarter,
+    filterYear,
+  ]);
+
+  useEffect(() => {
+    if (followupPage > totalFollowupPages) {
+      setFollowupPage(totalFollowupPages);
+    }
+  }, [followupPage, totalFollowupPages]);
+
+  useEffect(() => {
+    if (meetingPage > totalMeetingPages) {
+      setMeetingPage(totalMeetingPages);
+    }
+  }, [meetingPage, totalMeetingPages]);
 
   const resetForm = () => {
     setFormData({
@@ -758,7 +866,6 @@ export default function FollowupsAddPage() {
           : "";
     const matchedStage = item.stage || matchedDeal?.stage || "P1";
 
-    setFormTarget(type);
     setEditingRecord({ type, id: item.id });
     if (type === "meeting") {
       setFormData({
@@ -1394,6 +1501,83 @@ export default function FollowupsAddPage() {
     </div>
   );
 
+  const renderRecordFilters = () => (
+    <div className="fuaFilterBar">
+      {(currentRole === "admin" || currentRole === "manager") && (
+        <>
+          <select
+            className="fuaFilterSelect"
+            value={recordScope}
+            onChange={(e) => {
+              const nextScope = e.target.value;
+              setRecordScope(nextScope);
+              if (nextScope === "mine") {
+                setSelectedTeamId("");
+                setSelectedEmployeeId("");
+              }
+            }}
+          >
+            <option value="mine">My Records</option>
+            <option value="all">Select</option>
+          </select>
+          <select
+            className="fuaFilterSelect"
+            value={selectedTeamId}
+            disabled={recordScope === "mine"}
+            onChange={(e) => {
+              setRecordScope("all");
+              setSelectedTeamId(e.target.value);
+              setSelectedEmployeeId("");
+            }}
+          >
+            <option value="">All Teams</option>
+            <option value="__mine__">My Records</option>
+            {teamOptions.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
+          <select
+            className="fuaFilterSelect"
+            value={selectedEmployeeId}
+            disabled={recordScope === "mine"}
+            onChange={(e) => {
+              setRecordScope("all");
+              setSelectedEmployeeId(e.target.value);
+              if (e.target.value) setSelectedTeamId("");
+            }}
+          >
+            <option value="">All Employees</option>
+            <option value="__mine__">My Records</option>
+            {visibleEmployeeOptions.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </>
+      )}
+      <select
+        className="fuaFilterSelect"
+        value={filterStage}
+        onChange={(e) => setFilterStage(e.target.value)}
+      >
+        <option value="all">All Stages</option>
+        {STAGES.map((stage) => (
+          <option key={stage.key} value={stage.key}>
+            {getStageOptionLabel(stage)}
+          </option>
+        ))}
+      </select>
+      <select
+        className="fuaFilterSelect"
+        value={filterSourceType}
+        onChange={(e) => setFilterSourceType(e.target.value)}
+      >
+        <option value="all">Lead + Deal</option>
+        <option value="lead">Lead</option>
+        <option value="deal">Deal</option>
+      </select>
+    </div>
+  );
+
   const openCancelModal = () => {
     if (!selectedRecord?.item?.id) return;
     const isFollowup = selectedRecord.type === "followup";
@@ -1755,96 +1939,85 @@ export default function FollowupsAddPage() {
   return (
     <div className="fuaPage">
       <div className="fuaToolbar">
-        <button className={cx("fuaToolbarBtn", activeAction === "add" && "active")} type="button" onClick={() => { setFormTarget("followup"); setActiveAction("add"); }}>
+        <div className="fuaToolbarTabs">
+        <button className={cx("fuaToolbarBtn", activeAction === "add" && "active")} type="button" onClick={() => setActiveAction("add")}>
           <span className="fuaToolbarIcon">✚</span>
           <span>Add</span>
         </button>
-        <button className={cx("fuaToolbarBtn", activeAction === "followup" && "active")} type="button" onClick={() => { setFormTarget("followup"); setActiveAction("followup"); }}>
+        <button className={cx("fuaToolbarBtn", activeAction === "followup" && "active")} type="button" onClick={() => setActiveAction("followup")}>
           <span className="fuaToolbarIcon">⏰</span>
           <span>Followup</span>
         </button>
-        <button className={cx("fuaToolbarBtn", activeAction === "meeting" && "active")} type="button" onClick={() => { setFormTarget("meeting"); setActiveAction("meeting"); }}>
+        <button className={cx("fuaToolbarBtn", activeAction === "meeting" && "active")} type="button" onClick={() => setActiveAction("meeting")}>
           <span className="fuaToolbarIcon">📅</span>
           <span>Meeting</span>
         </button>
-        <button className={cx("fuaToolbarBtn", activeAction === "filter" && "active")} type="button" onClick={() => setActiveAction("filter")}>
+        </div>
+        {activeAction === "__filter_disabled__" && <button className={cx("fuaToolbarBtn", activeAction === "filter" && "active")} type="button" onClick={() => setActiveAction("filter")}>
           <span className="fuaToolbarIcon">🧊</span>
           <span>Filter</span>
-        </button>
+        </button>}
+        {(activeAction === "followup" || activeAction === "meeting") && (
+          <DashboardDateFilter
+            className="fuaDateFilter fuaToolbarDateFilter"
+            period={filterPeriod}
+            month={filterMonth}
+            quarter={filterQuarter}
+            year={filterYear}
+            onPeriodChange={setFilterPeriod}
+            onMonthChange={setFilterMonth}
+            onQuarterChange={setFilterQuarter}
+            onYearChange={setFilterYear}
+          />
+        )}
       </div>
 
       <section className="fuaPanel">
         {loading && <div className="fuaEmpty">Loading...</div>}
         {!loading && activeAction === "add" && renderForm()}
-        {!loading && activeAction === "followup" && renderFollowups(ownFollowups)}
-        {!loading && activeAction === "meeting" && renderMeetings(ownMeetings)}
-        {!loading && activeAction === "filter" && (
+        {!loading && activeAction === "followup" && (
           <>
-            {(currentRole === "admin" || currentRole === "manager") && (
-              <div className="fuaFilterBar">
-                <select
-                  className="fuaFilterSelect"
-                  value={recordScope}
-                  onChange={(e) => {
-                    const nextScope = e.target.value;
-                    setRecordScope(nextScope);
-                    if (nextScope === "mine") {
-                      setSelectedTeamId("");
-                      setSelectedEmployeeId("");
-                    }
-                  }}
-                >
-                  <option value="mine">My Records</option>
-                  <option value="all">Select</option>
-                </select>
-                <select
-                  className="fuaFilterSelect"
-                  value={selectedTeamId}
-                  disabled={recordScope === "mine"}
-                  onChange={(e) => {
-                    setRecordScope("all");
-                    setSelectedTeamId(e.target.value);
-                    setSelectedEmployeeId("");
-                  }}
-                >
-                  <option value="">All Teams</option>
-                  <option value="__mine__">My Records</option>
-                  {teamOptions.map((t) => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
-                  ))}
-                </select>
-                <select
-                  className="fuaFilterSelect"
-                  value={selectedEmployeeId}
-                  disabled={recordScope === "mine"}
-                  onChange={(e) => {
-                    setRecordScope("all");
-                    setSelectedEmployeeId(e.target.value);
-                    if (e.target.value) setSelectedTeamId("");
-                  }}
-                >
-                  <option value="">All Employees</option>
-                  <option value="__mine__">My Records</option>
-                  {visibleEmployeeOptions.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
+            {renderRecordFilters()}
+            <div className="fuaSectionBlock">
+              <div className="fuaSectionHead">
+                <h3 className="fuaSectionTitle">Follow-ups</h3>
+                <small className="fuaSectionMeta">
+                  {filteredFollowups.length} record{filteredFollowups.length === 1 ? "" : "s"}
+                </small>
               </div>
-            )}
-            <div className="fuaStages">
-              {STAGES.map((s) => (
-                <button key={s.key} className={cx("fuaStageBtn", activeStage === s.key && "active")} type="button" onClick={() => setActiveStage(s.key)}>
-                  {s.title}
-                </button>
-              ))}
+              {renderFollowups(paginatedFollowups)}
+              {filteredFollowups.length > 0 && (
+                <div className="fuaListPagination">
+                  <Pagination
+                    currentPage={followupPage}
+                    totalPages={totalFollowupPages}
+                    handlePageChange={setFollowupPage}
+                  />
+                </div>
+              )}
             </div>
+          </>
+        )}
+        {!loading && activeAction === "meeting" && (
+          <>
+            {renderRecordFilters()}
             <div className="fuaSectionBlock">
-              <h3 className="fuaSectionTitle">Meetings</h3>
-              {renderMeetings(visibleMeetings)}
-            </div>
-            <div className="fuaSectionBlock">
-              <h3 className="fuaSectionTitle">Follow-ups</h3>
-              {renderFollowups(visibleFollowups)}
+              <div className="fuaSectionHead">
+                <h3 className="fuaSectionTitle">Meetings</h3>
+                <small className="fuaSectionMeta">
+                  {filteredMeetings.length} record{filteredMeetings.length === 1 ? "" : "s"}
+                </small>
+              </div>
+              {renderMeetings(paginatedMeetings)}
+              {filteredMeetings.length > 0 && (
+                <div className="fuaListPagination">
+                  <Pagination
+                    currentPage={meetingPage}
+                    totalPages={totalMeetingPages}
+                    handlePageChange={setMeetingPage}
+                  />
+                </div>
+              )}
             </div>
           </>
         )}
