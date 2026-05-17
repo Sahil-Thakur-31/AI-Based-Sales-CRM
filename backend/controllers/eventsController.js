@@ -178,7 +178,7 @@ const getEventNotificationChannels = async (userId) => {
 const populateEventQuery = (query) =>
   query
     .populate({ path: "industry", model: "industries", select: "name" })
-    .populate({ path: "location", model: "location", select: "city State country zone" })
+    .populate({ path: "location", model: "location", select: "city State country" })
     .populate({ path: "source", model: "sources", select: "name" })
     .populate({ path: "missedBy", model: "User", select: "name email" })
     .populate({ path: "attendedBy", model: "User", select: "name email" })
@@ -474,8 +474,7 @@ exports.getEventMeta = async (req, res) => {
                 }
               }
             },
-            country: 1,
-            zone: 1
+            country: 1
           }
         },
         {
@@ -491,8 +490,7 @@ exports.getEventMeta = async (req, res) => {
             },
             city: { $first: "$city" },
             State: { $first: "$State" },
-            country: { $first: "$country" },
-            zone: { $first: "$zone" }
+            country: { $first: "$country" }
           }
         },
         { $sort: { city: 1 } },
@@ -973,7 +971,7 @@ exports.updateEvent = async (req, res) => {
       { returnDocument: "after", runValidators: true }
     )
       .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" })
+      .populate({ path: "location", model: "location", select: "city State country" })
       .populate({ path: "source", model: "sources", select: "name" });
 
     if (!event) {
@@ -1553,7 +1551,7 @@ exports.saveEventOutcome = async (req, res) => {
       { returnDocument: "after" }
     )
       .populate({ path: "industry", model: "industries", select: "name" })
-      .populate({ path: "location", model: "location", select: "city State country zone" })
+      .populate({ path: "location", model: "location", select: "city State country" })
       .populate({ path: "source", model: "sources", select: "name" })
       .populate({ path: "attendedBy", model: "User", select: "name email" })
       .populate({ path: "registrations.eventManagerUser", model: "User", select: "name email" })

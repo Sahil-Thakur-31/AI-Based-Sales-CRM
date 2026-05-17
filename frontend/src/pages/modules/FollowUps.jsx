@@ -2,12 +2,34 @@ import React, { useEffect, useMemo, useState } from "react";
 import API from "../../api";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import Pagination from "../../components/Pagination";
-import StageBadge, { StageCard } from "../../components/StageBadge";
-import { DEAL_STAGE_OPTIONS, LEAD_STAGE_OPTIONS } from "../../utils/stages";
 import { minLength, required } from "../../utils/formValidation";
 import "./styles/Followups.css";
-const LEAD_STAGES = LEAD_STAGE_OPTIONS;
-const DEAL_STAGES = DEAL_STAGE_OPTIONS;
+
+const STAGES = [
+  { key: "P1", title: "P1 - Quote Sent", sub: "Awaiting response" },
+  { key: "P2", title: "P2 - Meeting Scheduled", sub: "Upcoming meetings" },
+  { key: "P3", title: "P3 - In Conversation", sub: "Active discussions" },
+  { key: "P4", title: "P4 - No Service", sub: "Service unavailable" },
+  { key: "P5", title: "P5 - RNR", sub: "Right Now Right" },
+  { key: "P6", title: "P6 - No Response", sub: "Follow-up needed" },
+  { key: "P7", title: "P7 - Won", sub: "Deal closed" },
+];
+
+const LEAD_STAGES = STAGES.map((stage) =>
+  stage.key === "P3"
+    ? { ...stage, title: "P3 - Fresh Leads", sub: "When we create new leads" }
+    : stage.key === "P7"
+      ? { ...stage, title: "P7 - Lead Convert to Deal", sub: "Converted leads" }
+      : stage
+);
+
+const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P6", "P7"]);
+const DEAL_STAGES = STAGES.map((stage) => ({
+  ...(stage.key === "P3"
+    ? { ...stage, title: "P3 - Fresh Deals", sub: "New deals and converted leads" }
+    : stage),
+  hidden: !DEAL_STAGE_KEYS.has(stage.key),
+}));
 
 const EMPTY_FOLLOWUP_FORM = {
   client: "",
@@ -1025,19 +1047,21 @@ export default function Followups() {
       {useStageFilter && (
         <div className={cx("fuStages", recordBucket === "deal" && "fuStagesDeal")} role="tablist" aria-label="Follow-up stages">
           {visibleStageOptions.map((s) => (
-            <StageCard
-              key={s.key}
-              stage={s.key}
-              bucket={recordBucket}
-              count={stageCounts[s.key] ?? 0}
-              subtitle={s.subtitle}
-              active={activeStage === s.key}
-              className="fuStageCard"
-              onClick={() => {
-                setActiveStage(s.key);
-                if (followupMode === "all") setFollowupMode("list");
-              }}
-            />
+            !s.hidden ? (
+              <button
+                key={s.key}
+                className={cx("fuStageCard", `stage-${String(s.key || "").toLowerCase()}`, activeStage === s.key && "active")}
+                onClick={() => {
+                  setActiveStage(s.key);
+                  if (followupMode === "all") setFollowupMode("list");
+                }}
+                type="button"
+              >
+                <div className="fuStageTop"><span className="fuStageTitle">{s.title}</span></div>
+                <div className="fuStageMid"><span className="fuStageCount">{stageCounts[s.key] ?? 0}</span></div>
+                <div className="fuStageSub">{s.sub}</div>
+              </button>
+            ) : null
           ))}
         </div>
       )}
@@ -1295,7 +1319,7 @@ export default function Followups() {
               <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedMeeting.clientName}</div></div>
               <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedMeeting.title || selectedMeeting.eventType}</div></div>
               <div className="fuDetailCard"><div className="k">Meeting Location</div><div className="v">{selectedMeeting.address || "-"}</div></div>
-              <div className="fuDetailCard"><div className="k">Stage</div><div className="v"><StageBadge stage={selectedMeeting.stage} bucket={inferRecordBucket(selectedMeeting)} /></div></div>
+              <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedMeeting.stage || "-"}</div></div>
               <div className="fuDetailCard"><div className="k">Event Type</div><div className="v">{selectedMeeting.eventType}</div></div>
               <div className="fuDetailCard"><div className="k">Time</div><div className="v">{selectedMeeting.time}</div></div>
               <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedMeeting.due}</div></div>
@@ -1431,7 +1455,7 @@ export default function Followups() {
               <div className="fuDetailCard"><div className="k">Client</div><div className="v">{selectedFollowup.client}</div></div>
               <div className="fuDetailCard"><div className="k">Task</div><div className="v">{selectedFollowup.title}</div></div>
               <div className="fuDetailCard"><div className="k">Assigned To</div><div className="v">{selectedFollowup.assignedToName || "-"}</div></div>
-              <div className="fuDetailCard"><div className="k">Stage</div><div className="v"><StageBadge stage={selectedFollowup.stage} bucket={inferRecordBucket(selectedFollowup)} /></div></div>
+              <div className="fuDetailCard"><div className="k">Stage</div><div className="v">{selectedFollowup.stage}</div></div>
               <div className="fuDetailCard"><div className="k">Due</div><div className="v">{selectedFollowup.due}</div></div>
               <div className="fuDetailCard"><div className="k">Priority</div><div className="v">{selectedFollowup.priority}</div></div>
               <div className="fuDetailCard"><div className="k">AI Priority</div><div className="v">{selectedFollowup.aiPriority || "-"}</div></div>
@@ -1473,7 +1497,7 @@ export default function Followups() {
               <label className="fuFormLabel">
                 Stage
                 <select className="fuField" value={followupForm.stage} onChange={(e) => setFollowupForm((p) => ({ ...p, stage: e.target.value }))}>
-                  {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.key}</option>)}
+                  {visibleStageOptions.map((s) => <option key={s.key} value={s.key}>{s.title || s.key}</option>)}
                 </select>
               </label>
               <label className="fuFormLabel fuFull">

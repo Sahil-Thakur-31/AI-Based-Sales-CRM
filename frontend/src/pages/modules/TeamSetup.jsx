@@ -154,7 +154,6 @@ export default function TeamSetup() {
     setMemberQuery("");
     setError("");
     setSuccess("");
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   function addMember(userId) {

@@ -71,7 +71,6 @@ async function resolveLocationId(payload) {
     country: payload.country,
     State: payload.State,
     city: payload.city,
-    zone: payload.zone,
   };
 
   const hasAnyLocation = Object.values(locationPayload).some(
@@ -84,7 +83,6 @@ async function resolveLocationId(payload) {
     country: (locationPayload.country || "").trim(),
     State: (locationPayload.State || "").trim(),
     city: (locationPayload.city || "").trim(),
-    zone: (locationPayload.zone || "").trim(),
   };
 
   let location = await Location.findOne(normalized);
@@ -102,7 +100,6 @@ function stripLeadPayloadFields(payload) {
   delete cleaned.country;
   delete cleaned.State;
   delete cleaned.city;
-  delete cleaned.zone;
   delete cleaned.contact_history;
   delete cleaned.next_action_date;
   delete cleaned.ai_score;
@@ -523,7 +520,6 @@ exports.searchCompany = async (req, res) => {
         country: location?.country || "",
         State: location?.State || "",
         city: location?.city || "",
-        zone: location?.zone || "",
         contacts: leadContacts.map((c) => ({
           name: c.name || "",
           designation: c.designation || "",
@@ -575,7 +571,6 @@ exports.searchCompany = async (req, res) => {
         country: location?.country || "",
         State: location?.State || "",
         city: location?.city || "",
-        zone: location?.zone || "",
         contacts: clientContacts.map((c) => ({
           name: c.name || "",
           designation: c.designation || "",
@@ -712,7 +707,6 @@ exports.getLeads = async (req, res) => {
         country: location?.country || "",
         State: location?.State || "",
         city: location?.city || "",
-        zone: location?.zone || "",
       };
     });
 
@@ -787,7 +781,6 @@ exports.getLeadById = async (req, res) => {
       country: location?.country || "",
       State: location?.State || "",
       city: location?.city || "",
-      zone: location?.zone || "",
     };
 
     res.json({ lead: leadWithLocation, contacts, followups });

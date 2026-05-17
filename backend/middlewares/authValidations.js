@@ -4,7 +4,7 @@ const registerValidation = (req,res,next) =>{
     const schema = joi.object({
         name: joi.string().required().min(3).max(50),
         email: joi.string().email().required(),
-        password: joi.string().required().min(6).max(15),
+        password: joi.string().required().min(6).max(128),
         role: joi.string().required(),   
         joinDate: joi.date()
     });
@@ -19,7 +19,7 @@ const registerValidation = (req,res,next) =>{
 const loginValidation = (req,res,next) =>{
     const schema = joi.object({
         email: joi.string().email().required(),
-        password: joi.string().required().min(6).max(15)
+        password: joi.string().required().min(6).max(128)
     });
     const {error} = schema.validate(req.body);
 

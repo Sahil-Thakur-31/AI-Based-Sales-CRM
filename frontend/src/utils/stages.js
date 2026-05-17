@@ -2,48 +2,13 @@ const STAGE_ORDER = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 const DEAL_STAGE_KEYS = new Set(["P1", "P2", "P3", "P6", "P7"]);
 
 const BASE_STAGE_META = {
-  P1: {
-    title: "Quote Sent",
-    subtitle: "Awaiting response",
-    theme: "p1",
-    tone: "light",
-  },
-  P2: {
-    title: "Meeting Scheduled",
-    subtitle: "Upcoming meetings",
-    theme: "p2",
-    tone: "light",
-  },
-  P3: {
-    title: "Fresh Leads",
-    subtitle: "When we create new leads",
-    theme: "p3",
-    tone: "light",
-  },
-  P4: {
-    title: "No Service",
-    subtitle: "Service unavailable",
-    theme: "p4",
-    tone: "light",
-  },
-  P5: {
-    title: "RNR",
-    subtitle: "Right Now Right",
-    theme: "p5",
-    tone: "dark",
-  },
-  P6: {
-    title: "No Response",
-    subtitle: "Follow-up needed",
-    theme: "p6",
-    tone: "light",
-  },
-  P7: {
-    title: "Lead Convert to Deal",
-    subtitle: "Converted leads",
-    theme: "p7",
-    tone: "light",
-  },
+  P1: { title: "Quote Sent", subtitle: "Awaiting response" },
+  P2: { title: "Meeting Scheduled", subtitle: "Upcoming meetings" },
+  P3: { title: "Fresh Leads", subtitle: "When we create new leads" },
+  P4: { title: "No Service", subtitle: "Service unavailable" },
+  P5: { title: "RNR", subtitle: "Right Now Right" },
+  P6: { title: "No Response", subtitle: "Follow-up needed" },
+  P7: { title: "Lead Convert to Deal", subtitle: "Converted leads" },
 };
 
 const BUCKET_OVERRIDES = {
@@ -76,8 +41,6 @@ export function getStageMeta(stage, options = {}) {
       title: key,
       shortTitle: key,
       subtitle: "",
-      theme: "default",
-      tone: "light",
     };
   }
 
@@ -90,8 +53,6 @@ export function getStageMeta(stage, options = {}) {
     title: `${key} - ${shortTitle}`,
     shortTitle,
     subtitle: override.subtitle || baseMeta.subtitle,
-    theme: baseMeta.theme,
-    tone: baseMeta.tone,
   };
 }
 
