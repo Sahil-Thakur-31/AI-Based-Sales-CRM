@@ -312,9 +312,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const clientView = formMode === "client" || searchParams.get("view") === "client";
   const dealIdFromQuery = searchParams.get("dealId") || (dealView ? String(id || "") : "");
   const clientIdFromQuery = searchParams.get("clientId") || "";
+  const hasEditQuery = !embedded && searchParams.get("edit") === "true";
   const shouldStartInEditMode = embedded
     ? true
-    : !deletedView && (isNew || searchParams.get("edit") === "true");
+    : !deletedView && (isNew || hasEditQuery);
   const [editMode, setEditMode] = useState(shouldStartInEditMode);
   const [popup, setPopup] = useState({
     open: false,
@@ -491,7 +492,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
   useEffect(() => {
     if (shouldApplyOcr) {
-      console.log("Applying OCR Data to formulate:", ocrData);
       const companyVal = ocrCompanyName;
 
       setLead((prev) => ({
@@ -874,23 +874,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     setContacts(updated);
   };
 
-  useEffect(() => {
-    if (isFromOCR) return;
-    if (!lead.company_name) return;
-    setContacts((prev) => {
-      if (!prev.length) return prev;
-      let hasChanges = false;
-      const updated = prev.map((c) => {
-        if (!c.name) {
-          hasChanges = true;
-          return { ...c, name: lead.company_name };
-        }
-        return c;
-      });
-      return hasChanges ? updated : prev;
-    });
-  }, [lead.company_name, isFromOCR]);
-
   const handleHistoryChange = (index, field, value) => {
     setLead((prev) => {
       const history = Array.isArray(prev.contact_history)
@@ -1049,14 +1032,19 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       if (isNew) {
         if (clientView) {
-          navigate("/clients");
+          navigate("/clients", { replace: true });
         } else if (dealView && data.deal) {
-          navigate(`/leads/${data.lead._id}?view=deal&dealId=${data.deal._id}`);
+          navigate(buildDetailPath(data.lead._id, data.deal._id), { replace: true });
         } else {
-          navigate(`/leads/${data._id || data.lead?._id}`);
+          navigate(buildDetailPath(data._id || data.lead?._id), { replace: true });
         }
+        return;
       }
+
       setEditMode(false);
+      if (hasEditQuery) {
+        navigate(buildDetailPath(), { replace: true });
+      }
     } catch (err) {
       console.error("save lead error", err);
       showAlert("Save Failed", err.response?.data?.message || "Failed to save lead", "error");
@@ -1080,6 +1068,23 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     const selectedCity = cityOptions.find((item) => item?.city === lead.city);
     return selectedCity?._id || null;
   }, [cityOptions, lead.city]);
+
+  const buildDetailPath = (targetId = id, targetDealId = dealIdFromQuery) => {
+    const params = new URLSearchParams();
+    if (dealView) {
+      params.set("view", "deal");
+      if (targetDealId) params.set("dealId", targetDealId);
+    }
+    if (clientView) {
+      params.set("view", "client");
+    }
+    if (deletedView) {
+      params.set("deleted", "true");
+    }
+    const query = params.toString();
+    const basePath = clientView ? `/clients/${targetId}` : `/leads/${targetId}`;
+    return query ? `${basePath}?${query}` : basePath;
+  };
 
   const closePopup = () => {
     setDealDeleteReason("");
@@ -1352,19 +1357,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     <div className={embedded ? "lead-page embedded-lead-page" : "lead-page"}>
       {!embedded && (
         <div className="lead-header">
-          <h2>
-            {isNew
-              ? clientView
-                ? "Add Client"
-                : dealView
-                  ? "Add Deal"
-                  : "Add Lead"
-              : clientView
-                ? `Client - ${lead.company_name || "Details"}`
-                : dealView
-                  ? `Deal - ${lead.deal_name || lead.company_name || "Details"}`
-                  : lead.company_name}
-          </h2>
           <BackButton />
         </div>
       )}
@@ -1692,35 +1684,32 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           ) : editMode ? (
             <div
               ref={sourceMenuRef}
-              style={{ position: "relative" }}
-              onMouseLeave={() => {
-                setSourceSubmenu({ type: "", sourceId: "" });
-                setSourceSubmenuTop(0);
-              }}
+              className="crm-source-menu-shell"
             >
               <button
                 type="button"
-                onClick={() => setSourceMenuOpen((prev) => !prev)}
+                onClick={() =>
+                  setSourceMenuOpen((prev) => {
+                    const nextOpen = !prev;
+                    if (!nextOpen) {
+                      setSourceSubmenu({ type: "", sourceId: "" });
+                      setSourceSubmenuTop(0);
+                    }
+                    return nextOpen;
+                  })
+                }
                 className="crm-source-trigger"
               >
                 {sourceDisplayValue === "-" ? "Select Source" : sourceDisplayValue}
               </button>
               {sourceMenuOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 4px)",
-                    left: 0,
-                    minWidth: "100%",
-                    background: "#fff",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                    zIndex: 30,
-                  }}
-                >
+                <div className="crm-source-menu-panel">
                   <div style={{ maxHeight: "400px", overflowY: "auto" }}>
                     <div
+                      onMouseEnter={() => {
+                        setSourceSubmenu({ type: "", sourceId: "" });
+                        setSourceSubmenuTop(0);
+                      }}
                       onClick={() => handleSourceMenuSelect("source", "")}
                       className="crm-source-menu-item"
                     >
@@ -1729,6 +1718,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                     {normalSources.map((s) => (
                       <div
                         key={s._id}
+                        onMouseEnter={() => {
+                          setSourceSubmenu({ type: "", sourceId: "" });
+                          setSourceSubmenuTop(0);
+                        }}
                         onClick={() => handleSourceMenuSelect("source", String(s._id))}
                         className="crm-source-menu-item"
                       >
@@ -1764,20 +1757,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                   </div>
                   {!!sourceSubmenu.type && (
                     <div
+                      className="crm-source-submenu-panel"
                       style={{
-                        position: "absolute",
                         top: sourceSubmenuTop,
                         left: sourceSubmenuDirection === "right" ? "100%" : "auto",
                         right: sourceSubmenuDirection === "left" ? "100%" : "auto",
-                        minWidth: "220px",
-                        maxWidth: "260px",
-                        background: "#fff",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "8px",
-                        boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                        zIndex: 31,
-                        maxHeight: "400px",
-                        overflowY: "auto",
                       }}
                     >
                       {sourceSubmenu.type === "reference" &&
