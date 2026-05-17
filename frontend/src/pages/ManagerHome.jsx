@@ -24,6 +24,24 @@ const EMPTY_CANCEL_MODAL = {
 };
 
 const FOLLOWUPS_VISIBLE_ITEMS = 5;
+const INSIGHTS_REFRESH_MS = 60000;
+
+function formatLiveTime(value) {
+  if (!value) return "Just now";
+  return new Date(value).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function normalizeDashboardInsight(insight = {}, index = 0) {
+  return {
+    id: insight.id || `${insight.type || "insight"}-${index}`,
+    title: insight.type || "Insight",
+    message: insight.message || "AI is watching your live CRM activity.",
+    severity: insight.severity || "purple"
+  };
+}
 
 function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
   const navigate = useNavigate();
@@ -35,6 +53,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
   const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
   const [selectedYear, setSelectedYear] = useState(String(today.getFullYear()));
   const [selectedItem, setSelectedItem] = useState(null);
+  const [insightsUpdatedAt, setInsightsUpdatedAt] = useState(new Date());
   const [doneModal, setDoneModal] = useState(EMPTY_DONE_MODAL);
   const [doneModalError, setDoneModalError] = useState("");
   const [savingDone, setSavingDone] = useState(false);
@@ -114,6 +133,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
           signal: controller.signal
         });
         setDashboardData(response.data);
+        setInsightsUpdatedAt(new Date());
       } catch (err) {
         if (err.name === "CanceledError" || err.name === "AbortError") return;
         setError(err.response?.data?.message || "Failed to load dashboard");
@@ -122,6 +142,20 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
 
     loadDashboard();
     return () => controller.abort();
+  }, [dashboardEndpoint, dashboardParams]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(async () => {
+      try {
+        const response = await API.get(dashboardEndpoint, { params: dashboardParams });
+        setDashboardData(response.data);
+        setInsightsUpdatedAt(new Date());
+      } catch (err) {
+        console.error("Failed to refresh dashboard insights", err);
+      }
+    }, INSIGHTS_REFRESH_MS);
+
+    return () => window.clearInterval(intervalId);
   }, [dashboardEndpoint, dashboardParams]);
 
   const refreshDashboard = async () => {
@@ -272,6 +306,12 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
   const labels = dashboardData.labels || {};
   const stats = Array.isArray(dashboardData.statCards) ? dashboardData.statCards : [];
   const timelineItems = allTimelineItems.slice(0, FOLLOWUPS_VISIBLE_ITEMS);
+  const normalizedInsights = (dashboardData.insights || [])
+    .map(normalizeDashboardInsight)
+    .slice(0, 3);
+  const insightSummary = normalizedInsights[0]
+    ? `${normalizedInsights[0].title}: ${normalizedInsights[0].message}`
+    : "AI is watching your live CRM data for priority follow-ups, deal risk, and pipeline movement.";
 
   return (
     <div className="ManagerDashboard">
@@ -385,9 +425,12 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
               <div>Deal Value Amt: {formatCurrency(dashboardData.summary?.dealPipelineValue)}</div>
             </div>
 
-            <div className="panel manager-side-panel">
+            <div className="panel manager-side-panel manager-ai-panel">
               <div className="manager-followups-head">
-                <h3>AI Insights</h3>
+                <div>
+                  <h3>AI Insights</h3>
+                  <span className="manager-ai-live">Live summary</span>
+                </div>
                 <button
                   className="manager-mini-btn done"
                   type="button"
@@ -401,9 +444,14 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
                 </button>
               </div>
 
-              {(dashboardData.insights || []).map((insight) => (
-                <div key={insight.id} className={`insight ${insight.severity || "purple"}`}>
-                  <strong>{insight.type}</strong>
+              <div className="manager-ai-summary">
+                <strong>{insightSummary}</strong>
+                <span>Updated {formatLiveTime(insightsUpdatedAt)} from current CRM activity</span>
+              </div>
+
+              {normalizedInsights.map((insight) => (
+                <div key={insight.id} className={`insight ${insight.severity}`}>
+                  <strong>{insight.title}</strong>
                   <p>{insight.message}</p>
                 </div>
               ))}

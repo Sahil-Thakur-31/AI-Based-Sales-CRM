@@ -356,6 +356,10 @@ const ExpenseDashboard = () => {
   );
 
   useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  useEffect(() => {
     setCurrentPage(1);
   }, [selectedUser]);
 
@@ -1159,7 +1163,13 @@ const ExpenseDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedExpenses.map((exp) => {
+                {paginatedExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="expense-ledger-empty">
+                      No expenses found in this view.
+                    </td>
+                  </tr>
+                ) : paginatedExpenses.map((exp) => {
                   const canModifyOwnPending = exp.status === "pending" && String(exp.userId) === String(currentUser?._id);
                   return (
                     <tr key={exp.id}>

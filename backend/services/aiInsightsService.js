@@ -154,6 +154,18 @@ function buildUserFilter(fieldName, ids = []) {
   return { [fieldName]: { $in: objectIds } };
 }
 
+function buildLeadBaseMatch(scopeMatch = {}) {
+  const clauses = [
+    { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
+  ];
+
+  if (scopeMatch && Object.keys(scopeMatch).length) {
+    clauses.push(scopeMatch);
+  }
+
+  return { $and: clauses };
+}
+
 function buildClientFilter(ids = []) {
   return buildUserFilter("createdBy", ids);
 }
@@ -393,8 +405,16 @@ function buildOfflineInsights(evidence) {
     : evidence.scope === "team"
       ? `${evidence.teamName || "This team"} has ${formatNumber(metrics.newLeads7d)} new leads in the last 7 days, ${formatNumber(metrics.wonDeals)} won deals, and ${formatCurrency(metrics.totalWonValue)} in won value. The team still has ${formatNumber(metrics.openDeals)} open deals active and ${formatNumber(metrics.overdueFollowups)} overdue follow-ups to clear.`
       : `You have ${formatNumber(metrics.newLeads7d)} new leads in the last 7 days, ${formatNumber(metrics.wonDeals)} won deals, and ${formatCurrency(metrics.totalWonValue)} in won value. Your live pipeline still has ${formatNumber(metrics.openDeals)} open deals, while ${formatNumber(metrics.overdueFollowups)} follow-ups are overdue and ${formatNumber(metrics.todayFollowups)} are due today.`;
+  const plainSummary = metrics.overdueFollowups > 0
+    ? "Your pipeline has activity, but follow-ups need attention first."
+    : metrics.openDeals > 0
+      ? "Your pipeline is active and ready for the next sales push."
+      : metrics.newLeads7d > 0
+        ? "New leads are coming in, so focus on quick first contact."
+        : "Activity is quiet, so focus on creating fresh pipeline.";
 
   return {
+    plainSummary,
     summary,
     todayPriorities: todayPriorities.slice(0, 4),
     keyMetrics: buildKeyMetrics(evidence.scope, metrics).slice(0, 6),
@@ -412,6 +432,7 @@ function buildOfflineInsights(evidence) {
 function ensureInsightsShape(payload, fallback) {
   const source = payload && typeof payload === "object" ? payload : {};
   return {
+    plainSummary: String(source.plainSummary || fallback.plainSummary || "").trim(),
     summary: String(source.summary || fallback.summary || "").trim(),
     todayPriorities: Array.isArray(source.todayPriorities)
       ? source.todayPriorities.slice(0, 4).map((item) => ({
@@ -455,6 +476,7 @@ function buildGeminiPrompt(roleLabel, scopeLabel, evidence) {
     "",
     "The JSON must have exactly these fields:",
     "{",
+    "  plainSummary: string (one short simple sentence for non-technical users, max 18 words),",
     "  summary: string (2-3 sentences describing current situation based on the numbers, be specific with actual numbers),",
     "  todayPriorities: array of max 4 objects { icon: emoji string, title: string, detail: string with specific numbers, urgency: high or medium or low },",
     "  keyMetrics: array of 4-6 objects { label: string, value: string or number, trend: up or down or neutral, note: string },",
@@ -538,7 +560,7 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
   const expenseScope = isCompany ? {} : scope === "team" ? { userId: { $in: memberObjectIds } } : userObjectId ? { userId: userObjectId } : { userId: null };
   const quotationScope = isCompany ? {} : scope === "team" ? { createdBy: { $in: memberObjectIds } } : userObjectId ? { createdBy: userObjectId } : { createdBy: null };
 
-  const leadBase = { is_deleted: { $ne: true }, ...leadScope };
+  const leadBase = buildLeadBaseMatch(leadScope);
   const dealBase = { is_deleted: { $ne: true }, ...dealScope };
   const clientBase = { is_deleted: { $ne: true }, ...clientScope };
   const followupBase = { is_deleted: { $ne: true }, ...followupScope };
@@ -594,7 +616,7 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
 
 async function buildCompanyEvidence() {
 
-  const leadBase = { is_deleted: { $ne: true } };
+  const leadBase = buildLeadBaseMatch();
   const dealBase = { is_deleted: { $ne: true } };
   const clientBase = { is_deleted: { $ne: true } };
   const followupBase = { is_deleted: { $ne: true } };
@@ -754,7 +776,7 @@ async function buildPersonalEvidence(user) {
   const userId = toIdString(user?._id);
   const userObjectId = toObjectId(userId);
 
-  const leadBase = { is_deleted: { $ne: true }, assigned_to: userObjectId };
+  const leadBase = buildLeadBaseMatch({ assigned_to: userObjectId });
   const dealBase = { is_deleted: { $ne: true }, assignedTo: userObjectId };
   const clientBase = { is_deleted: { $ne: true }, createdBy: userObjectId };
   const followupBase = { is_deleted: { $ne: true }, assignedTo: userObjectId };
@@ -968,7 +990,7 @@ async function buildTeamEvidence(teamId) {
     })
     : "";
 
-  const leadBase = { is_deleted: { $ne: true }, assigned_to: { $in: memberIds } };
+  const leadBase = buildLeadBaseMatch({ assigned_to: { $in: memberIds } });
   const dealBase = { is_deleted: { $ne: true }, assignedTo: { $in: memberIds } };
   const clientBase = { is_deleted: { $ne: true }, createdBy: { $in: memberIds } };
   const followupBase = { is_deleted: { $ne: true }, assignedTo: { $in: memberIds } };
