@@ -149,7 +149,6 @@ async function resolveLocationId(payload = {}) {
     country: String(payload.country || "").trim(),
     State: String(payload.State || "").trim(),
     city: String(payload.city || "").trim(),
-    zone: String(payload.zone || "").trim(),
   };
 
   const hasAnyLocation = Object.values(normalized).some(Boolean);
@@ -1184,7 +1183,6 @@ exports.getDealById = async (req, res) => {
         enriched.country = location.country || "";
         enriched.State = location.State || "";
         enriched.city = location.city || "";
-        enriched.zone = location.zone || "";
       }
     }
 

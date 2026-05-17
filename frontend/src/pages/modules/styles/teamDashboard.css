@@ -367,11 +367,45 @@
   padding: 16px 10px;
 }
 
-.team-stage-list {
+.team-stage-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: 36px 1fr 30px;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-stage-row span {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.team-stage-bar {
+  height: 8px;
+  background: #e7ecf5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.team-stage-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5b6fd8 0%, #4f46e5 100%);
+}
+
+.team-stage-row strong {
+  text-align: right;
+  color: #334155;
+  font-size: 12px;
+}
+
+.team-stage-list {
+  max-height: none;
+  overflow: visible;
   padding-right: 2px;
+  flex: 1;
+  min-height: 0;
 }
 
 .team-followup-row {
@@ -418,10 +452,9 @@
 .team-followup-main span {
   color: #64748b;
   font-size: 11px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .team-followup-time {

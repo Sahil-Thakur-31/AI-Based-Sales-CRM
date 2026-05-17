@@ -320,6 +320,28 @@
 .profile-field .PhoneInputCountry {
   margin: 0;
   flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.profile-field .PhoneInputCountrySelect {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.profile-field .PhoneInputCountryIcon {
+  width: calc(var(--PhoneInputCountryFlag-height) * var(--PhoneInputCountryFlag-aspectRatio));
+  height: var(--PhoneInputCountryFlag-height);
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.profile-field .PhoneInputCountryIconImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .profile-field .PhoneInputInput {

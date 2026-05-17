@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API from "../../api";
 import FormErrorSlot from "../../components/FormErrorSlot";
-import { getStageTitle } from "../../utils/stages";
 import LeadFormPage from "./LeadFormPage";
 import "./styles/Quotations.css";
 
@@ -777,9 +776,9 @@ export default function NewQuotation() {
                                 : getLeadDisplayName(source)}
                             </span>
                             <span className="quote-deal-suggestion-meta">
-                              {source.stage
-                                ? getStageTitle(source.stage, { bucket: quoteType === "deal" ? "deal" : "lead" })
-                                : "No stage"}{" "}
+                              {quoteType === "deal"
+                                ? source.stage || "No stage"
+                                : source.stage || "No stage"}{" "}
                               | {String(source._id).slice(-6)}
                             </span>
                           </li>
