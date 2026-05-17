@@ -31,6 +31,7 @@ const { startWhatsAppMeetingWorker } = require("./services/whatsappMeetingWorker
 const { startFollowupOverdueWorker } = require("./services/followupOverdueWorker");
 const { startEventScraperScheduler } = require("./services/eventScraperScheduler");
 const { startLeadScraperScheduler } = require("./services/leadScraperScheduler");
+const { ensureDefaultRoles } = require("./services/defaultRolesSeeder");
 const whatsappRoutes = require("./routes/whatsappRoutes.js");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
 const salesForecastRoutes = require("./routes/salesForecastRoutes");
@@ -126,6 +127,7 @@ myServer.on("error", (error) => {
 async function startServer() {
   try {
     await connectDatabase();
+    await ensureDefaultRoles();
     await startBackgroundWorkers();
     myServer.listen(PORT, () => console.log('Server started on', PORT));
   } catch (error) {
