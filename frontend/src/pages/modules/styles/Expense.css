@@ -230,6 +230,13 @@ td {
   color: #253040;
 }
 
+.expense-ledger-empty {
+  text-align: center;
+  color: #6b7789;
+  background: #f8fbff;
+  font-weight: 600;
+}
+
 tbody tr {
   transition: background 0.15s ease;
 }
