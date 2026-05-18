@@ -135,7 +135,7 @@ function buildGlanceMetrics(mode, metrics, activeFilter = "month") {
   const periodSubtitle = getFilterLabel(activeFilter);
   const currentSubtitle = "Current";
   const items = [
-    { label: "Total Leads", value: metrics.totalLeads, subtitle: currentSubtitle },
+    { label: "Active Leads", value: metrics.totalLeads, subtitle: currentSubtitle },
     { label: "New Leads", value: metrics.newLeads, subtitle: periodSubtitle },
     { label: "Converted", value: metrics.convertedLeads, subtitle: periodSubtitle },
     { label: "Open Deals", value: metrics.openDeals, subtitle: currentSubtitle },
