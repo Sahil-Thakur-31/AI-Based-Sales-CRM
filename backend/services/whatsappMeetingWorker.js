@@ -43,31 +43,61 @@ async function getRecipientPhone(meeting) {
 }
 
 function constructMessage(meeting, recipientName, timeRemaining) {
-    const mode = meeting.actionType || "meeting";
+    const rawMode = String(meeting.actionType || "meeting").trim().toLowerCase();
 
     // Prioritize readable string addresses over lat/lng coordinates
-    const address = meeting.meetingLocation || meeting.address || meeting.meetingExactLocation || meeting.exactLocation || "Online/TBD";
+    const address =
+        meeting.meetingLocation ||
+        meeting.address ||
+        meeting.meetingExactLocation ||
+        meeting.exactLocation ||
+        "Online/TBD";
 
+    const normalizedAddress = String(address || "").trim().toLowerCase();
+    const isOnlineMeeting =
+        rawMode.includes("online") ||
+        rawMode.includes("virtual") ||
+        rawMode.includes("video") ||
+        normalizedAddress === "online" ||
+        normalizedAddress.includes("online") ||
+        normalizedAddress.includes("google meet") ||
+        normalizedAddress.includes("zoom") ||
+        normalizedAddress.includes("teams") ||
+        normalizedAddress.includes("tbd");
+
+    const meetingTypeLabel = isOnlineMeeting ? "Online Meeting" : "Physical Meeting";
     const title = meeting.title || "Scheduled Meeting";
-    const datetime = new Date(meeting.dueDateTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+    const datetime = new Date(meeting.dueDateTime).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    });
 
-    let msg = `Hello ${recipientName || "there"},\n\n`;
-    msg += `This is a reminder that you have a ${mode} Scheduled in ${timeRemaining}.\n\n`;
-    msg += `*Topic:* ${title}\n`;
-    msg += `*Time:* ${datetime}\n`;
-    if (address && address.toLowerCase() !== "online" && !address.toLowerCase().includes("tbd")) {
-        msg += `*Location:* ${address}\n`;
+    let msg = `📅 *Meeting Reminder: Your ${meetingTypeLabel} is in ${timeRemaining}*\n\n`;
+    msg += `Hello *${recipientName || "there"}*,\n\n`;
+    msg += `This is a friendly reminder that your *${meetingTypeLabel.toLowerCase()}* is scheduled in the next *${timeRemaining}*.\n\n`;
+    msg += `📌 *Topic:* ${title}\n`;
+    msg += `🕒 *Date & Time:* ${datetime}\n`;
+
+    if (!isOnlineMeeting && normalizedAddress && !normalizedAddress.includes("tbd")) {
+        msg += `📍 *Location:* ${address}\n`;
     }
 
     if (meeting.assignedTo && meeting.assignedTo.name) {
-        msg += `\n*Meeting with:* ${meeting.assignedTo.name}`;
-        if (meeting.assignedTo.phone) {
-            msg += ` (Ph: ${meeting.assignedTo.phone})`;
-        }
-        msg += `\n`;
+        msg += `🤝 *Meeting With:* *${meeting.assignedTo.name}*\n`;
     }
 
-    msg += `\nWe look forward to speaking with you!`;
+    msg += `\n`;
+    if (!isOnlineMeeting) {
+        msg += `Please ensure you arrive a few minutes early for a smooth and productive discussion.\n\n`;
+    } else {
+        msg += `Please be ready a few minutes early for a smooth and productive discussion.\n\n`;
+    }
+    msg += `We look forward to meeting with you! ✨`;
 
     return msg;
 }

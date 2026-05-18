@@ -20,6 +20,7 @@ const EMPTY_FORM = {
   sourceType: "lead",
   assignedTo: "",
   reminderEnabled: "yes",
+  emailReminderEnabled: false,
   eventType: "",
   date: "",
   time: "",
@@ -197,6 +198,7 @@ function mapDocToMeeting(doc) {
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
     assignedToName: doc.assignedTo?.name || "",
     sourceType: inferSourceTypeFromDoc(doc),
+    emailReminderEnabled: doc.emailReminderEnabled === true,
     currentLocation: doc.currentLocation || "",
     currentExactLocation: doc.currentExactLocation || "",
     meetingLocation: doc.meetingLocation || doc.address || "",
@@ -225,6 +227,7 @@ function mapDocToFollowup(doc) {
     assignedToId: String(doc.assignedTo?._id || doc.assignedTo || ""),
     assignedToName: doc.assignedTo?.name || "",
     sourceType: inferSourceTypeFromDoc(doc),
+    emailReminderEnabled: doc.emailReminderEnabled === true,
   };
 }
 
@@ -880,6 +883,7 @@ export default function FollowupsAddPage() {
         priority: item.priority || "medium",
         assignedTo: item.assignedToId || assigneeFallbackId || "",
         reminderEnabled: item.reminderEnabled || "yes",
+        emailReminderEnabled: item.emailReminderEnabled === true,
         durationMinutes: item.durationMinutes || "",
         agenda: item.agenda || item.notes || "",
         currentLocation: item.currentLocation || "",
@@ -902,6 +906,7 @@ export default function FollowupsAddPage() {
         priority: item.priority || "medium",
         assignedTo: item.assignedToId || assigneeFallbackId || "",
         reminderEnabled: item.reminderEnabled || "yes",
+        emailReminderEnabled: item.emailReminderEnabled === true,
         agenda: item.agenda || "",
         stage: matchedStage,
       });
@@ -1001,6 +1006,10 @@ export default function FollowupsAddPage() {
         dueDateTime,
         assignedTo: formData.assignedTo || assigneeFallbackId || undefined,
         reminderEnabled: formData.reminderEnabled !== "no",
+        emailReminderEnabled:
+          resolvedTarget === "meeting" &&
+          formData.reminderEnabled !== "no" &&
+          formData.emailReminderEnabled === true,
         // New records should start as pending; completion is an explicit action.
         status: editingRecord ? undefined : "pending",
         priority: formData.priority || "medium",
@@ -1145,6 +1154,21 @@ export default function FollowupsAddPage() {
                 <span>No</span>
               </label>
             </div>
+            {formData.reminderEnabled !== "no" && isMeetingEventType(formData.eventType) && (
+              <label className="fuaCheckboxRow" style={{ marginTop: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={formData.emailReminderEnabled === true}
+                  onChange={(e) =>
+                    setFormData((p) => ({
+                      ...p,
+                      emailReminderEnabled: e.target.checked,
+                    }))
+                  }
+                />
+                <span>Send email reminder for this meeting</span>
+              </label>
+            )}
           </div>
         </div>
 
@@ -1687,11 +1711,12 @@ export default function FollowupsAddPage() {
             ["Event Type", item.eventType || "-"],
             ["Time", item.time || "--:--"],
             ["Due", formatDate(item.dueDateTime)],
-            ["Priority", item.priority || "-"],
-            ["Status", item.status || "-"],
-            ["Duration (Minutes)", item.durationMinutes || "-"],
-            ["Agenda", item.agenda || "-"],
-            ["Minutes of Meeting", item.notes || "-"],
+          ["Priority", item.priority || "-"],
+          ["Status", item.status || "-"],
+          ["Duration (Minutes)", item.durationMinutes || "-"],
+          ["Email Reminder", item.emailReminderEnabled ? "Yes" : "No"],
+          ["Agenda", item.agenda || "-"],
+          ["Minutes of Meeting", item.notes || "-"],
           ];
           if (isPhysicalMeetingEvent(item.eventType)) {
             baseRows.push(["Address", item.meetingLocation || "-"]);

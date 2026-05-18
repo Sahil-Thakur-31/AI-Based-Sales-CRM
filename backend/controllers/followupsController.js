@@ -182,6 +182,15 @@ function normalizeReminderOptions(options = []) {
     .filter(Boolean);
 }
 
+function coerceBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off"].includes(normalized)) return false;
+  return fallback;
+}
+
 const VALID_STAGE_KEYS = new Set(["P1", "P2", "P3", "P4", "P5", "P6", "P7"]);
 
 function normalizeStageValue(stage) {
@@ -639,24 +648,47 @@ function getNotificationCompanyName(doc) {
 
 async function createFollowupNotification(doc, userId, eventType) {
   if (!doc || !userId) return;
-  if (doc.reminderEnabled === false && eventType === "created") return;
   const settings = await CRMSettings.findOne({ userId }).lean();
   const isMeeting = doc.kind === "meeting";
   const reminderKind = isMeeting ? "meeting" : "followup";
+  const emailReminderOverride =
+    isMeeting &&
+    doc.reminderEnabled !== false &&
+    String(doc.reminderChoice || "").toLowerCase() === "yes" &&
+    Boolean(doc.emailReminderEnabled);
   const deliveryChannels = {
     inApp: isTimedReminderEnabled(settings, "app", reminderKind),
-    email: isTimedReminderEnabled(settings, "email", reminderKind),
+    email: isTimedReminderEnabled(settings, "email", reminderKind) || emailReminderOverride,
   };
-  if (!deliveryChannels.inApp && !deliveryChannels.email) return;
 
   const itemLabel = isMeeting ? "Meeting" : "Follow-up";
   const companyName = getNotificationCompanyName(doc);
   const itemType = getNotificationItemType(doc);
 
   if (eventType === "created") {
+    const templateKey = isMeeting ? TEMPLATE_KEYS.MEETING_SCHEDULED : TEMPLATE_KEYS.FOLLOWUP_SCHEDULED;
+    const notificationFilter = {
+      userId,
+      relatedId: doc._id,
+      relatedType: "Followup",
+      templateKey,
+    };
+
+    if (
+      doc.reminderEnabled === false ||
+      String(doc.reminderChoice || "").toLowerCase() === "no" ||
+      (!deliveryChannels.inApp && !deliveryChannels.email)
+    ) {
+      await Notification.deleteMany(notificationFilter);
+      return;
+    }
+
     const offsetMinutes = getReminderOffsetMinutes(settings);
     const dueAt = new Date(doc.dueDateTime);
-    if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() <= Date.now()) return;
+    if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() <= Date.now()) {
+      await Notification.deleteMany(notificationFilter);
+      return;
+    }
     const scheduledText = Number.isNaN(dueAt.getTime()) ? "" : dueAt.toLocaleString("en-IN");
     const shouldMentionReminder =
       doc.reminderEnabled !== false && String(doc.reminderChoice || "").toLowerCase() === "yes";
@@ -664,18 +696,33 @@ async function createFollowupNotification(doc, userId, eventType) {
       ? ` You will get reminder ${offsetMinutes} minutes before, according to your settings.`
       : "";
 
-    await Notification.create({
-      userId,
-      title: `${itemLabel} Created`,
-      message: `${itemType} scheduled for ${companyName} on ${scheduledText}.${reminderText}`,
-      type: "info",
-      relatedId: doc._id,
-      relatedType: "Followup",
-      templateKey: isMeeting ? TEMPLATE_KEYS.MEETING_SCHEDULED : TEMPLATE_KEYS.FOLLOWUP_SCHEDULED,
-      deliveryChannels,
+    await Notification.findOneAndUpdate(notificationFilter, {
+      $set: {
+        title: `${itemLabel} Created`,
+        message: `${itemType} scheduled for ${companyName} on ${scheduledText}.${reminderText}`,
+        type: "info",
+        deliveryChannels,
+        emailOverride: emailReminderOverride,
+        emailStatus: "pending",
+        emailError: "",
+        emailSkippedReason: "",
+        emailLastAttemptAt: null,
+        emailSentAt: null,
+      },
+      $setOnInsert: {
+        userId,
+        relatedId: doc._id,
+        relatedType: "Followup",
+        templateKey,
+      },
+    }, {
+      upsert: true,
+      new: true,
     });
     return;
   }
+
+  if (!deliveryChannels.inApp && !deliveryChannels.email) return;
 
   if (eventType === "completed") {
     await Notification.create({
@@ -687,6 +734,7 @@ async function createFollowupNotification(doc, userId, eventType) {
       relatedType: "Followup",
       templateKey: isMeeting ? TEMPLATE_KEYS.MEETING_COMPLETED : null,
       deliveryChannels,
+      emailOverride: false,
     });
   }
 }
@@ -842,12 +890,39 @@ async function runUpdateSideEffects({
   const newAssignee = String(merged.assignedTo || "");
   const dueDateChanged =
     new Date(current.dueDateTime || 0).getTime() !== new Date(merged.dueDateTime || 0).getTime();
+  const reminderChanged =
+    Boolean(current.reminderEnabled) !== Boolean(merged.reminderEnabled) ||
+    String(current.reminderChoice || "") !== String(merged.reminderChoice || "") ||
+    Boolean(current.emailReminderEnabled) !== Boolean(merged.emailReminderEnabled) ||
+    JSON.stringify(current.reminderOptions || []) !== JSON.stringify(merged.reminderOptions || []);
   if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged)) {
     try {
       await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id }, actorId);
     } catch (notifErr) {
       console.error("followups.update notification error:", notifErr);
     }
+  }
+
+  try {
+    const scheduledTemplateKey =
+      String(merged.kind || current.kind || "").toLowerCase() === "meeting"
+        ? TEMPLATE_KEYS.MEETING_SCHEDULED
+        : TEMPLATE_KEYS.FOLLOWUP_SCHEDULED;
+
+    if (oldAssignee && oldAssignee !== newAssignee) {
+      await Notification.deleteMany({
+        userId: oldAssignee,
+        relatedId: current._id,
+        relatedType: "Followup",
+        templateKey: scheduledTemplateKey,
+      });
+    }
+
+    if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged || reminderChanged)) {
+      await createFollowupNotification(updatedDoc || updated || { ...merged, _id: current._id }, newAssignee, "created");
+    }
+  } catch (notifErr) {
+    console.error("followups.update reminder notification sync error:", notifErr);
   }
 
   try {
@@ -1193,6 +1268,7 @@ exports.create = async (req, res) => {
       completedAt: resolvedStatus === "completed" ? new Date() : null,
       dueDateTime: new Date(req.body.dueDateTime),
       reminderEnabled: req.body.reminderEnabled !== false,
+      emailReminderEnabled: coerceBoolean(req.body.emailReminderEnabled, false),
       reminderChoice: String(req.body.reminderChoice || (req.body.reminderEnabled === false ? "no" : "yes")).toLowerCase(),
       reminderOptions: normalizeReminderOptions(req.body.reminderOptions || []),
       assignedTo: new mongoose.Types.ObjectId(assignedTo),
@@ -1272,6 +1348,10 @@ exports.update = async (req, res) => {
       status: req.body.status ?? current.status,
       dueDateTime: req.body.dueDateTime ? new Date(req.body.dueDateTime) : current.dueDateTime,
       reminderEnabled: req.body.reminderEnabled ?? current.reminderEnabled,
+      emailReminderEnabled:
+        req.body.emailReminderEnabled !== undefined
+          ? coerceBoolean(req.body.emailReminderEnabled, current.emailReminderEnabled)
+          : current.emailReminderEnabled,
       reminderChoice:
         req.body.reminderChoice !== undefined
           ? String(req.body.reminderChoice).toLowerCase()

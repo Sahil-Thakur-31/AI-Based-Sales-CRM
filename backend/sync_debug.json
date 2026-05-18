@@ -1,61 +1,13 @@
 {
-  "receivedCount": 14,
+  "receivedCount": 2,
   "passingNormalize": [
     {
-      "title": "Demo for BlueSky team",
-      "start": "2026-03-01T08:30:57.294Z"
-    },
-    {
-      "title": "Purpose",
-      "start": "2026-04-16T15:45:00.000Z"
-    },
-    {
-      "title": "Test",
-      "start": "2026-04-16T16:43:00.000Z"
-    },
-    {
-      "title": "Purpose",
-      "start": "2026-04-17T14:54:00.000Z"
-    },
-    {
-      "title": "Purpose",
-      "start": "2026-04-18T05:48:00.000Z"
-    },
-    {
-      "title": "Horizon Phase 2 discussion",
-      "start": "2026-07-01T08:30:57.294Z"
-    },
-    {
-      "title": "Horizon contract discussion",
-      "start": "2026-03-01T08:30:57.294Z"
-    },
-    {
-      "title": "Initial call with TechNova",
-      "start": "2026-03-01T08:30:57.294Z"
-    },
-    {
-      "title": "Task",
-      "start": "2026-04-16T09:49:00.000Z"
-    },
-    {
-      "title": "Purpose",
-      "start": "2026-04-16T11:47:00.000Z"
-    },
-    {
-      "title": "Task",
-      "start": "2026-04-16T12:49:00.000Z"
-    },
-    {
-      "title": "Task",
-      "start": "2026-04-17T12:08:00.000Z"
+      "title": "project Discussion",
+      "start": "2026-05-18T11:10:00.000Z"
     },
     {
       "title": "Daily Closing Task",
-      "start": "2026-04-13T00:00:00.000Z"
-    },
-    {
-      "title": "Daily Closing Task",
-      "start": "2026-05-15T00:00:00.000Z"
+      "start": "2026-05-18T00:00:00.000Z"
     }
   ]
 }

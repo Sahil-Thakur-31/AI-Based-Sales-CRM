@@ -80,6 +80,11 @@ const notificationSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     }
+  },
+
+  emailOverride: {
+    type: Boolean,
+    default: false
   }
 
 }, {

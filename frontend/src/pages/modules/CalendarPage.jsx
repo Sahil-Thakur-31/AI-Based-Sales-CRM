@@ -120,6 +120,7 @@ function toCalendarEvent(doc) {
       meetingType: inferMeetingType(doc.actionType),
       priority: prettyPriority(doc.priority),
       reminderEnabled: doc.reminderEnabled !== false,
+      emailReminderEnabled: doc.emailReminderEnabled === true,
       reminderChoice:
         doc.reminderChoice || doc.reminderPreference || (doc.reminderEnabled === false ? "no" : "yes"),
       reminderOptions:
@@ -288,6 +289,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [savingReminder, setSavingReminder] = useState(false);
   const [editingReminder, setEditingReminder] = useState(false);
+  const [emailReminderEnabled, setEmailReminderEnabled] = useState(false);
   const [editDate, setEditDate] = useState("");
   const [editTime, setEditTime] = useState("");
   const [editingDailyClosing, setEditingDailyClosing] = useState(false);
@@ -521,6 +523,7 @@ export default function CalendarPage() {
       info.event.extendedProps?.reminderChoice ||
       (info.event.extendedProps?.reminderEnabled === false ? "no" : "yes")
     );
+    setEmailReminderEnabled(Boolean(info.event.extendedProps?.emailReminderEnabled));
     setReminderOptions(
       Array.isArray(info.event.extendedProps?.reminderOptions) &&
         info.event.extendedProps.reminderOptions.length > 0
@@ -584,6 +587,7 @@ export default function CalendarPage() {
       if (eventType === "meeting") {
         const payload = {
           reminderEnabled,
+          emailReminderEnabled: reminderEnabled && emailReminderEnabled,
           reminderChoice,
           reminderOptions: normalizedOptions,
         };
@@ -617,6 +621,7 @@ export default function CalendarPage() {
               extendedProps: {
                 ...ev.extendedProps,
                 reminderEnabled,
+                emailReminderEnabled,
                 reminderChoice,
                 reminderOptions: normalizedOptions,
               },
@@ -634,6 +639,7 @@ export default function CalendarPage() {
               extendedProps: {
                 ...prev.event.extendedProps,
                 reminderEnabled,
+                emailReminderEnabled,
                 reminderChoice,
                 reminderOptions: normalizedOptions,
               },
@@ -1116,6 +1122,15 @@ export default function CalendarPage() {
                       </select>
                       {reminderChoice === "yes" && (
                         <div className="ep-notify-options">
+                          <label className="ep-reminder-email-toggle" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                            <input
+                              type="checkbox"
+                              checked={emailReminderEnabled}
+                              onChange={(e) => setEmailReminderEnabled(e.target.checked)}
+                              disabled={savingReminder}
+                            />
+                            <span>Send email reminder for this meeting</span>
+                          </label>
                           {reminderOptions.map((opt, idx) => (
                             <div className="ep-notify-row" key={`notify-row-${idx}`}>
                               <div className="ep-notify-label">Notification</div>

@@ -109,7 +109,8 @@ async function processNotification(notificationDoc) {
     const rawSettings = await CRMSettings.findOne({ userId: notification.userId }).lean();
     const settings = normalizeNotificationSettings(rawSettings);
     const reminderType = templateKey === TEMPLATE_KEYS.MEETING_SCHEDULED ? "meeting" : "followup";
-    if (!isTimedReminderEnabled(settings, "email", reminderType)) {
+    const emailOverride = Boolean(notification.emailOverride);
+    if (!emailOverride && !isTimedReminderEnabled(settings, "email", reminderType)) {
       return;
     }
 

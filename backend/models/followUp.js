@@ -147,6 +147,12 @@ const followupSchema = new mongoose.Schema(
       index: true
     },
 
+    emailReminderEnabled: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+
     reminderChoice: {
       type: String,
       enum: ["yes", "no", "maybe"],
