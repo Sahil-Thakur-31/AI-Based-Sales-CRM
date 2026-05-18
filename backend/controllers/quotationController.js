@@ -40,6 +40,15 @@ function round2(value) {
   return Math.round(value * 100) / 100;
 }
 
+function getQuotationRevenueAmount(quotation = {}) {
+  const subtotal = Number(quotation.subtotalAmount);
+  if (Number.isFinite(subtotal) && subtotal >= 0) return round2(subtotal);
+
+  const grandTotal = Number(quotation.grandTotal || 0);
+  const taxAmount = Number(quotation.taxAmount || 0);
+  return round2(Math.max(0, grandTotal - taxAmount));
+}
+
 function buildQuoteNumber(sourceId, quoteDate, version, quoteType = "deal") {
   const year = new Date(quoteDate || Date.now()).getFullYear();
   const entityToken = String(sourceId).slice(-6).toUpperCase();
@@ -94,7 +103,7 @@ function getUserScopedQuotationFilter(user = {}, baseFilter = {}) {
   };
 }
 
-async function moveDealToStage(dealId, stage, actorId = null) {
+async function moveDealToStage(dealId, stage, actorId = null, options = {}) {
   if (!dealId) return null;
   const existingDeal = await Deal.findById(dealId).select("_id stage actualCloseDate lead_id").lean();
   if (!existingDeal) return null;
@@ -105,6 +114,10 @@ async function moveDealToStage(dealId, stage, actorId = null) {
   };
   if ([DEAL_WON_STAGE, "P6"].includes(stage) && !existingDeal.actualCloseDate) {
     update.actualCloseDate = new Date();
+  }
+  if (stage === DEAL_WON_STAGE && Object.prototype.hasOwnProperty.call(options, "dealValue")) {
+    const dealValue = Number(options.dealValue);
+    update.dealValue = Number.isFinite(dealValue) ? round2(Math.max(0, dealValue)) : 0;
   }
 
   const deal = await Deal.findByIdAndUpdate(
@@ -168,9 +181,15 @@ async function resolveClientForLead(lead, actorId, preferredClientId = null) {
 async function approveLeadQuotationAsWonDeal(quotation, actorId = null) {
   const lead = await Lead.findById(quotation.leadId);
   if (!lead) return null;
+  const quotationRevenue = getQuotationRevenueAmount(quotation);
 
   if (lead.converted_deal_id) {
-    const existingDeal = await moveDealToStage(lead.converted_deal_id, DEAL_WON_STAGE, actorId);
+    const existingDeal = await moveDealToStage(
+      lead.converted_deal_id,
+      DEAL_WON_STAGE,
+      actorId,
+      { dealValue: quotationRevenue }
+    );
     if (existingDeal) {
       await Lead.findByIdAndUpdate(lead._id, {
         $set: {
@@ -194,7 +213,7 @@ async function approveLeadQuotationAsWonDeal(quotation, actorId = null) {
     assignedTo: lead.assigned_to || quotation.assignedTo || null,
     assignedBy: actorId || null,
     stage: DEAL_WON_STAGE,
-    dealValue: Number(quotation.grandTotal || lead.deal_value_estimate || 0),
+    dealValue: quotationRevenue,
     probability: 100,
     expectedCloseDate: new Date(),
     actualCloseDate: new Date(),
@@ -233,7 +252,10 @@ async function approveLeadQuotationAsWonDeal(quotation, actorId = null) {
 async function moveQuotationSourceToStage(quotation, stage, actorId = null) {
   const quoteType = inferQuoteType(quotation);
   if (quoteType === "deal" && quotation.dealId) {
-    return moveDealToStage(quotation.dealId, stage, actorId);
+    const options = stage === DEAL_WON_STAGE
+      ? { dealValue: getQuotationRevenueAmount(quotation) }
+      : {};
+    return moveDealToStage(quotation.dealId, stage, actorId, options);
   }
 
   if (quoteType === "lead" && quotation.leadId) {
@@ -1022,12 +1044,18 @@ exports.updateQuotationStatus = async (req, res) => {
         is_deleted: false
       })
     )
-      .select("_id dealId leadId clientId assignedTo quoteType version")
+      .select("_id dealId leadId clientId assignedTo quoteType version status")
       .lean();
 
     if (!currentQuotation) {
       return res.status(404).json({
         message: "Quotation not found"
+      });
+    }
+
+    if (["approved", "rejected"].includes(String(currentQuotation.status || "").toLowerCase())) {
+      return res.status(400).json({
+        message: "Approved or rejected quotations cannot be changed"
       });
     }
 
@@ -1075,7 +1103,7 @@ exports.updateQuotationStatus = async (req, res) => {
       {
         returnDocument: "after"
       }
-    ).select("_id status version updatedAt dealId leadId clientId assignedTo quoteType grandTotal");
+    ).select("_id status version updatedAt dealId leadId clientId assignedTo quoteType subtotalAmount taxAmount grandTotal");
 
     if (!quotation) {
       return res.status(404).json({

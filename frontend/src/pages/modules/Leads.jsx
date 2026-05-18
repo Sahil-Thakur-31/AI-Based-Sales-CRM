@@ -25,6 +25,10 @@ function normalizeOcrKey(value) {
   return compactOcrText(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+function looksLikeMongoObjectId(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || "").trim());
+}
+
 function isReadableOcrText(value) {
   const text = compactOcrText(value);
   if (!text) return false;
@@ -870,11 +874,11 @@ function LeadsDashboard({ defaultView = "leads" }) {
       deletedDealsRes,
       industriesRes,
     ] = await Promise.allSettled([
-      API.get("/leads"),
+      API.get("/leads", { params: { include_converted: true } }),
       API.get("/deals"),
-      API.get("/leads", { params: { deleted_only: true, limit: 10 } }),
-      API.get("/deals", { params: { deleted_only: true, limit: 10 } }),
-      API.get("/industries"),
+      API.get("/leads", { params: { deleted_only: true, include_converted: true } }),
+      API.get("/deals", { params: { deleted_only: true } }),
+      API.get("/industries", { params: { status: "all" } }),
     ]);
 
     if (leadsRes.status === "fulfilled")
@@ -915,20 +919,26 @@ function LeadsDashboard({ defaultView = "leads" }) {
 
   const industryNameMap = useMemo(() => {
     const map = new Map();
+    const nameMap = new Map();
     industryCatalog.forEach((item) => {
       const id = String(item?._id || "").trim();
       const name = String(item?.name || "").trim();
       if (id && name) {
         map.set(id, name);
+        nameMap.set(name.toLowerCase(), name);
       }
     });
-    return map;
+    return { byId: map, byName: nameMap };
   }, [industryCatalog]);
 
   const resolveIndustryLabel = useCallback((value) => {
     const raw = String(value ?? "").trim();
     if (!raw) return "";
-    return industryNameMap.get(raw) || raw;
+    const resolved = industryNameMap.byId.get(raw);
+    if (resolved) return resolved;
+    const matchedByName = industryNameMap.byName.get(raw.toLowerCase());
+    if (matchedByName) return matchedByName;
+    return looksLikeMongoObjectId(raw) ? "" : raw;
   }, [industryNameMap]);
 
   const normalizeHeader = (value) =>
@@ -1277,7 +1287,15 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const industries = useMemo(() => {
     const fromRows = sourceRows.map((r) => resolveIndustryLabel(r.industry)).filter(Boolean);
     const base = industryOptions.length ? [...industryOptions, ...fromRows] : fromRows;
-    return ["All", ...new Set(base)];
+    const seen = new Set();
+    const unique = [];
+    for (const item of base) {
+      const key = String(item || "").trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      unique.push(item);
+    }
+    return ["All", ...unique];
   }, [sourceRows, industryOptions, resolveIndustryLabel]);
 
   const filteredRows = useMemo(() => {

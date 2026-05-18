@@ -21,6 +21,16 @@ const usersSchema = new mongoose.Schema({
     required: true
   },
 
+  failedLoginAttempts: {
+    type: Number,
+    default: 0
+  },
+
+  lockUntil: {
+    type: Date,
+    default: null
+  },
+
   role: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "roles",

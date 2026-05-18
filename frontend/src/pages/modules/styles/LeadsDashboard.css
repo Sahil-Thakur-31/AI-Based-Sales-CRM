@@ -879,6 +879,11 @@ td {
   color: #6b7280;
 }
 
+.field.field-invalid label {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .field input {
   width: 100%;
   padding: 10px;
@@ -1063,6 +1068,19 @@ td {
   outline: none;
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.field-control-invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+  background: #fff7f7 !important;
+}
+
+.field-error-text {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 500;
 }
 
 .crm-popup-input {
