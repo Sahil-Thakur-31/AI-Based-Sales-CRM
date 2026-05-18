@@ -1474,7 +1474,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
               {viewMode === "deals" && <th>Stage</th>}
               <th className="col-last-contact">Last Contact</th>
               {!(viewMode === "deals" && activeTab === "inactive") && <th>Next Action</th>}
-              {viewMode === "deals" && activeTab === "inactive" && <th>Stage</th>}
               {activeTab === "deleted" && <th>Delete Reason</th>}
               <th></th>
             </tr>
@@ -1518,13 +1517,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   )}
                   <td className="last-contact-cell" data-label="Last Contact">{formatDate(row.last_contact_date)}</td>
                   {!(viewMode === "deals" && activeTab === "inactive") && <td data-label="Next Action">{row.next_action || "-"}</td>}
-                  {viewMode === "deals" && activeTab === "inactive" && (
-                    <td data-label="Stage">
-                      <span className="stage-chip">
-                        {row.stage || "-"}
-                      </span>
-                    </td>
-                  )}
                   {activeTab === "deleted" && (
                     <td data-label="Delete Reason">
                       <span className="delete-reason">
