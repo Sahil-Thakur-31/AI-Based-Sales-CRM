@@ -4,6 +4,7 @@ import API from "../../api";
 
 const emptyState = {
   insights: {
+    plainSummary: "",
     summary: "",
     todayPriorities: [],
     keyMetrics: [],
@@ -51,12 +52,6 @@ function getFilterLabel(filter = "month") {
   if (filter === "week") return "This Week";
   if (filter === "quarter") return "This Quarter";
   return "This Month";
-}
-
-function getFilterSubtitle(filter = "month") {
-  if (filter === "week") return "this week";
-  if (filter === "quarter") return "this quarter";
-  return "this month";
 }
 
 function formatTimestamp(value) {
@@ -140,7 +135,7 @@ function buildGlanceMetrics(mode, metrics, activeFilter = "month") {
   const periodSubtitle = getFilterLabel(activeFilter);
   const currentSubtitle = "Current";
   const items = [
-    { label: "Total Leads", value: metrics.totalLeads, subtitle: currentSubtitle },
+    { label: "Active Leads", value: metrics.totalLeads, subtitle: currentSubtitle },
     { label: "New Leads", value: metrics.newLeads, subtitle: periodSubtitle },
     { label: "Converted", value: metrics.convertedLeads, subtitle: periodSubtitle },
     { label: "Open Deals", value: metrics.openDeals, subtitle: currentSubtitle },
@@ -275,6 +270,24 @@ export default function AIInsights() {
     })).filter((team) => team._id);
   };
 
+  const loadAdminTeamOptions = async () => {
+    setLoadingTeamOptions(true);
+    try {
+      const teamListResponse = await fetchInsightsData("all");
+      let rows = Array.isArray(teamListResponse?.teams) ? teamListResponse.teams : [];
+
+      if (!rows.length) {
+        console.warn("[AI Insights Frontend] empty teamList from /api/ai-insights?teamId=all, falling back to /teams");
+        rows = await fetchTeamsFallback();
+      }
+
+      setTeams(rows);
+      return rows;
+    } finally {
+      setLoadingTeamOptions(false);
+    }
+  };
+
   const loadGlanceOnly = async (overrideTeamId = null, overrideFilter = dateFilter) => {
     try {
       setGlanceLoading(true);
@@ -295,17 +308,7 @@ export default function AIInsights() {
       const effectiveTeamId = overrideTeamId ?? (urlTeamId === "all" && selectedTeamId ? selectedTeamId : urlTeamId);
 
       if ((overrideTeamId === "all" || (urlTeamId === "all" && !selectedTeamId)) && role === "admin") {
-        setLoadingTeamOptions(true);
-        const teamListResponse = await fetchInsightsData("all");
-        let rows = Array.isArray(teamListResponse?.teams) ? teamListResponse.teams : [];
-
-        if (!rows.length) {
-          console.warn("[AI Insights Frontend] empty teamList from /api/ai-insights?teamId=all, falling back to /teams");
-          rows = await fetchTeamsFallback();
-        }
-
-        setTeams(rows);
-        setLoadingTeamOptions(false);
+        const rows = await loadAdminTeamOptions();
 
         if (!rows.length) {
           throw new Error("No teams available for AI insights.");
@@ -328,6 +331,9 @@ export default function AIInsights() {
       }
 
       if (effectiveTeamId) {
+        if (role === "admin" && !teams.length) {
+          await loadAdminTeamOptions();
+        }
         setSelectedTeamId(String(effectiveTeamId));
         const [response, glanceResponse] = await Promise.all([
           fetchInsightsData(effectiveTeamId),
@@ -357,20 +363,30 @@ export default function AIInsights() {
   };
 
   useEffect(() => {
-    if (urlTeamId === "all" && !selectedTeamId) {
+    if (role === "admin" && !selectedTeamId && (!urlTeamId || urlTeamId === "all")) {
       loadInsights("all");
       return;
     }
-    loadInsights(urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
-  }, [urlTeamId, selectedTeamId]);
+    const nextTeamId = role === "admin"
+      ? selectedTeamId || urlTeamId || "all"
+      : urlTeamId === "all"
+      ? selectedTeamId
+      : urlTeamId || null;
+    loadInsights(nextTeamId);
+  }, [role, urlTeamId, selectedTeamId]);
 
   useEffect(() => {
     if (loading) return;
-    loadGlanceOnly(urlTeamId === "all" ? selectedTeamId : urlTeamId || null, dateFilter);
+    const nextTeamId = role === "admin"
+      ? selectedTeamId || urlTeamId || null
+      : urlTeamId === "all"
+      ? selectedTeamId
+      : urlTeamId || null;
+    loadGlanceOnly(nextTeamId, dateFilter);
   }, [dateFilter]);
 
   const onRefresh = () => {
-    loadInsights(urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
+    loadInsights(role === "admin" ? selectedTeamId || urlTeamId || "all" : urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
   };
 
   const onChangeTeam = (nextTeamId) => {
@@ -382,7 +398,7 @@ export default function AIInsights() {
   const activeFilter = normalizeFilter(glanceData?.activeFilter || dateFilter);
   const activeFilterLabel = getFilterLabel(activeFilter);
   const glanceMetrics = buildGlanceMetrics(insightData.mode || "personal", glanceData || {}, activeFilter);
-  const showTeamSelector = role === "admin" && urlTeamId === "all";
+  const showTeamSelector = role === "admin" && teams.length > 0;
 
   return (
     <div
@@ -541,7 +557,12 @@ export default function AIInsights() {
                 <span style={{ opacity: 0.86 }}>AI SUMMARY</span>
               </div>
               <div style={{ fontSize: 18, lineHeight: 1.7, maxWidth: 980 }}>{insights.summary}</div>
-              <div style={{ fontSize: 15, fontStyle: "italic", color: "#bfdbfe" }}>{insights.weekOutlook}</div>
+              <div style={{ display: "grid", gap: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#bfdbfe", textTransform: "uppercase" }}>
+                  Future Outlook
+                </div>
+                <div style={{ fontSize: 15, fontStyle: "italic", color: "#bfdbfe" }}>{insights.weekOutlook}</div>
+              </div>
             </section>
 
             <section
@@ -904,9 +925,6 @@ export default function AIInsights() {
               <div style={{ fontSize: 17, lineHeight: 1.65, color: "#14532d" }}>{insights.coachTip}</div>
             </section>
 
-            <footer style={{ fontSize: 13, color: "#6b7280", textAlign: "center", paddingTop: 4 }}>
-              Insights generated at {formatTimestamp(insightData.generatedAt)} · Powered by Google Gemini + live CRM data
-            </footer>
           </>
         ) : null}
       </div>

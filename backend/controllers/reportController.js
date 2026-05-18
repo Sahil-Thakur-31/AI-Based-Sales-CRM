@@ -46,7 +46,7 @@ const DEAL_METRICS = new Set([
   "inactive_deal_value",
   "list_deals",
 ]);
-const LEAD_METRICS = new Set(["lead_count", "converted_count", "non_converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
+const LEAD_METRICS = new Set(["lead_count", "list_leads", "converted_count", "non_converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
 const EXPENSE_METRICS = new Set(["expense_total", "expense_count", "approved_total", "pending_count", "rejected_count"]);
 const CLIENT_METRICS = new Set(["top_clients_revenue", "inactive_clients"]);
 const FOLLOWUP_METRICS = new Set(["todays_followups", "overdue_followups", "pending_meetings", "completed_meetings", "followup_count"]);
@@ -265,12 +265,29 @@ function canonicalizeIntentText(value) {
   if (!text) return "";
 
   const replacements = [
+    [/\bshow me\b/g, "show"],
+    [/\bgive me\b/g, "show"],
+    [/\bdisplay\b/g, "show"],
+    [/\bview\b/g, "show"],
+    [/\bfetch\b/g, "show"],
+    [/\bget me\b/g, "show"],
+    [/\blist out\b/g, "list"],
+    [/\btotal number of\b/g, "count"],
+    [/\bnumber of\b/g, "count"],
+    [/\bcount of\b/g, "count"],
+    [/\bhow many\b/g, "count"],
+    [/\bevery\b/g, "all"],
+    [/\ball the\b/g, "all"],
+    [/\bmy leads\b/g, "leads assigned to me"],
     [/\bfollow[\s-]*ups?\b/g, "followup"],
     [/\bfollowups?\b/g, "followup"],
     [/\bfollows?\b/g, "followup"],
     [/\bfolowups?\b/g, "followup"],
     [/\bfolows?\b/g, "followup"],
     [/\bmeetings?\b/g, "meeting"],
+    [/\bstaff\b/g, "user"],
+    [/\bworkers?\b/g, "user"],
+    [/\bcustomers?\b/g, "client"],
     [/\bemployees?\b/g, "user"],
     [/\bsales people\b/g, "salesperson"],
     [/\bsalespeople\b/g, "salesperson"],
@@ -385,6 +402,20 @@ function detectUnsupportedReason(question) {
 
 function hasSupportedIntent(question) {
   return containsAny(question, [
+    "deal",
+    "deals",
+    "lead",
+    "leads",
+    "expense",
+    "expenses",
+    "client",
+    "clients",
+    "followup",
+    "followups",
+    "user",
+    "users",
+    "team",
+    "teams",
     "top performer",
     "best performer",
     "top rep",
@@ -410,6 +441,7 @@ function hasSupportedIntent(question) {
     "rejected",
     "category",
     "source",
+    "customer",
     "followup",
     "meeting",
     "client",
@@ -449,6 +481,60 @@ function wantsAllRows(text) {
   ]);
 }
 
+function hasExplicitCountIntent(text) {
+  return containsAny(text, [
+    "total",
+    "count",
+    "number of",
+    "how many",
+  ]);
+}
+
+function hasExplicitListIntent(text) {
+  return containsAny(text, [
+    "list",
+    "this month deals",
+    "deals this month",
+    "this quarter deals",
+    "deals this quarter",
+    "this year deals",
+    "deals this year",
+    "this month leads",
+    "leads this month",
+    "this quarter leads",
+    "leads this quarter",
+    "this year leads",
+    "leads this year",
+    "all users",
+    "all employees",
+    "all teams",
+    "all clients",
+    "all followup",
+    "all deals",
+    "all leads",
+    "show all",
+    "show leads",
+    "show clients",
+    "show employees",
+    "show followup",
+    "show users",
+    "show teams",
+    "show deals",
+    "view leads",
+    "view users",
+    "view teams",
+    "view deals",
+    "display leads",
+    "display users",
+    "display teams",
+    "display deals",
+    "lead list",
+    "deal list",
+    "user list",
+    "team list",
+  ]);
+}
+
 function hasRankingIntent(question) {
   const text = canonicalizeIntentText(question);
   return containsAny(text, [
@@ -461,6 +547,32 @@ function hasRankingIntent(question) {
     "top client",
     "top clients",
   ]);
+}
+
+function hasBarePeriodScopedListIntent(text, moduleName) {
+  if (moduleName === "deals") {
+    return containsAny(text, [
+      "this month deals",
+      "deals this month",
+      "this quarter deals",
+      "deals this quarter",
+      "this year deals",
+      "deals this year",
+    ]);
+  }
+
+  if (moduleName === "leads") {
+    return containsAny(text, [
+      "this month leads",
+      "leads this month",
+      "this quarter leads",
+      "leads this quarter",
+      "this year leads",
+      "leads this year",
+    ]);
+  }
+
+  return false;
 }
 
 function shouldExpandAllTimeLimit(question, plan = {}) {
@@ -501,32 +613,32 @@ async function buildDeterministicPlan(question) {
   const lower = canonicalizeIntentText(question);
   const selection = detectSelectionFromQuestion(question, { allowFallback: false });
 
-  if (containsAny(lower, ["teams and their targets", "team targets", "teams targets", "what are teams and their targets"])) {
+  if (containsAny(lower, ["teams and their targets", "team targets", "teams targets", "what are teams and their targets", "targets by team", "show team targets"])) {
     return makePlan(selection, "teams", "team_targets", {
       chartType: "table",
       limit: 50,
     });
   }
 
-  if (containsAny(lower, ["team count", "total teams"])) {
+  if (containsAny(lower, ["team count", "total teams", "count teams", "how many teams"])) {
     return makePlan(selection, "teams", "team_count");
   }
 
-  if (containsAny(lower, ["show all teams", "list all teams", "show teams", "list teams", "team list", "what are teams"])) {
+  if (containsAny(lower, ["all teams", "show all teams", "list all teams", "show teams", "list teams", "team list", "what are teams", "view teams"])) {
     return makePlan(selection, "teams", "team_list", {
       chartType: "table",
       limit: 500,
     });
   }
 
-  if (containsAny(lower, ["team members", "members by team"])) {
+  if (containsAny(lower, ["team members", "members by team", "show team members", "list team members"])) {
     return makePlan(selection, "teams", "team_members", {
       chartType: "table",
       limit: 500,
     });
   }
 
-  if (containsAny(lower, ["show users", "list users", "user list", "employees list", "show all users", "list all users"])) {
+  if (containsAny(lower, ["all users", "all employees", "show users", "list users", "user list", "employees list", "show all users", "list all users", "show employees", "view users", "view employees"])) {
     return makePlan(selection, "users", "user_list", {
       chartType: "table",
       limit: 500,
@@ -545,60 +657,60 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "users", "deleted_users");
   }
 
-  if (containsAny(lower, ["users by role", "employees by role", "user roles"])) {
+  if (containsAny(lower, ["users by role", "employees by role", "user roles", "count users by role", "role wise users"])) {
     return makePlan(selection, "users", "user_count", {
       groupBy: "role",
       chartType: "bar",
     });
   }
 
-  if (containsAny(lower, ["users by team", "employees by team"])) {
+  if (containsAny(lower, ["users by team", "employees by team", "team wise users", "count users by team"])) {
     return makePlan(selection, "users", "user_count", {
       groupBy: "team",
       chartType: "bar",
     });
   }
 
-  if (containsAny(lower, ["total users", "user count", "total employees", "employee count"])) {
+  if (containsAny(lower, ["total users", "user count", "total employees", "employee count", "count users", "how many users", "how many employees"])) {
     return makePlan(selection, "users", "user_count");
   }
 
-  if (containsAny(lower, ["today's follow", "todays follow", "today follow"])) {
+  if (containsAny(lower, ["today's follow", "todays follow", "today follow", "followup today", "followups today", "today followups"])) {
     return makePlan(selection, "followups", "todays_followups", {
       limit: wantsAllRows(lower) ? 500 : 25,
     });
   }
 
-  if (lower.includes("overdue follow")) {
+  if (containsAny(lower, ["overdue follow", "followups overdue", "show overdue followups"])) {
     return makePlan(selection, "followups", "overdue_followups", {
       limit: wantsAllRows(lower) ? 500 : 25,
     });
   }
 
-  if (lower.includes("pending meeting")) {
+  if (containsAny(lower, ["pending meeting", "pending meetings", "show pending meetings"])) {
     return makePlan(selection, "followups", "pending_meetings", {
       limit: wantsAllRows(lower) ? 500 : 25,
     });
   }
 
-  if (lower.includes("completed meeting")) {
+  if (containsAny(lower, ["completed meeting", "completed meetings", "show completed meetings"])) {
     return makePlan(selection, "followups", "completed_meetings", {
       limit: wantsAllRows(lower) ? 500 : 25,
     });
   }
 
-  if (containsAny(lower, ["follow-ups by employee", "followups by employee", "follow up by employee"])) {
+  if (containsAny(lower, ["follow-ups by employee", "followups by employee", "follow up by employee", "followups by user", "employee wise followups"])) {
     return makePlan(selection, "followups", "followup_count", {
       groupBy: "employee",
       chartType: "bar",
     });
   }
 
-  if (containsAny(lower, ["follow-up count", "followup count", "follow ups", "follow-ups", "followups", "follows"])) {
+  if (containsAny(lower, ["follow-up count", "followup count", "total followups", "count followups", "follow ups", "follow-ups", "followups", "follows"])) {
     return makePlan(selection, "followups", "followup_count");
   }
 
-  if (containsAny(lower, ["top clients", "top client"])) {
+  if (containsAny(lower, ["top clients", "top client", "best clients", "highest revenue clients", "top customers"])) {
     return makePlan(selection, "clients", "top_clients_revenue", {
       sort: { by: "value", order: "desc" },
       limit: 10,
@@ -606,25 +718,25 @@ async function buildDeterministicPlan(question) {
     });
   }
 
-  if (lower.includes("inactive client")) {
+  if (containsAny(lower, ["inactive client", "inactive clients", "clients inactive", "show inactive clients"])) {
     return makePlan(selection, "clients", "inactive_clients");
   }
 
-  if (containsAny(lower, ["expense trend", "monthly expenses"])) {
+  if (containsAny(lower, ["expense trend", "monthly expenses", "expenses trend", "spend trend"])) {
     return makePlan(selection, "expenses", "expense_total", {
       groupBy: "month",
       chartType: "line",
     });
   }
 
-  if (containsAny(lower, ["expenses by category", "expense by category"])) {
+  if (containsAny(lower, ["expenses by category", "expense by category", "category wise expenses", "expense category wise"])) {
     return makePlan(selection, "expenses", "expense_total", {
       groupBy: "category",
       chartType: "bar",
     });
   }
 
-  if (containsAny(lower, ["employee expenses", "expenses by employee", "expenses by user"])) {
+  if (containsAny(lower, ["employee expenses", "expenses by employee", "expenses by user", "user wise expenses", "expenses per employee"])) {
     return makePlan(selection, "expenses", "expense_total", {
       groupBy: "user",
       chartType: "bar",
@@ -643,7 +755,7 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "expenses", "rejected_count");
   }
 
-  if (containsAny(lower, ["total expenses", "total expense", "expenses", "expense", "spend"])) {
+  if (containsAny(lower, ["total expenses", "total expense", "expense total", "count expenses", "expenses", "expense", "spend"])) {
     return makePlan(selection, "expenses", "expense_total");
   }
 
@@ -656,12 +768,14 @@ async function buildDeterministicPlan(question) {
   }
 
   if (containsAny(lower, ["leads assigned to me", "lead assigned to me"])) {
-    return makePlan(selection, "leads", "lead_count", {
+    return makePlan(selection, "leads", "list_leads", {
       filters: { assigned_to_me: true },
+      chartType: "table",
+      limit: wantsAllRows(lower) ? 500 : 100,
     });
   }
 
-  if (containsAny(lower, ["leads by source"])) {
+  if (containsAny(lower, ["leads by source", "lead by source", "source wise leads", "lead source wise"])) {
     return makePlan(selection, "leads", "lead_count", {
       groupBy: "source",
       chartType: "bar",
@@ -695,7 +809,36 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "leads", "lead_count");
   }
 
-  if (containsAny(lower, ["total leads", "lead count", "show leads"])) {
+  if (
+    containsAny(lower, [
+      "show all leads",
+      "all leads",
+      "list all leads",
+      "list leads",
+      "show leads",
+      "view leads",
+      "lead list",
+      "leads this month",
+      "this month leads",
+      "leads this quarter",
+      "this quarter leads",
+      "leads this year",
+      "this year leads",
+    ]) &&
+    !hasExplicitCountIntent(lower)
+  ) {
+    const plan = makePlan(selection, "leads", "list_leads", {
+      chartType: "table",
+      limit: wantsAllRows(lower) ? 500 : 100,
+    });
+    const matchedSources = await detectSourceFilter(question);
+    if (matchedSources.length === 1 && !lower.includes("by source")) {
+      plan.filters.sourceIds = [String(matchedSources[0]._id)];
+    }
+    return plan;
+  }
+
+  if (containsAny(lower, ["total leads", "lead count", "count leads", "how many leads"])) {
     const plan = makePlan(selection, "leads", "lead_count");
     const matchedSources = await detectSourceFilter(question);
     if (matchedSources.length === 1 && !lower.includes("by source")) {
@@ -728,7 +871,7 @@ async function buildDeterministicPlan(question) {
     );
   }
 
-  if (containsAny(lower, ["revenue by salesperson", "revenue by employee", "sales by salesperson", "sales by employee", "sales by user"])) {
+  if (containsAny(lower, ["revenue by salesperson", "revenue by employee", "sales by salesperson", "sales by employee", "sales by user", "salesperson wise revenue", "revenue per salesperson"])) {
     return makePlan(selection, "deals", "revenue", {
       groupBy: "salesperson",
       chartType: "bar",
@@ -736,7 +879,7 @@ async function buildDeterministicPlan(question) {
     });
   }
 
-  if (containsAny(lower, ["top sales performers", "top performers", "best performing employee", "top closer", "best sales people", "top salespeople"])) {
+  if (containsAny(lower, ["top sales performers", "top performers", "best performing employee", "top closer", "best sales people", "top salespeople", "best sales reps"])) {
     return makePlan(selection, "deals", "revenue", {
       groupBy: "salesperson",
       chartType: "bar",
@@ -769,12 +912,12 @@ async function buildDeterministicPlan(question) {
     });
   }
 
-  if (containsAny(lower, ["show all deals", "list all deals", "list this month deals", "list deals this month", "list deals"])) {
+  if (containsAny(lower, ["all deals", "all deals this month", "all deals this quarter", "all deals this year", "show all deals", "show all deals this month", "show all deals this quarter", "show all deals this year", "list all deals", "show deals", "view deals", "deal list", "this month deals", "deals this month", "this quarter deals", "deals this quarter", "this year deals", "deals this year", "list this month deals", "list deals this month", "list deals"]) && !hasExplicitCountIntent(lower)) {
     return makePlan(selection, "deals", "list_deals", {
       chartType: "table",
       limit: 500,
       filters: {
-        all_records: containsAny(lower, ["show all deals", "list all deals"]),
+        all_records: containsAny(lower, ["all deals", "show all deals", "list all deals"]),
       },
     });
   }
@@ -814,7 +957,7 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "deals", "lost_deals");
   }
 
-  if (containsAny(lower, ["deals by stage", "deal stages"])) {
+  if (containsAny(lower, ["deals by stage", "deal stages", "stage wise deals", "deals by pipeline stage"])) {
     return makePlan(selection, "deals", "deal_count", {
       groupBy: "stage",
       chartType: "bar",
@@ -870,7 +1013,7 @@ async function buildDeterministicPlan(question) {
     });
   }
 
-  if (containsAny(lower, ["total deals", "deal count", "show deals", "sales deals"])) {
+  if (containsAny(lower, ["total deals", "deal count", "count deals", "how many deals", "sales deals"])) {
     return makePlan(selection, "deals", "deal_count");
   }
 
@@ -912,7 +1055,9 @@ function buildHeuristicPlan(question) {
   let groupBy = null;
 
   if (module === "deals") {
-    if (topPerformerIntent) {
+    if ((hasExplicitListIntent(lower) || hasBarePeriodScopedListIntent(lower, "deals")) && !hasExplicitCountIntent(lower)) {
+      metric = "list_deals";
+    } else if (topPerformerIntent) {
       metric = "revenue";
       groupBy = "salesperson";
       filters.stage = DEAL_WON_STAGE;
@@ -964,7 +1109,7 @@ function buildHeuristicPlan(question) {
       metric = "converted_count";
       groupBy = lower.includes("source") ? "source" : lower.includes("salesperson") ? "salesperson" : null;
     } else {
-      metric = "lead_count";
+      metric = hasExplicitCountIntent(lower) ? "lead_count" : "list_leads";
       if (lower.includes("source")) groupBy = "source";
       else if (lower.includes("salesperson") || lower.includes("rep")) groupBy = "salesperson";
       else if (lower.includes("status")) groupBy = "status";
@@ -1023,7 +1168,7 @@ function buildHeuristicPlan(question) {
   }
 
   if (module === "users") {
-    if (lower.includes("list") || lower.includes("show users") || lower.includes("show employees")) {
+    if (hasExplicitListIntent(lower) || lower.includes("show users") || lower.includes("show employees")) {
       metric = "user_list";
     } else if (lower.includes("active")) {
       metric = "active_users";
@@ -1044,7 +1189,7 @@ function buildHeuristicPlan(question) {
   if (module === "teams") {
     if (lower.includes("member")) {
       metric = "team_members";
-    } else if (lower.includes("list") || lower.includes("show teams")) {
+    } else if (hasExplicitListIntent(lower) || lower.includes("show teams")) {
       metric = "team_list";
     } else if (lower.includes("count") || lower.includes("total teams")) {
       metric = "team_count";
@@ -1122,6 +1267,7 @@ Deals:
 
 Leads:
 - lead_count
+- list_leads
 - converted_count
 - non_converted_count
 - uncontacted_count
@@ -1227,9 +1373,11 @@ Rules:
 - If the user asks for users or employees, use users.
 - If the user asks for teams or targets, use teams.
 - If the user asks for clients, use clients.
+- If the user asks only for leads plus a time period like "this month leads", prefer module=leads and metric=list_leads.
+- If the user explicitly asks for total/count/number of leads, use module=leads and metric=lead_count.
 - If the user asks only for a module plus a time period, infer the default count/list metric for that module.
 - Default metrics by simple question:
-  leads -> lead_count
+  leads -> list_leads
   deals -> deal_count
   expenses -> expense_total
   followups -> followup_count
@@ -1242,7 +1390,7 @@ Rules:
   {"unsupported": true, "reason": "short reason"}
 
 Examples:
-{"question":"leads this month","module":"leads","metric":"lead_count","period":"monthly"}
+{"question":"leads this month","module":"leads","metric":"list_leads","period":"monthly"}
 {"question":"this month follows","module":"followups","metric":"followup_count","period":"monthly"}
 {"question":"show users","module":"users","metric":"user_list"}
 {"question":"teams this year","module":"teams","metric":"team_count","period":"yearly"}
@@ -1463,6 +1611,7 @@ function buildSummaryValue(metric, rows = []) {
   if (
     [
       "list_deals",
+      "list_leads",
       "biggest_deals",
       "smallest_deals",
       "delayed_deals",
@@ -1708,6 +1857,7 @@ async function runLeadsReport(plan, user) {
   if (plan.metric === "inactive_leads") {
     match.is_active = false;
     match.is_deleted = { $ne: true };
+    match.converted_to_deal = { $ne: true };
   }
   if (Array.isArray(plan.filters?.sourceIds) && plan.filters.sourceIds.length) {
     match.source = {
@@ -1715,6 +1865,35 @@ async function runLeadsReport(plan, user) {
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
         .map((id) => new mongoose.Types.ObjectId(id)),
     };
+  }
+
+  if (plan.metric === "list_leads") {
+    const leadDocs = await Leads.find(match)
+      .select("company_name stage created_at assigned_to source")
+      .sort({ created_at: -1, updated_at: -1 })
+      .limit(plan.limit)
+      .lean();
+
+    const userLabelMap = await mapUserLabels(leadDocs.map((lead) => String(lead?.assigned_to || "")));
+    const sourceLabelMap = await mapSourceLabels(leadDocs.map((lead) => String(lead?.source || "")));
+
+    return leadDocs.map((lead) => {
+      const createdAt = lead?.created_at
+        ? new Date(lead.created_at).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : "--";
+      const stageLabel = String(lead?.stage || "").trim() || "--";
+      const sourceLabel = sourceLabelMap.get(String(lead?.source || "")) || "Unknown source";
+      const assigneeLabel = userLabelMap.get(String(lead?.assigned_to || "")) || "Unassigned";
+
+      return {
+        label: String(lead?.company_name || "").trim() || "Unnamed Lead",
+        value: `${stageLabel} | ${sourceLabel} | ${assigneeLabel} | ${createdAt}`,
+      };
+    });
   }
 
   if (plan.metric === "uncontacted_count") {
@@ -2300,6 +2479,7 @@ async function runTeamsReport(plan, user) {
     inactive_deal_value: "Inactive Deal Value",
     list_deals: "Deals List",
     lead_count: "Lead Count",
+    list_leads: "Leads List",
     converted_count: "Converted Leads",
     non_converted_count: "Non-Converted Leads",
     uncontacted_count: "Uncontacted Leads",
@@ -2365,6 +2545,13 @@ function buildColumns(plan) {
     return [
       { key: "label", label: "Deal" },
       { key: "value", label: "Stage / Value" },
+    ];
+  }
+
+  if (plan.metric === "list_leads") {
+    return [
+      { key: "label", label: "Lead" },
+      { key: "value", label: "Stage / Source / Assigned / Created" },
     ];
   }
 
@@ -2447,8 +2634,19 @@ exports.aiQuery = async (req, res) => {
         });
 
         if (geminiPlan && !geminiPlan.unsupported) {
-          rawPlan = geminiPlan;
-          provider = "gemini";
+          const shouldPreferDeterministicListPlan =
+            hasExplicitListIntent(question) &&
+            ["list_leads", "list_deals", "user_list", "team_list"].includes(deterministicPlan?.metric) &&
+            !["list_leads", "list_deals", "user_list", "team_list"].includes(geminiPlan?.metric);
+
+          if (shouldPreferDeterministicListPlan) {
+            rawPlan = deterministicPlan;
+            provider = "deterministic";
+            parserWarning = "Used deterministic parsing to preserve explicit list intent.";
+          } else {
+            rawPlan = geminiPlan;
+            provider = "gemini";
+          }
         } else if (deterministicPlan?.unsupported) {
           if (geminiPlan?.unsupported) {
             console.log("[Custom Report] Gemini unsupported:", geminiPlan.reason || "");
@@ -2491,6 +2689,9 @@ exports.aiQuery = async (req, res) => {
       });
       console.log("[Custom Report] Question:", question);
       console.log("[Custom Report] Interpreted Query:", JSON.stringify(plan, null, 2));
+      if (parserWarning) {
+        console.warn("[Custom Report] Parser notice:", parserWarning);
+      }
 
       let rows = [];
       if (plan.module === "deals") rows = await runDealsReport(plan, reportUser);
@@ -2509,11 +2710,10 @@ exports.aiQuery = async (req, res) => {
         chartType: plan.chartType,
         module: plan.module,
         metric: plan.metric,
-        groupBy: plan.groupBy,
+      groupBy: plan.groupBy,
       selection: buildPeriodSelection(plan),
       interpretedQuery: plan,
       provider,
-      parserWarning,
         summary: {
           label: metricLabel(plan.metric),
           value: typeof summaryValue === "number" ? Number(summaryValue.toFixed(2)) : summaryValue,

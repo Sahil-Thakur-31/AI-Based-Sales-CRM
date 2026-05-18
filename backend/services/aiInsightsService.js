@@ -9,14 +9,20 @@ const Quotation = require("../models/quatations");
 const Client = require("../models/client");
 const User = require("../models/users");
 const Role = require("../models/roles");
+const { getOverdueCutoff } = require("./followupOverdueWorker");
 
 const GEMINI_MODEL = "gemini-1.5-flash";
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+const ACTIVE_DEAL_PIPELINE_STAGES = ["P1", "P2", "P3"];
 const WON_VALUES = ["Won", "Closed Won", "won", "Closed", "closed"];
 const LOST_VALUES = ["Lost", "Closed Lost", "lost"];
 const CLOSED_VALUES = ["Won", "Lost", "Closed Won", "Closed Lost", "Closed", "won", "lost", "closed"];
-const PENDING_FOLLOWUP_VALUES = ["Pending", "pending", "Scheduled", "scheduled"];
+const PENDING_FOLLOWUP_VALUES = ["Pending", "pending", "Scheduled", "scheduled", "Rescheduled", "rescheduled"];
+const ACTIVE_OVERDUE_FOLLOWUP_VALUES = ["pending", "Pending", "scheduled", "Scheduled", "rescheduled", "Rescheduled"];
 const CONVERTED_LEAD_VALUES = ["Converted", "converted", "Won", "won", "Closed", "closed"];
 const ACCEPTED_QUOTATION_VALUES = ["Accepted", "accepted", "Approved", "approved"];
+const INACTIVE_LEAD_STAGES = ["P4", "P6", "P7"];
 
 function normalizeFilter(value = "month") {
   const filter = String(value || "").trim().toLowerCase();
@@ -154,6 +160,34 @@ function buildUserFilter(fieldName, ids = []) {
   return { [fieldName]: { $in: objectIds } };
 }
 
+function buildLeadBaseMatch(scopeMatch = {}) {
+  const clauses = [
+    { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
+    { is_active: true },
+  ];
+
+  if (scopeMatch && Object.keys(scopeMatch).length) {
+    clauses.push(scopeMatch);
+  }
+
+  return { $and: clauses };
+}
+
+function buildActiveLeadMatch(scopeMatch = {}) {
+  const clauses = [
+    { is_deleted: { $ne: true } },
+    { stage: { $nin: INACTIVE_LEAD_STAGES } },
+    { converted_to_deal: { $ne: true } },
+    { $or: [{ converted_deal_id: { $exists: false } }, { converted_deal_id: null }] },
+  ];
+
+  if (scopeMatch && Object.keys(scopeMatch).length) {
+    clauses.push(scopeMatch);
+  }
+
+  return { $and: clauses };
+}
+
 function buildClientFilter(ids = []) {
   return buildUserFilter("createdBy", ids);
 }
@@ -176,8 +210,38 @@ function buildQuotationFilter(ids = []) {
 function buildOpenDealMatch(baseMatch = {}) {
   return {
     ...baseMatch,
-    stage: { $nin: CLOSED_VALUES },
+    isActive: { $ne: false },
+    stage: { $in: ACTIVE_DEAL_PIPELINE_STAGES },
     status: { $nin: ["won", "Won", "lost", "Lost"] },
+  };
+}
+
+function buildClosedDealRangeMatch(dateRange) {
+  if (!dateRange?.startDate || !dateRange?.endDate) return {};
+  return {
+    $or: [
+      { actualCloseDate: { $gte: dateRange.startDate, $lt: dateRange.endDate } },
+      {
+        actualCloseDate: null,
+        updatedAt: { $gte: dateRange.startDate, $lt: dateRange.endDate },
+      },
+    ],
+  };
+}
+
+function buildWonDealStageMatch(baseMatch = {}, dateRange = null) {
+  return {
+    ...baseMatch,
+    stage: DEAL_WON_STAGE,
+    ...buildClosedDealRangeMatch(dateRange),
+  };
+}
+
+function buildLostDealStageMatch(baseMatch = {}, dateRange = null) {
+  return {
+    ...baseMatch,
+    stage: DEAL_LOST_STAGE,
+    ...buildClosedDealRangeMatch(dateRange),
   };
 }
 
@@ -219,12 +283,16 @@ function buildPendingFollowupMatch(baseMatch = {}) {
 }
 
 function buildOverdueFollowupMatch(baseMatch = {}) {
+  const cutoff = getOverdueCutoff();
+
   return {
     ...baseMatch,
-    status: { $in: ["Pending", "pending"] },
     $or: [
-      { scheduledDate: { $lt: new Date() } },
-      { dueDateTime: { $lt: new Date() } },
+      { status: { $in: ["overdue", "Overdue"] } },
+      {
+        status: { $in: ACTIVE_OVERDUE_FOLLOWUP_VALUES },
+        dueDateTime: { $lte: cutoff },
+      },
     ],
   };
 }
@@ -293,7 +361,7 @@ function normalizeSeverity(value) {
 function buildKeyMetrics(scopeRole, metrics) {
   if (scopeRole === "company") {
     return [
-      { label: "Total Leads", value: formatNumber(metrics.totalLeads), trend: "neutral", note: `${formatNumber(metrics.newLeads7d)} created in 7 days` },
+      { label: "Active Leads", value: formatNumber(metrics.totalLeads), trend: "neutral", note: `${formatNumber(metrics.newLeads7d)} created in 7 days` },
       { label: "Open Deals", value: formatNumber(metrics.openDeals), trend: metrics.openDeals > 0 ? "up" : "neutral", note: `${formatCurrency(metrics.totalPipelineValue)} pipeline value` },
       { label: "Won Value", value: formatCurrency(metrics.totalWonValue), trend: metrics.wonDeals >= metrics.lostDeals ? "up" : "neutral", note: `${formatNumber(metrics.wonDeals)} won deals` },
       { label: "Overdue Follow-ups", value: formatNumber(metrics.overdueFollowups), trend: metrics.overdueFollowups > 0 ? "down" : "neutral", note: `${formatNumber(metrics.pendingFollowups)} pending total` },
@@ -304,7 +372,7 @@ function buildKeyMetrics(scopeRole, metrics) {
 
   if (scopeRole === "team") {
     return [
-      { label: "Team Leads", value: formatNumber(metrics.teamLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
+      { label: "Active Team Leads", value: formatNumber(metrics.teamLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
       { label: "Open Deals", value: formatNumber(metrics.openDeals), trend: metrics.openDeals > 0 ? "up" : "neutral", note: `${formatCurrency(metrics.totalPipelineValue)} pipeline value` },
       { label: "Won Value", value: formatCurrency(metrics.totalWonValue), trend: metrics.wonDeals >= metrics.lostDeals ? "up" : "neutral", note: `${formatNumber(metrics.wonDeals)} won deals` },
       { label: "Pending Follow-ups", value: formatNumber(metrics.pendingFollowups), trend: metrics.pendingFollowups > 0 ? "neutral" : "up", note: `${formatNumber(metrics.overdueFollowups)} overdue` },
@@ -313,7 +381,7 @@ function buildKeyMetrics(scopeRole, metrics) {
   }
 
   return [
-    { label: "My Leads", value: formatNumber(metrics.totalLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
+    { label: "My Active Leads", value: formatNumber(metrics.totalLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
     { label: "Open Deals", value: formatNumber(metrics.openDeals), trend: metrics.openDeals > 0 ? "up" : "neutral", note: `${formatCurrency(metrics.totalPipelineValue)} open pipeline` },
     { label: "Won Value", value: formatCurrency(metrics.totalWonValue), trend: metrics.wonDeals >= metrics.lostDeals ? "up" : "neutral", note: `${formatNumber(metrics.wonDeals)} won deals` },
     { label: "Today Follow-ups", value: formatNumber(metrics.todayFollowups), trend: metrics.todayFollowups > 0 ? "neutral" : "up", note: `${formatNumber(metrics.pendingFollowups)} pending total` },
@@ -393,8 +461,16 @@ function buildOfflineInsights(evidence) {
     : evidence.scope === "team"
       ? `${evidence.teamName || "This team"} has ${formatNumber(metrics.newLeads7d)} new leads in the last 7 days, ${formatNumber(metrics.wonDeals)} won deals, and ${formatCurrency(metrics.totalWonValue)} in won value. The team still has ${formatNumber(metrics.openDeals)} open deals active and ${formatNumber(metrics.overdueFollowups)} overdue follow-ups to clear.`
       : `You have ${formatNumber(metrics.newLeads7d)} new leads in the last 7 days, ${formatNumber(metrics.wonDeals)} won deals, and ${formatCurrency(metrics.totalWonValue)} in won value. Your live pipeline still has ${formatNumber(metrics.openDeals)} open deals, while ${formatNumber(metrics.overdueFollowups)} follow-ups are overdue and ${formatNumber(metrics.todayFollowups)} are due today.`;
+  const plainSummary = metrics.overdueFollowups > 0
+    ? "Your pipeline has activity, but follow-ups need attention first."
+    : metrics.openDeals > 0
+      ? "Your pipeline is active and ready for the next sales push."
+      : metrics.newLeads7d > 0
+        ? "New leads are coming in, so focus on quick first contact."
+        : "Activity is quiet, so focus on creating fresh pipeline.";
 
   return {
+    plainSummary,
     summary,
     todayPriorities: todayPriorities.slice(0, 4),
     keyMetrics: buildKeyMetrics(evidence.scope, metrics).slice(0, 6),
@@ -412,6 +488,7 @@ function buildOfflineInsights(evidence) {
 function ensureInsightsShape(payload, fallback) {
   const source = payload && typeof payload === "object" ? payload : {};
   return {
+    plainSummary: String(source.plainSummary || fallback.plainSummary || "").trim(),
     summary: String(source.summary || fallback.summary || "").trim(),
     todayPriorities: Array.isArray(source.todayPriorities)
       ? source.todayPriorities.slice(0, 4).map((item) => ({
@@ -455,6 +532,7 @@ function buildGeminiPrompt(roleLabel, scopeLabel, evidence) {
     "",
     "The JSON must have exactly these fields:",
     "{",
+    "  plainSummary: string (one short simple sentence for non-technical users, max 18 words),",
     "  summary: string (2-3 sentences describing current situation based on the numbers, be specific with actual numbers),",
     "  todayPriorities: array of max 4 objects { icon: emoji string, title: string, detail: string with specific numbers, urgency: high or medium or low },",
     "  keyMetrics: array of 4-6 objects { label: string, value: string or number, trend: up or down or neutral, note: string },",
@@ -538,7 +616,8 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
   const expenseScope = isCompany ? {} : scope === "team" ? { userId: { $in: memberObjectIds } } : userObjectId ? { userId: userObjectId } : { userId: null };
   const quotationScope = isCompany ? {} : scope === "team" ? { createdBy: { $in: memberObjectIds } } : userObjectId ? { createdBy: userObjectId } : { createdBy: null };
 
-  const leadBase = { is_deleted: { $ne: true }, ...leadScope };
+  const leadBase = buildLeadBaseMatch(leadScope);
+  const activeLeadBase = buildActiveLeadMatch(leadScope);
   const dealBase = { is_deleted: { $ne: true }, ...dealScope };
   const clientBase = { is_deleted: { $ne: true }, ...clientScope };
   const followupBase = { is_deleted: { $ne: true }, ...followupScope };
@@ -548,12 +627,12 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
   const [newLeads, convertedLeads, wonDeals, lostDeals, newClients, acceptedQuotations, expensesSubmitted, totalLeads, openDeals, pipelineValueRows, totalClients, pendingFollowUps, overdueFollowUps, pendingExpenses, totalUsers, todayFollowUps] = await Promise.all([
     safeQuery("glance newLeads", 0, () => Lead.countDocuments(withDateRange(leadBase, "created_at", dateRange))),
     safeQuery("glance convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(withDateRange(leadBase, "created_at", dateRange)))),
-    safeQuery("glance wonDeals", 0, () => Deal.countDocuments(buildWonDealMatch(withDateRange(dealBase, "updatedAt", dateRange)))),
-    safeQuery("glance lostDeals", 0, () => Deal.countDocuments(buildLostDealMatch(withDateRange(dealBase, "updatedAt", dateRange)))),
+    safeQuery("glance wonDeals", 0, () => Deal.countDocuments(buildWonDealStageMatch(dealBase, dateRange))),
+    safeQuery("glance lostDeals", 0, () => Deal.countDocuments(buildLostDealStageMatch(dealBase, dateRange))),
     safeQuery("glance newClients", 0, () => Client.countDocuments(withDateRange(clientBase, "createdAt", dateRange))),
     safeQuery("glance acceptedQuotations", 0, () => Quotation.countDocuments({ ...withDateRange(quotationBase, "createdAt", dateRange), status: { $in: ACCEPTED_QUOTATION_VALUES } })),
     safeQuery("glance expensesSubmitted", 0, () => Expense.countDocuments(withDateRange(expenseBase, "createdAt", dateRange))),
-    safeQuery("glance totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("glance totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("glance openDeals", 0, () => Deal.countDocuments(buildOpenDealMatch(dealBase))),
     safeQuery("glance pipelineValue", [], () =>
       Deal.aggregate([
@@ -594,7 +673,8 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
 
 async function buildCompanyEvidence() {
 
-  const leadBase = { is_deleted: { $ne: true } };
+  const leadBase = buildLeadBaseMatch();
+  const activeLeadBase = buildActiveLeadMatch();
   const dealBase = { is_deleted: { $ne: true } };
   const clientBase = { is_deleted: { $ne: true } };
   const followupBase = { is_deleted: { $ne: true } };
@@ -624,7 +704,7 @@ async function buildCompanyEvidence() {
     totalUsers,
     topPerformers,
   ] = await Promise.all([
-    safeQuery("company totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("company totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("company newLeads7d", 0, () => Lead.countDocuments({ ...leadBase, created_at: { $gte: daysAgo(7) } })),
     safeQuery("company convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(leadBase))),
     safeQuery("company totalDeals", 0, () => Deal.countDocuments(dealBase)),
@@ -754,7 +834,8 @@ async function buildPersonalEvidence(user) {
   const userId = toIdString(user?._id);
   const userObjectId = toObjectId(userId);
 
-  const leadBase = { is_deleted: { $ne: true }, assigned_to: userObjectId };
+  const leadBase = buildLeadBaseMatch({ assigned_to: userObjectId });
+  const activeLeadBase = buildActiveLeadMatch({ assigned_to: userObjectId });
   const dealBase = { is_deleted: { $ne: true }, assignedTo: userObjectId };
   const clientBase = { is_deleted: { $ne: true }, createdBy: userObjectId };
   const followupBase = { is_deleted: { $ne: true }, assignedTo: userObjectId };
@@ -779,7 +860,7 @@ async function buildPersonalEvidence(user) {
     totalQuotations,
     recentLeads,
   ] = await Promise.all([
-    safeQuery("personal totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("personal totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("personal newLeads7d", 0, () => Lead.countDocuments({ ...leadBase, created_at: { $gte: daysAgo(7) } })),
     safeQuery("personal convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(leadBase))),
     safeQuery("personal openDeals", 0, () => Deal.countDocuments(buildOpenDealMatch(dealBase))),
@@ -968,7 +1049,8 @@ async function buildTeamEvidence(teamId) {
     })
     : "";
 
-  const leadBase = { is_deleted: { $ne: true }, assigned_to: { $in: memberIds } };
+  const leadBase = buildLeadBaseMatch({ assigned_to: { $in: memberIds } });
+  const activeLeadBase = buildActiveLeadMatch({ assigned_to: { $in: memberIds } });
   const dealBase = { is_deleted: { $ne: true }, assignedTo: { $in: memberIds } };
   const clientBase = { is_deleted: { $ne: true }, createdBy: { $in: memberIds } };
   const followupBase = { is_deleted: { $ne: true }, assignedTo: { $in: memberIds } };
@@ -997,7 +1079,7 @@ async function buildTeamEvidence(teamId) {
     todayFollowups,
     memberPerformance,
   ] = await Promise.all([
-    safeQuery("team totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("team totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("team newLeads7d", 0, () => Lead.countDocuments({ ...leadBase, created_at: { $gte: daysAgo(7) } })),
     safeQuery("team convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(leadBase))),
     safeQuery("team openDeals", 0, () => Deal.countDocuments(buildOpenDealMatch(dealBase))),

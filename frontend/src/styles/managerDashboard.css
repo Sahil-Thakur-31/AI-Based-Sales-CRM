@@ -299,11 +299,62 @@ body.dashboard-scroll-hidden::-webkit-scrollbar {
 
 /* INSIGHTS */
 
-.ManagerDashboard .insights-card .insight {
+.ManagerDashboard .manager-ai-panel {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #e2e8f0;
+}
+
+.ManagerDashboard .manager-ai-live {
+  display: inline-flex;
+  margin-top: 5px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ManagerDashboard .manager-ai-summary {
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
+  color: #ffffff;
+  padding: 14px;
+  display: grid;
+  gap: 7px;
+  box-shadow: 0 12px 24px rgba(29, 78, 216, 0.18);
+  margin-bottom: 12px;
+}
+
+.ManagerDashboard .manager-ai-summary strong {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.ManagerDashboard .manager-ai-summary span {
+  color: #dbeafe;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ManagerDashboard .insight {
   padding: 12px;
   border-radius: 12px;
   margin-top: 12px;
   font-size: 14px;
+  border: 1px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.ManagerDashboard .insight::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #6366f1;
 }
 
 .ManagerDashboard .insight p {
@@ -311,9 +362,20 @@ body.dashboard-scroll-hidden::-webkit-scrollbar {
   color: #475569;
 }
 
-.ManagerDashboard .insight.purple { background: #eef2ff; }
-.ManagerDashboard .insight.red { background: #fef2f2; }
-.ManagerDashboard .insight.green { background: #ecfdf5; }
+.ManagerDashboard .insight.purple {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+.ManagerDashboard .insight.red {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+.ManagerDashboard .insight.red::before { background: #ef4444; }
+.ManagerDashboard .insight.green {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+}
+.ManagerDashboard .insight.green::before { background: #16a34a; }
 
 .ManagerDashboard .manager-modal-overlay {
   position: fixed;

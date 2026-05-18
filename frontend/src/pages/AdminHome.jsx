@@ -24,6 +24,7 @@ import "../styles/AdminHome.css";
 
 // ✅ Switch this to true only if you want mock data
 const USE_MOCK = false;
+const ADMIN_INSIGHTS_REFRESH_MS = 60000;
 /* ---------- helpers ---------- */
 function cx(...arr) {
   return arr.filter(Boolean).join(" ");
@@ -60,6 +61,14 @@ function formatINR(value) {
 /* Custom Badge for AI labels */
 function AiBadge({ children, tone = "ai" }) {
   return <span className={cx("badge", `badge--${tone}`)}>{children}</span>;
+}
+
+function formatLiveTime(value) {
+  if (!value) return "Just now";
+  return new Date(value).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function StagePill({ stage }) {
@@ -397,6 +406,7 @@ export default function AdminHome() {
   const [teamPerf, setTeamPerf] = useState([]);
   const [followups, setFollowups] = useState([]);
   const [recentDeals, setRecentDeals] = useState([]);
+  const [insightsUpdatedAt, setInsightsUpdatedAt] = useState(new Date());
 
   const navigate = useNavigate();
   const range = mapPeriodToRange(period);
@@ -429,6 +439,11 @@ export default function AdminHome() {
     () => buildAdminAiInsights(summary, pipeline, teamPerf, followups, recentDeals, range),
     [followups, pipeline, range, recentDeals, summary, teamPerf]
   );
+  const adminAiSummary = useMemo(() => {
+    const first = adminAiInsights[0];
+    if (!first) return "AI is watching your live CRM data for pipeline risk, follow-up pressure, and team momentum.";
+    return `${first.value}: ${first.note}`;
+  }, [adminAiInsights]);
 
   const totalFollowupsPages = useMemo(
     () => Math.max(1, Math.ceil(followups.length / FOLLOWUPS_PER_PAGE)),
@@ -498,6 +513,7 @@ export default function AdminHome() {
           setFollowups(data.followups);
           setRecentDeals(data.recentDeals);
         }
+        setInsightsUpdatedAt(new Date());
       } catch (e) {
         if (e?.name === "AbortError") return;
         setError(e?.message || "Failed to load dashboard");
@@ -510,6 +526,26 @@ export default function AdminHome() {
     load();
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardFilters, pipelineType, range]);
+
+  useEffect(() => {
+    if (USE_MOCK) return undefined;
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const data = await fetchDashboard(range, pipelineType, dashboardFilters);
+        setSummary(data.summary);
+        setPipeline(data.pipeline);
+        setTeamPerf(data.teamPerformance);
+        setFollowups(data.followups);
+        setRecentDeals(data.recentDeals);
+        setInsightsUpdatedAt(new Date());
+      } catch (e) {
+        console.error("Failed to refresh admin AI insights", e);
+      }
+    }, ADMIN_INSIGHTS_REFRESH_MS);
+
+    return () => window.clearInterval(intervalId);
   }, [dashboardFilters, pipelineType, range]);
 
   const kpis = [
@@ -887,6 +923,11 @@ export default function AdminHome() {
                 </CCardHeader>
 
                 <CCardBody>
+                  <div className="aiInsightsSummary">
+                    <span>Important summary</span>
+                    <strong>{adminAiSummary}</strong>
+                    <small>Updated {formatLiveTime(insightsUpdatedAt)} from current dashboard data</small>
+                  </div>
                   <div className="aiInsightsList">
                     {adminAiInsights.map((item) => (
                       <div key={item.title} className="aiInsightItem">

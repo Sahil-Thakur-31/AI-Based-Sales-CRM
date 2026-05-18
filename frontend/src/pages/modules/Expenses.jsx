@@ -7,14 +7,14 @@ import "./styles/Expense.css";
 const categories = [
   { label: "Travel", value: "travel" },
   { label: "Food", value: "food" },
-  { label: "Hotel", value: "hotel" },
   { label: "Stationery", value: "stationery" },
   { label: "Other Expense", value: "other" },
 ];
 
 const normalizeExpenseCategory = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
-  if (["travel", "food", "hotel", "stationery", "other"].includes(normalized)) {
+  if (normalized === "hotel") return "other";
+  if (["travel", "food", "stationery", "other"].includes(normalized)) {
     return normalized;
   }
   if (normalized === "client_meeting") return "food";
@@ -23,7 +23,13 @@ const normalizeExpenseCategory = (value) => {
 };
 
 const isStandardExpenseCategory = (value) =>
-  ["travel", "food", "hotel", "stationery"].includes(String(value || "").trim().toLowerCase());
+  ["travel", "food", "stationery"].includes(String(value || "").trim().toLowerCase());
+
+const getExpenseCategoryLabel = (category, otherCategory = "") => {
+  const normalized = normalizeExpenseCategory(category);
+  if (normalized === "other") return otherCategory || "Other Expense";
+  return categories.find((c) => c.value === normalized)?.label || "Other Expense";
+};
 
 const getOcrCustomCategory = (fields = {}, meta = {}) => {
   const suggestedCategory = normalizeExpenseCategory(
@@ -82,7 +88,7 @@ const inferCategoryFromOcrText = (fields = {}, meta = {}) => {
     return "food";
   }
   if (hasAny(lodgingTerms)) {
-    return "hotel";
+    return "other";
   }
   if (hasAny(["travel", "trip", "taxi", "cab", "uber", "ola", "bus", "train", "flight", "fuel", "petrol", "diesel", "parking", "toll", "metro"])) {
     return "travel";
@@ -168,7 +174,6 @@ const ExpenseDashboard = () => {
   const dynamicCategories = React.useMemo(() => ([
     { label: "Travel", value: "travel" },
     { label: "Food", value: "food" },
-    { label: "Hotel", value: "hotel" },
     { label: "Stationery", value: "stationery" },
     { label: "Other Expense", value: "other" },
   ]), []);
@@ -224,10 +229,7 @@ const ExpenseDashboard = () => {
         category: normalizeExpenseCategory(exp.category),
         otherCategory: exp.otherCategory || "",
         vendorName: exp.vendorName || exp.receipt?.extractedData?.vendor || "",
-        categoryLabel:
-          normalizeExpenseCategory(exp.category) === "other"
-            ? exp.otherCategory || "Other Expense"
-            : categories.find((c) => c.value === normalizeExpenseCategory(exp.category))?.label || exp.category,
+        categoryLabel: getExpenseCategoryLabel(exp.category, exp.otherCategory),
         user: exp.userId?.name || "Unknown",
         userId: exp.userId?._id,
         amount: Number(exp.amount || 0),
@@ -354,6 +356,10 @@ const ExpenseDashboard = () => {
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -619,6 +625,13 @@ const ExpenseDashboard = () => {
   const appliedOcrConfidence = appliedReceiptOcrData?.overallConfidence || 0;
   const appliedOcrConfidenceTone = getConfidenceTone(appliedOcrConfidence);
   const appliedOcrConfidenceLabel = getConfidenceLabel(appliedOcrConfidence);
+  const appliedOcrSuggestedCategoryLabel = appliedReceiptOcrData?.fields?.predictedCategory
+    ? getExpenseCategoryLabel(
+      appliedReceiptOcrData.fields.suggestedExpenseCategory ||
+      appliedReceiptOcrData.fields.predictedCategory,
+      appliedReceiptOcrData.fields.customCategoryLabel
+    )
+    : "";
 
   const updateOcrAdjustment = (id, key, value) => {
     setOcrImageAdjustments((prev) => ({
@@ -1159,7 +1172,13 @@ const ExpenseDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedExpenses.map((exp) => {
+                {paginatedExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="expense-ledger-empty">
+                      No expenses found in this view.
+                    </td>
+                  </tr>
+                ) : paginatedExpenses.map((exp) => {
                   const canModifyOwnPending = exp.status === "pending" && String(exp.userId) === String(currentUser?._id);
                   return (
                     <tr key={exp.id}>
@@ -1278,127 +1297,6 @@ const ExpenseDashboard = () => {
                     <line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
                 </button>
-            <button className="expense-ocr-btn" onClick={openOcrModal}>
-              OCR
-            </button>
-
-            <button className="expense-log-btn" onClick={openCreateModal}>
-              + Log Expense
-            </button>
-          </div>
-        </div>
-        <FormErrorSlot message={pageError} className="form-error-slot-global" />
-
-        <table className="crm-auto-responsive-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Type</th>
-              <th>User</th>
-              <th>Total</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedExpenses.map((exp) => {
-              const canModifyOwnPending = exp.status === "pending" && String(exp.userId) === String(currentUser?._id);
-              return (
-                <tr key={exp.id}>
-                  <td>{exp.categoryLabel}</td>
-                  <td>{exp.referenceType || "-"}</td>
-                  <td>{exp.user}</td>
-                  <td>Rs. {exp.total.toFixed(2)}</td>
-                  <td>{exp.date}</td>
-                  <td>
-                    {isAdmin ? (
-                      <select
-                        className={`expense-status-select expense-status-${exp.status}`}
-                        value={exp.status}
-                        disabled={exp.status === "approved"}
-                        title={exp.status === "approved" ? "Approved expense status cannot be changed" : "Update status"}
-                        onChange={(e) => handleStatusChange(exp, e.target.value)}
-                      >
-                        <option value="pending">pending</option>
-                        <option value="approved">approved</option>
-                        <option value="rejected">rejected</option>
-                      </select>
-                    ) : (
-                      <div className="expense-status-stack">
-                        <button
-                          type="button"
-                          className={
-                            exp.status === "approved"
-                              ? "expense-approved"
-                              : exp.status === "rejected"
-                                ? "expense-rejected expense-status-clickable"
-                                : "expense-pending"
-                          }
-                          onClick={() => openReasonModal(exp)}
-                          title={exp.status === "rejected" ? "Click to view rejected reason" : ""}
-                        >
-                          {exp.status}
-                        </button>
-                        {exp.status === "rejected" && exp.approvalRemarks && (
-                          <small className="expense-rejection-inline" title="Click rejected status to view full reason">
-                            Click rejected status to view reason
-                          </small>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <button className="expense-view" onClick={() => handleView(exp)}>
-                      View
-                    </button>
-
-                    {isAdmin && (
-                      <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
-                        Delete
-                      </button>
-                    )}
-
-                    {!isAdmin && canModifyOwnPending && (
-                      <button className="expense-view" onClick={() => openEditModal(exp)}>
-                        Edit
-                      </button>
-                    )}
-
-                    {!isAdmin && canModifyOwnPending && (
-                      <button className="expense-delete" onClick={() => handleDelete(exp.id)}>
-                        Delete
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="expense-pagination">
-          <button disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
-            Prev
-          </button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
-            Next
-          </button>
-        </div>
-      </div>
-
-      {showModal &&
-        ReactDOM.createPortal(
-          <div className="expense-modal-overlay">
-            <div className="expense-modal expense-large-modal">
-              <div className="expense-modal-header">
-                <h3>OCR Expense Import</h3>
-                <button type="button" className="expense-close-btn" onClick={closeOcrModal} aria-label="Close OCR import">
-                  x
-                </button>
               </div>
             </div>
 
@@ -1440,7 +1338,7 @@ const ExpenseDashboard = () => {
                               className="expense-remove-receipt-btn"
                               onClick={(e) => { e.stopPropagation(); handleRemoveOcrReceipt(item.id); }}
                             >
-                              ×
+                              &times;
                             </button>
                           </div>
                         ))
@@ -1577,9 +1475,7 @@ const ExpenseDashboard = () => {
                 </aside>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          </div>
         </section>
       )}
 
@@ -1734,9 +1630,9 @@ const ExpenseDashboard = () => {
                       <div className={`expense-receipt-confidence-pill ${appliedOcrConfidenceTone}`}>
                         {appliedOcrConfidenceLabel}
                       </div>
-                      {appliedReceiptOcrData.fields?.predictedCategory && (
+                      {appliedOcrSuggestedCategoryLabel && (
                         <div className="expense-receipt-ai-meta">
-                          Suggested category: <strong>{appliedReceiptOcrData.fields.predictedCategory}</strong>
+                          Suggested category: <strong>{appliedOcrSuggestedCategoryLabel}</strong>
                         </div>
                       )}
                     </div>

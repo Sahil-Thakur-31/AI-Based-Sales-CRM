@@ -10,6 +10,7 @@ const Industry = require("../models/industries");
 const User = require("../models/users");
 const Source = require("../models/sources");
 const Event = require("../models/events");
+const Team = require("../models/teams");
 const DealStageHistory = require("../models/dealStageHistory");
 const Notification = require("../models/notifications");
 const CRMSettings = require("../models/crmSettings");
@@ -19,9 +20,19 @@ const {
   getNotificationChannels,
 } = require("../services/notificationPreferences");
 const { normalizePhone } = require("../utils/phoneUtils");
+const { resolveIndustryDocument } = require("../utils/industryCatalog");
 let legacyLeadFlagsNormalized = false;
 let legacyLeadFlagsNormalizationPromise = null;
 const INACTIVE_LEAD_STAGES = new Set(["P4", "P6", "P7"]);
+const LEAD_FIELD_LABELS = {
+  company_name: "Company name",
+  source: "Source",
+  referred_by_user: "Reference user",
+  expo_event_id: "Event/Expo",
+  assigned_to: "Assigned user",
+  industry: "Industry",
+  location: "Location",
+};
 
 function getRoleName(user = {}) {
   return String(user?.role || "").trim().toLowerCase();
@@ -30,6 +41,46 @@ function getRoleName(user = {}) {
 function isPrivilegedUser(user = {}) {
   const roleName = getRoleName(user);
   return roleName === "admin" || roleName === "manager";
+}
+
+async function getReportScopedAssigneeFilter(user = {}) {
+  const roleName = getRoleName(user);
+  const userId = String(user?._id || "").trim();
+  const hasValidUserId = mongoose.Types.ObjectId.isValid(userId);
+
+  if (roleName === "admin") {
+    return {};
+  }
+
+  if (roleName !== "manager") {
+    return hasValidUserId
+      ? { assigned_to: new mongoose.Types.ObjectId(userId) }
+      : { assigned_to: null };
+  }
+
+  if (!hasValidUserId) {
+    return { assigned_to: null };
+  }
+
+  const teams = await Team.find({ "teamLeads.userId": user._id })
+    .select("teamLeads members")
+    .lean();
+
+  const scopedIds = [
+    userId,
+    ...teams.flatMap((team) => [
+      ...(team?.teamLeads || []).map((lead) => String(lead?.userId || "").trim()),
+      ...(team?.members || []).map((member) => String(member?.userId || "").trim()),
+    ]),
+  ]
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  const objectIds = [...new Set(scopedIds)].map((id) => new mongoose.Types.ObjectId(id));
+  if (!objectIds.length) {
+    return { assigned_to: new mongoose.Types.ObjectId(userId) };
+  }
+
+  return { assigned_to: { $in: objectIds } };
 }
 
 function normalizeContactValues(value) {
@@ -64,6 +115,51 @@ function normalizeContacts(contacts = []) {
       is_primary: hasPrimary ? (contact.is_primary === true || contact.is_primary === "true") : (index === 0),
     };
   });
+}
+
+function getLeadFieldLabel(fieldName = "") {
+  return LEAD_FIELD_LABELS[fieldName] || String(fieldName || "Field").replace(/_/g, " ");
+}
+
+function formatLeadValidationIssue(issue) {
+  if (!issue) return "";
+
+  const fieldName = String(issue.path || "");
+  const fieldLabel = getLeadFieldLabel(fieldName);
+  const lowerLabel = fieldLabel.toLowerCase();
+
+  if (issue.name === "CastError" || issue.kind === "ObjectId") {
+    if (fieldName === "source") return "Please select a valid source.";
+    if (fieldName === "referred_by_user") return "Please select a valid reference user.";
+    if (fieldName === "expo_event_id") return "Please select a valid event or expo.";
+    return `${fieldLabel} is invalid. Please select a valid ${lowerLabel}.`;
+  }
+
+  if (typeof issue.message === "string" && issue.message.trim()) {
+    return issue.message.replace(fieldName, fieldLabel);
+  }
+
+  return `${fieldLabel} is invalid.`;
+}
+
+function formatLeadSaveError(err) {
+  if (!err) return "Failed to save lead.";
+
+  if (err.name === "ValidationError" && err.errors) {
+    const messages = Object.values(err.errors)
+      .map((issue) => formatLeadValidationIssue(issue))
+      .filter(Boolean);
+    if (messages.length) {
+      return messages.join(" ");
+    }
+  }
+
+  if (err.name === "CastError") {
+    return formatLeadValidationIssue(err);
+  }
+
+  const fallbackMessage = String(err.message || "").trim();
+  return fallbackMessage || "Failed to save lead.";
 }
 
 async function resolveLocationId(payload) {
@@ -124,6 +220,21 @@ function stripLeadPayloadFields(payload) {
   if (!cleaned.assigned_to) {
     delete cleaned.assigned_to;
   }
+  if (!cleaned.source) {
+    delete cleaned.source;
+  }
+  if (!cleaned.referred_by_user) {
+    delete cleaned.referred_by_user;
+  }
+  if (!cleaned.expo_event_id) {
+    delete cleaned.expo_event_id;
+  }
+  if (!cleaned.location) {
+    delete cleaned.location;
+  }
+  if (!cleaned.converted_deal_id) {
+    delete cleaned.converted_deal_id;
+  }
   delete cleaned.is_existing_company;
   return cleaned;
 }
@@ -172,7 +283,7 @@ async function fetchLeadFollowupMap(leadIds = []) {
 
 async function fetchLeadFollowupInsights(leadIds = []) {
   if (!leadIds.length) {
-    return { nextFollowupMap: new Map(), lastActivityMap: new Map() };
+    return { nextFollowupMap: new Map(), lastActivityMap: new Map(), lastContactMap: new Map() };
   }
 
   const followups = await Followup.find({
@@ -184,6 +295,7 @@ async function fetchLeadFollowupInsights(leadIds = []) {
 
   const nextFollowupMap = new Map();
   const lastActivityMap = new Map();
+  const lastContactMap = new Map();
 
   for (const followup of followups) {
     const leadId = followup.leadId?.toString();
@@ -209,15 +321,50 @@ async function fetchLeadFollowupInsights(leadIds = []) {
     if (!previous || latestForFollowup > previous) {
       lastActivityMap.set(leadId, latestForFollowup);
     }
+
+    const contactCandidates = [
+      toValidDate(followup.lastContactDate),
+      toValidDate(followup.completedAt),
+    ].filter(Boolean);
+    if (!contactCandidates.length) continue;
+    const latestContactForFollowup = new Date(
+      Math.max(...contactCandidates.map((d) => d.getTime()))
+    );
+    const previousContact = toValidDate(lastContactMap.get(leadId));
+    if (!previousContact || latestContactForFollowup > previousContact) {
+      lastContactMap.set(leadId, latestContactForFollowup);
+    }
   }
 
-  return { nextFollowupMap, lastActivityMap };
+  return { nextFollowupMap, lastActivityMap, lastContactMap };
 }
 
 function toValidDate(value) {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+async function syncLeadLastContactDate(leadId, candidates = []) {
+  const normalizedLeadId = String(leadId || "").trim();
+  if (!mongoose.Types.ObjectId.isValid(normalizedLeadId)) return;
+
+  const validDates = candidates.map((value) => toValidDate(value)).filter(Boolean);
+  if (!validDates.length) return;
+
+  const latestDate = new Date(Math.max(...validDates.map((value) => value.getTime())));
+
+  await Leads.updateOne(
+    {
+      _id: new mongoose.Types.ObjectId(normalizedLeadId),
+      $or: [
+        { last_contact_date: { $exists: false } },
+        { last_contact_date: null },
+        { last_contact_date: { $lt: latestDate } },
+      ],
+    },
+    { $set: { last_contact_date: latestDate } }
+  );
 }
 
 function escapeRegExp(value) {
@@ -342,24 +489,8 @@ async function resolveConversionActorId(lead, req) {
 }
 
 async function resolveIndustryId(leadIndustry) {
-  const name = (leadIndustry || "").trim();
-  const finalName = name || "General";
-
-  const existing = await Industry.findOne({
-    name: new RegExp(`^${escapeRegExp(finalName)}$`, "i"),
-  })
-    .select("_id")
-    .lean();
-
-  if (existing?._id) return existing._id;
-
-  const created = await Industry.create({
-    name: finalName,
-    is_deleted: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-  return created._id;
+  const industryDoc = await resolveIndustryDocument(leadIndustry, { createIfMissing: true });
+  return industryDoc?._id || null;
 }
 
 function computeAiRiskScore() {
@@ -414,13 +545,24 @@ async function syncLeadFollowupsFromHistory(lead, history = []) {
   if (!lead?._id || !Array.isArray(history)) return;
 
   const assignedTo = lead.assigned_to || null;
-  if (!assignedTo) return;
-
   const entries = history.filter(
     (entry) =>
       entry &&
       (entry.next_action || entry.notes || entry.reply || entry.mode || entry.contacted_at)
   );
+  if (!entries.length) return;
+
+  const contactCandidates = entries.flatMap((entry) => [
+    toValidDate(entry.contacted_at),
+    entry.is_completed === true || entry.is_completed === "true"
+      ? toValidDate(entry.completed_at)
+      : null,
+  ]).filter(Boolean);
+
+  if (!assignedTo) {
+    await syncLeadLastContactDate(lead._id, contactCandidates);
+    return;
+  }
 
   for (const entry of entries) {
     const followupId = entry.followup_id || entry._id || null;
@@ -458,6 +600,8 @@ async function syncLeadFollowupsFromHistory(lead, history = []) {
       await Followup.create(payload);
     }
   }
+
+  await syncLeadLastContactDate(lead._id, contactCandidates);
 }
 
 exports.searchCompany = async (req, res) => {
@@ -606,7 +750,6 @@ exports.getLeads = async (req, res) => {
         : {
           $and: [
             { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
-            // Default lead lists should only show leads that have not been converted.
             { converted_to_deal: { $ne: true } },
           ],
         };
@@ -622,7 +765,7 @@ exports.getLeads = async (req, res) => {
 
     const leads = await leadsQuery.lean();
     const leadIds = leads.map((lead) => lead._id);
-    const { nextFollowupMap, lastActivityMap } = await fetchLeadFollowupInsights(leadIds);
+    const { nextFollowupMap, lastActivityMap, lastContactMap } = await fetchLeadFollowupInsights(leadIds);
     const followupMap = await fetchLeadFollowupMap(leadIds);
 
     if (!deletedOnly && leads.length) {
@@ -694,10 +837,12 @@ exports.getLeads = async (req, res) => {
       const location = lead.location ? locationMap.get(lead.location.toString()) : null;
       const primaryContact = contactMap.get(lead._id.toString()) || null;
       const followup = followupMap.get(lead._id.toString()) || null;
+      const derivedLastContactDate = lastContactMap.get(lead._id.toString()) || null;
       return {
         ...lead,
         is_existing_company: Boolean(lead.is_existing_client),
         primary_contact: primaryContact,
+        last_contact_date: lead.last_contact_date || derivedLastContactDate,
         next_action: followup?.title || lead.next_action || "",
         next_action_date: followup?.dueDateTime || null,
         country: location?.country || "",
@@ -762,11 +907,16 @@ exports.getLeadById = async (req, res) => {
       is_completed: f.status === "completed",
       completed_at: f.completedAt || null,
     }));
+    const derivedLastContactDate = followups
+      .flatMap((followup) => [toValidDate(followup.lastContactDate), toValidDate(followup.completedAt)])
+      .filter(Boolean)
+      .sort((a, b) => b - a)[0] || null;
 
     const leadWithLocation = {
       ...lead,
       is_existing_company: Boolean(lead.is_existing_client),
       contact_history: contactHistoryFromFollowups,
+      last_contact_date: lead.last_contact_date || derivedLastContactDate,
       next_action:
         followups.find((f) => ["pending", "overdue"].includes(f.status))?.title ||
         lead.next_action ||
@@ -803,6 +953,10 @@ exports.createLead = async (req, res) => {
       return res.status(400).json({ message: "Lead cannot be assigned to an admin user" });
     }
     await applySourceDependentValidation(leadPayload);
+    if (leadPayload.industry) {
+      const industryDoc = await resolveIndustryDocument(leadPayload.industry, { createIfMissing: true });
+      leadPayload.industry = industryDoc ? String(industryDoc._id) : "";
+    }
 
     if (locationId) {
       leadPayload.location = locationId;
@@ -855,7 +1009,7 @@ exports.createLead = async (req, res) => {
 
     res.status(201).json(lead);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ message: formatLeadSaveError(err) });
   }
 };
 
@@ -873,6 +1027,10 @@ exports.updateLead = async (req, res) => {
       return res.status(400).json({ message: "Lead cannot be assigned to an admin user" });
     }
     await applySourceDependentValidation(leadPayload);
+    if (leadPayload.industry) {
+      const industryDoc = await resolveIndustryDocument(leadPayload.industry, { createIfMissing: true });
+      leadPayload.industry = industryDoc ? String(industryDoc._id) : "";
+    }
 
     if (locationId) {
       leadPayload.location = locationId;
@@ -951,7 +1109,7 @@ exports.updateLead = async (req, res) => {
 
     res.json(lead);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ message: formatLeadSaveError(err) });
   }
 };
 
@@ -1267,12 +1425,9 @@ function getLeadsReportRange(input, now = new Date()) {
 const getLeadsAnalytics = async (req, res) => {
   try {
     await normalizeLegacyLeadFlagsOnce();
-    const actorId = req.user._id;
-    const actorRole = String(req.user.role || "").toLowerCase();
-    const isPrivileged = actorRole === "admin" || actorRole === "manager";
-
     const ranges = getLeadsReportRange(req.query, new Date());
     const { currentStart, currentEnd, comparisonLabel } = ranges;
+    const scopedAssigneeFilter = await getReportScopedAssigneeFilter(req.user);
 
     const currentMatch = { is_deleted: { $ne: true }, created_at: { $gte: currentStart, $lt: currentEnd } };
     
@@ -1282,12 +1437,8 @@ const getLeadsAnalytics = async (req, res) => {
       new Date(currentStart.getTime() - 1)
     );
     const prevMatch = { is_deleted: { $ne: true }, created_at: { $gte: prevStart, $lt: prevEnd } };
-
-    if (!isPrivileged) {
-      const oid = mongoose.Types.ObjectId.isValid(actorId) ? new mongoose.Types.ObjectId(actorId) : actorId;
-      currentMatch.assigned_to = oid;
-      prevMatch.assigned_to = oid;
-    }
+    Object.assign(currentMatch, scopedAssigneeFilter);
+    Object.assign(prevMatch, scopedAssigneeFilter);
 
     const now = new Date();
     const [currentStats, prevStats, sourceAgg, agingAgg, trendData, currentLeadRows, followupAgg] = await Promise.all([

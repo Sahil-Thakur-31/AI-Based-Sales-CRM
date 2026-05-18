@@ -16,6 +16,7 @@ function normalizeIndustry(value) {
   const keywordMap = [
     { label: "Pharma", patterns: ["pharma", "pharmaceutical", "lifescience", "lifesciences", "life science", "biotech"] },
     { label: "Electronics", patterns: ["electronic", "electronics", "electronica", "electromech", "electrical"] },
+    { label: "Solar", patterns: ["solar", "renewable energy", "renewables", "photovoltaic", "pv system"] },
     { label: "Real Estate", patterns: ["real estate"] },
     { label: "Construction", patterns: ["construction", "builder", "builders"] },
     { label: "Manufacturing", patterns: ["manufacturer", "manufacturing", "industrial"] },
@@ -25,7 +26,7 @@ function normalizeIndustry(value) {
     { label: "Logistics", patterns: ["logistics", "transport", "warehouse"] },
     { label: "Finance", patterns: ["finance", "financial", "banking"] },
     { label: "Healthcare", patterns: ["healthcare", "hospital", "medical"] },
-    { label: "Education", patterns: ["education", "school", "college", "edtech"] },
+    { label: "Education", patterns: ["education", " edu ", "school", "college", "edtech"] },
     { label: "Retail", patterns: ["retail", "ecommerce", "e-commerce"] },
   ];
 

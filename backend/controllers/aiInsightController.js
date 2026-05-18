@@ -40,6 +40,21 @@ function loadTeamModel() {
   }
 }
 
+function buildManagerTeamQuery(userId) {
+  return {
+    $or: [
+      { managerId: userId },
+      { manager: userId },
+      { managerRef: userId },
+      { "teamLeads.userId": userId },
+    ],
+  };
+}
+
+async function findManagerTeam(Team, userId) {
+  return Team.findOne(buildManagerTeamQuery(userId)).select("_id name").lean();
+}
+
 async function fetchInsights(req, res) {
   try {
     const user = req.user || {};
@@ -61,14 +76,7 @@ async function fetchInsights(req, res) {
           scope = "company";
           memberIds = [];
         } else if (role === "manager") {
-          const myTeam = await Team.findOne({
-            $or: [
-              { managerId: user?._id },
-              { manager: user?._id },
-              { managerRef: user?._id },
-              { "teamLeads.userId": user?._id },
-            ],
-          }).lean();
+          const myTeam = await Team.findOne(buildManagerTeamQuery(user?._id)).lean();
 
           if (myTeam) {
             memberIds = Array.from(new Set([...extractTeamMemberIds(myTeam), userId].filter(Boolean)));
@@ -76,7 +84,7 @@ async function fetchInsights(req, res) {
           }
         }
 
-        if (teamId && teamId !== "all") {
+        if (teamId && teamId !== "all" && role === "admin") {
           try {
             const team = await Team.findById(teamId).lean();
             if (team) {
@@ -102,7 +110,7 @@ async function fetchInsights(req, res) {
     if (teamId === "all" && role === "admin") {
       try {
         const Team = loadTeamModel();
-        const teams = await Team.find({}).lean();
+        const teams = await Team.find({}).sort({ name: 1, updatedAt: -1, createdAt: -1 }).lean();
 
         console.log("[AI Insights] Total teams found in DB:", teams.length);
         console.log(
@@ -158,11 +166,9 @@ async function fetchInsights(req, res) {
       });
     }
 
-    if (teamId && role === "manager") {
+    if (role === "manager") {
       const Team = loadTeamModel();
-      const myTeam = await Team.findOne({ "teamLeads.userId": user?._id })
-        .select("_id name")
-        .lean();
+      const myTeam = await findManagerTeam(Team, user?._id);
 
       if (!myTeam?._id) {
         return res.status(404).json({

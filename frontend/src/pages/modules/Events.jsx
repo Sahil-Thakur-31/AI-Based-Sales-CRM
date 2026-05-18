@@ -150,7 +150,7 @@ const eventWinnerScore = (eventItem) => {
   const aiScore = Number(eventItem.aiRelevanceScore || 0);
   const hasRoleComparison = eventItem?.roiRoleComparison ? 1 : 0;
   const hasPredictedRoi = toOptionalNumber(eventItem?.predictedROI) !== null ? 1 : 0;
-  const registrationCount = Array.isArray(eventItem.registrations) ? eventItem.registrations.length : 0;
+  const registrationCount = Array.isArray(eventItem.registeredBy) ? eventItem.registeredBy.length : 0;
   const attendedCount = Array.isArray(eventItem.attendedBy) ? eventItem.attendedBy.length : 0;
   const interestedCount = Array.isArray(eventItem.interested) ? eventItem.interested.length : 0;
   const updatedAt = eventItem.updatedAt ? new Date(eventItem.updatedAt).getTime() : 0;
@@ -355,6 +355,7 @@ const EventExpo = () => {
   const [missedReasonError, setMissedReasonError] = useState("");
   const [pendingModalOpen, setPendingModalOpen] = useState(false);
   const [acceptingInvitationId, setAcceptingInvitationId] = useState("");
+  const [rejectingInvitationId, setRejectingInvitationId] = useState("");
 
   const fetchEvents = async () => {
     try {
@@ -662,6 +663,22 @@ const EventExpo = () => {
       setError(err?.response?.data?.message || "Failed to accept invitation");
     } finally {
       setAcceptingInvitationId("");
+    }
+  };
+
+  const rejectInvitation = async (eventItem) => {
+    const eventId = eventItem?._id;
+    if (!eventId) return;
+
+    try {
+      setRejectingInvitationId(eventId);
+      const { data } = await API.put(`/events/${eventId}/reject-invitation`);
+      setEvents((prev) => prev.map((item) => (item._id === eventId ? data : item)));
+      await fetchEvents();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to reject invitation");
+    } finally {
+      setRejectingInvitationId("");
     }
   };
 
@@ -1062,7 +1079,6 @@ const EventExpo = () => {
           const isBeyondRegistrationGrace = Boolean(eventEnd && !Number.isNaN(eventEnd.getTime()) && eventEnd < registrationGraceBoundary);
           const hasAttendance = Array.isArray(eventItem.attendedBy) && eventItem.attendedBy.length > 0;
           const hasRegistration =
-            (Array.isArray(eventItem.registrations) && eventItem.registrations.length > 0) ||
             (Array.isArray(eventItem.registeredBy) && eventItem.registeredBy.length > 0) ||
             Boolean(eventItem.isRegistered);
           const isMarkedMissed = Boolean(eventItem.isMissed || String(eventItem.missedReason || "").trim());
@@ -1407,14 +1423,24 @@ const EventExpo = () => {
                       <span>{getLocationText(eventItem)}</span>
                       <small>{formatDateRange(eventItem.startDate, eventItem.endDate)}</small>
                     </div>
-                    <button
-                      type="button"
-                      className="accept-invitation-btn"
-                      onClick={() => acceptInvitation(eventItem)}
-                      disabled={acceptingInvitationId === eventItem._id}
-                    >
-                      {acceptingInvitationId === eventItem._id ? "Accepting..." : "Accept"}
-                    </button>
+                    <div className="event-invitation-actions">
+                      <button
+                        type="button"
+                        className="accept-invitation-btn"
+                        onClick={() => acceptInvitation(eventItem)}
+                        disabled={acceptingInvitationId === eventItem._id || rejectingInvitationId === eventItem._id}
+                      >
+                        {acceptingInvitationId === eventItem._id ? "Accepting..." : "Accept"}
+                      </button>
+                      <button
+                        type="button"
+                        className="reject-invitation-btn"
+                        onClick={() => rejectInvitation(eventItem)}
+                        disabled={acceptingInvitationId === eventItem._id || rejectingInvitationId === eventItem._id}
+                      >
+                        {rejectingInvitationId === eventItem._id ? "Rejecting..." : "Reject"}
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (
