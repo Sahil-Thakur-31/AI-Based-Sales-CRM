@@ -400,6 +400,24 @@ const eventSchema = new mongoose.Schema(
       }
     ],
 
+    invitationResponses: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "users",
+          index: true
+        },
+        status: {
+          type: String,
+          enum: ["pending", "accepted", "rejected"],
+          default: "pending"
+        },
+        respondedAt: {
+          type: Date
+        }
+      }
+    ],
+
     interested: [
       {
         type: mongoose.Schema.Types.ObjectId,
