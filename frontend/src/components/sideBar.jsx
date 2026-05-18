@@ -186,7 +186,7 @@ export default function Sidebar({
 
       <div className="sidebar-menu">
         {menuItems.map((item, index) => {
-          const managerOnlyPaths = ["/ai-leads", "/reports", "/sales-forecast"];
+          const managerOnlyPaths = ["/ai-leads", "/sales-forecast"];
           if (!isAdminOrManager && managerOnlyPaths.includes(item.path)) {
             return null;
           }

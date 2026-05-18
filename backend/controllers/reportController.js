@@ -1708,6 +1708,7 @@ async function runLeadsReport(plan, user) {
   if (plan.metric === "inactive_leads") {
     match.is_active = false;
     match.is_deleted = { $ne: true };
+    match.converted_to_deal = { $ne: true };
   }
   if (Array.isArray(plan.filters?.sourceIds) && plan.filters.sourceIds.length) {
     match.source = {
