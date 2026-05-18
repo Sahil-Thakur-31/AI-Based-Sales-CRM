@@ -1,20 +1,41 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../../api'
 import AuthBrandHeader from '../../components/AuthBrandHeader';
 import FormErrorSlot from '../../components/FormErrorSlot';
-import { minLength, validEmail } from '../../utils/formValidation';
+import { isBlank, required, validEmail } from '../../utils/formValidation';
 import "./verify.css"
+
+const formatRemainingLockTime = (remainingMs) => {
+    const totalSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    if (!minutes) {
+        return `${seconds} second${seconds === 1 ? "" : "s"}`;
+    }
+
+    if (!seconds) {
+        return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+    }
+
+    return `${minutes} minute${minutes === 1 ? "" : "s"} ${seconds} second${seconds === 1 ? "" : "s"}`;
+};
+
+const LAST_LOGIN_EMAIL_KEY = "lastLoginEmail";
+const buildLockStorageKey = (email = "") => `loginLock:${String(email || "").trim().toLowerCase()}`;
 
 function Login() {
     const [logininfo, setLogininfo] = useState({
-        email: '',
+        email: localStorage.getItem(LAST_LOGIN_EMAIL_KEY) || '',
         password: ''
     });
     const [captchaChecked, setCaptchaChecked] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+    const [lockUntil, setLockUntil] = useState(null);
+    const [lockMessage, setLockMessage] = useState('');
     const [fieldErrors, setFieldErrors] = useState({
         email: "",
         password: "",
@@ -49,16 +70,109 @@ function Login() {
     };
 
     const navigate = useNavigate();
-    const feedbackMsg = errorMsg || successMsg;
+    const feedbackMsg = lockMessage || errorMsg || successMsg;
     const isSuccessFeedback = !errorMsg && Boolean(successMsg);
+    const isLocked = Boolean(lockUntil && new Date(lockUntil).getTime() > Date.now());
+
+    useEffect(() => {
+        const normalizedEmail = String(logininfo.email || "").trim().toLowerCase();
+        if (!normalizedEmail) {
+            setLockUntil(null);
+            setLockMessage('');
+            return;
+        }
+
+        localStorage.setItem(LAST_LOGIN_EMAIL_KEY, normalizedEmail);
+    }, [logininfo.email]);
+
+    useEffect(() => {
+        if (!lockUntil) {
+            setLockMessage('');
+            const normalizedEmail = String(logininfo.email || "").trim().toLowerCase();
+            if (normalizedEmail) {
+                localStorage.removeItem(buildLockStorageKey(normalizedEmail));
+            }
+            return undefined;
+        }
+
+        const normalizedEmail = String(logininfo.email || "").trim().toLowerCase();
+        if (normalizedEmail) {
+            localStorage.setItem(buildLockStorageKey(normalizedEmail), lockUntil);
+        }
+
+        const updateLockMessage = () => {
+            const remainingMs = new Date(lockUntil).getTime() - Date.now();
+
+            if (remainingMs <= 0) {
+                setLockUntil(null);
+                setLockMessage('');
+                return;
+            }
+
+            setLockMessage(
+                `Your account is temporarily locked due to multiple unsuccessful login attempts. Please try again in ${formatRemainingLockTime(remainingMs)}.`
+            );
+        };
+
+        updateLockMessage();
+        const intervalId = window.setInterval(updateLockMessage, 1000);
+
+        return () => window.clearInterval(intervalId);
+    }, [lockUntil, logininfo.email]);
+
+    useEffect(() => {
+        const normalizedEmail = String(logininfo.email || "").trim().toLowerCase();
+        if (!normalizedEmail || validEmail(normalizedEmail)) {
+            setLockUntil(null);
+            setLockMessage('');
+            return undefined;
+        }
+
+        const storedLockUntil = localStorage.getItem(buildLockStorageKey(normalizedEmail));
+        if (storedLockUntil && new Date(storedLockUntil).getTime() > Date.now()) {
+            setLockUntil(storedLockUntil);
+        }
+
+        let isActive = true;
+        const timerId = window.setTimeout(async () => {
+            try {
+                const response = await API.post('/auth/login-status', { email: normalizedEmail });
+                if (!isActive) return;
+
+                if (response.data?.isLocked && response.data?.lockedUntil) {
+                    setLockUntil(response.data.lockedUntil);
+                    setLockMessage(response.data.message || '');
+                } else {
+                    setLockUntil(null);
+                    setLockMessage('');
+                }
+            } catch (err) {
+                if (!isActive) return;
+
+                if (storedLockUntil && new Date(storedLockUntil).getTime() > Date.now()) {
+                    setLockUntil(storedLockUntil);
+                }
+            }
+        }, 250);
+
+        return () => {
+            isActive = false;
+            window.clearTimeout(timerId);
+        };
+    }, [logininfo.email]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
 
+        if (isLocked) {
+            handleError(lockMessage || "Your account is temporarily locked. Please try again later.");
+            return;
+        }
+
         const { email, password } = logininfo;
         const nextErrors = {
             email: validEmail(email),
-            password: minLength(password, 6, "Password"),
+            password: required(password, "Password"),
             captcha: !captchaChecked ? "Please confirm you are not a robot" : "",
         };
 
@@ -77,6 +191,8 @@ function Login() {
             const result = response.data;
 
             if (response.status === 200) {
+                setLockUntil(null);
+                setLockMessage('');
                 handleSuccess(result.msg);
 
                 localStorage.setItem('token', result.jwtToken);
@@ -95,8 +211,17 @@ function Login() {
             console.error(err);
             const backendMessage =
                 err.response?.data?.error?.details?.[0]?.message ||
+                err.response?.data?.message ||
                 err.response?.data?.msg ||
+                err.userMessage ||
                 "";
+            const lockedUntil = err.response?.data?.lockedUntil;
+
+            if (lockedUntil) {
+                setLockUntil(lockedUntil);
+            } else if (!isBlank(logininfo.email)) {
+                localStorage.removeItem(buildLockStorageKey(logininfo.email));
+            }
 
             handleError(
                 /captchaid|captchaanswer/i.test(backendMessage)
@@ -166,7 +291,9 @@ function Login() {
                         message={feedbackMsg}
                         className={`form-error-slot-global form-error-slot-center login-feedback-slot ${isSuccessFeedback ? "login-feedback-slot-success" : ""}`}
                     />
-                    <button type='Submit' disabled={loading}>login</button>
+                    <button type='Submit' disabled={loading || isLocked}>
+                        {loading ? "Signing in..." : isLocked ? "Locked" : "Login"}
+                    </button>
                     <span className="form-footer-link">
                         <Link to='/forgot-password'> Forgot password</Link>
                     </span>
