@@ -1246,6 +1246,17 @@ function LeadsDashboard({ defaultView = "leads" }) {
   };
 
   const loading = viewMode === "deals" ? loadingDeals : loadingLeads;
+  const isWonOrConvertedRow = (row, mode = viewMode) => {
+    if (!row) return false;
+    const stage = String(row.stage || "").toUpperCase();
+
+    if (mode === "deals") {
+      return stage === "P7";
+    }
+
+    return stage === "P7" || row.converted_to_deal === true;
+  };
+
   const isRowActive = (row, mode = viewMode) => {
     if (!row) return true;
     if (row.is_active === false || row.isActive === false) return false;
@@ -1463,7 +1474,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
               {viewMode === "deals" && <th>Stage</th>}
               <th className="col-last-contact">Last Contact</th>
               {!(viewMode === "deals" && activeTab === "inactive") && <th>Next Action</th>}
-              {viewMode === "deals" && activeTab === "inactive" && <th>Stage</th>}
               {activeTab === "deleted" && <th>Delete Reason</th>}
               <th></th>
             </tr>
@@ -1507,13 +1517,6 @@ function LeadsDashboard({ defaultView = "leads" }) {
                   )}
                   <td className="last-contact-cell" data-label="Last Contact">{formatDate(row.last_contact_date)}</td>
                   {!(viewMode === "deals" && activeTab === "inactive") && <td data-label="Next Action">{row.next_action || "-"}</td>}
-                  {viewMode === "deals" && activeTab === "inactive" && (
-                    <td data-label="Stage">
-                      <span className="stage-chip">
-                        {row.stage || "-"}
-                      </span>
-                    </td>
-                  )}
                   {activeTab === "deleted" && (
                     <td data-label="Delete Reason">
                       <span className="delete-reason">
@@ -1541,6 +1544,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
                       </button>
 
                       {activeTab === "inactive" && (
+                        !isWonOrConvertedRow(row, viewMode) && (
                         <button
                           className="view-btn quote-btn"
                           style={{ backgroundColor: '#28a745' }}
@@ -1557,6 +1561,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
                         >
                           Activate
                         </button>
+                        )
                       )}
 
                       {viewMode === "deals" && activeTab === "active" && !isAdmin && (
