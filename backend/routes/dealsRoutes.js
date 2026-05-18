@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authenticate = require("../middlewares/auth");
 const {
+  createDeal,
   getDeals,
   getSalesReportKpis,
   getSalesAnalytics,
@@ -12,6 +13,7 @@ const {
 } = require("../controllers/dealsController");
 
 // router.get("/client-suggestions", authenticate, getClientSuggestions);
+router.post("/", authenticate, createDeal);
 router.get("/", authenticate, getDeals);
 router.get("/reports/kpis", authenticate, getSalesReportKpis);
 router.get("/reports/analytics", authenticate, getSalesAnalytics);

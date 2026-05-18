@@ -173,6 +173,35 @@ function getPeriodLabel(period, month, quarter, year) {
   return getMonthYearLabel(month, year);
 }
 
+function getPreviousMonthYearLabel(month, year) {
+  const normalizedYear = Number.parseInt(year, 10);
+  const safeYear = Number.isFinite(normalizedYear) ? normalizedYear : new Date().getFullYear();
+  return new Date(safeYear, month - 1, 1).toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function getPreviousQuarterLabel(quarter, year) {
+  const normalizedYear = Number.parseInt(year, 10);
+  const safeYear = Number.isFinite(normalizedYear) ? normalizedYear : new Date().getFullYear();
+  const quarterOrder = ["q1", "q2", "q3", "q4"];
+  const currentIndex = Math.max(0, quarterOrder.indexOf(quarter));
+  const previousIndex = currentIndex === 0 ? 3 : currentIndex - 1;
+  const previousYear = currentIndex === 0 ? safeYear - 1 : safeYear;
+  return getQuarterYearLabel(quarterOrder[previousIndex], previousYear);
+}
+
+function getPreviousPeriodLabel(period, month, quarter, year) {
+  if (period === "quarterly") return getPreviousQuarterLabel(quarter, year);
+  if (period === "yearly") return String(Number.parseInt(year, 10) - 1 || new Date().getFullYear() - 1);
+  return getPreviousMonthYearLabel(month, year);
+}
+
+function formatComparisonAmount(value) {
+  return formatINR(Math.abs(value));
+}
+
 async function apiGet(path, params = {}, signal) {
   const res = await API.get(path, { params, signal });
   return res.data;
@@ -184,6 +213,7 @@ function getMockDashboard(range = "month", pipelineType = "deal") {
 
   const summary = {
     revenueWon: Math.round(4300000 * mult),
+    revenuePreviousValue: Math.round(3760000 * mult),
     revenueDeltaPct: range === "week" ? 6.2 : range === "quarter" ? 18.7 : 14.3,
     activeDeals: range === "week" ? 2 : range === "quarter" ? 9 : 4,
     activeDealsDelta: range === "week" ? 1 : range === "quarter" ? 5 : 3,
@@ -328,6 +358,11 @@ export default function AdminHome() {
   const FOLLOWUPS_PER_PAGE = 5;
   const today = new Date();
 
+  useEffect(() => {
+    document.body.classList.add("dashboard-scroll-hidden");
+    return () => document.body.classList.remove("dashboard-scroll-hidden");
+  }, []);
+
   const [period, setPeriod] = useState("monthly");
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
   const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
@@ -346,6 +381,7 @@ export default function AdminHome() {
 
   const [summary, setSummary] = useState({
     revenueWon: 0,
+    revenuePreviousValue: 0,
     revenueDeltaPct: 0,
     activeDeals: 0,
     activeDealsDelta: 0,
@@ -365,6 +401,11 @@ export default function AdminHome() {
   const navigate = useNavigate();
   const range = mapPeriodToRange(period);
   const rangeLabel = getPeriodLabel(period, selectedMonth, selectedQuarter, selectedYear);
+  const previousPeriodLabel = getPreviousPeriodLabel(period, selectedMonth, selectedQuarter, selectedYear);
+  const revenueDifference = Number(summary.revenueWon || 0) - Number(summary.revenuePreviousValue || 0);
+  const revenueWonSub = true
+    ? `${formatComparisonAmount(revenueDifference)} ${revenueDifference >= 0 ? "greater" : "less"} than ${previousPeriodLabel}`
+    : `${summary.revenueDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(summary.revenueDeltaPct)}% vs previous ${rangeLabel.toLowerCase()}`;
   const dashboardFilters = useMemo(
     () => ({
       period,
@@ -478,6 +519,7 @@ export default function AdminHome() {
       sub: `${summary.revenueDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.revenueDeltaPct
       )}% vs previous ${rangeLabel.toLowerCase()}`,
+      sub: revenueWonSub,
       accent: "green",
     },
     {
@@ -486,6 +528,7 @@ export default function AdminHome() {
       sub: `${summary.activeDealsDelta >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.activeDealsDelta
       )} added in ${rangeLabel.toLowerCase()}`,
+      sub: `New Deals Created in ${rangeLabel}`,
       accent: "blue",
     },
     {
@@ -502,6 +545,7 @@ export default function AdminHome() {
       sub: `${summary.pipelineDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
         summary.pipelineDeltaPct
       )}% vs target`,
+      sub: "Total Value Of Open Deals",
       accent: "purple",
     },
     {
@@ -709,7 +753,7 @@ export default function AdminHome() {
 
                 <CCardBody className="followupsPanelBody">
                   <div className="followList">
-                    {visibleFollowups.map((f) => (
+                    {visibleFollowups.length ? visibleFollowups.map((f) => (
                       <div key={f.id} className="followItem">
                         <div className="followIcon">{f.icon}</div>
 
@@ -745,16 +789,20 @@ export default function AdminHome() {
                           </CBadge>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="followEmpty">No upcoming follow-ups found.</div>
+                    )}
                   </div>
-                  <div className="admin-panel-pagination">
-                    <Pagination
-                      currentPage={followupsPage}
-                      totalPages={totalFollowupsPages}
-                      handlePageChange={setFollowupsPage}
-                      showSinglePage
-                    />
-                  </div>
+                  {followups.length ? (
+                    <div className="admin-panel-pagination">
+                      <Pagination
+                        currentPage={followupsPage}
+                        totalPages={totalFollowupsPages}
+                        handlePageChange={setFollowupsPage}
+                        showSinglePage
+                      />
+                    </div>
+                  ) : null}
                 </CCardBody>
               </CCard>
             </div>

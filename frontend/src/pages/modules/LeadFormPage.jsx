@@ -1037,7 +1037,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         delete payload.status;
 
         response = isNew
-          ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
+          ? await API.post(dealView ? "/deals" : "/leads", payload)
           : await API.put(dealView ? `/deals/${dealIdFromQuery || id}` : `/leads/${id}`, payload);
       }
 
@@ -1051,7 +1051,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         if (clientView) {
           navigate("/clients");
         } else if (dealView && data.deal) {
-          navigate(`/leads/${data.lead._id}?view=deal&dealId=${data.deal._id}`);
+          navigate(`/leads/${data.deal._id}?view=deal&dealId=${data.deal._id}`);
         } else {
           navigate(`/leads/${data._id || data.lead?._id}`);
         }

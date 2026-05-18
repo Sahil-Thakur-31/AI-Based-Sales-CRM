@@ -1,3 +1,12 @@
+body.dashboard-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body.dashboard-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 .ManagerDashboard .dashboard {
   flex: 1;
   overflow-y: auto;
@@ -56,6 +65,7 @@
 .ManagerDashboard .manager-stat-col .stat-card p {
   font-size: 12px;
   line-height: 1.3;
+  color: #16a34a;
 }
 
 .ManagerDashboard .manager-summary-row {
@@ -72,9 +82,15 @@
 }
 
 .ManagerDashboard .manager-followups-scroll {
-  max-height: 520px;
+  max-height: 440px;
   overflow-y: auto;
   padding-right: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ManagerDashboard .manager-followups-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .ManagerDashboard .manager-followups-head {

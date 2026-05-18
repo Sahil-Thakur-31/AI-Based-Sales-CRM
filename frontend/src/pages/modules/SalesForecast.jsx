@@ -37,6 +37,11 @@ const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
 const AiBadge = () => <span className="forecast-ai-badge">AI</span>;
 
 const SalesForecasting = () => {
+  useEffect(() => {
+    document.body.classList.add("dashboard-scroll-hidden");
+    return () => document.body.classList.remove("dashboard-scroll-hidden");
+  }, []);
+
   const [forecastData, setForecastData] = useState(null);
   const [selectedRange, setSelectedRange] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -144,7 +149,6 @@ const SalesForecasting = () => {
         <div className="kpi-card">
           <h3>{formatCurrency(summary.totalPipelineValue)}</h3>
           <p>Total Pipeline Value</p>
-          <span className="positive">{summary.totalActiveDeals} active deals</span>
         </div>
 
         <div className="kpi-card">
@@ -209,10 +213,17 @@ const SalesForecasting = () => {
                 </div>
 
                 <div className="forecast-stage-pagination">
+                  <div className="forecast-stage-pagination-meta">
+                    <span>{stage.stageKey} Pages</span>
+                    <span>
+                      {currentPage} / {totalPages}
+                    </span>
+                  </div>
                   <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
                     handlePageChange={(page) => handleStagePageChange(stage.stageKey, page)}
+                    showSinglePage
                   />
                 </div>
               </div>

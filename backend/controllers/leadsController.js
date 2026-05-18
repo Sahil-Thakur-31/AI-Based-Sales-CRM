@@ -606,12 +606,8 @@ exports.getLeads = async (req, res) => {
         : {
           $and: [
             { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
-            {
-              $or: [
-                { converted_to_deal: { $ne: true } },
-                { is_active: false },
-              ],
-            },
+            // Default lead lists should only show leads that have not been converted.
+            { converted_to_deal: { $ne: true } },
           ],
         };
 

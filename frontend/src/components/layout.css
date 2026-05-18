@@ -29,6 +29,15 @@
     overflow-x: hidden;
 }
 
+body.dashboard-scroll-hidden .page-content {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+body.dashboard-scroll-hidden .page-content::-webkit-scrollbar {
+    display: none;
+}
+
 .sidebar-overlay {
     display: none;
 }

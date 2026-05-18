@@ -4,7 +4,7 @@ import API from "../../api";
 import DashboardDateFilter from "../../components/DashboardDateFilter";
 import FormErrorSlot from "../../components/FormErrorSlot";
 import Pagination from "../../components/Pagination";
-import { ALL_STAGE_OPTIONS } from "../../utils/stages";
+import { ALL_STAGE_OPTIONS, buildStageOptions } from "../../utils/stages";
 import { minLength } from "../../utils/formValidation";
 import { handleError } from "../../utils";
 import LeadFormPage from "./LeadFormPage";
@@ -190,6 +190,7 @@ function mapDocToMeeting(doc) {
     dueDateTime: doc.dueDateTime,
     status: doc.status || "pending",
     priority: doc.priority || "medium",
+    aiPriority: doc.aiPriority || "",
     reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
     notes: doc.notes || "",
     durationMinutes: doc.durationMinutes || "",
@@ -216,6 +217,7 @@ function mapDocToFollowup(doc) {
     due: formatDate(doc.dueDateTime),
     dueDateTime: doc.dueDateTime,
     priority: doc.priority || "medium",
+    aiPriority: doc.aiPriority || "",
     reminderEnabled: doc.reminderEnabled === false ? "no" : "yes",
     eventType: doc.actionType || "Follow Up Phone Call",
     time: formatTime(doc.dueDateTime),
@@ -259,6 +261,11 @@ function getStageOptionLabel(stage = {}) {
 }
 
 export default function FollowupsAddPage() {
+  useEffect(() => {
+    document.body.classList.add("dashboard-scroll-hidden");
+    return () => document.body.classList.remove("dashboard-scroll-hidden");
+  }, []);
+
   const location = useLocation();
   const today = new Date();
   const [activeAction, setActiveAction] = useState("add");
@@ -309,6 +316,23 @@ export default function FollowupsAddPage() {
     const candidate = fromState || fromQuery;
     return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : "";
   }, [location.search, location.state?.selectedDate]);
+  const selectedActionFromRoute = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const queryValue = String(params.get("view") || params.get("section") || "").trim().toLowerCase();
+    const stateValue = String(
+      location.state?.activeAction || location.state?.view || location.state?.section || ""
+    )
+      .trim()
+      .toLowerCase();
+    const candidate = queryValue || stateValue;
+    return ["add", "followup", "meeting"].includes(candidate) ? candidate : "";
+  }, [location.search, location.state?.activeAction, location.state?.section, location.state?.view]);
+
+  useEffect(() => {
+    if (selectedActionFromRoute) {
+      setActiveAction(selectedActionFromRoute);
+    }
+  }, [selectedActionFromRoute]);
 
   const filteredFollowups = useMemo(
     () =>
@@ -414,6 +438,11 @@ export default function FollowupsAddPage() {
     const userIds = team?.userIds || [];
     return employeeOptions.filter((user) => userIds.includes(String(user.id)));
   }, [employeeOptions, selectedTeamId, teamOptions]);
+
+  const formStageOptions = useMemo(
+    () => buildStageOptions(formData.sourceType === "deal" ? "deal" : "lead"),
+    [formData.sourceType]
+  );
 
   const assignableEmployeeOptions = useMemo(() => {
     const withSelfFirst = (users = []) => {
@@ -571,6 +600,9 @@ export default function FollowupsAddPage() {
   useEffect(() => {
     const rawRole = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
     setCurrentRole(rawRole);
+    if (rawRole === "admin") {
+      setRecordScope("all");
+    }
   }, []);
 
   useEffect(() => {
@@ -1467,6 +1499,7 @@ export default function FollowupsAddPage() {
             <div className="meta">
               <span>Due: {f.due}</span>
               <span>{f.stage}</span>
+              {isCompletedStatus(f.status) && f.aiPriority ? <span>AI: {f.aiPriority}</span> : null}
               <span className={cx("fuaStatus", String(f.status).toLowerCase() === "completed" ? "completed" : "pending")}>{completionText(f.status)}</span>
             </div>
           </div>
@@ -1489,6 +1522,7 @@ export default function FollowupsAddPage() {
             <div className="meta">
               <span>Time: {m.time}</span>
               <span>{m.priority || "medium"}</span>
+              {isCompletedStatus(m.status) && m.aiPriority ? <span>AI: {m.aiPriority}</span> : null}
               <span className={cx("fuaStatus", String(m.status).toLowerCase() === "completed" ? "completed" : "pending")}>{completionText(m.status)}</span>
             </div>
           </div>
@@ -1517,7 +1551,7 @@ export default function FollowupsAddPage() {
               }
             }}
           >
-            <option value="mine">My Records</option>
+            {currentRole !== "admin" ? <option value="mine">My Records</option> : null}
             <option value="all">Select</option>
           </select>
           <select
@@ -1531,7 +1565,7 @@ export default function FollowupsAddPage() {
             }}
           >
             <option value="">All Teams</option>
-            <option value="__mine__">My Records</option>
+            {currentRole !== "admin" ? <option value="__mine__">My Records</option> : null}
             {teamOptions.map((t) => (
               <option key={t.id} value={t.id}>{t.label}</option>
             ))}
@@ -1547,7 +1581,7 @@ export default function FollowupsAddPage() {
             }}
           >
             <option value="">All Employees</option>
-            <option value="__mine__">My Records</option>
+            {currentRole !== "admin" ? <option value="__mine__">My Records</option> : null}
             {visibleEmployeeOptions.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
@@ -1688,6 +1722,7 @@ export default function FollowupsAddPage() {
             ["Time", item.time || "--:--"],
             ["Due", formatDate(item.dueDateTime)],
             ["Priority", item.priority || "-"],
+            ["AI Priority", item.aiPriority || "-"],
             ["Status", item.status || "-"],
             ["Duration (Minutes)", item.durationMinutes || "-"],
             ["Agenda", item.agenda || "-"],
@@ -1706,6 +1741,7 @@ export default function FollowupsAddPage() {
           ["Stage", item.stage || "-"],
           ["Due", item.due || formatDate(item.dueDateTime)],
           ["Priority", item.priority || "-"],
+          ["AI Priority", item.aiPriority || "-"],
           ["Status", item.status || "-"],
           ["Action Type", item.eventType || "-"],
           ["Reminder", item.reminderEnabled === "no" ? "No" : "Yes"],
@@ -1876,7 +1912,12 @@ export default function FollowupsAddPage() {
                 value={formData.stage}
                 onChange={(e) => setFormData((p) => ({ ...p, stage: e.target.value }))}
               >
-                {STAGES.map((s) => <option key={s.key} value={s.key}>{getStageOptionLabel(s)}</option>)}
+                <option value="">--Please Select--</option>
+                {formStageOptions.map((stage) => (
+                  <option key={stage.key} value={stage.key}>
+                    {getStageOptionLabel(stage)}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="fuFormLabel">

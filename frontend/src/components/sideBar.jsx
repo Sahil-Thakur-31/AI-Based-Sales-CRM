@@ -190,6 +190,9 @@ export default function Sidebar({
           if (!isAdminOrManager && managerOnlyPaths.includes(item.path)) {
             return null;
           }
+          if (normalizedRole === "admin" && item.path.startsWith("/daily-closing")) {
+            return null;
+          }
 
           const isDealView =
             location.pathname.startsWith("/leads/") && location.search.includes("view=deal");

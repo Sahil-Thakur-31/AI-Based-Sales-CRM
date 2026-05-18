@@ -120,10 +120,6 @@ function MeetingsEventsPanel({
           <small>Total Activities</small>
           <strong>{footerStats.totalActivities || 0}</strong>
         </div>
-        <div>
-          <small>Upcoming</small>
-          <strong>{footerStats.upcoming || 0}</strong>
-        </div>
       </div>
     </div>
   );

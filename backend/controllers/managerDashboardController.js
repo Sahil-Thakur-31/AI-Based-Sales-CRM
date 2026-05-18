@@ -593,13 +593,13 @@ exports.getDashboard = async (req, res) => {
       Meeting.countDocuments({
         assignedTo: assignedUserMatch,
         is_deleted: { $ne: true },
-        meetingDate: { $gte: now },
+        meetingDate: { $gte: now > rangeStart ? now : rangeStart, $lt: rangeEnd },
         status: { $in: ["scheduled", "rescheduled"] }
       }),
       Event.countDocuments({
         is_deleted: false,
         status: "upcoming",
-        startDate: { $gte: now }
+        startDate: { $gte: now > rangeStart ? now : rangeStart, $lt: rangeEnd }
       }),
       Deal.aggregate([
         {
@@ -736,21 +736,21 @@ exports.getDashboard = async (req, res) => {
       {
         title: "Follow-ups & Meetings",
         value: summary.followupsInRange + summary.meetingsInRange,
-        sub: `${summary.followupsInRange} follow-ups and ${summary.meetingsInRange} meetings in ${selectedRange.label || selectedRange.range}`,
+        sub: `Follow-ups: ${summary.followupsInRange} | Meetings: ${summary.meetingsInRange} in ${selectedRange.label || selectedRange.range}`,
         icon: "📞",
         color: "blue"
       },
       {
         title: "Active Deals",
         value: summary.activeDeals,
-        sub: `${summary.dealsAddedThisWeek} new deals added in ${selectedRange.label || selectedRange.range}`,
+        sub: `Deals Created In ${selectedRange.label || selectedRange.range}`,
         icon: "💼",
         color: "green"
       },
       {
         title: "Active Leads",
         value: summary.activeLeads,
-        sub: `Active leads created in ${selectedRange.label || selectedRange.range}`,
+        sub: `Leads Created In ${selectedRange.label || selectedRange.range}`,
         icon: "🧲",
         color: "cyan"
       },

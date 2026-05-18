@@ -1215,6 +1215,10 @@ function LeadsDashboard({ defaultView = "leads" }) {
   };
 
   const loading = viewMode === "deals" ? loadingDeals : loadingLeads;
+  const isConvertedLeadRow = (row) =>
+    Boolean(row?.converted_to_deal || row?.converted_deal_id) ||
+    String(row?.stage || "").toUpperCase() === "P7";
+
   const isRowActive = (row, mode = viewMode) => {
     if (!row) return true;
     if (row.is_active === false || row.isActive === false) return false;
@@ -1236,8 +1240,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
       inactive = deals.filter((d) => !isRowActive(d, "deals")).length;
       deleted = deletedDeals.length;
     } else {
-      active = leads.filter((l) => isRowActive(l)).length;
-      inactive = leads.filter((l) => !isRowActive(l)).length;
+      const visibleLeads = leads.filter((l) => !isConvertedLeadRow(l));
+      active = visibleLeads.filter((l) => isRowActive(l)).length;
+      inactive = visibleLeads.filter((l) => !isRowActive(l)).length;
       deleted = deletedLeads.length;
     }
     return { active, inactive, deleted };
@@ -1250,7 +1255,9 @@ function LeadsDashboard({ defaultView = "leads" }) {
       return deals.filter((d) => (activeTab === "active" ? isRowActive(d, "deals") : !isRowActive(d, "deals")));
     } else {
       if (activeTab === "deleted") return deletedLeads;
-      return leads.filter((l) => (activeTab === "active" ? isRowActive(l) : !isRowActive(l)));
+      return leads.filter(
+        (l) => !isConvertedLeadRow(l) && (activeTab === "active" ? isRowActive(l) : !isRowActive(l))
+      );
     }
   }, [viewMode, activeTab, deals, deletedDeals, leads, deletedLeads]);
   const industries = useMemo(() => {
