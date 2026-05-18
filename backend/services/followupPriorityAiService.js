@@ -7,6 +7,9 @@ const mongoose = require("mongoose");
 
 const Followup = require("../models/followUp");
 const Meeting = require("../models/meetings");
+const Lead = require("../models/leads");
+const Deal = require("../models/deals");
+const Client = require("../models/client");
 
 const execFileAsync = promisify(execFile);
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
@@ -37,6 +40,43 @@ function daysUntil(date, fromDate = new Date()) {
   const current = new Date(fromDate);
   if (Number.isNaN(target.getTime()) || Number.isNaN(current.getTime())) return 0;
   return Math.floor((target.getTime() - current.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+async function getDaysSinceLastCompletedContact(entityFilter, now = new Date(), excludeId = null) {
+  if (!entityFilter) return 0;
+
+  const lastCompletedRecord = await Followup.findOne({
+    ...entityFilter,
+    is_deleted: { $ne: true },
+    status: "completed",
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+  })
+    .sort({ completedAt: -1, updatedAt: -1, createdAt: -1 })
+    .select("completedAt updatedAt createdAt")
+    .lean();
+
+  const referenceDate = lastCompletedRecord?.completedAt
+    || lastCompletedRecord?.updatedAt
+    || lastCompletedRecord?.createdAt;
+
+  if (!referenceDate) {
+    if (entityFilter.dealId) {
+      const deal = await Deal.findById(entityFilter.dealId).select("createdAt").lean();
+      return diffInDays(deal?.createdAt, now);
+    }
+
+    if (entityFilter.leadId) {
+      const lead = await Lead.findById(entityFilter.leadId).select("created_at").lean();
+      return diffInDays(lead?.created_at, now);
+    }
+
+    if (entityFilter.clientId) {
+      const client = await Client.findById(entityFilter.clientId).select("createdAt").lean();
+      return diffInDays(client?.createdAt, now);
+    }
+  }
+
+  return diffInDays(referenceDate, now);
 }
 
 function normalizePriority(value = "") {
@@ -200,7 +240,7 @@ async function buildFollowupFeatures(doc) {
 
   const selfId = toObjectId(doc?._id);
 
-  const [relatedCount, overdueCount] = await Promise.all([
+  const [relatedCount, overdueCount, daysSinceLastContact] = await Promise.all([
     baseFilter
       ? Followup.countDocuments({
           ...baseFilter,
@@ -220,6 +260,7 @@ async function buildFollowupFeatures(doc) {
           ],
         })
       : 0,
+    getDaysSinceLastCompletedContact(entityFilter, now, selfId),
   ]);
 
   return {
@@ -228,7 +269,7 @@ async function buildFollowupFeatures(doc) {
     stage: String(doc?.stage || "P1"),
     priority: normalizePriority(doc?.priority),
     status: normalizeFollowupStatus(doc?.status),
-    days_since_last_contact: diffInDays(doc?.lastContactDate || doc?.updatedAt || doc?.createdAt, now),
+    days_since_last_contact: daysSinceLastContact,
     days_until_event: daysUntil(doc?.dueDateTime, now),
     overdue_count: overdueCount,
     related_count: relatedCount,
@@ -248,7 +289,7 @@ async function buildMeetingFeatures(doc) {
   const selfId = toObjectId(doc?.sourceFollowupId || doc?._id);
   const meetingDate = doc?.startTime || doc?.meetingDate || doc?.dueDateTime || null;
 
-  const [relatedCount, overdueCount] = await Promise.all([
+  const [relatedCount, overdueCount, daysSinceLastContact] = await Promise.all([
     baseFilter
       ? Followup.countDocuments({
           ...baseFilter,
@@ -268,6 +309,7 @@ async function buildMeetingFeatures(doc) {
           ],
         })
       : 0,
+    getDaysSinceLastCompletedContact(entityFilter, now, selfId),
   ]);
 
   return {
@@ -276,7 +318,7 @@ async function buildMeetingFeatures(doc) {
     stage: String(doc?.stage || "P1"),
     priority: normalizePriority(doc?.priority),
     status: normalizeMeetingStatus(doc?.status),
-    days_since_last_contact: diffInDays(doc?.updatedAt || doc?.createdAt, now),
+    days_since_last_contact: daysSinceLastContact,
     days_until_event: daysUntil(meetingDate, now),
     overdue_count: overdueCount,
     related_count: relatedCount,

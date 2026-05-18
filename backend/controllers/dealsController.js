@@ -10,6 +10,8 @@ const Location = require("../models/location");
 const DealStageHistory = require("../models/dealStageHistory");
 const SalesTarget = require("../models/sales_targets");
 const Team = require("../models/teams");
+const Industry = require("../models/industries");
+const { persistForecastForDealIds } = require("../services/salesForecastService");
 
 const DEAL_WON_STAGE = "P7";
 const DEAL_LOST_STAGE = "P6";
@@ -19,6 +21,19 @@ function toValidDate(value) {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function computeAiRiskScore() {
+  return 70;
+}
+
+function normalizeOptionalObjectId(value) {
+  const raw = String(value || "").trim();
+  return mongoose.Types.ObjectId.isValid(raw) ? new mongoose.Types.ObjectId(raw) : null;
 }
 
 async function fetchFollowupInsightsByField(fieldName, ids = []) {
@@ -179,6 +194,76 @@ function normalizeContactRows(contacts = []) {
       is_primary: hasPrimary ? (contact.is_primary === true || contact.is_primary === "true") : index === 0,
     };
   });
+}
+
+function buildClientUpdatePayload(body = {}) {
+  const update = {};
+  const objectIdLikeFields = new Set([
+    "industry",
+    "source",
+    "referred_by_user",
+    "expo_event_id",
+    "location",
+  ]);
+  const clientFields = [
+    "industry",
+    "Address",
+    "employeeCount",
+    "turnoverRange",
+    "website",
+    "source",
+    "referred_by_user",
+    "expo_event_id",
+    "location",
+  ];
+
+  for (const field of clientFields) {
+    if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
+    const value = body[field];
+    if (value === undefined) continue;
+    if (value === "") {
+      update[field] = objectIdLikeFields.has(field) ? null : "";
+      continue;
+    }
+    update[field] = objectIdLikeFields.has(field) ? normalizeOptionalObjectId(value) : value;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "company_name")) {
+    update.name = String(body.company_name || "").trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "employee_count")) {
+    update.employeeCount = body.employee_count === "" ? null : body.employee_count;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "turnover_range")) {
+    update.turnoverRange = body.turnover_range || "";
+  }
+
+  return update;
+}
+
+async function resolveIndustryId(inputIndustry) {
+  const raw = String(inputIndustry || "").trim();
+  const fallbackName = raw || "General";
+
+  if (mongoose.Types.ObjectId.isValid(raw)) {
+    const existingById = await Industry.findById(raw).select("_id").lean();
+    if (existingById?._id) return existingById._id;
+  }
+
+  const existingByName = await Industry.findOne({
+    name: new RegExp(`^${escapeRegExp(fallbackName)}$`, "i"),
+  })
+    .select("_id")
+    .lean();
+  if (existingByName?._id) return existingByName._id;
+
+  const created = await Industry.create({
+    name: fallbackName,
+    is_deleted: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  return created._id;
 }
 
 function buildLeadUpdatePayload(body = {}) {
@@ -970,6 +1055,184 @@ exports.getDeals = async (req, res) => {
   }
 };
 
+exports.createDeal = async (req, res) => {
+  try {
+    const userRole = (req.user?.role || "").toLowerCase();
+    const actorId = req.user?._id || null;
+    const payload = { ...(req.body || {}) };
+
+    let assignedTo = payload.assignedTo || payload.assigned_to || null;
+    if (userRole !== "admin" && userRole !== "manager") {
+      assignedTo = actorId;
+    }
+    if (assignedTo && (await isAdminAssignee(assignedTo))) {
+      return res.status(400).json({ message: "Deal cannot be assigned to an admin user" });
+    }
+
+    const requestedDealName = String(payload.deal_name || payload.dealName || "").trim();
+    if (!requestedDealName) {
+      return res.status(400).json({ message: "Deal name is required" });
+    }
+
+    const companyName = String(payload.company_name || payload.companyName || "").trim();
+    if (!companyName) {
+      return res.status(400).json({ message: "Company name is required" });
+    }
+
+    const industryId = await resolveIndustryId(payload.industry);
+    const locationId = await resolveLocationId(payload);
+
+    let client = null;
+    const requestedClientId = String(payload.client_id || payload.clientId || "").trim();
+    if (requestedClientId && mongoose.Types.ObjectId.isValid(requestedClientId)) {
+      client = await Client.findOne({
+        _id: new mongoose.Types.ObjectId(requestedClientId),
+        is_deleted: { $ne: true },
+      }).lean();
+    }
+
+    if (!client) {
+      client = await Client.findOne({
+        name: new RegExp(`^${escapeRegExp(companyName)}$`, "i"),
+        is_deleted: { $ne: true },
+      }).lean();
+    }
+
+    const clientPayload = {
+      name: companyName,
+      industry: industryId,
+      Address: payload.Address || "",
+      employeeCount: payload.employee_count === "" ? null : payload.employee_count || null,
+      turnoverRange: payload.turnover_range || "",
+      website: payload.website || "",
+      source: normalizeOptionalObjectId(payload.source),
+      referred_by_user: normalizeOptionalObjectId(payload.referred_by_user),
+      expo_event_id: normalizeOptionalObjectId(payload.expo_event_id),
+      location: locationId || null,
+      updatedAt: new Date(),
+      is_deleted: false,
+    };
+
+    if (!client) {
+      client = await Client.create({
+        ...clientPayload,
+        deal_count: 0,
+        createdBy: actorId,
+        createdAt: new Date(),
+      });
+    } else {
+      await Client.updateOne(
+        { _id: client._id },
+        {
+          $set: {
+            industry: client.industry || clientPayload.industry,
+            Address: client.Address || clientPayload.Address,
+            employeeCount: client.employeeCount ?? clientPayload.employeeCount,
+            turnoverRange: client.turnoverRange || clientPayload.turnoverRange,
+            website: client.website || clientPayload.website,
+            source: client.source || clientPayload.source,
+            referred_by_user: client.referred_by_user || clientPayload.referred_by_user,
+            expo_event_id: client.expo_event_id || clientPayload.expo_event_id,
+            location: client.location || clientPayload.location,
+            updatedAt: new Date(),
+            is_deleted: false,
+          },
+        }
+      );
+      client = await Client.findById(client._id);
+    }
+
+    const contacts = normalizeContactRows(payload.contacts);
+    if (contacts.length) {
+      const existingClientContacts = await ClientContact.find({
+        client_id: String(client._id),
+        is_active: true,
+      })
+        .select("name phone email")
+        .lean();
+
+      const contactKey = (contact = {}) =>
+        [
+          String(contact.name || "").trim().toLowerCase(),
+          String(contact.email || "").trim().toLowerCase(),
+          String(contact.phone || "").trim(),
+        ].join("|");
+
+      const existingKeys = new Set(existingClientContacts.map(contactKey));
+      const newContacts = contacts
+        .filter((contact) => String(contact?.name || "").trim())
+        .filter((contact) => !existingKeys.has(contactKey(contact)))
+        .map((contact, index) => ({
+          client_id: String(client._id),
+          name: String(contact.name || "").trim(),
+          designation: contact.designation || "",
+          phone: contact.phone || "",
+          email: contact.email || "",
+          linkedin: contact.linkedin || "",
+          createdBy: actorId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          is_deleted: null,
+          is_active: true,
+          is_primary:
+            contact.is_primary === true ||
+            (index === 0 && existingClientContacts.length === 0),
+        }));
+
+      if (newContacts.length) {
+        await ClientContact.insertMany(newContacts);
+      }
+    }
+
+    const stage = ["P1", "P2", "P3", "P6", "P7"].includes(String(payload.stage || "").trim().toUpperCase())
+      ? String(payload.stage || "").trim().toUpperCase()
+      : "P3";
+    const actualCloseDate = INACTIVE_DEAL_STAGES.has(stage)
+      ? toValidDate(payload.actualCloseDate) || new Date()
+      : null;
+
+    const deal = await Deal.create({
+      deal_name: requestedDealName,
+      client_id: client._id,
+      lead_id: null,
+      assignedTo: assignedTo || null,
+      assignedBy: actorId,
+      stage,
+      dealValue: Number(payload.deal_value_estimate || payload.dealValue || 0) || 0,
+      probability: Number(payload.probability || 10) || 10,
+      expectedCloseDate: toValidDate(payload.expectedCloseDate) || undefined,
+      actualCloseDate,
+      aiRiskScore: computeAiRiskScore(),
+      isActive: !INACTIVE_DEAL_STAGES.has(stage),
+      is_deleted: false,
+    });
+
+    await DealStageHistory.create({
+      dealId: deal._id,
+      stage,
+      movedAt: new Date(),
+      movedBy: actorId,
+    });
+
+    await Client.updateOne(
+      { _id: client._id },
+      { $inc: { deal_count: 1 }, $set: { updatedAt: new Date() } }
+    );
+
+    try {
+      await persistForecastForDealIds([deal._id]);
+    } catch (forecastError) {
+      console.error("createDeal forecast persistence error:", forecastError);
+    }
+
+    const refreshedDeal = await Deal.findById(deal._id).lean();
+    res.status(201).json({ message: "Deal created successfully", deal: refreshedDeal, client });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ message: err.message || "Failed to create deal" });
+  }
+};
+
 exports.getSalesReportKpis = async (req, res) => {
   try {
     if (!req.user?._id) {
@@ -1148,14 +1411,14 @@ exports.getDealById = async (req, res) => {
       deal_name: deal.deal_name || "",
       company_name:
         getCompanyName(deal, lead, client),
-      industry: lead?.industry || "",
-      employee_count: lead?.employee_count || null,
-      turnover_range: lead?.turnover_range || "",
+      industry: lead?.industry || client?.industry || "",
+      employee_count: lead?.employee_count ?? client?.employeeCount ?? null,
+      turnover_range: lead?.turnover_range || client?.turnoverRange || "",
       Address: lead?.Address || client?.Address || "",
       website: lead?.website || client?.website || "",
       source: lead?.source || client?.source || "",
-      referred_by_user: lead?.referred_by_user || "",
-      expo_event_id: lead?.expo_event_id || "",
+      referred_by_user: lead?.referred_by_user || client?.referred_by_user || "",
+      expo_event_id: lead?.expo_event_id || client?.expo_event_id || "",
       deal_value_estimate:
         typeof deal.dealValue === "number"
           ? deal.dealValue
@@ -1176,9 +1439,10 @@ exports.getDealById = async (req, res) => {
     };
 
     // Add location fields if the lead has them
-    if (lead?.location) {
+    const locationRef = lead?.location || client?.location || null;
+    if (locationRef) {
       const Location = require("../models/location");
-      const location = await Location.findById(lead.location).lean();
+      const location = await Location.findById(locationRef).lean();
       if (location) {
         enriched.country = location.country || "";
         enriched.State = location.State || "";
@@ -1289,10 +1553,14 @@ exports.updateDeal = async (req, res) => {
     if (dealUpdate.assignedTo !== undefined) {
       leadUpdate.assigned_to = dealUpdate.assignedTo;
     }
+    const clientUpdate = buildClientUpdatePayload(update);
 
     const locationId = await resolveLocationId(update);
     if (locationId && existingDeal.lead_id) {
       leadUpdate.location = locationId;
+    }
+    if (locationId && existingDeal.client_id) {
+      clientUpdate.location = locationId;
     }
 
     let deal = existingDeal;
@@ -1307,6 +1575,9 @@ exports.updateDeal = async (req, res) => {
     if (existingDeal.lead_id && Object.keys(leadUpdate).length) {
       await Leads.findByIdAndUpdate(existingDeal.lead_id, { $set: leadUpdate });
     }
+    if (!existingDeal.lead_id && existingDeal.client_id && Object.keys(clientUpdate).length) {
+      await Client.findByIdAndUpdate(existingDeal.client_id, { $set: { ...clientUpdate, updatedAt: new Date() } });
+    }
 
     if (existingDeal.lead_id && Array.isArray(update.contacts)) {
       await LeadContacts.deleteMany({ lead_id: existingDeal.lead_id });
@@ -1317,8 +1588,37 @@ exports.updateDeal = async (req, res) => {
         );
       }
     }
+    if (!existingDeal.lead_id && existingDeal.client_id && Array.isArray(update.contacts)) {
+      await ClientContact.deleteMany({ client_id: String(existingDeal.client_id) });
+      const contacts = normalizeContactRows(update.contacts);
+      if (contacts.length) {
+        await ClientContact.insertMany(
+          contacts.map((contact) => ({
+            client_id: String(existingDeal.client_id),
+            name: String(contact.name || "").trim(),
+            designation: contact.designation || "",
+            phone: contact.phone || "",
+            email: contact.email || "",
+            linkedin: contact.linkedin || "",
+            createdBy: req.user?._id || existingDeal.assignedBy || existingDeal.assignedTo || null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            is_deleted: null,
+            is_active: true,
+            is_primary: contact.is_primary === true,
+          }))
+        );
+      }
+    }
 
     if (!deal) return res.status(404).json({ message: "Deal not found" });
+    try {
+      await persistForecastForDealIds([deal._id]);
+    } catch (forecastError) {
+      console.error("updateDeal forecast persistence error:", forecastError);
+    }
+
+    deal = await Deal.findById(deal._id).lean();
     res.json(deal);
   } catch (err) {
     console.error(err);

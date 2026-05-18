@@ -28,6 +28,13 @@ const sanitizeObjectIdList = (values = []) => {
 const roleName = (role) => String(role || "").trim().toLowerCase();
 const isAdminOrManager = (role) => ["admin", "manager"].includes(roleName(role));
 const isRestrictedUser = (role) => !isAdminOrManager(role);
+const resolveRequestRoleName = async (user = {}) => {
+  const directRole = roleName(user?.role);
+  if (["admin", "manager", "user"].includes(directRole)) return directRole;
+  if (!user?._id || !mongoose.Types.ObjectId.isValid(String(user._id))) return directRole;
+  const doc = await User.findById(user._id).populate("role", "name").select("role").lean();
+  return roleName(doc?.role?.name || directRole);
+};
 const normalizeDedupText = (value) =>
   String(value || "")
     .trim()
@@ -108,7 +115,10 @@ const eventApiWinnerScore = (eventDoc) => {
   const aiScore = Number(eventDoc?.aiRelevanceScore || 0);
   const hasRoleComparison = eventDoc?.roiRoleComparison ? 1 : 0;
   const hasPredictedRoi = Number.isFinite(Number(eventDoc?.predictedROI)) ? 1 : 0;
-  const registrationCount = Array.isArray(eventDoc?.registeredBy) ? eventDoc.registeredBy.length : 0;
+  const registrationCount =
+    (Array.isArray(eventDoc?.registeredBy) ? eventDoc.registeredBy.length : 0) +
+    (Array.isArray(eventDoc?.registrations) ? eventDoc.registrations.length : 0) +
+    (Array.isArray(eventDoc?.invitationResponses) ? eventDoc.invitationResponses.length : 0);
   const attendedCount = Array.isArray(eventDoc?.attendedBy) ? eventDoc.attendedBy.length : 0;
   const interestedCount = Array.isArray(eventDoc?.interested) ? eventDoc.interested.length : 0;
   const updatedAt = eventDoc?.updatedAt ? new Date(eventDoc.updatedAt).getTime() : 0;
@@ -231,15 +241,53 @@ const formatEvent = (eventDoc, userId) => {
     String(event.missedReason || "").trim() ||
     event.missedBy
   );
+  const graceBoundary = addDays(toStartOfDay(new Date()), -REGISTRATION_GRACE_DAYS);
+  const eventEndDate = getEventEndDate(event);
+  const isMissedByGrace = Boolean(eventEndDate && eventEndDate < graceBoundary);
+  const shouldShowMissedParticipants = isMissed || isMissedByGrace;
   const responseRows = Array.isArray(event.invitationResponses) ? event.invitationResponses : [];
+  const responseStatusByUser = new Map(
+    responseRows.map((response) => [
+      String(response?.user?._id || response?.user || ""),
+      String(response?.status || "pending").toLowerCase()
+    ])
+  );
   const currentUserResponse = responseRows.find(
     (response) => String(response?.user?._id || response?.user) === currentUserId
   );
+  const registeredIds = new Set((event.registeredBy || []).map((id) => String(id?._id || id)));
+  const attendedIds = new Set((event.attendedBy || []).map((id) => String(id?._id || id)));
+  const assignedUsersMap = new Map();
+  registrationRows.forEach((registration) => {
+    const addUser = (user, role) => {
+      const id = String(user?._id || user || "");
+      if (!id) return;
+      assignedUsersMap.set(id, {
+        _id: id,
+        name: user?.name || "",
+        email: user?.email || "",
+        role,
+        accepted: responseStatusByUser.get(id) === "accepted" || registeredIds.has(id),
+        rejected: responseStatusByUser.get(id) === "rejected",
+        attended: attendedIds.has(id),
+        missed: shouldShowMissedParticipants && registeredIds.has(id) && !attendedIds.has(id)
+      });
+    };
+    addUser(registration?.eventManagerUser, "Manager");
+    (registration?.attendeeUsers || []).forEach((user) => addUser(user, "Attendee"));
+  });
+  const assignedParticipants = Array.from(assignedUsersMap.values());
+  const acceptedParticipants = assignedParticipants.filter((user) => user.accepted);
+  const pendingParticipants = assignedParticipants.filter((user) => !user.accepted && !user.rejected);
+  const attendedParticipants = assignedParticipants.filter((user) => user.attended);
+  const missedParticipants = shouldShowMissedParticipants
+    ? assignedParticipants.filter((user) => user.accepted && !user.attended)
+    : [];
 
   const isRegisteredInLegacy = event.registeredBy?.some(
     (id) => String(id?._id || id) === currentUserId
   );
-  const isRegisteredInRegistration = false;
+  const isRegisteredInRegistration = currentUserResponse?.status === "accepted";
   const isPendingInvitation = registrationRows.some(
     (registration) =>
       Array.isArray(registration?.attendeeUsers) &&
@@ -270,12 +318,21 @@ const formatEvent = (eventDoc, userId) => {
       !isRegisteredInLegacy &&
       !isRegisteredInRegistration &&
       !isAttendingInLegacy &&
-      String(currentUserResponse?.status || "pending") !== "rejected"
+      String(currentUserResponse?.status || "pending") === "pending"
     ),
     myInvitationStatus: currentUserResponse?.status || (isPendingInvitation ? "pending" : ""),
     isAttending: Boolean(isAttendingInLegacy),
     isMissed,
     myRegistration,
+    assignedParticipants,
+    acceptedParticipants,
+    pendingParticipants,
+    attendedParticipants,
+    missedParticipants,
+    assignedCount: assignedParticipants.length,
+    acceptedCount: acceptedParticipants.length,
+    attendedCount: attendedParticipants.length,
+    missedParticipantCount: missedParticipants.length,
     registrationWebsiteUrl,
     registrationLocked: Array.isArray(event.attendedBy) && event.attendedBy.length > 0,
   };
@@ -360,6 +417,7 @@ const buildOwnEventFilter = (userId) => ({
   $or: [
     { "registrations.attendeeUsers": userId },
     { "registrations.user": userId },
+    { "invitationResponses.user": userId },
     { registeredBy: userId },
     { attendedBy: userId },
   ],
@@ -524,6 +582,7 @@ exports.getEvents = async (req, res) => {
     const filter = buildListFilter(req.query, req.user?._id);
     const currentUserId = req.user?._id;
     const ownEventFilter = buildOwnEventFilter(currentUserId);
+    const resolvedRole = await resolveRequestRoleName(req.user);
     const mineOnly =
       req.query.mine_only === "true" ||
       req.query.mine_only === true ||
@@ -544,7 +603,7 @@ exports.getEvents = async (req, res) => {
           ownEventFilter,
         ];
       }
-    } else if (isRestrictedUser(req.user?.role)) {
+    } else if (isRestrictedUser(resolvedRole)) {
       if (filter.$or) {
         filter.$and = [
           ...(Array.isArray(filter.$and) ? filter.$and : []),
@@ -571,12 +630,13 @@ exports.getEvents = async (req, res) => {
           $or: [
             { aiRecommendation: { $exists: false } },
             { aiRecommendation: null },
-            { aiRecommendation: "" }
+            { aiRecommendation: "" },
+            ownEventFilter,
           ]
         },
         aiSourceIds.length
-          ? { $or: [{ source: { $exists: false } }, { source: null }, { source: { $nin: aiSourceIds } }] }
-          : { $or: [{ source: { $exists: false } }, { source: null }] }
+          ? { $or: [{ source: { $exists: false } }, { source: null }, { source: { $nin: aiSourceIds } }, ownEventFilter] }
+          : { $or: [{ source: { $exists: false } }, { source: null }, ownEventFilter] }
       ];
     }
     const sort = { startDate: 1, createdAt: -1 };
@@ -596,7 +656,8 @@ exports.getEventSummary = async (req, res) => {
     await softDeleteExpiredEvents();
 
     const userId = req.user?._id;
-    const restrictedMode = isRestrictedUser(req.user?.role);
+    const resolvedRole = await resolveRequestRoleName(req.user);
+    const restrictedMode = isRestrictedUser(resolvedRole);
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const prepReadyDate = new Date(startOfToday);
@@ -635,7 +696,12 @@ exports.getEventSummary = async (req, res) => {
         { startDate: null, endDate: { $gte: prepReadyDate } },
       ],
     };
-    const noAnyRegistrationCondition = { "registeredBy.0": { $exists: false } };
+    const noAnyRegistrationCondition = {
+      $nor: [
+        { "registeredBy.0": { $exists: true } },
+        { "registrations.0": { $exists: true } },
+      ],
+    };
     const noAnyAttendanceCondition = {
       $nor: [
         { "attendedBy.0": { $exists: true } },
@@ -643,7 +709,12 @@ exports.getEventSummary = async (req, res) => {
     };
     const registrationCondition = restrictedMode
       ? { registeredBy: userId }
-      : { "registeredBy.0": { $exists: true } };
+      : {
+        $or: [
+          { "registeredBy.0": { $exists: true } },
+          { "registrations.0": { $exists: true } },
+        ],
+      };
     const attendanceCondition = restrictedMode
       ? { attendedBy: userId }
       : { "attendedBy.0": { $exists: true } };
@@ -668,21 +739,21 @@ exports.getEventSummary = async (req, res) => {
         { endDate: null, startDate: { $lt: registrationGraceBoundary } },
       ],
     };
-    const upcomingFilter = restrictedMode
-      ? {
+    const withAnd = (filter, clauses) => ({
+      ...filter,
+      $and: [
+        ...(Array.isArray(filter.$and) ? filter.$and : []),
+        ...clauses,
+      ],
+    });
+    const upcomingFilter = withAnd(
+      {
         ...baseVisibilityFilter,
         status: { $ne: "completed" },
         ...upcomingDateCondition,
-      }
-      : {
-        ...baseVisibilityFilter,
-        status: { $ne: "completed" },
-        ...upcomingDateCondition,
-        $and: [
-          noAnyRegistrationCondition,
-          noAnyAttendanceCondition,
-        ],
-      };
+      },
+      [noAnyRegistrationCondition, noAnyAttendanceCondition]
+    );
     const pastFilter = {
       ...baseVisibilityFilter,
       $or: [
@@ -696,7 +767,6 @@ exports.getEventSummary = async (req, res) => {
         registrationCondition,
         { $nor: [explicitMissedCondition] },
         noAttendanceCondition,
-        activeRegisteredWindowCondition,
       ],
     };
     const attendingFilter = {
@@ -723,6 +793,7 @@ exports.getEventSummary = async (req, res) => {
         {
           $nor: [
             { "registeredBy.0": { $exists: true } },
+            { "registrations.0": { $exists: true } },
             { "attendedBy.0": { $exists: true } },
           ]
         },
@@ -785,12 +856,17 @@ exports.getEventById = async (req, res) => {
       return res.status(404).json({ message: "Event not found" });
     }
 
+    const resolvedRole = await resolveRequestRoleName(req.user);
     if (
-      isRestrictedUser(req.user?.role) &&
+      isRestrictedUser(resolvedRole) &&
       !event.registrations?.some((reg) =>
+        String(reg.eventManagerUser?._id || reg.eventManagerUser) === String(req.user?._id) ||
         (reg.attendeeUsers || []).some(
           (attUser) => String(attUser?._id || attUser) === String(req.user?._id)
         )
+      ) &&
+      !event.invitationResponses?.some((response) =>
+        String(response.user?._id || response.user) === String(req.user?._id)
       )
     ) {
       return res.status(403).json({ message: "Unauthorized for this event" });
@@ -1007,7 +1083,8 @@ exports.updateEvent = async (req, res) => {
 
 exports.registerForEvent = async (req, res) => {
   try {
-    if (!isAdminOrManager(req.user?.role)) {
+    const resolvedRole = await resolveRequestRoleName(req.user);
+    if (!isAdminOrManager(resolvedRole)) {
       return res.status(403).json({ message: "Only admin/manager can register attendees" });
     }
 
@@ -1023,7 +1100,10 @@ exports.registerForEvent = async (req, res) => {
       return res.status(400).json({ message: "Registration details are locked after attendance is marked." });
     }
 
-    const eventManagerUserId = sanitizeObjectIdList([req.body?.eventManagerUserId])[0] || "";
+    const requesterIsManager = resolvedRole === "manager";
+    const eventManagerUserId = requesterIsManager
+      ? String(req.user?._id || "")
+      : sanitizeObjectIdList([req.body?.eventManagerUserId])[0] || "";
     const participationRole = String(req.body?.participationRole || "").trim();
     const websiteUrl = String(req.body?.websiteUrl || "").trim();
     const attendeesCountRaw = Number(req.body?.attendeesCount || 1);
@@ -1165,12 +1245,16 @@ exports.registerForEvent = async (req, res) => {
       !nextAssignedUsers.includes(String(response.user))
     );
     nextAssignedUsers.forEach((userId) => {
+      const selfRegisteredManager = String(userId) === currentUserId;
       event.invitationResponses.push({
         user: userId,
-        status: "pending",
-        respondedAt: null
+        status: selfRegisteredManager ? "accepted" : "pending",
+        respondedAt: selfRegisteredManager ? new Date() : null
       });
     });
+    if (nextAssignedUsers.includes(currentUserId) && !event.registeredBy.some((id) => String(id) === currentUserId)) {
+      event.registeredBy.push(req.user._id);
+    }
     event.missedReason = "";
     event.missedAt = null;
     event.missedBy = null;
@@ -1178,11 +1262,15 @@ exports.registerForEvent = async (req, res) => {
 
     await event.save();
 
-    if (nextAssignedUsers.length) {
+    const usersToNotify = nextAssignedUsers.filter((userId) => String(userId) !== currentUserId);
+    if (usersToNotify.length) {
       const deliveries = await Promise.all(
-        nextAssignedUsers.map(async (userId) => ({
+        usersToNotify.map(async (userId) => ({
           userId,
-          deliveryChannels: await getEventNotificationChannels(userId),
+          deliveryChannels: {
+            ...(await getEventNotificationChannels(userId)),
+            inApp: true,
+          },
         }))
       );
 

@@ -44,6 +44,9 @@ export default function AILeadGeneration() {
   const [sortBy, setSortBy] = useState("company-asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [successPrompt, setSuccessPrompt] = useState({ open: false, title: "", subtitle: "" });
+  const [assignees, setAssignees] = useState([]);
+  const [assignmentModal, setAssignmentModal] = useState({ open: false, leadIds: [], bulk: false });
+  const [selectedAssignee, setSelectedAssignee] = useState("");
 
   const loadAiLeads = async () => {
     try {
@@ -63,19 +66,33 @@ export default function AILeadGeneration() {
     }
   };
 
+  const loadAssignees = async () => {
+    try {
+      const { data } = await API.get("/ai-leads/import-assignees");
+      const rows = Array.isArray(data) ? data : [];
+      setAssignees(rows);
+      setSelectedAssignee((prev) => prev || String(rows[0]?._id || ""));
+    } catch (err) {
+      setAssignees([]);
+      setError(err?.response?.data?.message || "Failed to load assignable users.");
+    }
+  };
+
   useEffect(() => {
     loadAiLeads();
+    loadAssignees();
   }, []);
 
-  const handleImport = async (leadId, showPrompt = true) => {
+  const handleImport = async (leadId, showPrompt = true, assignedTo = selectedAssignee) => {
     if (!leadId || importingId || bulkImporting) return false;
 
     try {
       setImportingId(leadId);
       setError("");
-      await API.post(`/ai-leads/${leadId}/import`);
+      await API.post(`/ai-leads/${leadId}/import`, { assignedTo });
       setLeads((prev) => prev.filter((lead) => String(lead._id) !== leadId));
       setSelectedLeadIds((prev) => prev.filter((id) => id !== leadId));
+      await loadAiLeads();
       if (showPrompt) {
         setSuccessPrompt({
           open: true,
@@ -89,6 +106,57 @@ export default function AILeadGeneration() {
       return false;
     } finally {
       setImportingId("");
+    }
+  };
+
+  const openAssignmentPrompt = (leadIds, bulk = false) => {
+    const ids = Array.isArray(leadIds) ? leadIds.filter(Boolean) : [leadIds].filter(Boolean);
+    if (!ids.length || importingId || bulkImporting) return;
+    setError("");
+    setAssignmentModal({ open: true, leadIds: ids, bulk });
+    setSelectedAssignee((prev) => prev || String(assignees[0]?._id || ""));
+  };
+
+  const closeAssignmentPrompt = () => {
+    setAssignmentModal({ open: false, leadIds: [], bulk: false });
+  };
+
+  const confirmAssignedImport = async () => {
+    if (!assignmentModal.leadIds.length || !selectedAssignee) {
+      setError("Please select whom to assign this lead to.");
+      return;
+    }
+
+    if (assignmentModal.bulk) {
+      setBulkImporting(true);
+      setError("");
+      try {
+        let importedCount = 0;
+        for (const leadId of assignmentModal.leadIds) {
+          const ok = await handleImport(leadId, false, selectedAssignee);
+          if (!ok) break;
+          importedCount += 1;
+        }
+        await loadAiLeads();
+        setSelectedLeadIds([]);
+        closeAssignmentPrompt();
+        if (importedCount > 0) {
+          setSuccessPrompt({
+            open: true,
+            title: "Leads Added Successfully",
+            subtitle: `${importedCount} AI lead${importedCount === 1 ? "" : "s"} imported to leads pipeline.`
+          });
+        }
+      } finally {
+        setBulkImporting(false);
+      }
+      return;
+    }
+
+    const ok = await handleImport(assignmentModal.leadIds[0], true, selectedAssignee);
+    if (ok) {
+      closeAssignmentPrompt();
+      setSelectedLead(null);
     }
   };
 
@@ -183,27 +251,7 @@ export default function AILeadGeneration() {
 
   const handleBulkImportSelected = async () => {
     if (!selectedLeadIds.length || bulkImporting || importingId) return;
-    setBulkImporting(true);
-    setError("");
-    try {
-      let importedCount = 0;
-      for (const leadId of selectedLeadIds) {
-        const ok = await handleImport(leadId, false);
-        if (!ok) break;
-        importedCount += 1;
-      }
-      await loadAiLeads();
-      setSelectedLeadIds([]);
-      if (importedCount > 0) {
-        setSuccessPrompt({
-          open: true,
-          title: "Leads Added Successfully",
-          subtitle: `${importedCount} AI lead${importedCount === 1 ? "" : "s"} imported to leads pipeline.`
-        });
-      }
-    } finally {
-      setBulkImporting(false);
-    }
+    openAssignmentPrompt(selectedLeadIds, true);
   };
 
   const totalLeads = Number(summary.total || remainingLeads.length || 0);
@@ -349,7 +397,7 @@ export default function AILeadGeneration() {
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        handleImport(leadId);
+                        openAssignmentPrompt(leadId, false);
                       }}
                       disabled={isImporting || bulkImporting}
                     >
@@ -440,12 +488,55 @@ export default function AILeadGeneration() {
                 className="aiLead-importBtn"
                 type="button"
                 onClick={async () => {
-                  const ok = await handleImport(String(selectedLead._id || ""));
-                  if (ok) setSelectedLead(null);
+                  openAssignmentPrompt(String(selectedLead._id || ""), false);
                 }}
                 disabled={importingId === String(selectedLead._id || "") || bulkImporting}
               >
                 {importingId === String(selectedLead._id || "") ? "Importing..." : "Import Lead"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {assignmentModal.open ? (
+        <div className="aiLead-modalOverlay" role="presentation" onClick={closeAssignmentPrompt}>
+          <div className="aiLead-assignModal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="aiLead-modalHeader">
+              <div>
+                <h3>Assign Imported Lead</h3>
+                <p>
+                  Select whom this AI lead{assignmentModal.leadIds.length > 1 ? "s" : ""} should be assigned to before import.
+                </p>
+              </div>
+              <button type="button" className="aiLead-modalClose" onClick={closeAssignmentPrompt}>
+                x
+              </button>
+            </div>
+
+            <label className="aiLead-assignField">
+              Assign To
+              <select value={selectedAssignee} onChange={(event) => setSelectedAssignee(event.target.value)}>
+                <option value="">Select user</option>
+                {assignees.map((user) => (
+                  <option key={user._id} value={user._id}>
+                    {user.name} ({user.email}){user.roleName ? ` - ${user.roleName}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="aiLead-modalActions">
+              <button type="button" className="aiLead-cancelBtn" onClick={closeAssignmentPrompt}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="aiLead-importBtn"
+                onClick={confirmAssignedImport}
+                disabled={!selectedAssignee || importingId || bulkImporting}
+              >
+                {importingId || bulkImporting ? "Importing..." : "Import Lead"}
               </button>
             </div>
           </div>

@@ -235,16 +235,17 @@ export default function Clients() {
               </option>
             ))}
           </select>
-
-          <button
-            className="btn add-deal-btn"
-            type="button"
-            onClick={() => navigate("/clients/new")}
-            style={{ marginLeft: "10px" }}
-          >
-            <span className="action-icon" style={{ marginRight: "4px" }}>➕</span>
-            Add Client
-          </button>
+          {isAdminOrManager && (
+            <button
+              className="btn add-deal-btn"
+              type="button"
+              onClick={() => navigate("/clients/new")}
+              style={{ marginLeft: "10px" }}
+            >
+              <span className="action-icon" style={{ marginRight: "4px" }}>+</span>
+              Add Client
+            </button>
+          )}
         </div>
       </div>
 
@@ -404,3 +405,4 @@ export default function Clients() {
     </div>
   );
 }
+

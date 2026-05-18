@@ -439,6 +439,24 @@ function parseExactLocation(raw = "") {
   };
 }
 
+function resolveCreateStatus(inputStatus, dueDateTime) {
+  const normalizedStatus = String(inputStatus || "pending").trim().toLowerCase();
+  const dueAt = new Date(dueDateTime);
+  const isPastDueOnCreate = !Number.isNaN(dueAt.getTime()) && dueAt.getTime() < Date.now();
+
+  if (isPastDueOnCreate) {
+    return {
+      status: "completed",
+      completedAt: new Date(),
+    };
+  }
+
+  return {
+    status: normalizedStatus,
+    completedAt: normalizedStatus === "completed" ? new Date() : null,
+  };
+}
+
 function isMeetingLikeFollowup(doc) {
   if (!doc) return false;
   if (doc.kind === "meeting") return true;
@@ -985,12 +1003,6 @@ async function runUpdateStatusSideEffects({
   }
 
   try {
-    await syncAiPriorityForDoc(updated);
-  } catch (aiErr) {
-    console.error("followups.updateStatus ai priority error:", aiErr);
-  }
-
-  try {
     await logUserDailyActivity({
       userId: actorId,
       activityId: updated._id,
@@ -1250,7 +1262,8 @@ exports.create = async (req, res) => {
           fallbackStage: "P1",
         }));
 
-    const resolvedStatus = req.body.status || "pending";
+    const dueDateTime = new Date(req.body.dueDateTime);
+    const { status: resolvedStatus, completedAt } = resolveCreateStatus(req.body.status, dueDateTime);
 
     const payload = {
       kind: req.body.kind || "followup",
@@ -1265,8 +1278,8 @@ exports.create = async (req, res) => {
       cancelReason: req.body.cancelReason || "",
       priority: req.body.priority || "medium",
       status: resolvedStatus,
-      completedAt: resolvedStatus === "completed" ? new Date() : null,
-      dueDateTime: new Date(req.body.dueDateTime),
+      completedAt,
+      dueDateTime,
       reminderEnabled: req.body.reminderEnabled !== false,
       emailReminderEnabled: coerceBoolean(req.body.emailReminderEnabled, false),
       reminderChoice: String(req.body.reminderChoice || (req.body.reminderEnabled === false ? "no" : "yes")).toLowerCase(),
@@ -1461,6 +1474,13 @@ exports.updateStatus = async (req, res) => {
     ).populate("assignedTo", "name email");
 
     if (!updated) return res.status(404).json({ message: "Followup not found" });
+
+    try {
+      await syncAiPriorityForDoc(updated);
+    } catch (aiErr) {
+      console.error("followups.updateStatus ai priority error:", aiErr);
+    }
+
     const refreshed = await Followup.findById(updated._id).populate("assignedTo", "name email");
     const [serializedRefreshed] = await serializeFollowupDocs(refreshed ? [refreshed] : []);
     res.json(serializedRefreshed || refreshed);

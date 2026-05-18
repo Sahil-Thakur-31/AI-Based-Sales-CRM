@@ -1,8 +1,8 @@
 const DailyClosingAttendance = require("../models/daily_closing_attendance");
 const DailyClosingHighlights = require("../models/daily_closing_highlights");
+const Followup = require("../models/followUp");
 const User = require("../models/users");
 const Team = require("../models/teams");
-const Organization = require("../models/organization");
 const emailService = require("../services/emailService");
 const { syncSingleCrmItemToGoogle } = require("../services/googleCalendarSync");
 
@@ -32,6 +32,16 @@ function getUtcDayRange(dateValue) {
   return { start, end };
 }
 
+function getUtcRangeForLocalDate(dateValue, tzOffsetMinutes = 0) {
+  const raw = String(dateValue || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const [year, month, day] = raw.split("-").map(Number);
+  const offsetMinutes = Number.isFinite(Number(tzOffsetMinutes)) ? Number(tzOffsetMinutes) : 0;
+  const startUtc = new Date(Date.UTC(year, month - 1, day) - offsetMinutes * 60 * 1000);
+  const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60 * 1000);
+  return { startUtc, endUtc };
+}
+
 function normalizeRoleName(role = "") {
   return String(role || "").trim().toLowerCase();
 }
@@ -55,9 +65,11 @@ function formatDisplayDate(value) {
   });
 }
 
+const DAILY_CLOSING_COMPANY_NAME = "Abhinav DigiCompSoft Services Private Limited";
+
 function isReportStatusAllowed(item = {}) {
   const status = String(item?.status || item?.action || "").trim().toLowerCase();
-  return status === "completed" || status === "cancelled" || status === "canceled";
+  return status === "completed" || status === "cancelled" || status === "canceled" || status === "overdue";
 }
 
 function buildRowsHtml(rows = [], kindLabel = "Record") {
@@ -112,6 +124,8 @@ function buildReportMailHtml({
   followupsCompleted = [],
   meetingsCancelled = [],
   followupsCancelled = [],
+  meetingsOverdue = [],
+  followupsOverdue = [],
 }) {
   return `
     <div style="font-family:Segoe UI,Arial,sans-serif;background:#f4f6fb;padding:20px;">
@@ -128,6 +142,8 @@ function buildReportMailHtml({
         ${buildSectionHtml("Follow-up Details (Completed)", followupsCompleted, "Follow-up")}
         ${buildSectionHtml("Meeting Details (Cancelled)", meetingsCancelled, "Meeting")}
         ${buildSectionHtml("Follow-up Details (Cancelled)", followupsCancelled, "Follow-up")}
+        ${buildSectionHtml("Meeting Details (Overdue)", meetingsOverdue, "Meeting")}
+        ${buildSectionHtml("Follow-up Details (Overdue)", followupsOverdue, "Follow-up")}
 
         <div style="margin-top:16px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
           <strong>Key Highlights:</strong>
@@ -260,6 +276,12 @@ exports.mailReport = async (req, res) => {
     const followupsCancelled = Array.isArray(req.body?.followupsCancelled)
       ? req.body.followupsCancelled.filter(isReportStatusAllowed)
       : followups.filter((item) => ["cancelled", "canceled"].includes(String(item?.status || "").trim().toLowerCase()));
+    const meetingsOverdue = Array.isArray(req.body?.meetingsOverdue)
+      ? req.body.meetingsOverdue.filter(isReportStatusAllowed)
+      : meetings.filter((item) => String(item?.status || "").trim().toLowerCase() === "overdue");
+    const followupsOverdue = Array.isArray(req.body?.followupsOverdue)
+      ? req.body.followupsOverdue.filter(isReportStatusAllowed)
+      : followups.filter((item) => String(item?.status || "").trim().toLowerCase() === "overdue");
 
     if (!selectedDate) {
       return res.status(400).json({ message: "selectedDate is required" });
@@ -306,8 +328,7 @@ exports.mailReport = async (req, res) => {
       return res.status(400).json({ message: "No recipient email found for this role mapping" });
     }
 
-    const org = await Organization.findOne({ is_deleted: false }).sort({ createdAt: -1 }).select("name").lean();
-    const companyName = org?.name || "Company";
+    const companyName = DAILY_CLOSING_COMPANY_NAME;
 
     const subject = `Daily Closing Report - ${formatDisplayDate(selectedDate)} - ${senderName}`;
     const html = buildReportMailHtml({
@@ -320,13 +341,26 @@ exports.mailReport = async (req, res) => {
       followupsCompleted,
       meetingsCancelled,
       followupsCancelled,
+      meetingsOverdue,
+      followupsOverdue,
     });
 
     await emailService.sendEmail({
       to: recipientEmails.join(","),
       subject,
       html,
-      text: `Daily Closing Report\nDate: ${selectedDate}\nSubmitted By: ${senderName}\nKey Highlights: ${keyHighlights || "-"}`,
+      text:
+        `Daily Closing Report\n` +
+        `Company: ${companyName}\n` +
+        `Date: ${selectedDate}\n` +
+        `Submitted By: ${senderName}\n` +
+        `Completed Meetings: ${meetingsCompleted.length}\n` +
+        `Completed Follow-ups: ${followupsCompleted.length}\n` +
+        `Cancelled Meetings: ${meetingsCancelled.length}\n` +
+        `Cancelled Follow-ups: ${followupsCancelled.length}\n` +
+        `Overdue Meetings: ${meetingsOverdue.length}\n` +
+        `Overdue Follow-ups: ${followupsOverdue.length}\n` +
+        `Key Highlights: ${keyHighlights || "-"}`,
       fromName: companyName,
     });
 
@@ -374,5 +408,50 @@ exports.listForCalendar = async (req, res) => {
   } catch (err) {
     console.error("dailyClosing.listForCalendar error:", err);
     return res.status(500).json({ message: "Failed to fetch daily closing calendar entries" });
+  }
+};
+
+exports.reportData = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const date = String(req.query?.date || "").trim();
+    if (!date) {
+      return res.status(400).json({ message: "date is required" });
+    }
+
+    const dayRange = getUtcRangeForLocalDate(date, req.query?.tzOffsetMinutes);
+    if (!dayRange) {
+      return res.status(400).json({ message: "date must be in YYYY-MM-DD format" });
+    }
+
+    const { startUtc, endUtc } = dayRange;
+    const docs = await Followup.find({
+      is_deleted: { $ne: true },
+      assignedTo: userId,
+      status: { $in: ["completed", "cancelled", "overdue"] },
+      $or: [
+        { status: "completed", completedAt: { $gte: startUtc, $lt: endUtc } },
+        { status: "cancelled", updatedAt: { $gte: startUtc, $lt: endUtc } },
+        { status: "overdue", dueDateTime: { $gte: startUtc, $lt: endUtc } },
+      ],
+    })
+      .sort({ dueDateTime: 1, updatedAt: -1, createdAt: -1 })
+      .lean();
+
+    const meetings = docs.filter((item) => String(item?.kind || "").toLowerCase() === "meeting");
+    const followups = docs.filter((item) => String(item?.kind || "").toLowerCase() !== "meeting");
+
+    return res.status(200).json({
+      date,
+      meetings,
+      followups,
+    });
+  } catch (err) {
+    console.error("dailyClosing.reportData error:", err);
+    return res.status(500).json({ message: "Failed to load daily closing report data" });
   }
 };

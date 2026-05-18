@@ -41,16 +41,33 @@ const formatFee = (amountValue, currencyValue, freeLabel = "Free Event") => {
   }
 };
 
+function getUserIdFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return "";
+    const payload = token.split(".")[1];
+    if (!payload) return "";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(atob(normalized));
+    return decoded?._id ? String(decoded._id) : "";
+  } catch (_) {
+    return "";
+  }
+}
+
 const EventRegistration = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
+  const currentUserId = getUserIdFromToken();
+  const isManagerUser = roleName === "manager";
 
   const eventDetails = useMemo(
     () => ({
       eventId: state?.eventId || "",
       eventName: state?.eventName || "Renewable Energy India Expo 2026",
       eventLocation: state?.eventLocation || "India Expo Centre, Greater Noida",
-      eventDates: state?.eventDates || "March 15-17, 2026",
+      eventDates: state?.eventDates || "March 15-17, 226",
       registrationFee: toInt(state?.registrationFee, 0),
       registrationCurrency: String(state?.registrationCurrency || "INR").trim().toUpperCase() || "INR"
     }),
@@ -107,21 +124,36 @@ const EventRegistration = () => {
   const [registrationSavedPopupOpen, setRegistrationSavedPopupOpen] = useState(false);
   const [outcomeConfirmOpen, setOutcomeConfirmOpen] = useState(false);
   const [outcomePendingPayload, setOutcomePendingPayload] = useState(null);
+  const [eventStatusData, setEventStatusData] = useState(state?.eventStatusData || null);
+  const [invitationActionLoading, setInvitationActionLoading] = useState("");
   const usersLoadedRef = useRef(false);
   const registrationLoadedKeyRef = useRef("");
   const attendeeUserOptions = useMemo(
     () =>
       allUsers.filter((user) => {
         const role = String(user?.roleName || "").trim().toLowerCase();
-        return role !== "admin" && String(user?._id || "") !== String(formData.eventManagerUserId || "");
+        return (
+          role !== "admin" &&
+          String(user?._id || "") !== String(formData.eventManagerUserId || "") &&
+          String(user?._id || "") !== String(currentUserId || "")
+        );
       }),
-    [allUsers, formData.eventManagerUserId]
+    [allUsers, currentUserId, formData.eventManagerUserId]
   );
   const managerUserOptions = useMemo(
     () =>
       allUsers.filter((user) => String(user?.roleName || "").trim().toLowerCase() === "manager"),
     [allUsers]
   );
+
+  useEffect(() => {
+    if (!isManagerUser || !currentUserId || isViewOnly) return;
+    setFormData((prev) => ({
+      ...prev,
+      eventManagerUserId: currentUserId
+    }));
+    setAttendeeSelections((prev) => prev.map((id) => (String(id || "") === currentUserId ? "" : id)));
+  }, [currentUserId, isManagerUser, isViewOnly]);
 
   const resolveEventStatus = (eventInput) => {
     const eventData = eventInput || {};
@@ -273,6 +305,7 @@ const EventRegistration = () => {
       setCurrentEventStatus(resolveEventStatus(data || {}));
       setCurrentMissedReason(String(data?.missedReason || ""));
       setMissedReasonDraft(String(data?.missedReason || ""));
+      setEventStatusData(data || null);
       setRegistrationSuccess("Registration details saved.");
       setRegistrationSavedPopupOpen(true);
     } catch (err) {
@@ -456,6 +489,7 @@ const EventRegistration = () => {
       try {
         const { data } = await API.get(`/events/${eventDetails.eventId}`);
         setRegistrationLocked(Boolean(data?.registrationLocked));
+        setEventStatusData(data || null);
         applyOutcomeToForm(data || {});
         setCurrentEventStatus(resolveEventStatus(data || {}));
         setCurrentMissedReason(String(data?.missedReason || ""));
@@ -501,6 +535,89 @@ const EventRegistration = () => {
     const digits = Math.abs(percent) >= 100 ? 0 : 1;
     return `${percent.toLocaleString("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
   };
+  const acceptedParticipants = Array.isArray(eventStatusData?.acceptedParticipants) ? eventStatusData.acceptedParticipants : [];
+  const pendingParticipants = Array.isArray(eventStatusData?.pendingParticipants) ? eventStatusData.pendingParticipants : [];
+  const rejectedParticipants = Array.isArray(eventStatusData?.assignedParticipants)
+    ? eventStatusData.assignedParticipants.filter((participant) => participant?.rejected)
+    : [];
+  const hasInvitationStatus = Boolean(acceptedParticipants.length || pendingParticipants.length || rejectedParticipants.length);
+  const participantName = (participant) => participant?.name || participant?.email || "Unknown user";
+  const participantStatusById = useMemo(() => {
+    const map = new Map();
+    (eventStatusData?.assignedParticipants || []).forEach((participant) => {
+      const id = String(participant?._id || "");
+      if (!id) return;
+      map.set(id, participant?.accepted ? "accepted" : participant?.rejected ? "rejected" : "pending");
+    });
+    (eventStatusData?.invitationResponses || []).forEach((response) => {
+      const id = String(response?.user?._id || response?.user || "");
+      if (!id) return;
+      map.set(id, String(response?.status || "pending").toLowerCase());
+    });
+    acceptedParticipants.forEach((participant) => {
+      const id = String(participant?._id || "");
+      if (id) map.set(id, "accepted");
+    });
+    pendingParticipants.forEach((participant) => {
+      const id = String(participant?._id || "");
+      if (id && !map.has(id)) map.set(id, "pending");
+    });
+    return map;
+  }, [acceptedParticipants, eventStatusData, pendingParticipants]);
+  const getParticipantStatus = (userId) => participantStatusById.get(String(userId || "")) || "";
+  const getAttendanceStatus = (userId) => {
+    const id = String(userId || "");
+    const participant = (eventStatusData?.assignedParticipants || []).find((item) => String(item?._id || "") === id);
+    if (!participant) return "";
+    if (participant.attended) return "attended";
+    if (participant.accepted) return "missed";
+    return "not-registered";
+  };
+
+  const respondToInvitation = async (action) => {
+    if (!eventDetails.eventId || invitationActionLoading) return;
+    setInvitationActionLoading(action);
+    setError("");
+    try {
+      const { data } = await API.put(`/events/${eventDetails.eventId}/${action}-invitation`);
+      setEventStatusData(data || null);
+      setRegistrationLocked(Boolean(data?.registrationLocked));
+      applyOutcomeToForm(data || {});
+      setCurrentEventStatus(resolveEventStatus(data || {}));
+      setCurrentMissedReason(String(data?.missedReason || ""));
+      setMissedReasonDraft(String(data?.missedReason || ""));
+      if (action === "accept") {
+        const registration = data?.myRegistration || (Array.isArray(data?.registrations) ? data.registrations[0] : null);
+        if (registration) applyRegistrationToForm(registration);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || `Failed to ${action} invitation.`);
+    } finally {
+      setInvitationActionLoading("");
+    }
+  };
+  const renderPersonStatusBadges = (userId) => {
+    const inviteStatus = getParticipantStatus(userId);
+    const attendanceStatus = getAttendanceStatus(userId);
+    return (
+      <>
+        {inviteStatus && (
+          <span className={`inline-invite-status ${inviteStatus}`}>
+            {inviteStatus === "accepted" ? "Accepted" : inviteStatus === "rejected" ? "Rejected" : "Not accepted yet"}
+          </span>
+        )}
+        {attendanceStatus && currentEventStatus !== "registered" && (
+          <span className={`inline-attendance-status ${attendanceStatus}`}>
+            {attendanceStatus === "attended"
+              ? "Attended"
+              : attendanceStatus === "missed"
+                ? "Missed"
+                : "Cannot mark attended"}
+          </span>
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="event-registration-page">
@@ -532,6 +649,49 @@ const EventRegistration = () => {
         </div>
       </section>
 
+      {hasInvitationStatus && (
+        <section className="event-invitation-status-card">
+          <h4>Invitation Status</h4>
+          {eventStatusData?.isPendingInvitation && (
+            <div className="event-invitation-response-actions">
+              <span>Your invitation is pending. Please accept or reject it.</span>
+              <button type="button" onClick={() => respondToInvitation("accept")} disabled={Boolean(invitationActionLoading)}>
+                {invitationActionLoading === "accept" ? "Accepting..." : "Accept"}
+              </button>
+              <button type="button" className="reject" onClick={() => respondToInvitation("reject")} disabled={Boolean(invitationActionLoading)}>
+                {invitationActionLoading === "reject" ? "Rejecting..." : "Reject"}
+              </button>
+            </div>
+          )}
+          <div className="event-invitation-status-grid">
+            <div>
+              <p className="summary-label">Accepted</p>
+              {acceptedParticipants.length ? (
+                acceptedParticipants.map((participant) => (
+                  <span className="invite-status-pill accepted" key={`accepted-${participant._id}`}>
+                    {participantName(participant)}
+                  </span>
+                ))
+              ) : (
+                <span className="invite-status-empty">None</span>
+              )}
+            </div>
+            <div>
+              <p className="summary-label">Not Accepted</p>
+              {[...pendingParticipants, ...rejectedParticipants].length ? (
+                [...pendingParticipants, ...rejectedParticipants].map((participant) => (
+                  <span className={`invite-status-pill ${participant?.rejected ? "rejected" : "pending"}`} key={`pending-${participant._id}`}>
+                    {participantName(participant)} {participant?.rejected ? "(Rejected)" : "(Pending)"}
+                  </span>
+                ))
+              ) : (
+                <span className="invite-status-empty">None</span>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="event-form-card">
         {!canSubmitEvent && (
           <p className="loading-note">Open this page from an event card to continue.</p>
@@ -555,8 +715,16 @@ const EventRegistration = () => {
               <h4 className="section-title">Primary Contact</h4>
               <div className="form-grid">
                 <label>
-                  Organization Event Manager *
-                  <select name="eventManagerUserId" value={formData.eventManagerUserId} onChange={onFieldChange}>
+                  <span className="field-label-row">
+                    Organization Event Manager *
+                    {formData.eventManagerUserId && renderPersonStatusBadges(formData.eventManagerUserId)}
+                  </span>
+                  <select
+                    name="eventManagerUserId"
+                    value={formData.eventManagerUserId}
+                    onChange={onFieldChange}
+                    disabled={isManagerUser}
+                  >
                     <option value="">Select manager</option>
                     {managerUserOptions.map((user) => (
                       <option key={user._id} value={user._id}>
@@ -564,6 +732,9 @@ const EventRegistration = () => {
                       </option>
                     ))}
                   </select>
+                  {isManagerUser && (
+                    <small className="field-help-text">You are selected automatically as the event manager.</small>
+                  )}
                 </label>
 
                 <label>
@@ -608,7 +779,10 @@ const EventRegistration = () => {
               <div className="attendee-grid">
                 {attendeeSelections.map((selectedUser, idx) => (
                   <label key={`attendee-${idx}`}>
-                    Attendee {idx + 1}
+                    <span className="field-label-row">
+                      Attendee {idx + 1}
+                      {selectedUser && renderPersonStatusBadges(selectedUser)}
+                    </span>
                     <select
                       value={selectedUser}
                       onChange={(event) => handleAttendeeSelect(idx, event.target.value)}

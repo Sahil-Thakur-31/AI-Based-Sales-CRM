@@ -10,6 +10,7 @@ const Tax = require("../models/taxes");
 const User = require("../models/users");
 const QuotationClause = require("../models/quotationClauses");
 const QuotationPaymentTerms = require("../models/quotationPaymentTerms");
+const Industry = require("../models/industries");
 
 const MAX_PERCENT = 100;
 const QUOTATION_STATUSES = [
@@ -161,9 +162,26 @@ async function resolveClientForLead(lead, actorId, preferredClientId = null) {
 
   if (client) return client;
 
+  let industryId = null;
+  const rawIndustry = lead?.industry;
+  if (rawIndustry && String(rawIndustry).match(/^[0-9a-fA-F]{24}$/)) {
+    industryId = rawIndustry;
+  } else if (rawIndustry) {
+    const industryName = String(rawIndustry).trim();
+    const industry = await Industry.findOneAndUpdate(
+      { name: new RegExp(`^${industryName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      {
+        $set: { name: industryName, is_deleted: false, updatedAt: new Date() },
+        $setOnInsert: { createdAt: new Date() }
+      },
+      { upsert: true, returnDocument: "after" }
+    );
+    industryId = industry?._id || null;
+  }
+
   return Client.create({
     name: companyName || `Converted Client ${String(lead?._id || "").slice(-6)}`,
-    industry: lead?.industry || null,
+    industry: industryId,
     Address: lead?.Address || "",
     employeeCount: lead?.employee_count || null,
     turnoverRange: lead?.turnover_range || "",
@@ -1054,6 +1072,15 @@ exports.updateQuotationStatus = async (req, res) => {
     }
 
     if (["approved", "rejected"].includes(String(currentQuotation.status || "").toLowerCase())) {
+      if (nextStatus === "approved" && String(currentQuotation.status || "").toLowerCase() === "approved") {
+        await moveQuotationSourceToStage(currentQuotation, DEAL_WON_STAGE, req.user?._id || null);
+        return res.json({
+          _id: currentQuotation._id,
+          status: currentQuotation.status,
+          version: currentQuotation.version,
+          updatedAt: currentQuotation.updatedAt
+        });
+      }
       return res.status(400).json({
         message: "Approved or rejected quotations cannot be changed"
       });

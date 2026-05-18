@@ -310,6 +310,7 @@ export default function CalendarPage() {
   const [syncLoading, setSyncLoading] = useState(false);
   const roleName = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
   const isManager = roleName === "manager";
+  const isAdmin = roleName === "admin";
 
   const loadGoogleStatus = async () => {
     try {
@@ -330,7 +331,7 @@ export default function CalendarPage() {
         API.get("/followups", { params: { kind: "meeting", mine_only: true } }),
         API.get("/followups", { params: { kind: "followup", mine_only: true } }),
         API.get("/events", { params: { mine_only: true } }),
-        API.get("/daily-closing/calendar-self"),
+        isAdmin ? Promise.resolve({ data: { rows: [], hasTodayEntry: true } }) : API.get("/daily-closing/calendar-self"),
       ]);
 
       const meetingRows = [...(meetingsRes.data || []), ...(followupsRes.data || [])].filter((doc) => !doc.is_deleted);
@@ -552,7 +553,7 @@ export default function CalendarPage() {
     if (!dayMenu?.selectedDate) return;
     const selectedDate = dayMenu.selectedDate;
     setDayMenu(null);
-    if (kind === "daily_closing") {
+    if (kind === "daily_closing" && !isAdmin) {
       navigate("/daily-closing/form", { state: { selectedDate } });
       return;
     }
@@ -947,7 +948,11 @@ export default function CalendarPage() {
 
         <div className="calendar-right-panel">
           <div className="add-icon-list">
-            {CATEGORIES.filter((key) => key !== "event_expo").map((key) => (
+            {CATEGORIES.filter((key) => {
+              if (key === "event_expo") return false;
+              if (isAdmin && key === "daily_closing") return false;
+              return true;
+            }).map((key) => (
               <a
                 key={key}
                 href={CATEGORY_ROUTES[key]}
@@ -969,9 +974,11 @@ export default function CalendarPage() {
           style={{ left: dayMenu.x, top: dayMenu.y }}
         >
           <div className="cal-day-menu-title">Add for {dayMenu.selectedDate}</div>
-          <button className="cal-day-menu-item" onClick={() => navigateWithDate("daily_closing")}>
-            Add Daily Task
-          </button>
+          {!isAdmin ? (
+            <button className="cal-day-menu-item" onClick={() => navigateWithDate("daily_closing")}>
+              Add Daily Task
+            </button>
+          ) : null}
           <button className="cal-day-menu-item" onClick={() => navigateWithDate("meeting")}>
             Schedule Meeting
           </button>

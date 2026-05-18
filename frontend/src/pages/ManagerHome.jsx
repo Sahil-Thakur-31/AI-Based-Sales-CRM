@@ -4,6 +4,7 @@ import API from "../api";
 import DashboardDateFilter from "../components/DashboardDateFilter";
 import FormErrorSlot from "../components/FormErrorSlot";
 import MeetingsEventsPanel from "../components/MeetingsEventsPanel";
+import Pagination from "../components/Pagination";
 import StatCard from "../components/StatCard";
 import { minLength } from "../utils/formValidation";
 import "../styles/managerDashboard.css";
@@ -46,6 +47,12 @@ function normalizeDashboardInsight(insight = {}, index = 0) {
 function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
   const navigate = useNavigate();
   const today = new Date();
+
+  useEffect(() => {
+    document.body.classList.add("dashboard-scroll-hidden");
+    return () => document.body.classList.remove("dashboard-scroll-hidden");
+  }, []);
+
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState("");
   const [period, setPeriod] = useState("monthly");
@@ -60,6 +67,7 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
   const [cancelModal, setCancelModal] = useState(EMPTY_CANCEL_MODAL);
   const [cancelModalError, setCancelModalError] = useState("");
   const [savingCancel, setSavingCancel] = useState(false);
+  const [timelinePage, setTimelinePage] = useState(1);
 
   function formatCurrency(value) {
     return Number(value || 0).toLocaleString("en-IN", {
@@ -299,6 +307,20 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
       return new Date(a.dueAt || 0).getTime() - new Date(b.dueAt || 0).getTime();
     });
 
+  const totalTimelinePages = Math.max(1, Math.ceil(allTimelineItems.length / FOLLOWUPS_VISIBLE_ITEMS));
+  const timelineItems = allTimelineItems.slice(
+    (timelinePage - 1) * FOLLOWUPS_VISIBLE_ITEMS,
+    timelinePage * FOLLOWUPS_VISIBLE_ITEMS
+  );
+
+  useEffect(() => {
+    setTimelinePage(1);
+  }, [dashboardData?.labels?.followupsHeading, allTimelineItems.length]);
+
+  useEffect(() => {
+    setTimelinePage((current) => Math.min(current, totalTimelinePages));
+  }, [totalTimelinePages]);
+
   if (!dashboardData) {
     return <p>{error || "Loading..."}</p>;
   }
@@ -364,53 +386,56 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
                 <button
                   className="manager-mini-btn done"
                   type="button"
-                  onClick={() => navigate("/followups")}
+                  onClick={() => navigate("/followups/add?view=followup")}
                 >
                   View All
                 </button>
               </div>
 
               {timelineItems.length ? (
-                <div className="manager-followups-scroll">
-                  {timelineItems.map((item) => (
-                    <div key={item.id} className={`follow-item ${getFollowupColor(item.priority)}`}>
-                      <div>
-                        <strong>{item.company}</strong>
-                        <div className="follow-item-meta">
-                          <span className={`follow-kind follow-kind--${item.kind || "followup"}`}>
-                            {item.kind === "meeting" ? "Meeting" : "Follow-up"}
-                          </span>
-                          {item.aiPriority ? (
-                            <span className={`follow-ai-priority follow-ai-priority--${String(item.aiPriority).toLowerCase()}`}>
-                              AI: {item.aiPriority}
+                <>
+                  <div className="manager-followups-scroll">
+                    {timelineItems.map((item) => (
+                      <div key={item.id} className={`follow-item ${getFollowupColor(item.priority)}`}>
+                        <div>
+                          <strong>{item.company}</strong>
+                          <div className="follow-item-meta">
+                            <span className={`follow-kind follow-kind--${item.kind || "followup"}`}>
+                              {item.kind === "meeting" ? "Meeting" : "Follow-up"}
                             </span>
-                          ) : null}
-                          <span
-                            className={`follow-status ${
-                              isCompletedStatus(item.status)
-                                ? "completed"
-                                : isCancelledStatus(item.status)
-                                  ? "cancelled"
-                                  : "pending"
-                            }`}
-                          >
-                            {formatStatus(item.status)}
-                          </span>
+                            {item.aiPriority ? (
+                              <span className={`follow-ai-priority follow-ai-priority--${String(item.aiPriority).toLowerCase()}`}>
+                                AI: {item.aiPriority}
+                              </span>
+                            ) : null}
+                            <span
+                              className={`follow-status ${
+                                isCompletedStatus(item.status)
+                                  ? "completed"
+                                  : isCancelledStatus(item.status)
+                                    ? "cancelled"
+                                    : "pending"
+                              }`}
+                            >
+                              {formatStatus(item.status)}
+                            </span>
+                          </div>
+                          <p>{item.message}</p>
                         </div>
-                        <p>{item.message}</p>
-                      </div>
-                      <div className="text-end follow-item-right">
-                        <small>{formatTime(item.dueAt)}</small>
-                        <div>{item.priority}</div>
-                        <div className="follow-item-actions">
-                          <button className="manager-mini-btn done" type="button" onClick={() => openView(item)}>
-                            View
-                          </button>
+                        <div className="text-end follow-item-right">
+                          <small>{formatTime(item.dueAt)}</small>
+                          <div>{item.priority}</div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  <Pagination
+                    currentPage={timelinePage}
+                    totalPages={totalTimelinePages}
+                    handlePageChange={setTimelinePage}
+                    showSinglePage
+                  />
+                </>
               ) : (
                 <p>No follow-ups or meetings found for this range.</p>
               )}

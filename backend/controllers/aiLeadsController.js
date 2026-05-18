@@ -3,6 +3,8 @@ const AiLeadContact = require("../models/ai_lead_contacts");
 const Lead = require("../models/leads");
 const LeadContact = require("../models/leadContacts");
 const LeadScraperRun = require("../models/leadScraperRuns");
+const Team = require("../models/teams");
+const User = require("../models/users");
 const { normalizeEmail, normalizeIndustry } = require("../utils/leadNormalization");
 
 function toTitleStatus(status) {
@@ -80,6 +82,64 @@ function buildExistingLeadQuery(aiLead) {
     ...(identityOptions.length ? { $or: identityOptions } : { company_name: companyName }),
   };
 }
+
+async function resolveRoleName(userId, tokenRole = "") {
+  const direct = String(tokenRole || "").trim().toLowerCase();
+  if (["admin", "manager", "user"].includes(direct)) return direct;
+  const user = await User.findById(userId).populate("role", "name").select("role").lean();
+  return String(user?.role?.name || direct || "").trim().toLowerCase();
+}
+
+async function getAssignableUsersForRequest(req) {
+  const role = await resolveRoleName(req.user?._id, req.user?.role);
+  if (role === "admin") {
+    const users = await User.find({ is_deleted: { $ne: true }, is_active: { $ne: false } })
+      .populate("role", "name")
+      .select("name email role")
+      .sort({ name: 1 })
+      .lean();
+    return users.filter((user) => String(user?.role?.name || "").toLowerCase() !== "admin");
+  }
+
+  if (role === "manager") {
+    const teams = await Team.find({ "teamLeads.userId": req.user?._id })
+      .select("teamLeads members")
+      .lean();
+    const userIds = [
+      ...new Set([
+        String(req.user?._id || ""),
+        ...teams.flatMap((team) => [
+          ...(team.teamLeads || []).map((lead) => String(lead.userId || "")),
+          ...(team.members || []).map((member) => String(member.userId || "")),
+        ]),
+      ].filter(Boolean)),
+    ];
+    return User.find({ _id: { $in: userIds }, is_deleted: { $ne: true }, is_active: { $ne: false } })
+      .populate("role", "name")
+      .select("name email role")
+      .sort({ name: 1 })
+      .lean();
+  }
+
+  return User.find({ _id: req.user?._id, is_deleted: { $ne: true }, is_active: { $ne: false } })
+    .populate("role", "name")
+    .select("name email role")
+    .lean();
+}
+
+exports.getAiLeadImportAssignees = async (req, res) => {
+  try {
+    const users = await getAssignableUsersForRequest(req);
+    return res.json(users.map((user) => ({
+      _id: user._id,
+      name: user.name || "Unknown",
+      email: user.email || "",
+      roleName: user.role?.name || "",
+    })));
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Failed to load assignees" });
+  }
+};
 
 exports.getAiLeads = async (req, res) => {
   try {
@@ -197,6 +257,16 @@ exports.getAiLeads = async (req, res) => {
 
 exports.importAiLead = async (req, res) => {
   try {
+    const assignableUsers = await getAssignableUsersForRequest(req);
+    const assignableIds = new Set(assignableUsers.map((user) => String(user._id)));
+    const requestedAssignee = String(req.body?.assignedTo || "").trim();
+    const assignedTo = requestedAssignee && assignableIds.has(requestedAssignee)
+      ? requestedAssignee
+      : String(req.user?._id || "");
+    if (requestedAssignee && !assignableIds.has(requestedAssignee)) {
+      return res.status(403).json({ message: "Selected assignee is not allowed for your role" });
+    }
+
     const aiLead = await AiGeneratedLead.findOne({
       _id: req.params.id,
       is_deleted: { $ne: true },
@@ -220,7 +290,7 @@ exports.importAiLead = async (req, res) => {
         website: aiLead.website || "",
         source: aiLead.source || null,
         deal_value_estimate: 0,
-        assigned_to: req.user?._id || null,
+        assigned_to: assignedTo || null,
         stage: "P3",
         ai_found: true,
         is_active: true,
@@ -253,6 +323,7 @@ exports.importAiLead = async (req, res) => {
           $set: {
             stage: "P3",
             ai_found: true,
+            assigned_to: assignedTo || null,
             updated_at: new Date(),
           },
         }

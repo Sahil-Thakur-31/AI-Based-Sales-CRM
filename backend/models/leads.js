@@ -109,6 +109,11 @@ const leadsSchema = new mongoose.Schema(
       default: false,
     },
 
+    ai_found: {
+      type: Boolean,
+      default: false,
+    },
+
     location: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Location",

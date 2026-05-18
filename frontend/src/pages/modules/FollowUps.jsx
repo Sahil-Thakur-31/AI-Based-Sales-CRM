@@ -240,6 +240,20 @@ function getAiPriorityClass(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function getDisplayedAiPriority(item = {}) {
+  const explicitAiPriority = String(item?.aiPriority || "").trim();
+  if (explicitAiPriority) return explicitAiPriority;
+
+  if (isCompletedStatus(item?.status)) {
+    const fallbackPriority = String(item?.priority || "").trim().toLowerCase();
+    if (fallbackPriority) {
+      return fallbackPriority.charAt(0).toUpperCase() + fallbackPriority.slice(1);
+    }
+  }
+
+  return "";
+}
+
 function isMeetingLikeAction(actionType = "") {
   return String(actionType).toLowerCase().includes("meeting");
 }
@@ -311,6 +325,11 @@ function shouldCountDealInStage(deal = {}, stageKey = "") {
 }
 
 export default function Followups() {
+  useEffect(() => {
+    document.body.classList.add("dashboard-scroll-hidden");
+    return () => document.body.classList.remove("dashboard-scroll-hidden");
+  }, []);
+
   const [activeStage, setActiveStage] = useState("P1");
   const [recordBucket, setRecordBucket] = useState("lead");
   const [followupMode, setFollowupMode] = useState("list");
@@ -416,7 +435,10 @@ export default function Followups() {
   useEffect(() => {
     const rawRole = String(localStorage.getItem("RoleName") || "").trim().toLowerCase();
     setCurrentRole(rawRole);
-    if (rawRole === "admin") setScopeLabel("Admin Scope: My + Managers + Sales");
+    if (rawRole === "admin") {
+      setScopeLabel("Admin Scope: My + Managers + Sales");
+      setRecordScope("all");
+    }
     else if (rawRole === "manager") setScopeLabel("Manager Scope: My + Team");
     else setScopeLabel("Sales Scope: My Records");
   }, []);
@@ -810,19 +832,23 @@ export default function Followups() {
       }
 
       if (doneModal.kind === "meeting") {
+        const currentMeeting = meetings.find((m) => m.id === doneModal.id) || selectedMeeting || {};
         const updated = {
           ...mapDocToMeeting(res.data),
           stage: doneModal.nextStage || mapDocToMeeting(res.data).stage,
           status: "completed",
+          aiPriority: mapDocToMeeting(res.data).aiPriority || currentMeeting.aiPriority || "",
         };
         setMeetings((prev) => prev.map((m) => (m.id === doneModal.id ? { ...m, ...updated } : m)));
         if (selectedMeeting?.id === doneModal.id) {
           setSelectedMeeting((prev) => ({ ...prev, ...updated }));
         }
       } else {
+        const currentFollowup = followups.find((x) => x.id === doneModal.id) || selectedFollowup || {};
         const updated = {
           ...mapDocToFollowup(res.data),
           stage: doneModal.nextStage || mapDocToFollowup(res.data).stage,
+          aiPriority: mapDocToFollowup(res.data).aiPriority || currentFollowup.aiPriority || "",
         };
         setFollowups((prev) => prev.map((x) => (x.id === doneModal.id ? updated : x)));
         if (selectedFollowup?.id === doneModal.id) {
@@ -1121,7 +1147,7 @@ export default function Followups() {
                 }
               }}
             >
-              <option value="mine">My Records</option>
+              {currentRole !== "admin" ? <option value="mine">My Records</option> : null}
               <option value="all">Select</option>
             </select>
             <select
@@ -1135,7 +1161,7 @@ export default function Followups() {
               }}
             >
               <option value="">All Teams</option>
-              <option value="__mine__">My Records</option>
+              {currentRole !== "admin" ? <option value="__mine__">My Records</option> : null}
               {teamOptions.map((t) => (
                 <option key={t.id} value={t.id}>{t.label}</option>
               ))}
@@ -1151,7 +1177,7 @@ export default function Followups() {
               }}
             >
               <option value="">All Employees</option>
-              <option value="__mine__">My Records</option>
+              {currentRole !== "admin" ? <option value="__mine__">My Records</option> : null}
               {visibleEmployeeOptions.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
@@ -1181,7 +1207,9 @@ export default function Followups() {
                           : "No meetings for today."}
                     </div>
                   ) : (
-                    visibleMeetings.map((m) => (
+                    visibleMeetings.map((m) => {
+                      const displayedAiPriority = getDisplayedAiPriority(m);
+                      return (
                       <div key={m.id} className="fuItem">
                         <div className={cx("fuPriorityDot", m.priority)} title={`${m.priority} priority`} />
                         <div className="fuItemMain">
@@ -1189,8 +1217,8 @@ export default function Followups() {
                           <div className="fuItemMeta">
                             <span className="fuMetaChip">{m.eventType}</span>
                             <span className="fuMetaChip">Time: {m.time}</span>
-                            {m.aiPriority ? (
-                              <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(m.aiPriority))}>AI: {m.aiPriority}</span>
+                            {displayedAiPriority ? (
+                              <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(displayedAiPriority))}>AI: {displayedAiPriority}</span>
                             ) : null}
                             {!isCompletedStatus(m.status) && (
                               <span className="fuMetaChip">{m.status}</span>
@@ -1209,7 +1237,7 @@ export default function Followups() {
                           </button>
                         </div>
                       </div>
-                    ))
+                    )})
                   )}
                 </div>
                 {filteredMeetings.length > 0 && (
@@ -1228,7 +1256,6 @@ export default function Followups() {
           <header className="fuPanelHeader">
             <div>
               <h3>Active Follow-ups</h3>
-              <div className="fuHint">Showing: <span className="fuHintStrong">Today's follow-ups</span></div>
             </div>
           </header>
 
@@ -1246,7 +1273,9 @@ export default function Followups() {
                         : "No follow-ups for today."}
                   </div>
                 ) : (
-                  visibleFollowupsByStatus.map((f) => (
+                  visibleFollowupsByStatus.map((f) => {
+                    const displayedAiPriority = getDisplayedAiPriority(f);
+                    return (
                     <div key={f.id} className="fuItem">
                       <div className={cx("fuPriorityDot", f.priority)} title={`${f.priority} priority`} />
                       <div className="fuItemMain">
@@ -1255,8 +1284,8 @@ export default function Followups() {
                           <span className="fuMetaChip">{String(f.actionType || "").replace(/^follow\s*up\s*/i, "").trim() || "Phone Call"}</span>
                           <span className="fuMetaChip">Time: {f.time || "--:--"}</span>
                           <span className="fuMetaChip">Mob: {f.mob || "-"}</span>
-                          {f.aiPriority ? (
-                            <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(f.aiPriority))}>AI: {f.aiPriority}</span>
+                          {displayedAiPriority ? (
+                            <span className={cx("fuMetaChip", "fuAiPriorityChip", getAiPriorityClass(displayedAiPriority))}>AI: {displayedAiPriority}</span>
                           ) : null}
                           <span className="fuMetaChip">{f.status || "pending"}</span>
                         </div>
@@ -1273,7 +1302,7 @@ export default function Followups() {
                         </button>
                       </div>
                     </div>
-                  ))
+                  )})
                 )}
               </div>
               {filteredFollowupsByStatus.length > 0 && (

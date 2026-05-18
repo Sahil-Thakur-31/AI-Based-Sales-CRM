@@ -21,6 +21,8 @@ function initialForm() {
 
 export default function ClientNew() {
   const navigate = useNavigate();
+  const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
+  const canModifyClient = roleName === "admin" || roleName === "manager";
   const [form, setForm] = useState(initialForm());
   const [industries, setIndustries] = useState([]);
   const [sources, setSources] = useState([]);
@@ -30,6 +32,11 @@ export default function ClientNew() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!canModifyClient) {
+      navigate("/clients", { replace: true });
+      return;
+    }
+
     (async () => {
       try {
         const [indRes, srcRes, usersRes, eventsRes] = await Promise.all([
@@ -46,7 +53,7 @@ export default function ClientNew() {
         console.error(err);
       }
     })();
-  }, []);
+  }, [canModifyClient, navigate]);
 
   const selectedSource = sources.find((s) => String(s?._id) === String(form.source || ""));
   const normalizedSourceName = String(selectedSource?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();

@@ -311,12 +311,13 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const deletedView = embedded ? false : searchParams.get("deleted") === "true";
   const dealView = embedded ? forcedView === "deal" : searchParams.get("view") === "deal";
   const clientView = formMode === "client" || searchParams.get("view") === "client";
+  const canModifyClient = !clientView || isAdminOrManager;
   const dealIdFromQuery = searchParams.get("dealId") || (dealView ? String(id || "") : "");
   const clientIdFromQuery = searchParams.get("clientId") || "";
   const hasEditQuery = !embedded && searchParams.get("edit") === "true";
   const shouldStartInEditMode = embedded
     ? true
-    : !deletedView && (isNew || hasEditQuery);
+    : !deletedView && (isNew || hasEditQuery) && canModifyClient;
   const [editMode, setEditMode] = useState(shouldStartInEditMode);
   const [popup, setPopup] = useState({
     open: false,
@@ -364,6 +365,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   useEffect(() => {
     setEditMode(shouldStartInEditMode);
   }, [shouldStartInEditMode]);
+
+  useEffect(() => {
+    if (clientView && isNew && !canModifyClient) {
+      navigate("/clients", { replace: true });
+    }
+  }, [canModifyClient, clientView, isNew, navigate]);
 
   const ocrData = location.state?.ocrData || null;
   const ocrLineLabels = Array.isArray(location.state?.ocrLineLabels)
@@ -961,6 +968,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
   /* ================= SAVE ================= */
   const handleSave = async () => {
+    if (clientView && !canModifyClient) {
+      showAlert("View Only", "Users can only view clients.", "warning");
+      return;
+    }
+
     const finalCompanyName = lead.company_name || (!isFromOCR ? contacts[0]?.name : "") || "";
 
     const sanitizedContacts = contacts.map((contact) => ({
@@ -1091,7 +1103,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         delete payload.status;
 
         response = isNew
-          ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
+          ? await API.post(dealView ? "/deals" : "/leads", payload)
           : await API.put(dealView ? `/deals/${dealIdFromQuery || id}` : `/leads/${id}`, payload);
       }
 
@@ -2134,14 +2146,18 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                 </button>
               ) : (
                 <>
-                  <button className="edit-btn" onClick={() => setEditMode(true)}>
-                    Edit
-                  </button>
+                  {canModifyClient && (
+                    <button className="edit-btn" onClick={() => setEditMode(true)}>
+                      Edit
+                    </button>
+                  )}
                   {clientView ? (
                     <>
-                      <button className="convert-btn" onClick={handleAddDealFromClient}>
-                        Add Deal
-                      </button>
+                      {canModifyClient && (
+                        <button className="convert-btn" onClick={handleAddDealFromClient}>
+                          Add Deal
+                        </button>
+                      )}
                       {isAdminOrManager && (
                         <button className="soft-delete-btn" onClick={handleDeleteClient}>
                           Delete

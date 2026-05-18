@@ -43,13 +43,14 @@ function isOnLocalDate(rawDate, targetDateISO) {
 
 function isAllowedReportStatus(item = {}) {
   const status = String(item?.status || item?.action || "").trim().toLowerCase();
-  return status === "completed" || status === "cancelled" || status === "canceled";
+  return status === "completed" || status === "cancelled" || status === "canceled" || status === "overdue";
 }
 
 function normalizeStatus(value) {
   const status = String(value || "").trim().toLowerCase();
   if (status === "completed") return "completed";
   if (status === "cancelled" || status === "canceled") return "cancelled";
+  if (status === "overdue") return "overdue";
   return "";
 }
 
@@ -209,6 +210,10 @@ export default function DailyClosingReport() {
     () => meetings.filter((item) => normalizeStatus(item?.status) === "cancelled"),
     [meetings]
   );
+  const overdueMeetings = useMemo(
+    () => meetings.filter((item) => normalizeStatus(item?.status) === "overdue"),
+    [meetings]
+  );
   const completedFollowups = useMemo(
     () => followups.filter((item) => normalizeStatus(item?.status) === "completed"),
     [followups]
@@ -217,30 +222,24 @@ export default function DailyClosingReport() {
     () => followups.filter((item) => normalizeStatus(item?.status) === "cancelled"),
     [followups]
   );
+  const overdueFollowups = useMemo(
+    () => followups.filter((item) => normalizeStatus(item?.status) === "overdue"),
+    [followups]
+  );
 
   useEffect(() => {
     (async () => {
       try {
-      setLoading(true);
-      setError("");
-      setSuccessMessage("");
+        setLoading(true);
+        setError("");
+        setSuccessMessage("");
         const params = {
-          today: "true",
           date: selectedDateParam,
           tzOffsetMinutes: -selectedDate.getTimezoneOffset(),
         };
-        const [meetingRes, followupRes] = await Promise.all([
-          API.get("/followups", { params: { ...params, kind: "meeting" } }),
-          API.get("/followups", { params: { ...params, kind: "followup" } }),
-        ]);
-        const todayMeetings = (meetingRes.data || []).filter((row) =>
-          isOnLocalDate(row?.dueDateTime, selectedDateParam)
-        );
-        const todayFollowups = (followupRes.data || []).filter((row) =>
-          isOnLocalDate(row?.dueDateTime, selectedDateParam)
-        );
-        setMeetings(todayMeetings.filter(isAllowedReportStatus));
-        setFollowups(todayFollowups.filter(isAllowedReportStatus));
+        const response = await API.get("/daily-closing/report-data", { params });
+        setMeetings((response.data?.meetings || []).filter(isAllowedReportStatus));
+        setFollowups((response.data?.followups || []).filter(isAllowedReportStatus));
       } catch (err) {
         console.error(err);
         setError("Failed to load report data");
@@ -371,6 +370,18 @@ export default function DailyClosingReport() {
           status: f.status || "",
           type: "Follow-up",
         })),
+        meetingsOverdue: overdueMeetings.map((m) => ({
+          clientName: m.clientName || "",
+          notes: m.notes || "",
+          status: m.status || "",
+          type: "Meeting",
+        })),
+        followupsOverdue: overdueFollowups.map((f) => ({
+          clientName: f.clientName || "",
+          notes: f.agenda || f.title || f.notes || "",
+          status: f.status || "",
+          type: "Follow-up",
+        })),
       });
 
       setSuccessMessage("Report mailed successfully");
@@ -453,6 +464,27 @@ export default function DailyClosingReport() {
             detailsHeader="Agenda of Meeting"
             getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
           />
+          <ReportTableSection
+            title="Meeting Details (Overdue)"
+            loading={loading}
+            emptyText="No overdue meetings found for this date."
+            rows={overdueMeetings}
+            selectedStatus="overdue"
+            onStatusChange={() => {}}
+            hideStatusToggle
+          />
+          <ReportTableSection
+            title="Follow-up Details (Overdue)"
+            loading={loading}
+            emptyText="No overdue follow-ups found for this date."
+            rows={overdueFollowups}
+            selectedStatus="overdue"
+            onStatusChange={() => {}}
+            getTotalEvents={() => 1}
+            hideStatusToggle
+            detailsHeader="Agenda of Meeting"
+            getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
+          />
 
           <div className="dailyClosingReportHighlights">
             <strong>Key Highlights</strong>
@@ -504,20 +536,45 @@ export default function DailyClosingReport() {
               expandMinutesByDefault
               showExpandControl={false}
             />
-            <ReportTableSection
-              title="Follow-up Details (Cancelled)"
-              loading={false}
-              emptyText="No cancelled follow-ups found for this date."
-              rows={cancelledFollowups}
+             <ReportTableSection
+               title="Follow-up Details (Cancelled)"
+               loading={false}
+               emptyText="No cancelled follow-ups found for this date."
+               rows={cancelledFollowups}
               selectedStatus="cancelled"
               onStatusChange={() => {}}
                getTotalEvents={() => 1}
                hideStatusToggle
                expandMinutesByDefault
                showExpandControl={false}
-               detailsHeader="Agenda of Meeting"
-               getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
-             />
+                detailsHeader="Agenda of Meeting"
+                getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
+              />
+            <ReportTableSection
+              title="Meeting Details (Overdue)"
+              loading={false}
+              emptyText="No overdue meetings found for this date."
+              rows={overdueMeetings}
+              selectedStatus="overdue"
+              onStatusChange={() => {}}
+              hideStatusToggle
+              expandMinutesByDefault
+              showExpandControl={false}
+            />
+            <ReportTableSection
+              title="Follow-up Details (Overdue)"
+              loading={false}
+              emptyText="No overdue follow-ups found for this date."
+              rows={overdueFollowups}
+              selectedStatus="overdue"
+              onStatusChange={() => {}}
+              getTotalEvents={() => 1}
+              hideStatusToggle
+              expandMinutesByDefault
+              showExpandControl={false}
+              detailsHeader="Agenda of Meeting"
+              getDetailsValue={(item) => item?.agenda || item?.title || item?.notes || "-"}
+            />
 
             <div className="dailyClosingReportHighlights">
               <strong>Key Highlights</strong>
