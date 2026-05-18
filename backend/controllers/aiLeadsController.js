@@ -222,6 +222,7 @@ exports.importAiLead = async (req, res) => {
         deal_value_estimate: 0,
         assigned_to: req.user?._id || null,
         stage: "P3",
+        ai_found: true,
         is_active: true,
         location: aiLead.location || null,
       });
@@ -251,6 +252,7 @@ exports.importAiLead = async (req, res) => {
         {
           $set: {
             stage: "P3",
+            ai_found: true,
             updated_at: new Date(),
           },
         }

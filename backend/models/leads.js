@@ -12,6 +12,11 @@ const leadsSchema = new mongoose.Schema(
       default: false,
     },
 
+    ai_found: {
+      type: Boolean,
+      default: false,
+    },
+
     company_name: {
       type: String,
     },
