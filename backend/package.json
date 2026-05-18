@@ -13,7 +13,9 @@
     "seed:events": "node seed/seedEvents.js",
     "seed:locations": "node seedLocations.js",
     "seed:locations:force": "node seedLocations.js --force",
-    "seed:scraper-master": "node seedScraperMasterData.js"
+    "seed:scraper-master": "node seedScraperMasterData.js",
+    "seed:leads:april-2026": "node scripts/seedApril2026Leads.js",
+    "seed:deals:december-2025": "node scripts/seedDecember2025LeadDeals.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

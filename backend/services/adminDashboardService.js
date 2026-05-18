@@ -13,14 +13,6 @@ const Team = require("../models/teams");
 const Role = require("../models/roles");
 const SalesTarget = require("../models/sales_targets");
 
-// Optional model - if file exists in your models folder
-let AiGeneratedLeads = null;
-try {
-  AiGeneratedLeads = require("../models/ai_generated_leads");
-} catch (e) {
-  AiGeneratedLeads = null;
-}
-
 const { getRangeDates } = require("./dashboardRange.admin");
 const DEAL_WON_STAGE = "P7";
 const DEAL_LOST_STAGE = "P6";
@@ -84,7 +76,7 @@ function pickPrimaryPhone(value) {
  * SUMMARY
  * Shape must match frontend:
  * {
- *  revenueWon, revenueDeltaPct,
+ *  revenueWon, revenuePreviousValue, revenueDeltaPct,
  *  activeDeals, activeDealsDelta,
  *  winRatePct, winRateDeltaPct,
  *  pipelineValue, pipelineDeltaPct,
@@ -215,19 +207,19 @@ async function getSummary(filters = {}) {
     created_at: { $gte: start, $lte: end },
   });
 
-  // AI-sourced leads created in this range (if model exists)
-  let openLeadsFromAI = 0;
-  if (AiGeneratedLeads) {
-    openLeadsFromAI = await AiGeneratedLeads.countDocuments({
-      is_active: true,
-      created_at: { $gte: start, $lte: end },
-      generated_by: { $in: nonAdminUserIds },
-      status: { $in: ["new", "reviewed"] },
-    });
-  }
+  // AI-sourced leads in this range are leads marked with ai_found: true.
+  const openLeadsFromAI = await Lead.countDocuments({
+    is_active: true,
+    is_deleted: { $ne: true },
+    converted_to_deal: { $ne: true },
+    stage: { $nin: ["P4", "P6", "P7"] },
+    created_at: { $gte: start, $lte: end },
+    ai_found: true,
+  });
 
   return {
     revenueWon,
+    revenuePreviousValue: revenuePrev,
     revenueDeltaPct: pctChange(revenueWon, revenuePrev),
 
     activeDeals,
@@ -421,8 +413,6 @@ async function getTeamPerformance(filters = {}) {
  */
 async function getFollowups(filters = {}, viewerUserId = null) {
   const { start, end } = getRangeDates(filters.range, filters);
-  const now = new Date();
-
   const baseMatch = {
     is_deleted: { $ne: true },
     kind: { $in: ["followup", "meeting"] },
@@ -432,7 +422,7 @@ async function getFollowups(filters = {}, viewerUserId = null) {
   const list = await Followup.find(
     {
       ...baseMatch,
-      status: { $in: ["pending", "overdue"] },
+      status: "pending",
     },
     {
       title: 1,
@@ -513,14 +503,6 @@ async function getFollowups(filters = {}, viewerUserId = null) {
     clientPhoneMap.set(clientId, pickPrimaryPhone(contact.phone));
   }
 
-  const priorityRank = { urgent: 4, high: 3, medium: 2, low: 1 };
-  const comparePriority = (a, b) => {
-    const pa = priorityRank[String(a.priority || "").toLowerCase()] || 0;
-    const pb = priorityRank[String(b.priority || "").toLowerCase()] || 0;
-    if (pb !== pa) return pb - pa;
-    return Number(b.score || 0) - Number(a.score || 0);
-  };
-
   const mapped = list.map((f) => {
       const deal = dealMap.get(String(f.dealId || ""));
       const leadId = String(f.leadId || deal?.lead_id || "");
@@ -553,24 +535,10 @@ async function getFollowups(filters = {}, viewerUserId = null) {
   });
 
   const upcoming = mapped
-    .filter((item) => item.status === "pending" && new Date(item.dueDateTime || 0) >= now)
-    .sort((a, b) => {
-      const timeDiff = new Date(a.dueDateTime || 0) - new Date(b.dueDateTime || 0);
-      if (timeDiff !== 0) return timeDiff;
-      return comparePriority(a, b);
-    });
+    .filter((item) => new Date(item.dueDateTime || 0).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.dueDateTime || 0) - new Date(b.dueDateTime || 0));
 
-  const previous = mapped
-    .filter((item) => new Date(item.dueDateTime || 0) < now)
-    .sort((a, b) => {
-      const timeDiff = new Date(b.dueDateTime || 0) - new Date(a.dueDateTime || 0);
-      if (timeDiff !== 0) return timeDiff;
-      return comparePriority(a, b);
-    });
-
-  const ordered = upcoming.length > 0 ? upcoming : previous;
-
-  return ordered.map(({ dueDateTime, status, ...row }) => row);
+  return upcoming.map(({ dueDateTime, status, ...row }) => row);
 }
 
 /**

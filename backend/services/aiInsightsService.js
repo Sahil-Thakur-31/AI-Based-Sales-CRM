@@ -9,14 +9,20 @@ const Quotation = require("../models/quatations");
 const Client = require("../models/client");
 const User = require("../models/users");
 const Role = require("../models/roles");
+const { getOverdueCutoff } = require("./followupOverdueWorker");
 
 const GEMINI_MODEL = "gemini-1.5-flash";
+const DEAL_WON_STAGE = "P7";
+const DEAL_LOST_STAGE = "P6";
+const ACTIVE_DEAL_PIPELINE_STAGES = ["P1", "P2", "P3"];
 const WON_VALUES = ["Won", "Closed Won", "won", "Closed", "closed"];
 const LOST_VALUES = ["Lost", "Closed Lost", "lost"];
 const CLOSED_VALUES = ["Won", "Lost", "Closed Won", "Closed Lost", "Closed", "won", "lost", "closed"];
-const PENDING_FOLLOWUP_VALUES = ["Pending", "pending", "Scheduled", "scheduled"];
+const PENDING_FOLLOWUP_VALUES = ["Pending", "pending", "Scheduled", "scheduled", "Rescheduled", "rescheduled"];
+const ACTIVE_OVERDUE_FOLLOWUP_VALUES = ["pending", "Pending", "scheduled", "Scheduled", "rescheduled", "Rescheduled"];
 const CONVERTED_LEAD_VALUES = ["Converted", "converted", "Won", "won", "Closed", "closed"];
 const ACCEPTED_QUOTATION_VALUES = ["Accepted", "accepted", "Approved", "approved"];
+const INACTIVE_LEAD_STAGES = ["P4", "P6", "P7"];
 
 function normalizeFilter(value = "month") {
   const filter = String(value || "").trim().toLowerCase();
@@ -167,6 +173,21 @@ function buildLeadBaseMatch(scopeMatch = {}) {
   return { $and: clauses };
 }
 
+function buildActiveLeadMatch(scopeMatch = {}) {
+  const clauses = [
+    { is_deleted: { $ne: true } },
+    { stage: { $nin: INACTIVE_LEAD_STAGES } },
+    { converted_to_deal: { $ne: true } },
+    { $or: [{ converted_deal_id: { $exists: false } }, { converted_deal_id: null }] },
+  ];
+
+  if (scopeMatch && Object.keys(scopeMatch).length) {
+    clauses.push(scopeMatch);
+  }
+
+  return { $and: clauses };
+}
+
 function buildClientFilter(ids = []) {
   return buildUserFilter("createdBy", ids);
 }
@@ -189,8 +210,38 @@ function buildQuotationFilter(ids = []) {
 function buildOpenDealMatch(baseMatch = {}) {
   return {
     ...baseMatch,
-    stage: { $nin: CLOSED_VALUES },
+    isActive: { $ne: false },
+    stage: { $in: ACTIVE_DEAL_PIPELINE_STAGES },
     status: { $nin: ["won", "Won", "lost", "Lost"] },
+  };
+}
+
+function buildClosedDealRangeMatch(dateRange) {
+  if (!dateRange?.startDate || !dateRange?.endDate) return {};
+  return {
+    $or: [
+      { actualCloseDate: { $gte: dateRange.startDate, $lt: dateRange.endDate } },
+      {
+        actualCloseDate: null,
+        updatedAt: { $gte: dateRange.startDate, $lt: dateRange.endDate },
+      },
+    ],
+  };
+}
+
+function buildWonDealStageMatch(baseMatch = {}, dateRange = null) {
+  return {
+    ...baseMatch,
+    stage: DEAL_WON_STAGE,
+    ...buildClosedDealRangeMatch(dateRange),
+  };
+}
+
+function buildLostDealStageMatch(baseMatch = {}, dateRange = null) {
+  return {
+    ...baseMatch,
+    stage: DEAL_LOST_STAGE,
+    ...buildClosedDealRangeMatch(dateRange),
   };
 }
 
@@ -232,12 +283,16 @@ function buildPendingFollowupMatch(baseMatch = {}) {
 }
 
 function buildOverdueFollowupMatch(baseMatch = {}) {
+  const cutoff = getOverdueCutoff();
+
   return {
     ...baseMatch,
-    status: { $in: ["Pending", "pending"] },
     $or: [
-      { scheduledDate: { $lt: new Date() } },
-      { dueDateTime: { $lt: new Date() } },
+      { status: { $in: ["overdue", "Overdue"] } },
+      {
+        status: { $in: ACTIVE_OVERDUE_FOLLOWUP_VALUES },
+        dueDateTime: { $lte: cutoff },
+      },
     ],
   };
 }
@@ -562,6 +617,7 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
   const quotationScope = isCompany ? {} : scope === "team" ? { createdBy: { $in: memberObjectIds } } : userObjectId ? { createdBy: userObjectId } : { createdBy: null };
 
   const leadBase = buildLeadBaseMatch(leadScope);
+  const activeLeadBase = buildActiveLeadMatch(leadScope);
   const dealBase = { is_deleted: { $ne: true }, ...dealScope };
   const clientBase = { is_deleted: { $ne: true }, ...clientScope };
   const followupBase = { is_deleted: { $ne: true }, ...followupScope };
@@ -571,12 +627,12 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
   const [newLeads, convertedLeads, wonDeals, lostDeals, newClients, acceptedQuotations, expensesSubmitted, totalLeads, openDeals, pipelineValueRows, totalClients, pendingFollowUps, overdueFollowUps, pendingExpenses, totalUsers, todayFollowUps] = await Promise.all([
     safeQuery("glance newLeads", 0, () => Lead.countDocuments(withDateRange(leadBase, "created_at", dateRange))),
     safeQuery("glance convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(withDateRange(leadBase, "created_at", dateRange)))),
-    safeQuery("glance wonDeals", 0, () => Deal.countDocuments(buildWonDealMatch(withDateRange(dealBase, "updatedAt", dateRange)))),
-    safeQuery("glance lostDeals", 0, () => Deal.countDocuments(buildLostDealMatch(withDateRange(dealBase, "updatedAt", dateRange)))),
+    safeQuery("glance wonDeals", 0, () => Deal.countDocuments(buildWonDealStageMatch(dealBase, dateRange))),
+    safeQuery("glance lostDeals", 0, () => Deal.countDocuments(buildLostDealStageMatch(dealBase, dateRange))),
     safeQuery("glance newClients", 0, () => Client.countDocuments(withDateRange(clientBase, "createdAt", dateRange))),
     safeQuery("glance acceptedQuotations", 0, () => Quotation.countDocuments({ ...withDateRange(quotationBase, "createdAt", dateRange), status: { $in: ACCEPTED_QUOTATION_VALUES } })),
     safeQuery("glance expensesSubmitted", 0, () => Expense.countDocuments(withDateRange(expenseBase, "createdAt", dateRange))),
-    safeQuery("glance totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("glance totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("glance openDeals", 0, () => Deal.countDocuments(buildOpenDealMatch(dealBase))),
     safeQuery("glance pipelineValue", [], () =>
       Deal.aggregate([
@@ -618,6 +674,7 @@ async function buildGlanceMetrics(scope, userId, memberIds, dateRange) {
 async function buildCompanyEvidence() {
 
   const leadBase = buildLeadBaseMatch();
+  const activeLeadBase = buildActiveLeadMatch();
   const dealBase = { is_deleted: { $ne: true } };
   const clientBase = { is_deleted: { $ne: true } };
   const followupBase = { is_deleted: { $ne: true } };
@@ -647,7 +704,7 @@ async function buildCompanyEvidence() {
     totalUsers,
     topPerformers,
   ] = await Promise.all([
-    safeQuery("company totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("company totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("company newLeads7d", 0, () => Lead.countDocuments({ ...leadBase, created_at: { $gte: daysAgo(7) } })),
     safeQuery("company convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(leadBase))),
     safeQuery("company totalDeals", 0, () => Deal.countDocuments(dealBase)),
@@ -778,6 +835,7 @@ async function buildPersonalEvidence(user) {
   const userObjectId = toObjectId(userId);
 
   const leadBase = buildLeadBaseMatch({ assigned_to: userObjectId });
+  const activeLeadBase = buildActiveLeadMatch({ assigned_to: userObjectId });
   const dealBase = { is_deleted: { $ne: true }, assignedTo: userObjectId };
   const clientBase = { is_deleted: { $ne: true }, createdBy: userObjectId };
   const followupBase = { is_deleted: { $ne: true }, assignedTo: userObjectId };
@@ -802,7 +860,7 @@ async function buildPersonalEvidence(user) {
     totalQuotations,
     recentLeads,
   ] = await Promise.all([
-    safeQuery("personal totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("personal totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("personal newLeads7d", 0, () => Lead.countDocuments({ ...leadBase, created_at: { $gte: daysAgo(7) } })),
     safeQuery("personal convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(leadBase))),
     safeQuery("personal openDeals", 0, () => Deal.countDocuments(buildOpenDealMatch(dealBase))),
@@ -992,6 +1050,7 @@ async function buildTeamEvidence(teamId) {
     : "";
 
   const leadBase = buildLeadBaseMatch({ assigned_to: { $in: memberIds } });
+  const activeLeadBase = buildActiveLeadMatch({ assigned_to: { $in: memberIds } });
   const dealBase = { is_deleted: { $ne: true }, assignedTo: { $in: memberIds } };
   const clientBase = { is_deleted: { $ne: true }, createdBy: { $in: memberIds } };
   const followupBase = { is_deleted: { $ne: true }, assignedTo: { $in: memberIds } };
@@ -1020,7 +1079,7 @@ async function buildTeamEvidence(teamId) {
     todayFollowups,
     memberPerformance,
   ] = await Promise.all([
-    safeQuery("team totalLeads", 0, () => Lead.countDocuments(leadBase)),
+    safeQuery("team totalLeads", 0, () => Lead.countDocuments(activeLeadBase)),
     safeQuery("team newLeads7d", 0, () => Lead.countDocuments({ ...leadBase, created_at: { $gte: daysAgo(7) } })),
     safeQuery("team convertedLeads", 0, () => Lead.countDocuments(buildConvertedLeadMatch(leadBase))),
     safeQuery("team openDeals", 0, () => Deal.countDocuments(buildOpenDealMatch(dealBase))),

@@ -7,14 +7,14 @@ import "./styles/Expense.css";
 const categories = [
   { label: "Travel", value: "travel" },
   { label: "Food", value: "food" },
-  { label: "Hotel", value: "hotel" },
   { label: "Stationery", value: "stationery" },
   { label: "Other Expense", value: "other" },
 ];
 
 const normalizeExpenseCategory = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
-  if (["travel", "food", "hotel", "stationery", "other"].includes(normalized)) {
+  if (normalized === "hotel") return "other";
+  if (["travel", "food", "stationery", "other"].includes(normalized)) {
     return normalized;
   }
   if (normalized === "client_meeting") return "food";
@@ -23,7 +23,13 @@ const normalizeExpenseCategory = (value) => {
 };
 
 const isStandardExpenseCategory = (value) =>
-  ["travel", "food", "hotel", "stationery"].includes(String(value || "").trim().toLowerCase());
+  ["travel", "food", "stationery"].includes(String(value || "").trim().toLowerCase());
+
+const getExpenseCategoryLabel = (category, otherCategory = "") => {
+  const normalized = normalizeExpenseCategory(category);
+  if (normalized === "other") return otherCategory || "Other Expense";
+  return categories.find((c) => c.value === normalized)?.label || "Other Expense";
+};
 
 const getOcrCustomCategory = (fields = {}, meta = {}) => {
   const suggestedCategory = normalizeExpenseCategory(
@@ -82,7 +88,7 @@ const inferCategoryFromOcrText = (fields = {}, meta = {}) => {
     return "food";
   }
   if (hasAny(lodgingTerms)) {
-    return "hotel";
+    return "other";
   }
   if (hasAny(["travel", "trip", "taxi", "cab", "uber", "ola", "bus", "train", "flight", "fuel", "petrol", "diesel", "parking", "toll", "metro"])) {
     return "travel";
@@ -168,7 +174,6 @@ const ExpenseDashboard = () => {
   const dynamicCategories = React.useMemo(() => ([
     { label: "Travel", value: "travel" },
     { label: "Food", value: "food" },
-    { label: "Hotel", value: "hotel" },
     { label: "Stationery", value: "stationery" },
     { label: "Other Expense", value: "other" },
   ]), []);
@@ -224,10 +229,7 @@ const ExpenseDashboard = () => {
         category: normalizeExpenseCategory(exp.category),
         otherCategory: exp.otherCategory || "",
         vendorName: exp.vendorName || exp.receipt?.extractedData?.vendor || "",
-        categoryLabel:
-          normalizeExpenseCategory(exp.category) === "other"
-            ? exp.otherCategory || "Other Expense"
-            : categories.find((c) => c.value === normalizeExpenseCategory(exp.category))?.label || exp.category,
+        categoryLabel: getExpenseCategoryLabel(exp.category, exp.otherCategory),
         user: exp.userId?.name || "Unknown",
         userId: exp.userId?._id,
         amount: Number(exp.amount || 0),
@@ -623,6 +625,13 @@ const ExpenseDashboard = () => {
   const appliedOcrConfidence = appliedReceiptOcrData?.overallConfidence || 0;
   const appliedOcrConfidenceTone = getConfidenceTone(appliedOcrConfidence);
   const appliedOcrConfidenceLabel = getConfidenceLabel(appliedOcrConfidence);
+  const appliedOcrSuggestedCategoryLabel = appliedReceiptOcrData?.fields?.predictedCategory
+    ? getExpenseCategoryLabel(
+      appliedReceiptOcrData.fields.suggestedExpenseCategory ||
+      appliedReceiptOcrData.fields.predictedCategory,
+      appliedReceiptOcrData.fields.customCategoryLabel
+    )
+    : "";
 
   const updateOcrAdjustment = (id, key, value) => {
     setOcrImageAdjustments((prev) => ({
@@ -1621,9 +1630,9 @@ const ExpenseDashboard = () => {
                       <div className={`expense-receipt-confidence-pill ${appliedOcrConfidenceTone}`}>
                         {appliedOcrConfidenceLabel}
                       </div>
-                      {appliedReceiptOcrData.fields?.predictedCategory && (
+                      {appliedOcrSuggestedCategoryLabel && (
                         <div className="expense-receipt-ai-meta">
-                          Suggested category: <strong>{appliedReceiptOcrData.fields.predictedCategory}</strong>
+                          Suggested category: <strong>{appliedOcrSuggestedCategoryLabel}</strong>
                         </div>
                       )}
                     </div>

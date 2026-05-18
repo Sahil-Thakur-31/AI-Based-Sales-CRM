@@ -41,6 +41,16 @@ function formatDateTime(value, locale = "en-IN") {
   });
 }
 
+function formatTime(value, locale = "en-IN") {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function formatDate(value, locale = "en-IN") {
   if (!value) return "";
   const d = new Date(value);
@@ -209,8 +219,13 @@ function buildTemplateByKey({
         })()
       : appBaseUrl;
 
-  const meetingDate = formatDate(relatedData?.meetingDate || relatedData?.startTime);
-  const meetingTime = formatDateTime(relatedData?.startTime || relatedData?.meetingDate);
+  const meetingScheduleAt =
+    relatedData?.startTime ||
+    relatedData?.meetingDate ||
+    relatedData?.dueDateTime ||
+    relatedData?.nextActionDate;
+  const meetingDate = formatDate(meetingScheduleAt);
+  const meetingTime = formatTime(meetingScheduleAt);
   const followupDateTime = formatDateTime(relatedData?.dueDateTime || relatedData?.nextActionDate);
   const meetingAgenda = relatedData?.agenda_of_meating || relatedData?.agenda || relatedData?.notes || "";
   const followupNotes = relatedData?.notes || relatedData?.agenda || "";

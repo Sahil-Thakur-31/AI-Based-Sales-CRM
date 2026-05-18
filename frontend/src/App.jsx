@@ -178,9 +178,30 @@ function App() {
 
           <Route path="/followups" element={<FollowUps />} />
           <Route path="/followups/add" element={<FollowupsAddPage />} />
-          <Route path="/daily-closing" element={<Navigate to="/daily-closing/form" replace />} />
-          <Route path="/daily-closing/form" element={<DailyClosingForm />} />
-          <Route path="/daily-closing/report" element={<DailyClosingReport />} />
+          <Route
+            path="/daily-closing"
+            element={
+              <ProtectedRoute allowedRoles={["User", "Manager"]}>
+                <Navigate to="/daily-closing/form" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/daily-closing/form"
+            element={
+              <ProtectedRoute allowedRoles={["User", "Manager"]}>
+                <DailyClosingForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/daily-closing/report"
+            element={
+              <ProtectedRoute allowedRoles={["User", "Manager"]}>
+                <DailyClosingReport />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/sales-forecast"

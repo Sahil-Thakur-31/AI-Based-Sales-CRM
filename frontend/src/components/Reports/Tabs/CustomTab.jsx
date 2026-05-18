@@ -76,6 +76,33 @@ function getProviderBadgeStyle(provider) {
   };
 }
 
+function getCountMetricDescriptor(metric) {
+  const map = {
+    deal_count: "deals",
+    won_deals: "won deals",
+    lost_deals: "lost deals",
+    active_deals: "active deals",
+    lead_count: "leads",
+    converted_count: "converted leads",
+    non_converted_count: "non-converted leads",
+    uncontacted_count: "uncontacted leads",
+    qualified_count: "qualified leads",
+    deleted_leads: "deleted leads",
+    inactive_leads: "inactive leads",
+    expense_count: "expenses",
+    pending_count: "pending expenses",
+    rejected_count: "rejected expenses",
+    followup_count: "follow-ups",
+    user_count: "users",
+    active_users: "active users",
+    inactive_users: "inactive users",
+    deleted_users: "deleted users",
+    team_count: "teams",
+  };
+
+  return map[metric] || "";
+}
+
 function CustomTab() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
@@ -265,6 +292,29 @@ function CustomTab() {
     !loading &&
     normalizeText(question) !== normalizeText(result?.question || "");
 
+  const countMetricDescriptor = getCountMetricDescriptor(result?.metric);
+  const isSingleSummaryCountReport = Boolean(
+    result &&
+    countMetricDescriptor &&
+    Number(result?.summary?.rowCount || 0) === 1 &&
+    String(result?.data?.[0]?.label || "").trim().toLowerCase() === "all"
+  );
+  const summaryFooterText = isSingleSummaryCountReport
+    ? `Total ${countMetricDescriptor}`
+    : `${Number(result?.summary?.rowCount || 0).toLocaleString("en-IN")} rows`;
+  const tableMetaText =
+    isSingleSummaryCountReport && !tableSearch.trim()
+      ? `${Number(result?.summary?.value || 0).toLocaleString("en-IN")} row${Number(result?.summary?.value || 0) === 1 ? "" : "s"}`
+      : `${filteredCustomRows.length} of ${Number(result?.summary?.rowCount || 0).toLocaleString("en-IN")} rows`;
+  const displayRows = isSingleSummaryCountReport
+    ? [
+        {
+          label: summaryFooterText,
+          value: result?.summary?.value ?? 0,
+        },
+      ]
+    : filteredCustomRows;
+
   return (
     <div className="custom-tab">
       <section className="reports-card">
@@ -385,23 +435,6 @@ function CustomTab() {
                   {" · "}
                   {formatSelection(result.selection)}
                 </p>
-                <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      padding: "6px 10px",
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: "0.02em",
-                      textTransform: "uppercase",
-                      ...getProviderBadgeStyle(result.provider),
-                    }}
-                  >
-                    {formatProviderLabel(result.provider)}
-                  </span>
-                </div>
               </div>
               <div
                 style={{
@@ -418,29 +451,21 @@ function CustomTab() {
                 <div style={{ fontSize: 30, fontWeight: 700, color: "#0f172a", marginTop: 8 }}>
                   {formatValue(result.metric, result.summary?.value)}
                 </div>
-                <div style={{ marginTop: 8, fontSize: 13, color: "#64748b" }}>
-                  {Number(result.summary?.rowCount || 0).toLocaleString("en-IN")} rows
-                </div>
+                <div style={{ marginTop: 8, fontSize: 13, color: "#64748b" }}>{summaryFooterText}</div>
               </div>
             </div>
 
-            {result.parserWarning && (
-              <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 10, background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a" }}>
-                {result.parserWarning}
-              </div>
-            )}
-
             <div style={{ marginTop: 18, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ fontSize: 13, color: "#64748b" }}>
-                {filteredCustomRows.length} of {Number(result.summary?.rowCount || 0).toLocaleString("en-IN")} rows
-              </div>
-              <input
-                className="report-filter report-search-input"
-                type="text"
-                placeholder="Search report rows..."
-                value={tableSearch}
-                onChange={(event) => setTableSearch(event.target.value)}
-              />
+              <div style={{ fontSize: 13, color: "#64748b" }}>{tableMetaText}</div>
+              {!isSingleSummaryCountReport && (
+                <input
+                  className="report-filter report-search-input"
+                  type="text"
+                  placeholder="Search report rows..."
+                  value={tableSearch}
+                  onChange={(event) => setTableSearch(event.target.value)}
+                />
+              )}
             </div>
 
             <div style={{ marginTop: 18, overflowX: "auto" }}>
@@ -464,14 +489,14 @@ function CustomTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCustomRows.length === 0 ? (
+                  {displayRows.length === 0 ? (
                     <tr>
                       <td colSpan={result.columns?.length || 2} style={{ padding: "18px 14px", color: "#94a3b8", textAlign: "center" }}>
                         No rows match this search.
                       </td>
                     </tr>
                   ) : (
-                    filteredCustomRows.map((row, index) => (
+                    displayRows.map((row, index) => (
                       <tr key={`${row.label}-${index}`} style={{ borderBottom: "1px solid #f1f5f9" }}>
                         <td style={{ padding: "12px 14px", color: "#334155", fontWeight: 600 }}>{row.label}</td>
                         <td style={{ padding: "12px 14px", color: "#475569" }}>{formatValue(result.metric, row.value)}</td>
@@ -486,38 +511,16 @@ function CustomTab() {
           <section className="reports-card">
             <h2 className="reports-card-title">What You Can Ask</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18, marginTop: 16 }}>
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
-                <strong style={{ display: "block", marginBottom: 10, color: "#0f172a" }}>Deals</strong>
-                <p style={{ margin: 0, color: "#475569", fontSize: 13 }}>Show top performers this month</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show all deals</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>List this month deals</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show revenue by salesperson this quarter</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show lost deals this year</p>
-              </div>
-
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
-                <strong style={{ display: "block", marginBottom: 10, color: "#0f172a" }}>Leads</strong>
-                <p style={{ margin: 0, color: "#475569", fontSize: 13 }}>Show uncontacted leads this month</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show converted leads this quarter</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show leads by source this year</p>
-              </div>
-
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
-                <strong style={{ display: "block", marginBottom: 10, color: "#0f172a" }}>Expenses</strong>
-                <p style={{ margin: 0, color: "#475569", fontSize: 13 }}>Show expenses by category this month</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show pending expenses this quarter</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show approved expenses this year</p>
-              </div>
-
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
-                <strong style={{ display: "block", marginBottom: 10, color: "#0f172a" }}>Clients, Follow-Ups, Users & Teams</strong>
-                <p style={{ margin: 0, color: "#475569", fontSize: 13 }}>Show top clients this quarter</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show inactive clients</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show overdue follow-ups</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>What are teams and their targets</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show all teams</p>
-                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: 13 }}>Show users by role</p>
-              </div>
+              {presetGroups.map((group) => (
+                <div key={group.label} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+                  <strong style={{ display: "block", marginBottom: 10, color: "#0f172a" }}>{group.label}</strong>
+                  <ol style={{ margin: 0, paddingLeft: 18, color: "#475569", fontSize: 13, display: "grid", gap: 8 }}>
+                    {group.questions.slice(0, 6).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
             </div>
           </section>
         </>

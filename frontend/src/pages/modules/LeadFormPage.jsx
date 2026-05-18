@@ -1103,7 +1103,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         delete payload.status;
 
         response = isNew
-          ? await API.post(dealView ? "/leads?create_as_deal=true" : "/leads", payload)
+          ? await API.post(dealView ? "/deals" : "/leads", payload)
           : await API.put(dealView ? `/deals/${dealIdFromQuery || id}` : `/leads/${id}`, payload);
       }
 

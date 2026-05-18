@@ -22,6 +22,8 @@ const BATCH_SCRIPT_PATH = path.resolve(
   "Sales_Forecasting_Model",
   "predict_sales_forecast_batch.py"
 );
+const FORECAST_MODEL_VERSION = "random_forest_v1";
+const FORECAST_OPEN_STAGES = ["P1", "P2", "P3"];
 
 function startOfDay(date = new Date()) {
   const value = new Date(date);
@@ -76,14 +78,14 @@ function normalizeRange(range) {
   return "all";
 }
 
-function getExpectedCloseDateFilter(range, now = new Date()) {
+function getCreatedAtRangeFilter(range, now = new Date()) {
   const normalizedRange = normalizeRange(range);
   if (normalizedRange === "all") return null;
 
   if (normalizedRange === "week") {
     return {
       range: normalizedRange,
-      expectedCloseDate: {
+      createdAt: {
         $gte: startOfWeek(now),
         $lte: endOfWeek(now),
       },
@@ -93,7 +95,7 @@ function getExpectedCloseDateFilter(range, now = new Date()) {
   if (normalizedRange === "quarter") {
     return {
       range: normalizedRange,
-      expectedCloseDate: {
+      createdAt: {
         $gte: startOfQuarter(now),
         $lte: endOfQuarter(now),
       },
@@ -102,7 +104,7 @@ function getExpectedCloseDateFilter(range, now = new Date()) {
 
   return {
     range: "month",
-    expectedCloseDate: {
+    createdAt: {
       $gte: startOfMonth(now),
       $lte: endOfMonth(now),
     },
@@ -135,14 +137,11 @@ async function getManagerTeamUserIds(userId) {
   if (!userId) return [];
 
   const teams = await Team.find({ "teamLeads.userId": userId })
-    .select("teamLeads members")
+    .select("members")
     .lean();
 
-  const userIds = new Set();
+  const userIds = new Set([String(userId)]);
   for (const team of teams) {
-    for (const lead of team.teamLeads || []) {
-      if (lead?.userId) userIds.add(String(lead.userId));
-    }
     for (const member of team.members || []) {
       if (member?.userId) userIds.add(String(member.userId));
     }
@@ -159,6 +158,14 @@ async function buildDealAccessFilter(user = {}, baseFilter = {}) {
     const leadIds = teamUserIds.length
       ? await Leads.find({ assigned_to: { $in: teamUserIds } }).distinct("_id")
       : [];
+
+    if (!teamUserIds.length) {
+      const ownLeadIds = await getAccessibleLeadIdsForUser(user?._id || null);
+      return {
+        ...baseFilter,
+        $or: [{ assignedTo: user?._id || null }, { lead_id: { $in: ownLeadIds } }],
+      };
+    }
 
     return {
       ...baseFilter,
@@ -312,12 +319,10 @@ function logModelInputs(rows = [], dealsById = new Map(), leadsById = new Map())
     };
   });
 
-  if (process.env.SALES_FORECAST_DEBUG === "true") {
-    console.log("Sales forecast model inputs:");
-    for (const row of printableRows) {
-      console.log(`[Sales Forecast] ${row.dealName} (${row.dealId})`);
-      console.log(row.modelInputArgs);
-    }
+  console.log("Sales forecast model inputs:");
+  for (const row of printableRows) {
+    console.log(`[Sales Forecast] ${row.dealName} (${row.dealId})`);
+    console.log(row.modelInputArgs);
   }
 }
 
@@ -361,8 +366,121 @@ function runBatchPrediction(inputRows) {
   });
 }
 
+function buildForecastSnapshot(prediction = {}) {
+  const predictedLabel =
+    prediction.predicted_label !== undefined ? prediction.predicted_label : null;
+
+  return {
+    predictedLabel,
+    predictedLabelText:
+      predictedLabel === 1 ? "won" : predictedLabel === 0 ? "lost" : null,
+    winProbability: normalizeAmount(prediction.win_probability) || 0,
+    winProbabilityPercent: normalizeAmount(prediction.win_probability_percent) || 0,
+    forecastRevenue: normalizeAmount(prediction.forecast_revenue_contribution) || 0,
+    generatedAt: new Date(),
+    modelVersion: FORECAST_MODEL_VERSION,
+  };
+}
+
+async function persistForecastForDealIds(dealIds = []) {
+  const normalizedIds = [...new Set(
+    dealIds.map((dealId) => String(dealId || "").trim()).filter(Boolean)
+  )];
+
+  if (!normalizedIds.length) {
+    return new Map();
+  }
+
+  const deals = await Deal.find({ _id: { $in: normalizedIds } })
+    .select(
+      "_id deal_name assignedTo stage dealValue expectedCloseDate aiRiskScore lead_id createdAt updatedAt is_deleted isActive"
+    )
+    .lean();
+
+  if (!deals.length) {
+    return new Map();
+  }
+
+  const scorableDeals = deals.filter(
+    (deal) =>
+      deal?.is_deleted !== true &&
+      deal?.isActive !== false &&
+      !["P6", "P7"].includes(normalizeStage(deal?.stage))
+  );
+  const skippedDealIds = deals
+    .filter((deal) => !scorableDeals.some((candidate) => String(candidate._id) === String(deal._id)))
+    .map((deal) => deal._id);
+
+  if (skippedDealIds.length) {
+    await Deal.updateMany(
+      { _id: { $in: skippedDealIds } },
+      { $unset: { forecast: "" } }
+    );
+  }
+
+  if (!scorableDeals.length) {
+    return new Map();
+  }
+
+  const leadIds = [
+    ...new Set(scorableDeals.map((deal) => String(deal.lead_id || "")).filter(Boolean)),
+  ];
+  const scorableDealIds = scorableDeals.map((deal) => deal._id);
+
+  const [leads, followups] = await Promise.all([
+    leadIds.length ? Leads.find({ _id: { $in: leadIds } }).lean() : [],
+    Followup.find({
+      dealId: { $in: scorableDealIds },
+      is_deleted: { $ne: true },
+    })
+      .select("dealId kind status lastContactDate completedAt createdAt updatedAt")
+      .lean(),
+  ]);
+
+  const leadMap = new Map(leads.map((lead) => [String(lead._id), lead]));
+  const dealMap = new Map(scorableDeals.map((deal) => [String(deal._id), deal]));
+  const activityMap = new Map();
+
+  for (const row of followups) {
+    const dealId = String(row?.dealId || "");
+    if (!dealId) continue;
+    const bucket = activityMap.get(dealId) || [];
+    bucket.push(row);
+    activityMap.set(dealId, bucket);
+  }
+
+  const inputRows = scorableDeals.map((deal) => {
+    const dealId = String(deal._id);
+    const lead = deal?.lead_id ? leadMap.get(String(deal.lead_id)) : null;
+    const activity = summarizeDealActivity(activityMap.get(dealId) || []);
+    return buildModelInputRow({ deal, lead, activity });
+  });
+
+  logModelInputs(inputRows, dealMap, leadMap);
+
+  const predictionResponse = await runBatchPrediction(inputRows);
+  const predictions = Array.isArray(predictionResponse?.predictions)
+    ? predictionResponse.predictions
+    : [];
+  const predictionMap = new Map(predictions.map((row) => [String(row.dealId || ""), row]));
+
+  if (predictionMap.size) {
+    await Deal.bulkWrite(
+      [...predictionMap.entries()].map(([dealId, prediction]) => ({
+        updateOne: {
+          filter: { _id: dealId },
+          update: { $set: { forecast: buildForecastSnapshot(prediction) } },
+        },
+      })),
+      { ordered: false }
+    );
+  }
+
+  return predictionMap;
+}
+
 function groupPipeline(items = []) {
-  const stageOrder = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+  const stageOrder = [...FORECAST_OPEN_STAGES];
   const stageMap = new Map();
 
   for (const stage of stageOrder) {
@@ -399,12 +517,12 @@ function groupPipeline(items = []) {
 async function getSalesForecast(user = {}, options = {}) {
   const baseFilter = {
     is_deleted: { $ne: true },
-    stage: { $nin: ["P6", "P7"] },
+    stage: { $in: FORECAST_OPEN_STAGES },
     isActive: { $ne: false },
   };
-  const rangeFilter = getExpectedCloseDateFilter(options?.range);
+  const rangeFilter = getCreatedAtRangeFilter(options?.range);
   const scopedBaseFilter = rangeFilter
-    ? { ...baseFilter, expectedCloseDate: rangeFilter.expectedCloseDate }
+    ? { ...baseFilter, createdAt: rangeFilter.createdAt }
     : baseFilter;
   const accessFilter = await buildDealAccessFilter(user, scopedBaseFilter);
   const deals = await Deal.find(accessFilter)
@@ -484,31 +602,18 @@ async function getSalesForecast(user = {}, options = {}) {
     };
   });
 
-  // Save predictions to each deal in the database
   try {
-    for (const item of pipelineItems) {
-      const prediction = predictionMap.get(item._id) || {};
-      const predictedLabel = prediction.predicted_label !== undefined ? prediction.predicted_label : null;
-      
-      await Deal.findByIdAndUpdate(
-        item._id,
-        {
-          forecast: {
-            predictedLabel: predictedLabel,
-            predictedLabelText: predictedLabel === 1 ? "won" : predictedLabel === 0 ? "lost" : null,
-            winProbability: normalizeAmount(prediction.win_probability) || 0,
-            winProbabilityPercent: normalizeAmount(prediction.win_probability_percent) || 0,
-            forecastRevenue: normalizeAmount(prediction.forecast_revenue_contribution) || 0,
-            generatedAt: new Date(),
-            modelVersion: "random_forest_v1"
-          }
+    await Deal.bulkWrite(
+      pipelineItems.map((item) => ({
+        updateOne: {
+          filter: { _id: item._id },
+          update: { $set: { forecast: buildForecastSnapshot(predictionMap.get(item._id) || {}) } },
         },
-        { returnDocument: "before" }
-      );
-    }
+      })),
+      { ordered: false }
+    );
   } catch (error) {
     console.error("Error saving forecast predictions to deals:", error);
-    // Continue without failing - predictions will still be returned in the response
   }
 
   const totalPipelineValue = pipelineItems.reduce((sum, item) => sum + normalizeAmount(item.amount), 0);
@@ -545,4 +650,5 @@ async function getSalesForecast(user = {}, options = {}) {
 
 module.exports = {
   getSalesForecast,
+  persistForecastForDealIds,
 };
