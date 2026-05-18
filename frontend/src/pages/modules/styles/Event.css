@@ -878,13 +878,21 @@ body:has(.add-event-page) .btn-confirm:hover {
 }
 
 .event-modal-close,
-.accept-invitation-btn {
+.accept-invitation-btn,
+.reject-invitation-btn {
   border: none;
   border-radius: 8px;
   padding: 8px 12px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.event-invitation-actions {
+  display: flex;
+  flex-direction: row !important;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .event-modal-close {
@@ -933,7 +941,14 @@ body:has(.add-event-page) .btn-confirm:hover {
   white-space: nowrap;
 }
 
-.accept-invitation-btn:disabled {
+.reject-invitation-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+  white-space: nowrap;
+}
+
+.accept-invitation-btn:disabled,
+.reject-invitation-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }

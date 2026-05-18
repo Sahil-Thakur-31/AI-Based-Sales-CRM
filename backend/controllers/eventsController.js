@@ -108,7 +108,7 @@ const eventApiWinnerScore = (eventDoc) => {
   const aiScore = Number(eventDoc?.aiRelevanceScore || 0);
   const hasRoleComparison = eventDoc?.roiRoleComparison ? 1 : 0;
   const hasPredictedRoi = Number.isFinite(Number(eventDoc?.predictedROI)) ? 1 : 0;
-  const registrationCount = Array.isArray(eventDoc?.registrations) ? eventDoc.registrations.length : 0;
+  const registrationCount = Array.isArray(eventDoc?.registeredBy) ? eventDoc.registeredBy.length : 0;
   const attendedCount = Array.isArray(eventDoc?.attendedBy) ? eventDoc.attendedBy.length : 0;
   const interestedCount = Array.isArray(eventDoc?.interested) ? eventDoc.interested.length : 0;
   const updatedAt = eventDoc?.updatedAt ? new Date(eventDoc.updatedAt).getTime() : 0;
@@ -182,6 +182,7 @@ const populateEventQuery = (query) =>
     .populate({ path: "source", model: "sources", select: "name" })
     .populate({ path: "missedBy", model: "User", select: "name email" })
     .populate({ path: "attendedBy", model: "User", select: "name email" })
+    .populate({ path: "invitationResponses.user", model: "User", select: "name email" })
     .populate({ path: "registrations.eventManagerUser", model: "User", select: "name email" })
     .populate({ path: "registrations.user", model: "User", select: "name email" })
     .populate({ path: "registrations.attendeeUsers", model: "User", select: "name email" });
@@ -230,18 +231,21 @@ const formatEvent = (eventDoc, userId) => {
     String(event.missedReason || "").trim() ||
     event.missedBy
   );
+  const responseRows = Array.isArray(event.invitationResponses) ? event.invitationResponses : [];
+  const currentUserResponse = responseRows.find(
+    (response) => String(response?.user?._id || response?.user) === currentUserId
+  );
 
   const isRegisteredInLegacy = event.registeredBy?.some(
     (id) => String(id?._id || id) === currentUserId
   );
-  const isRegisteredInRegistration = registrationRows.some(
-    (registration) =>
-      String(registration?.user?._id || registration?.user) === currentUserId
-  );
+  const isRegisteredInRegistration = false;
   const isPendingInvitation = registrationRows.some(
     (registration) =>
       Array.isArray(registration?.attendeeUsers) &&
       registration.attendeeUsers.some((entry) => String(entry?._id || entry) === currentUserId)
+  ) || registrationRows.some(
+    (registration) => String(registration?.eventManagerUser?._id || registration?.eventManagerUser) === currentUserId
   );
   const isAttendingInLegacy = event.attendedBy?.some(
     (id) => String(id?._id || id) === currentUserId
@@ -261,7 +265,14 @@ const formatEvent = (eventDoc, userId) => {
     ...event,
     registrationFee: normalizeEventRegistrationFeeForDisplay(event),
     isRegistered: Boolean(isRegisteredInLegacy || isRegisteredInRegistration),
-    isPendingInvitation: Boolean(isPendingInvitation && !isRegisteredInLegacy && !isRegisteredInRegistration && !isAttendingInLegacy),
+    isPendingInvitation: Boolean(
+      isPendingInvitation &&
+      !isRegisteredInLegacy &&
+      !isRegisteredInRegistration &&
+      !isAttendingInLegacy &&
+      String(currentUserResponse?.status || "pending") !== "rejected"
+    ),
+    myInvitationStatus: currentUserResponse?.status || (isPendingInvitation ? "pending" : ""),
     isAttending: Boolean(isAttendingInLegacy),
     isMissed,
     myRegistration,
@@ -624,30 +635,15 @@ exports.getEventSummary = async (req, res) => {
         { startDate: null, endDate: { $gte: prepReadyDate } },
       ],
     };
-    const noAnyRegistrationCondition = {
-      $nor: [
-        { "registeredBy.0": { $exists: true } },
-        { "registrations.0": { $exists: true } },
-      ]
-    };
+    const noAnyRegistrationCondition = { "registeredBy.0": { $exists: false } };
     const noAnyAttendanceCondition = {
       $nor: [
         { "attendedBy.0": { $exists: true } },
       ]
     };
     const registrationCondition = restrictedMode
-      ? {
-        $or: [
-          { registeredBy: userId },
-          { "registrations.user": userId },
-        ],
-      }
-      : {
-        $or: [
-          { "registeredBy.0": { $exists: true } },
-          { "registrations.0": { $exists: true } },
-        ],
-      };
+      ? { registeredBy: userId }
+      : { "registeredBy.0": { $exists: true } };
     const attendanceCondition = restrictedMode
       ? { attendedBy: userId }
       : { "attendedBy.0": { $exists: true } };
@@ -727,7 +723,6 @@ exports.getEventSummary = async (req, res) => {
         {
           $nor: [
             { "registeredBy.0": { $exists: true } },
-            { "registrations.0": { $exists: true } },
             { "attendedBy.0": { $exists: true } },
           ]
         },
@@ -1129,13 +1124,6 @@ exports.registerForEvent = async (req, res) => {
       });
     }
 
-    if (!event.registeredBy.some((id) => String(id) === currentUserId)) {
-      event.registeredBy.push(req.user._id);
-    }
-
-    const previousAttendeeUsers = regIndex >= 0
-      ? sanitizeObjectIdList(event.registrations[regIndex]?.attendeeUsers || [])
-      : [];
     const registrationPayload = {
       user: req.user._id,
       eventManagerUser: eventManagerUserId,
@@ -1172,6 +1160,17 @@ exports.registerForEvent = async (req, res) => {
     } else {
       event.registrations.push(registrationPayload);
     }
+    const nextAssignedUsers = [...new Set([eventManagerUserId, ...attendeeUsers].map(String))];
+    event.invitationResponses = (event.invitationResponses || []).filter((response) =>
+      !nextAssignedUsers.includes(String(response.user))
+    );
+    nextAssignedUsers.forEach((userId) => {
+      event.invitationResponses.push({
+        user: userId,
+        status: "pending",
+        respondedAt: null
+      });
+    });
     event.missedReason = "";
     event.missedAt = null;
     event.missedBy = null;
@@ -1179,9 +1178,9 @@ exports.registerForEvent = async (req, res) => {
 
     await event.save();
 
-    if (attendeeUsers.length) {
+    if (nextAssignedUsers.length) {
       const deliveries = await Promise.all(
-        attendeeUsers.map(async (userId) => ({
+        nextAssignedUsers.map(async (userId) => ({
           userId,
           deliveryChannels: await getEventNotificationChannels(userId),
         }))
@@ -1206,12 +1205,6 @@ exports.registerForEvent = async (req, res) => {
     }
 
     const populated = await populateEventQuery(Event.findById(event._id));
-
-    const allAttendeesList = [
-      ...(populated.registeredBy || []),
-      ...(populated.attendedBy || []),
-    ];
-    await syncEventToGoogleForAttendees(populated, allAttendeesList);
 
     res.json(formatEvent(populated, req.user?._id));
   } catch (error) {
@@ -1262,7 +1255,10 @@ exports.acceptEventInvitation = async (req, res) => {
     const event = await Event.findOne({
       _id: req.params.id,
       is_deleted: false,
-      "registrations.attendeeUsers": req.user._id,
+      $or: [
+        { "registrations.attendeeUsers": req.user._id },
+        { "registrations.eventManagerUser": req.user._id },
+      ],
     });
 
     if (!event) {
@@ -1275,6 +1271,14 @@ exports.acceptEventInvitation = async (req, res) => {
 
     if (!isAlreadyRegistered) {
       event.registeredBy.push(req.user._id);
+    }
+    event.invitationResponses = event.invitationResponses || [];
+    const responseIndex = event.invitationResponses.findIndex((response) => String(response.user) === currentUserId);
+    const responsePayload = { user: req.user._id, status: "accepted", respondedAt: new Date() };
+    if (responseIndex >= 0) {
+      event.invitationResponses.set(responseIndex, responsePayload);
+    } else {
+      event.invitationResponses.push(responsePayload);
     }
 
     event.missedReason = "";
@@ -1297,13 +1301,54 @@ exports.acceptEventInvitation = async (req, res) => {
   }
 };
 
+exports.rejectEventInvitation = async (req, res) => {
+  try {
+    const currentUserId = String(req.user?._id || "");
+    if (!currentUserId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const event = await Event.findOne({
+      _id: req.params.id,
+      is_deleted: false,
+      $or: [
+        { "registrations.attendeeUsers": req.user._id },
+        { "registrations.eventManagerUser": req.user._id },
+      ],
+    });
+
+    if (!event) {
+      return res.status(404).json({ message: "Pending invitation not found" });
+    }
+
+    event.registeredBy = (event.registeredBy || []).filter((id) => String(id) !== currentUserId);
+    event.attendedBy = (event.attendedBy || []).filter((id) => String(id) !== currentUserId);
+    event.invitationResponses = event.invitationResponses || [];
+    const responseIndex = event.invitationResponses.findIndex((response) => String(response.user) === currentUserId);
+    const responsePayload = { user: req.user._id, status: "rejected", respondedAt: new Date() };
+    if (responseIndex >= 0) {
+      event.invitationResponses.set(responseIndex, responsePayload);
+    } else {
+      event.invitationResponses.push(responsePayload);
+    }
+
+    await event.save();
+
+    const populated = await populateEventQuery(Event.findById(event._id));
+    return res.json(formatEvent(populated, req.user?._id));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to reject event invitation" });
+  }
+};
+
 exports.toggleAttending = async (req, res) => {
   try {
     const attending = req.body?.attending !== false;
     const existingEvent = await Event.findOne({
       _id: req.params.id,
       is_deleted: false
-    }).select("name attendedBy registrations.attendeeUsers endDate startDate missedReason missedAt");
+    }).select("name attendedBy registeredBy registrations.attendeeUsers registrations.eventManagerUser endDate startDate missedReason missedAt");
 
     if (!existingEvent) {
       return res.status(404).json({ message: "Event not found" });
@@ -1323,13 +1368,9 @@ exports.toggleAttending = async (req, res) => {
       return res.status(400).json({ message: "This event is already marked as missed. Attended cannot be marked now." });
     }
 
-    if (isRestrictedUser(req.user?.role)) {
-      const allowed = (existingEvent.registrations || []).some((reg) =>
-        (reg.attendeeUsers || []).some((id) => String(id) === actorId)
-      );
-      if (!allowed) {
-        return res.status(403).json({ message: "You are not assigned to this event" });
-      }
+    const isRegisteredPerson = (existingEvent.registeredBy || []).some((id) => String(id) === actorId);
+    if (!isRegisteredPerson) {
+      return res.status(403).json({ message: "Accept the invitation before marking attendance." });
     }
     const startOfToday = toStartOfDay(new Date());
     const eventEnd = getEventEndDate(existingEvent);
@@ -1429,20 +1470,16 @@ exports.markEventMissed = async (req, res) => {
       return res.status(400).json({ message: "Attended event cannot be marked as missed." });
     }
 
-    const hasAnyRegistration =
-      (Array.isArray(event.registeredBy) && event.registeredBy.length > 0) ||
-      (Array.isArray(event.registrations) && event.registrations.length > 0);
+    const hasAnyRegistration = Array.isArray(event.registeredBy) && event.registeredBy.length > 0;
     if (!hasAnyRegistration) {
       return res.status(400).json({ message: "Only registered events can be marked as missed." });
     }
 
     const actorId = String(req.user._id);
     if (isRestrictedUser(req.user?.role)) {
-      const allowed = (event.registrations || []).some((reg) =>
-        (reg.attendeeUsers || []).some((id) => String(id) === actorId)
-      );
+      const allowed = (event.registeredBy || []).some((id) => String(id) === actorId);
       if (!allowed) {
-        return res.status(403).json({ message: "You are not assigned to this event" });
+        return res.status(403).json({ message: "Accept the invitation before marking missed." });
       }
     }
 

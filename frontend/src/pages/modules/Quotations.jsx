@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api";
+import SuccessPrompt from "../../components/SuccessPrompt";
 import "./styles/Quotations.css";
 
 const STATUS_CLASS = {
@@ -23,6 +24,7 @@ const QUOTATION_STATUSES = [
   "expired"
 ];
 const VERSION_ALLOWED_PREVIOUS_STATUSES = ["expired", "rejected"];
+const LOCKED_STATUSES = ["approved", "rejected"];
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", {
@@ -66,6 +68,7 @@ export default function Quotations() {
   const [statusUpdatingId, setStatusUpdatingId] = useState("");
   const [expandedDeals, setExpandedDeals] = useState({});
   const [activeTab, setActiveTab] = useState("deal");
+  const [confirmStatus, setConfirmStatus] = useState(null);
 
   useEffect(() => {
     loadQuotations();
@@ -160,6 +163,25 @@ export default function Quotations() {
     } finally {
       setStatusUpdatingId("");
     }
+  };
+
+  const requestStatusUpdate = (quotationId, nextStatus, currentStatus) => {
+    if (!quotationId || !nextStatus || nextStatus === currentStatus) return;
+    if (LOCKED_STATUSES.includes(String(currentStatus || "").toLowerCase())) return;
+
+    if (["approved", "rejected"].includes(String(nextStatus).toLowerCase())) {
+      setConfirmStatus({ quotationId, nextStatus, currentStatus });
+      return;
+    }
+
+    updateQuotationStatus(quotationId, nextStatus, currentStatus);
+  };
+
+  const confirmStatusUpdate = async () => {
+    if (!confirmStatus) return;
+    const next = confirmStatus;
+    setConfirmStatus(null);
+    await updateQuotationStatus(next.quotationId, next.nextStatus, next.currentStatus);
   };
 
   return (
@@ -267,10 +289,13 @@ export default function Quotations() {
                               <select
                                 className={`quote-status-select ${STATUS_CLASS[latest.status] || "draft"}`}
                                 value={latest.status || "draft"}
-                                disabled={statusUpdatingId === latest._id}
+                                disabled={
+                                  statusUpdatingId === latest._id ||
+                                  LOCKED_STATUSES.includes(String(latest.status || "").toLowerCase())
+                                }
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) =>
-                                  updateQuotationStatus(latest._id, e.target.value, latest.status)
+                                  requestStatusUpdate(latest._id, e.target.value, latest.status)
                                 }
                               >
                                 {String(latest.status || "").toLowerCase() === "expired" ? (
@@ -379,6 +404,17 @@ export default function Quotations() {
           </div>
         )}
       </div>
+      <SuccessPrompt
+        open={Boolean(confirmStatus)}
+        mode="confirm"
+        confirmVariant={confirmStatus?.nextStatus === "rejected" ? "danger" : "success"}
+        title={`${confirmStatus?.nextStatus === "approved" ? "Approve" : "Reject"} quotation?`}
+        subtitle="This action is final. Once approved or rejected, the quotation status cannot be changed again."
+        buttonText={confirmStatus?.nextStatus === "approved" ? "Approve" : "Reject"}
+        cancelText="Cancel"
+        onConfirm={confirmStatusUpdate}
+        onClose={() => setConfirmStatus(null)}
+      />
     </div>
   );
 }
