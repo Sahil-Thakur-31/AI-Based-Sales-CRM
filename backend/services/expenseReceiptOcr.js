@@ -46,14 +46,14 @@ const DISABLE_PYTHON_OCR = String(process.env.EXPENSE_OCR_DISABLE_PYTHON || "").
 const DISABLE_ML_OCR = String(process.env.EXPENSE_OCR_DISABLE_ML || "").toLowerCase() === "true";
 const APP_EXPENSE_CATEGORY_MAP = {
   travel: "travel",
-  hotel: "hotel",
+  hotel: "other",
   food: "food",
   stationery: "stationery",
   stationary: "stationery",
   medical: "other",
   other: "other",
 };
-const AUTO_ASSIGNABLE_EXPENSE_CATEGORIES = new Set(["travel", "hotel", "food", "stationery"]);
+const AUTO_ASSIGNABLE_EXPENSE_CATEGORIES = new Set(["travel", "food", "stationery"]);
 
 const CATEGORY_KEYWORDS = {
   food: [

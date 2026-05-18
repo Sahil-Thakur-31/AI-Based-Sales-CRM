@@ -270,6 +270,24 @@ export default function AIInsights() {
     })).filter((team) => team._id);
   };
 
+  const loadAdminTeamOptions = async () => {
+    setLoadingTeamOptions(true);
+    try {
+      const teamListResponse = await fetchInsightsData("all");
+      let rows = Array.isArray(teamListResponse?.teams) ? teamListResponse.teams : [];
+
+      if (!rows.length) {
+        console.warn("[AI Insights Frontend] empty teamList from /api/ai-insights?teamId=all, falling back to /teams");
+        rows = await fetchTeamsFallback();
+      }
+
+      setTeams(rows);
+      return rows;
+    } finally {
+      setLoadingTeamOptions(false);
+    }
+  };
+
   const loadGlanceOnly = async (overrideTeamId = null, overrideFilter = dateFilter) => {
     try {
       setGlanceLoading(true);
@@ -290,17 +308,7 @@ export default function AIInsights() {
       const effectiveTeamId = overrideTeamId ?? (urlTeamId === "all" && selectedTeamId ? selectedTeamId : urlTeamId);
 
       if ((overrideTeamId === "all" || (urlTeamId === "all" && !selectedTeamId)) && role === "admin") {
-        setLoadingTeamOptions(true);
-        const teamListResponse = await fetchInsightsData("all");
-        let rows = Array.isArray(teamListResponse?.teams) ? teamListResponse.teams : [];
-
-        if (!rows.length) {
-          console.warn("[AI Insights Frontend] empty teamList from /api/ai-insights?teamId=all, falling back to /teams");
-          rows = await fetchTeamsFallback();
-        }
-
-        setTeams(rows);
-        setLoadingTeamOptions(false);
+        const rows = await loadAdminTeamOptions();
 
         if (!rows.length) {
           throw new Error("No teams available for AI insights.");
@@ -323,6 +331,9 @@ export default function AIInsights() {
       }
 
       if (effectiveTeamId) {
+        if (role === "admin" && !teams.length) {
+          await loadAdminTeamOptions();
+        }
         setSelectedTeamId(String(effectiveTeamId));
         const [response, glanceResponse] = await Promise.all([
           fetchInsightsData(effectiveTeamId),
@@ -352,20 +363,30 @@ export default function AIInsights() {
   };
 
   useEffect(() => {
-    if (urlTeamId === "all" && !selectedTeamId) {
+    if (role === "admin" && !selectedTeamId && (!urlTeamId || urlTeamId === "all")) {
       loadInsights("all");
       return;
     }
-    loadInsights(urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
-  }, [urlTeamId, selectedTeamId]);
+    const nextTeamId = role === "admin"
+      ? selectedTeamId || urlTeamId || "all"
+      : urlTeamId === "all"
+      ? selectedTeamId
+      : urlTeamId || null;
+    loadInsights(nextTeamId);
+  }, [role, urlTeamId, selectedTeamId]);
 
   useEffect(() => {
     if (loading) return;
-    loadGlanceOnly(urlTeamId === "all" ? selectedTeamId : urlTeamId || null, dateFilter);
+    const nextTeamId = role === "admin"
+      ? selectedTeamId || urlTeamId || null
+      : urlTeamId === "all"
+      ? selectedTeamId
+      : urlTeamId || null;
+    loadGlanceOnly(nextTeamId, dateFilter);
   }, [dateFilter]);
 
   const onRefresh = () => {
-    loadInsights(urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
+    loadInsights(role === "admin" ? selectedTeamId || urlTeamId || "all" : urlTeamId === "all" ? selectedTeamId : urlTeamId || null);
   };
 
   const onChangeTeam = (nextTeamId) => {
@@ -377,7 +398,7 @@ export default function AIInsights() {
   const activeFilter = normalizeFilter(glanceData?.activeFilter || dateFilter);
   const activeFilterLabel = getFilterLabel(activeFilter);
   const glanceMetrics = buildGlanceMetrics(insightData.mode || "personal", glanceData || {}, activeFilter);
-  const showTeamSelector = role === "admin" && urlTeamId === "all";
+  const showTeamSelector = role === "admin" && teams.length > 0;
 
   return (
     <div
