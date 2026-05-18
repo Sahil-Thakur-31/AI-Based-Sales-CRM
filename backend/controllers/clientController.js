@@ -5,6 +5,7 @@ const ClientContact = require("../models/client_contact");
 const User = require("../models/users");
 const Event = require("../models/events");
 const { normalizePhone } = require("../utils/phoneUtils");
+const { resolveIndustryDocument } = require("../utils/industryCatalog");
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -257,22 +258,18 @@ exports.getClientById = async (req, res) => {
 exports.createClient = async (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
-    const industry = req.body.industry || null;
+    const industryInput = req.body.industry || null;
 
     if (!name) {
       return res.status(400).json({ message: "Client name is required" });
     }
 
-    if (!industry) {
+    if (!industryInput) {
       return res.status(400).json({ message: "Industry is required" });
     }
 
-    const industryExists = await Industry.findOne({
-      _id: industry,
-      is_deleted: false
-    }).lean();
-
-    if (!industryExists) {
+    const industryDoc = await resolveIndustryDocument(industryInput, { createIfMissing: true });
+    if (!industryDoc?._id) {
       return res.status(400).json({ message: "Invalid industry selected" });
     }
 
@@ -297,7 +294,7 @@ exports.createClient = async (req, res) => {
 
     const client = await Client.create({
       name,
-      industry,
+      industry: industryDoc._id,
       Address: req.body.Address || "",
       employeeCount: parseNumber(req.body.employeeCount, 0),
       turnoverRange: req.body.turnoverRange || "",
@@ -387,13 +384,11 @@ exports.updateClient = async (req, res) => {
     if (clientData.location !== undefined) updateData.location = clientData.location || null;
 
     if (updateData.industry) {
-      const industryExists = await Industry.findOne({
-        _id: updateData.industry,
-        is_deleted: false
-      }).lean();
-      if (!industryExists) {
+      const industryDoc = await resolveIndustryDocument(updateData.industry, { createIfMissing: true });
+      if (!industryDoc?._id) {
         return res.status(400).json({ message: "Invalid industry selected" });
       }
+      updateData.industry = industryDoc._id;
     }
 
     let sourceExists = null;

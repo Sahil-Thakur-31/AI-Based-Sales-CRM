@@ -85,6 +85,12 @@ function getExpenseReportRange(input, now = new Date()) {
   return { start, end: addMonths(start, 1) };
 }
 
+function hasExpenseDateFilter(input = {}) {
+  return ["period", "range", "year", "month", "quarter"].some((key) =>
+    Object.prototype.hasOwnProperty.call(input, key)
+  );
+}
+
 async function getExpenseReportScopeFilter(user = {}) {
   if (!user?._id) {
     return { userFilter: {}, scopeLabel: "All Expenses" };
@@ -506,9 +512,11 @@ exports.getExpenses = async (req, res) => {
   try {
     const admin = isAdmin(req.user?.role);
     const filter = { is_deleted: false };
-    const { start, end } = getExpenseReportRange(req.query, new Date());
 
-    filter.expenseDate = { $gte: start, $lt: end };
+    if (hasExpenseDateFilter(req.query)) {
+      const { start, end } = getExpenseReportRange(req.query, new Date());
+      filter.expenseDate = { $gte: start, $lt: end };
+    }
 
     if (!admin) {
       filter.userId = req.user._id;

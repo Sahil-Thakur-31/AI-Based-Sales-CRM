@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import API from "../api";
 import FormErrorSlot from "./FormErrorSlot";
+import { getReadableErrorMessage } from "../utils/errorMessages";
 import "../pages/modules/adminsetting/admin-config.css";
 
 export default function AdminCrud({
@@ -92,7 +93,7 @@ export default function AdminCrud({
       fetchData();
     }catch (err) {
       console.error("SAVE FAILED:", err.response?.data || err.message);
-      setFormError(err.response?.data?.message || "Save failed");
+      setFormError(getReadableErrorMessage(err, "Save failed."));
     }
   }
 
@@ -110,7 +111,7 @@ export default function AdminCrud({
       fetchData();
     } catch (err) {
       console.error("DELETE FAILED:", err.response?.data || err.message);
-      alert(err.response?.data?.message || "Delete failed");
+      alert(getReadableErrorMessage(err, "Delete failed."));
     }
   }
 
@@ -176,7 +177,7 @@ export default function AdminCrud({
       fetchData();
     } catch (err) {
       console.error("RESTORE FAILED:", err.response?.data || err.message);
-      alert(err.response?.data?.message || "Restore failed");
+      alert(getReadableErrorMessage(err, "Restore failed."));
     }
   }
 

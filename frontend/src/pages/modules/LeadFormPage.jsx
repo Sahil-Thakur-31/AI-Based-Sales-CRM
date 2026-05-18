@@ -5,6 +5,7 @@ import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import BackButton from "../../components/BackButton";
 import { DEAL_STAGE_OPTIONS, LEAD_STAGE_OPTIONS, getStageTitle } from "../../utils/stages";
+import { buildRequiredSelectionMessage, getReadableErrorMessage } from "../../utils/errorMessages";
 import "./styles/LeadsDashboard.css";
 
 function getUserIdFromToken() {
@@ -312,9 +313,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const clientView = formMode === "client" || searchParams.get("view") === "client";
   const dealIdFromQuery = searchParams.get("dealId") || (dealView ? String(id || "") : "");
   const clientIdFromQuery = searchParams.get("clientId") || "";
+  const hasEditQuery = !embedded && searchParams.get("edit") === "true";
   const shouldStartInEditMode = embedded
     ? true
-    : !deletedView && (isNew || searchParams.get("edit") === "true");
+    : !deletedView && (isNew || hasEditQuery);
   const [editMode, setEditMode] = useState(shouldStartInEditMode);
   const [popup, setPopup] = useState({
     open: false,
@@ -336,6 +338,28 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   const [sourceSubmenu, setSourceSubmenu] = useState({ type: "", sourceId: "" });
   const [sourceSubmenuDirection, setSourceSubmenuDirection] = useState("right");
   const [sourceSubmenuTop, setSourceSubmenuTop] = useState(0);
+  const [invalidFields, setInvalidFields] = useState({});
+
+  const markInvalidFields = (fields = []) => {
+    const next = {};
+    (Array.isArray(fields) ? fields : [fields]).forEach((field) => {
+      if (field) next[String(field)] = true;
+    });
+    setInvalidFields(next);
+  };
+
+  const clearInvalidFields = (...fields) => {
+    setInvalidFields((prev) => {
+      if (!prev || !Object.keys(prev).length) return prev;
+      const next = { ...prev };
+      fields.flat().forEach((field) => {
+        if (field) delete next[String(field)];
+      });
+      return next;
+    });
+  };
+
+  const hasInvalidField = (fieldName) => Boolean(invalidFields[String(fieldName || "")]);
 
   useEffect(() => {
     setEditMode(shouldStartInEditMode);
@@ -491,7 +515,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
   useEffect(() => {
     if (shouldApplyOcr) {
-      console.log("Applying OCR Data to formulate:", ocrData);
       const companyVal = ocrCompanyName;
 
       setLead((prev) => ({
@@ -815,6 +838,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   /* ================= CHANGE ================= */
   const handleLeadChange = (e) => {
     const { name, value } = e.target;
+    clearInvalidFields(name);
 
     setLead((prev) => {
       let updated = { ...prev, [name]: value };
@@ -839,6 +863,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
   };
 
   const handleSourceMenuSelect = (type, sourceId, nestedId = "") => {
+    clearInvalidFields("source", "referred_by_user", "expo_event_id");
     setLead((prev) => {
       if (type === "reference") {
         return {
@@ -873,23 +898,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     updated[i][e.target.name] = e.target.value;
     setContacts(updated);
   };
-
-  useEffect(() => {
-    if (isFromOCR) return;
-    if (!lead.company_name) return;
-    setContacts((prev) => {
-      if (!prev.length) return prev;
-      let hasChanges = false;
-      const updated = prev.map((c) => {
-        if (!c.name) {
-          hasChanges = true;
-          return { ...c, name: lead.company_name };
-        }
-        return c;
-      });
-      return hasChanges ? updated : prev;
-    });
-  }, [lead.company_name, isFromOCR]);
 
   const handleHistoryChange = (index, field, value) => {
     setLead((prev) => {
@@ -957,10 +965,17 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
     const sanitizedContacts = contacts.map((contact) => ({
       ...contact,
-      name: contact.name || (!isFromOCR ? finalCompanyName : "") || "",
       phone: normalizeContactValueList(contact.phone),
       email: normalizeContactValueList(contact.email),
-    }));
+    })).map((contact) => {
+      const hasReachability = contact.phone.length || contact.email.length;
+      return {
+        ...contact,
+        name: !contact.name && hasReachability && finalCompanyName
+          ? finalCompanyName
+          : (contact.name || ""),
+      };
+    });
     const resolvedContacts = sanitizedContacts.map((contact) => ({
       ...contact,
       phone: contact.phone.join(", "),
@@ -984,17 +999,56 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     );
 
     if (!hasLeadIdentity || !hasPrimaryReachability) {
+      markInvalidFields(["company_name"]);
       showAlert("Validation", "Please provide a readable company or contact name and at least one phone or email for the primary contact.", "error");
       return;
     }
-    if (isReferenceLikeSource && !lead.referred_by_user) {
-      showAlert("Validation", "Please select a referral user", "error");
+
+    const employeeCountValue = String(lead.employee_count ?? "").trim();
+    if (employeeCountValue && !/^\d+$/.test(employeeCountValue)) {
+      markInvalidFields(["employee_count"]);
+      showAlert("Validation", "Employees must be a single number. Please enter digits only.", "error");
       return;
     }
-    if (isEventExpoLikeSource && !lead.expo_event_id) {
-      showAlert("Validation", "Please select an event/expo", "error");
+
+    const missingSelections = [];
+    const nextInvalidFields = [];
+    if (!String(lead.industry || "").trim()) {
+      missingSelections.push("industry");
+      nextInvalidFields.push("industry");
+    }
+    if (!isFromOCR && !String(lead.source || "").trim()) {
+      missingSelections.push("source");
+      nextInvalidFields.push("source");
+    }
+    if (!isFromOCR && !String(lead.country || "").trim()) {
+      missingSelections.push("country");
+      nextInvalidFields.push("country");
+    }
+    if (!isFromOCR && !String(lead.State || "").trim()) {
+      missingSelections.push("state");
+      nextInvalidFields.push("State");
+    }
+    if (!isFromOCR && !String(lead.city || "").trim()) {
+      missingSelections.push("city");
+      nextInvalidFields.push("city");
+    }
+    if (isReferenceLikeSource && !String(lead.referred_by_user || "").trim()) {
+      missingSelections.push("reference user");
+      nextInvalidFields.push("source", "referred_by_user");
+    }
+    if (isEventExpoLikeSource && !String(lead.expo_event_id || "").trim()) {
+      missingSelections.push("event or expo");
+      nextInvalidFields.push("source", "expo_event_id");
+    }
+
+    if (missingSelections.length) {
+      markInvalidFields(nextInvalidFields);
+      showAlert("Validation", buildRequiredSelectionMessage(missingSelections), "error");
       return;
     }
+
+    setInvalidFields({});
 
     try {
       let response;
@@ -1049,17 +1103,22 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
       if (isNew) {
         if (clientView) {
-          navigate("/clients");
+          navigate("/clients", { replace: true });
         } else if (dealView && data.deal) {
-          navigate(`/leads/${data.lead._id}?view=deal&dealId=${data.deal._id}`);
+          navigate(buildDetailPath(data.lead._id, data.deal._id), { replace: true });
         } else {
-          navigate(`/leads/${data._id || data.lead?._id}`);
+          navigate(buildDetailPath(data._id || data.lead?._id), { replace: true });
         }
+        return;
       }
+
       setEditMode(false);
+      if (hasEditQuery) {
+        navigate(buildDetailPath(), { replace: true });
+      }
     } catch (err) {
       console.error("save lead error", err);
-      showAlert("Save Failed", err.response?.data?.message || "Failed to save lead", "error");
+      showAlert("Save Failed", getReadableErrorMessage(err, "Failed to save lead."), "error");
     }
   };
 
@@ -1080,6 +1139,23 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     const selectedCity = cityOptions.find((item) => item?.city === lead.city);
     return selectedCity?._id || null;
   }, [cityOptions, lead.city]);
+
+  const buildDetailPath = (targetId = id, targetDealId = dealIdFromQuery) => {
+    const params = new URLSearchParams();
+    if (dealView) {
+      params.set("view", "deal");
+      if (targetDealId) params.set("dealId", targetDealId);
+    }
+    if (clientView) {
+      params.set("view", "client");
+    }
+    if (deletedView) {
+      params.set("deleted", "true");
+    }
+    const query = params.toString();
+    const basePath = clientView ? `/clients/${targetId}` : `/leads/${targetId}`;
+    return query ? `${basePath}?${query}` : basePath;
+  };
 
   const closePopup = () => {
     setDealDeleteReason("");
@@ -1146,7 +1222,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           console.error("delete lead error", err);
           showAlert(
             "Delete Failed",
-            err.response?.data?.message || "Failed to delete lead",
+            getReadableErrorMessage(err, "Failed to delete lead."),
             "error"
           );
         }
@@ -1169,7 +1245,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           console.error("delete client error", err);
           showAlert(
             "Delete Failed",
-            err.response?.data?.message || "Failed to delete client",
+            getReadableErrorMessage(err, "Failed to delete client."),
             "error"
           );
         }
@@ -1209,7 +1285,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           console.error("delete deal error", err);
           showAlert(
             "Delete Failed",
-            err.response?.data?.message || "Failed to delete deal",
+            getReadableErrorMessage(err, "Failed to delete deal."),
             "error"
           );
         }
@@ -1248,7 +1324,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           console.error("convert lead error", err);
           showAlert(
             "Convert Failed",
-            err.response?.data?.message || "Failed to convert lead",
+            getReadableErrorMessage(err, "Failed to convert lead."),
             "error"
           );
         }
@@ -1271,7 +1347,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           console.error("restore lead error", err);
           showAlert(
             "Restore Failed",
-            err.response?.data?.message || "Failed to restore lead",
+            getReadableErrorMessage(err, "Failed to restore lead."),
             "error"
           );
         }
@@ -1297,7 +1373,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           console.error("restore deal error", err);
           showAlert(
             "Restore Failed",
-            err.response?.data?.message || "Failed to restore deal",
+            getReadableErrorMessage(err, "Failed to restore deal."),
             "error"
           );
         }
@@ -1327,7 +1403,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
       console.error("activate record error", err);
       showAlert(
         "Activate Failed",
-        err.response?.data?.message || `Failed to activate ${dealView ? "deal" : "lead"}`,
+        getReadableErrorMessage(err, `Failed to activate ${dealView ? "deal" : "lead"}.`),
         "error"
       );
     }
@@ -1352,19 +1428,6 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
     <div className={embedded ? "lead-page embedded-lead-page" : "lead-page"}>
       {!embedded && (
         <div className="lead-header">
-          <h2>
-            {isNew
-              ? clientView
-                ? "Add Client"
-                : dealView
-                  ? "Add Deal"
-                  : "Add Lead"
-              : clientView
-                ? `Client - ${lead.company_name || "Details"}`
-                : dealView
-                  ? `Deal - ${lead.deal_name || lead.company_name || "Details"}`
-                  : lead.company_name}
-          </h2>
           <BackButton />
         </div>
       )}
@@ -1465,7 +1528,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             editMode={editMode}
           />
         )}
-        <div className="field company-autocomplete-field">
+        <div className={`field company-autocomplete-field ${hasInvalidField("company_name") ? "field-invalid" : ""}`.trim()}>
           <label>Company Name</label>
           {editMode ? (
             <div className="company-autocomplete-wrapper" ref={suggestionsRef}>
@@ -1474,7 +1537,9 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                 name="company_name"
                 value={lead.company_name || ""}
                 autoComplete="off"
+                className={hasInvalidField("company_name") ? "field-control-invalid" : ""}
                 onChange={(e) => {
+                  clearInvalidFields("company_name");
                   handleLeadChange(e);
                   if (isNew && !clientView) {
                     const val = e.target.value.trim();
@@ -1509,6 +1574,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                       key={s._id}
                       onMouseDown={(e) => {
                         e.preventDefault();
+                        clearInvalidFields("company_name", "industry", "source", "referred_by_user", "expo_event_id", "country", "State", "city");
                         setLead((prev) => ({
                           ...prev,
                           company_name: s.company_name,
@@ -1545,7 +1611,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             <p>{lead.company_name || "-"}</p>
           )}
         </div>
-        <div className="field">
+        <div className={`field ${hasInvalidField("industry") ? "field-invalid" : ""}`.trim()}>
           <label>Industry</label>
           {editMode ? (
             <div className="industry-autocomplete">
@@ -1554,8 +1620,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                 name="industry"
                 list="industry-options"
                 placeholder="Start typing to search..."
+                className={hasInvalidField("industry") ? "field-control-invalid" : ""}
                 value={industryNameMap.get(String(lead.industry || "")) || lead.industry || ""}
                 onChange={(e) => {
+                  clearInvalidFields("industry");
                   const value = e.target.value;
                   const match = industries.find(
                     (item) => String(item?.name || "").toLowerCase() === value.toLowerCase()
@@ -1576,7 +1644,14 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
             <p>{industryNameMap.get(String(lead.industry || "")) || lead.industry || "-"}</p>
           )}
         </div>
-        <Field label="Employees" name="employee_count" value={lead.employee_count} onChange={handleLeadChange} editMode={editMode} />
+        <Field
+          label="Employees"
+          name="employee_count"
+          value={lead.employee_count}
+          onChange={handleLeadChange}
+          editMode={editMode}
+          invalid={hasInvalidField("employee_count")}
+        />
         <Field label="Turnover" name="turnover_range" value={lead.turnover_range} onChange={handleLeadChange} editMode={editMode} />
         {!clientView && (
           <Field label="Value Estimate" name="deal_value_estimate" value={lead.deal_value_estimate} onChange={handleLeadChange} editMode={editMode} type="number" />
@@ -1617,10 +1692,15 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
         {/* COUNTRY */}
         {!isFromOCR && (
-          <div className="field">
+          <div className={`field ${hasInvalidField("country") ? "field-invalid" : ""}`.trim()}>
             <label>Country</label>
             {editMode ? (
-              <select name="country" value={lead.country} onChange={handleLeadChange}>
+              <select
+                name="country"
+                value={lead.country}
+                onChange={handleLeadChange}
+                className={hasInvalidField("country") ? "field-control-invalid" : ""}
+              >
                 <option value="">Select Country</option>
                 {countries.map((c, i) => (
                   <option key={i} value={c}>
@@ -1636,7 +1716,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
         {/* STATE */}
         {!isFromOCR && (
-          <div className="field">
+          <div className={`field ${hasInvalidField("State") ? "field-invalid" : ""}`.trim()}>
             <label>State</label>
             {editMode ? (
               <select
@@ -1644,6 +1724,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                 value={lead.State}
                 onChange={handleLeadChange}
                 disabled={!lead.country}
+                className={hasInvalidField("State") ? "field-control-invalid" : ""}
               >
                 <option value="">Select State</option>
                 {stateOptions.map((item, i) => (
@@ -1660,7 +1741,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
         {/* CITY */}
         {!isFromOCR && (
-          <div className="field">
+          <div className={`field ${hasInvalidField("city") ? "field-invalid" : ""}`.trim()}>
             <label>City</label>
             {editMode ? (
               <select
@@ -1668,6 +1749,7 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                 value={lead.city}
                 onChange={handleLeadChange}
                 disabled={!lead.State}
+                className={hasInvalidField("city") ? "field-control-invalid" : ""}
               >
                 <option value="">Select City</option>
                 {cityOptions.map((item, i) => (
@@ -1685,42 +1767,39 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
         <Field label="Website" name="website" value={lead.website} onChange={handleLeadChange} editMode={editMode} />
 
         {/* SOURCE */}
-        <div className="field">
+        <div className={`field ${hasInvalidField("source") || hasInvalidField("referred_by_user") || hasInvalidField("expo_event_id") ? "field-invalid" : ""}`.trim()}>
           <label>Source</label>
           {isFromOCR ? (
             <p>OCR</p>
           ) : editMode ? (
             <div
               ref={sourceMenuRef}
-              style={{ position: "relative" }}
-              onMouseLeave={() => {
-                setSourceSubmenu({ type: "", sourceId: "" });
-                setSourceSubmenuTop(0);
-              }}
+              className="crm-source-menu-shell"
             >
               <button
                 type="button"
-                onClick={() => setSourceMenuOpen((prev) => !prev)}
-                className="crm-source-trigger"
+                onClick={() =>
+                  setSourceMenuOpen((prev) => {
+                    const nextOpen = !prev;
+                    if (!nextOpen) {
+                      setSourceSubmenu({ type: "", sourceId: "" });
+                      setSourceSubmenuTop(0);
+                    }
+                    return nextOpen;
+                  })
+                }
+                className={`crm-source-trigger ${hasInvalidField("source") || hasInvalidField("referred_by_user") || hasInvalidField("expo_event_id") ? "field-control-invalid" : ""}`.trim()}
               >
                 {sourceDisplayValue === "-" ? "Select Source" : sourceDisplayValue}
               </button>
               {sourceMenuOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 4px)",
-                    left: 0,
-                    minWidth: "100%",
-                    background: "#fff",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                    zIndex: 30,
-                  }}
-                >
+                <div className="crm-source-menu-panel">
                   <div style={{ maxHeight: "400px", overflowY: "auto" }}>
                     <div
+                      onMouseEnter={() => {
+                        setSourceSubmenu({ type: "", sourceId: "" });
+                        setSourceSubmenuTop(0);
+                      }}
                       onClick={() => handleSourceMenuSelect("source", "")}
                       className="crm-source-menu-item"
                     >
@@ -1729,6 +1808,10 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                     {normalSources.map((s) => (
                       <div
                         key={s._id}
+                        onMouseEnter={() => {
+                          setSourceSubmenu({ type: "", sourceId: "" });
+                          setSourceSubmenuTop(0);
+                        }}
                         onClick={() => handleSourceMenuSelect("source", String(s._id))}
                         className="crm-source-menu-item"
                       >
@@ -1764,20 +1847,11 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
                   </div>
                   {!!sourceSubmenu.type && (
                     <div
+                      className="crm-source-submenu-panel"
                       style={{
-                        position: "absolute",
                         top: sourceSubmenuTop,
                         left: sourceSubmenuDirection === "right" ? "100%" : "auto",
                         right: sourceSubmenuDirection === "left" ? "100%" : "auto",
-                        minWidth: "220px",
-                        maxWidth: "260px",
-                        background: "#fff",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "8px",
-                        boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                        zIndex: 31,
-                        maxHeight: "400px",
-                        overflowY: "auto",
                       }}
                     >
                       {sourceSubmenu.type === "reference" &&
@@ -1816,6 +1890,12 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
           ) : (
             <p>{isFromOCR ? "OCR" : sourceDisplayValue}</p>
           )}
+          {editMode && hasInvalidField("referred_by_user") ? (
+            <div className="field-error-text">Please choose a reference user from source.</div>
+          ) : null}
+          {editMode && !hasInvalidField("referred_by_user") && hasInvalidField("expo_event_id") ? (
+            <div className="field-error-text">Please choose an event or expo from source.</div>
+          ) : null}
         </div>
 
         {!clientView && !isFromOCR && (
@@ -2135,12 +2215,18 @@ function LeadFormPage({ formMode = "", embedded = false, forcedView = "", onCanc
 
 /* ================= FIELD COMPONENTS ================= */
 
-function Field({ label, name, value, onChange, editMode, type = "text" }) {
+function Field({ label, name, value, onChange, editMode, type = "text", invalid = false }) {
   return (
-    <div className="field">
+    <div className={`field ${invalid ? "field-invalid" : ""}`.trim()}>
       <label>{label}</label>
       {editMode ? (
-        <input type={type} name={name} value={value || ""} onChange={onChange} />
+        <input
+          type={type}
+          name={name}
+          value={value || ""}
+          onChange={onChange}
+          className={invalid ? "field-control-invalid" : ""}
+        />
       ) : (
         <p>{value || "-"}</p>
       )}
@@ -2148,12 +2234,18 @@ function Field({ label, name, value, onChange, editMode, type = "text" }) {
   );
 }
 
-function InputField({ label, name, value, onChange, editMode, type = "text", displayClassName = "" }) {
+function InputField({ label, name, value, onChange, editMode, type = "text", displayClassName = "", invalid = false }) {
   return (
-    <div className="field">
+    <div className={`field ${invalid ? "field-invalid" : ""}`.trim()}>
       <label>{label}</label>
       {editMode ? (
-        <input type={type} name={name} value={value || ""} onChange={onChange} />
+        <input
+          type={type}
+          name={name}
+          value={value || ""}
+          onChange={onChange}
+          className={invalid ? "field-control-invalid" : ""}
+        />
       ) : (
         <p className={displayClassName}>{value || "-"}</p>
       )}

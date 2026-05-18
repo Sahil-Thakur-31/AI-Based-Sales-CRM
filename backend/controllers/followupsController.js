@@ -38,6 +38,58 @@ function isSales(roleName) {
   return r === "sales person" || r === "salesperson" || r === "sales";
 }
 
+function toValidDate(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getFollowupLastContactCandidate(doc = {}) {
+  const explicitContactDate = toValidDate(doc?.lastContactDate);
+  if (explicitContactDate) return explicitContactDate;
+
+  if (String(doc?.status || "").toLowerCase() === "completed") {
+    return toValidDate(doc?.completedAt);
+  }
+
+  return null;
+}
+
+async function resolveLinkedLeadIdFromFollowup(doc = {}) {
+  const directLeadId = String(doc?.leadId || "").trim();
+  if (mongoose.Types.ObjectId.isValid(directLeadId)) {
+    return directLeadId;
+  }
+
+  const dealId = String(doc?.dealId || "").trim();
+  if (!mongoose.Types.ObjectId.isValid(dealId)) {
+    return "";
+  }
+
+  const linkedDeal = await Deal.findById(dealId).select("lead_id").lean();
+  return linkedDeal?.lead_id ? String(linkedDeal.lead_id) : "";
+}
+
+async function syncLinkedLeadLastContactDate(doc = {}) {
+  const contactDate = getFollowupLastContactCandidate(doc);
+  if (!contactDate) return;
+
+  const leadId = await resolveLinkedLeadIdFromFollowup(doc);
+  if (!mongoose.Types.ObjectId.isValid(leadId)) return;
+
+  await Lead.updateOne(
+    {
+      _id: new mongoose.Types.ObjectId(leadId),
+      $or: [
+        { last_contact_date: { $exists: false } },
+        { last_contact_date: null },
+        { last_contact_date: { $lt: contactDate } },
+      ],
+    },
+    { $set: { last_contact_date: contactDate } }
+  );
+}
+
 async function getAccessibleUserIds(reqUser) {
   const myId = String(reqUser._id);
   let roleName = reqUser.role;
@@ -575,12 +627,6 @@ function getReminderOffsetMinutes(settings) {
   return 30;
 }
 
-function formatReminderLabel(offsetMinutes) {
-  if (offsetMinutes < 60) return `${offsetMinutes} minutes`;
-  if (offsetMinutes % 60 === 0) return `${offsetMinutes / 60} hour${offsetMinutes === 60 ? "" : "s"}`;
-  return `${offsetMinutes} minutes`;
-}
-
 function getNotificationItemType(doc) {
   const actionType = String(doc?.actionType || "").trim();
   if (actionType) return actionType;
@@ -612,11 +658,16 @@ async function createFollowupNotification(doc, userId, eventType) {
     const dueAt = new Date(doc.dueDateTime);
     if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() <= Date.now()) return;
     const scheduledText = Number.isNaN(dueAt.getTime()) ? "" : dueAt.toLocaleString("en-IN");
+    const shouldMentionReminder =
+      doc.reminderEnabled !== false && String(doc.reminderChoice || "").toLowerCase() === "yes";
+    const reminderText = shouldMentionReminder
+      ? ` You will get reminder ${offsetMinutes} minutes before, according to your settings.`
+      : "";
 
     await Notification.create({
       userId,
       title: `${itemLabel} Created`,
-      message: `${itemType} scheduled for ${companyName} on ${scheduledText}. Reminder delivery will follow your notification settings and the ${formatReminderLabel(offsetMinutes)} offset.`,
+      message: `${itemType} scheduled for ${companyName} on ${scheduledText}.${reminderText}`,
       type: "info",
       relatedId: doc._id,
       relatedType: "Followup",
@@ -640,10 +691,11 @@ async function createFollowupNotification(doc, userId, eventType) {
   }
 }
 
-async function createFollowupAssignmentNotification(doc) {
+async function createFollowupAssignmentNotification(doc, actorId = null) {
   if (!doc || !doc.assignedTo) return;
   const userId = String(doc.assignedTo._id || doc.assignedTo);
   if (!userId) return;
+  if (actorId && userId === String(actorId)) return;
 
   const settings = await CRMSettings.findOne({ userId }).lean();
   const isMeeting = doc.kind === "meeting";
@@ -680,6 +732,12 @@ async function runCreateSideEffects({
   }
 
   try {
+    await syncLinkedLeadLastContactDate(created || doc || payload);
+  } catch (lastContactErr) {
+    console.error("followups.create last contact sync error:", lastContactErr);
+  }
+
+  try {
     await appendHistory({
       followupId: doc._id,
       actionType: "created",
@@ -705,7 +763,7 @@ async function runCreateSideEffects({
   }
 
   try {
-    await createFollowupAssignmentNotification(created || doc);
+    await createFollowupAssignmentNotification(created || doc, actorId);
   } catch (notifErr) {
     console.error("followups.create notification error:", notifErr);
   }
@@ -752,6 +810,12 @@ async function runUpdateSideEffects({
   }
 
   try {
+    await syncLinkedLeadLastContactDate(updatedDoc || updated || merged);
+  } catch (lastContactErr) {
+    console.error("followups.update last contact sync error:", lastContactErr);
+  }
+
+  try {
     await appendHistory({
       followupId: current._id,
       actionType: "details_updated",
@@ -780,7 +844,7 @@ async function runUpdateSideEffects({
     new Date(current.dueDateTime || 0).getTime() !== new Date(merged.dueDateTime || 0).getTime();
   if (newAssignee && (newAssignee !== oldAssignee || dueDateChanged)) {
     try {
-      await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id });
+      await createFollowupAssignmentNotification(updated || { ...merged, _id: current._id }, actorId);
     } catch (notifErr) {
       console.error("followups.update notification error:", notifErr);
     }
@@ -817,6 +881,12 @@ async function runUpdateStatusSideEffects({
   status,
   actorId,
 }) {
+  try {
+    await syncLinkedLeadLastContactDate(updated);
+  } catch (lastContactErr) {
+    console.error("followups.updateStatus last contact sync error:", lastContactErr);
+  }
+
   try {
     await appendHistory({
       followupId: updated._id,

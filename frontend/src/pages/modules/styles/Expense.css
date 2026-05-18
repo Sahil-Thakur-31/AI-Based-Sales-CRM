@@ -230,6 +230,13 @@ td {
   color: #253040;
 }
 
+.expense-ledger-empty {
+  text-align: center;
+  color: #6b7789;
+  background: #f8fbff;
+  font-weight: 600;
+}
+
 tbody tr {
   transition: background 0.15s ease;
 }
@@ -2731,6 +2738,9 @@ input[type="range"].premium-slider::-webkit-slider-thumb {
   .expense-ocr-page-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
 /* Mobile-first layout overrides for the main Expenses dashboard */
 .expense-dashboard * {
   box-sizing: border-box;
@@ -2932,195 +2942,6 @@ input[type="range"].premium-slider::-webkit-slider-thumb {
   .expense-ocr-modal-count {
     white-space: normal;
   }
-}
-
-/* OCR page restructure: full-page flow, no nested scroll regions */
-.expense-ocr-page-panel {
-  min-height: auto;
-  padding: 24px;
-  overflow: visible;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-}
-
-.expense-ocr-page-panel .expense-ocr-page-header {
-  position: static;
-  margin: 0 0 18px;
-  padding: 22px 24px;
-  border: 1px solid #dbe4ef;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at top right, rgba(31, 122, 236, 0.10), transparent 22%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
-}
-
-.expense-ocr-page-panel .expense-ocr-workspace {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 20px;
-  padding: 0;
-  overflow: visible;
-  min-height: auto;
-}
-
-.expense-ocr-page-panel .expense-ocr-sidebar {
-  display: contents;
-}
-
-.expense-ocr-page-panel .expense-ocr-sidebar>.expense-ocr-sidebar-section:nth-of-type(1) {
-  grid-column: span 4;
-}
-
-.expense-ocr-page-panel .expense-ocr-sidebar>.expense-ocr-sidebar-section:nth-of-type(2) {
-  grid-column: span 8;
-}
-
-.expense-ocr-page-panel .expense-ocr-summary-strip {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  padding: 0;
-}
-
-.expense-ocr-page-panel .expense-ocr-toolbar {
-  grid-column: 1 / -1;
-}
-
-.expense-ocr-page-panel .expense-ocr-preview-panel {
-  grid-column: 1 / -1;
-  gap: 18px;
-}
-
-.expense-ocr-page-panel .expense-ocr-sidebar-section,
-.expense-ocr-page-panel .expense-ocr-preview-header,
-.expense-ocr-page-panel .expense-ocr-result-summary {
-  border-radius: 18px;
-}
-
-.expense-ocr-page-panel .expense-ocr-dropzone {
-  min-height: 220px;
-}
-
-.expense-ocr-page-panel .expense-ocr-filelist {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  max-height: none;
-  overflow: visible;
-  padding-right: 0;
-}
-
-.expense-ocr-page-panel .expense-ocr-empty {
-  grid-column: 1 / -1;
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.expense-ocr-page-panel .expense-ocr-queue-item {
-  min-height: 84px;
-}
-
-.expense-ocr-page-panel .expense-ocr-preview-header {
-  padding: 20px 22px;
-}
-
-.expense-ocr-page-panel .expense-ocr-preview-box {
-  min-height: 620px;
-  max-height: none;
-  overflow: hidden;
-  padding: 24px;
-}
-
-.expense-ocr-page-panel .expense-ocr-preview-frame {
-  width: 100%;
-  min-height: 760px;
-  height: 760px;
-  max-height: none;
-}
-
-.expense-ocr-page-panel .expense-ocr-preview-stage,
-.expense-ocr-page-panel .expense-ocr-stage-image {
-  max-height: none;
-}
-
-.expense-ocr-page-panel .expense-ocr-preview-stage {
-  min-height: 560px;
-  width: 100%;
-}
-
-.expense-ocr-page-panel .expense-ocr-stage-image {
-  max-width: 100%;
-}
-
-.expense-ocr-page-panel .expense-modal-footer {
-  position: static;
-  margin: 0;
-  padding: 18px 22px;
-  border: 1px solid #dbe4ef;
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-}
-
-.expense-ocr-page-panel .expense-ocr-footer {
-  grid-template-columns: 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.expense-ocr-page-panel .expense-ocr-footer-copy {
-  padding-right: 0;
-}
-
-.expense-ocr-page-panel .expense-ocr-note {
-  margin-top: 16px;
-}
-
-.expense-ocr-page-panel .expense-ocr-actions-row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.expense-ocr-page-panel .expense-ocr-slider-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 980px) {
-  .expense-ocr-page-panel {
-    padding: 0;
-  }
-
-  .expense-ocr-page-panel .expense-ocr-sidebar>.expense-ocr-sidebar-section:nth-of-type(1),
-  .expense-ocr-page-panel .expense-ocr-sidebar>.expense-ocr-sidebar-section:nth-of-type(2),
-  .expense-ocr-page-panel .expense-ocr-toolbar,
-  .expense-ocr-page-panel .expense-ocr-preview-panel {
-    grid-column: 1 / -1;
-  }
-
-  .expense-ocr-page-panel .expense-ocr-filelist,
-  .expense-ocr-page-panel .expense-ocr-summary-strip,
-  .expense-ocr-page-panel .expense-ocr-actions-row,
-  .expense-ocr-page-panel .expense-ocr-slider-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .expense-ocr-page-panel .expense-ocr-preview-box {
-    min-height: 420px;
-    padding: 16px;
-  }
-
-  .expense-ocr-page-panel .expense-ocr-preview-frame {
-    min-height: 560px;
-    height: 560px;
-  }
-}
-
-grid-template-columns: 260px 1fr;
-}
 }
 
 /* OCR Workspace Redesign */

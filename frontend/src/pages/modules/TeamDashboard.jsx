@@ -130,6 +130,24 @@ const TEAM_DASHBOARD_PERIOD_OPTIONS = [
   { value: "quarterly", label: "Quarterly" },
   { value: "yearly", label: "Yearly" }
 ];
+const TEAM_INSIGHTS_REFRESH_MS = 60000;
+
+function formatLiveTime(value) {
+  if (!value) return "Just now";
+  return new Date(value).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function normalizeTeamInsight(insight = {}, index = 0) {
+  return {
+    title: String(insight.type || "Insight").replace("-", " "),
+    message: insight.message || "AI is watching team activity from live CRM data.",
+    severity: String(insight.severity || "low").toLowerCase(),
+    key: `${insight.type || "insight"}-${index}`
+  };
+}
 
 export default function TeamDashboard() {
   const navigate = useNavigate();
@@ -146,6 +164,7 @@ export default function TeamDashboard() {
   const [selectedQuarter, setSelectedQuarter] = useState(`q${Math.floor(today.getMonth() / 3) + 1}`);
   const [selectedYear, setSelectedYear] = useState(String(today.getFullYear()));
   const [dashboardData, setDashboardData] = useState(emptyDashboard());
+  const [insightsUpdatedAt, setInsightsUpdatedAt] = useState(new Date());
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [error, setError] = useState("");
@@ -244,6 +263,7 @@ export default function TeamDashboard() {
         }
       });
       setDashboardData(res.data || emptyDashboard());
+      setInsightsUpdatedAt(new Date());
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to load dashboard");
@@ -266,6 +286,27 @@ export default function TeamDashboard() {
       setPipelineViewType("deal");
     }
   }, [selectedTeamId, dashboardFilters, loadDashboard]);
+
+  useEffect(() => {
+    if (!selectedTeamId) return undefined;
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const res = await API.get("/teams/dashboard", {
+          params: {
+            teamId: selectedTeamId,
+            ...dashboardFilters
+          }
+        });
+        setDashboardData(res.data || emptyDashboard(selectedTeam));
+        setInsightsUpdatedAt(new Date());
+      } catch (err) {
+        console.error("Failed to refresh team insights", err);
+      }
+    }, TEAM_INSIGHTS_REFRESH_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [dashboardFilters, selectedTeam, selectedTeamId]);
 
   const closeMemberDetail = () => {
     setSelectedPerformanceRow(null);
@@ -645,6 +686,13 @@ export default function TeamDashboard() {
       }
     };
   }, [dashboardData.pipeline, dashboardData.stageDistribution, dashboardData.kpis]);
+  const teamInsights = useMemo(
+    () => (dashboardData.insights || []).map(normalizeTeamInsight).slice(0, 3),
+    [dashboardData.insights]
+  );
+  const teamInsightSummary = teamInsights[0]
+    ? `${teamInsights[0].title}: ${teamInsights[0].message}`
+    : "AI is watching this team's live pipeline, follow-ups, and member momentum.";
 
   if (loadingTeams) {
     return <div className="team-dashboard-loading">Loading team dashboard...</div>;
@@ -937,15 +985,16 @@ export default function TeamDashboard() {
 
           <section className="team-panel team-panel-insights">
             <div className="team-panel-head">
-              <h3>Insights</h3>
+              <div>
+                <h3>AI Insights</h3>
+                <span className="team-ai-live">Live summary</span>
+              </div>
               <button
                 type="button"
                 className="team-btn team-btn-secondary"
                 onClick={() =>
                   navigate(
-                    isAdminUser
-                      ? "/ai-insights?teamId=all"
-                      : `/ai-insights?teamId=${selectedTeamId}`,
+                    `/ai-insights?teamId=${selectedTeamId}`,
                     {
                     state: { source: "team-dashboard" }
                     }
@@ -956,11 +1005,15 @@ export default function TeamDashboard() {
                 View All
               </button>
             </div>
+            <div className="team-ai-summary">
+              <strong>{teamInsightSummary}</strong>
+              <span>Updated {formatLiveTime(insightsUpdatedAt)} from current team data</span>
+            </div>
             <div className="team-insights-list">
-              {dashboardData.insights.length ? (
-                dashboardData.insights.map((insight, index) => (
-                  <div key={`${insight.type}-${index}`} className="team-insight-row">
-                    <strong>{String(insight.type || "insight").replace("-", " ")}</strong>
+              {teamInsights.length ? (
+                teamInsights.map((insight) => (
+                  <div key={insight.key} className={`team-insight-row team-insight-row-${insight.severity}`}>
+                    <strong>{insight.title}</strong>
                     <p>{insight.message}</p>
                   </div>
                 ))

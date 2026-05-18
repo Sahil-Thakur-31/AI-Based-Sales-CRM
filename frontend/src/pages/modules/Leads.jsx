@@ -25,6 +25,10 @@ function normalizeOcrKey(value) {
   return compactOcrText(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+function looksLikeMongoObjectId(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || "").trim());
+}
+
 function isReadableOcrText(value) {
   const text = compactOcrText(value);
   if (!text) return false;
@@ -839,6 +843,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
   const [search, setSearch] = useState("");
   const [industryFilter, setIndustryFilter] = useState("All");
   const [stageFilter, setStageFilter] = useState("All");
+  const [industryCatalog, setIndustryCatalog] = useState([]);
   const [industryOptions, setIndustryOptions] = useState([]);
 
   const [deletedDeals, setDeletedDeals] = useState([]);
@@ -873,7 +878,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
       API.get("/deals"),
       API.get("/leads", { params: { deleted_only: true, limit: 10 } }),
       API.get("/deals", { params: { deleted_only: true, limit: 10 } }),
-      API.get("/industries"),
+      API.get("/industries", { params: { status: "all" } }),
     ]);
 
     if (leadsRes.status === "fulfilled")
@@ -893,8 +898,10 @@ function LeadsDashboard({ defaultView = "leads" }) {
       );
 
     if (industriesRes.status === "fulfilled") {
+      const catalog = Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [];
+      setIndustryCatalog(catalog);
       setIndustryOptions(
-        (Array.isArray(industriesRes.value.data) ? industriesRes.value.data : [])
+        catalog
           .map((item) => item?.name)
           .filter(Boolean)
       );
@@ -909,6 +916,30 @@ function LeadsDashboard({ defaultView = "leads" }) {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  const industryNameMap = useMemo(() => {
+    const map = new Map();
+    const nameMap = new Map();
+    industryCatalog.forEach((item) => {
+      const id = String(item?._id || "").trim();
+      const name = String(item?.name || "").trim();
+      if (id && name) {
+        map.set(id, name);
+        nameMap.set(name.toLowerCase(), name);
+      }
+    });
+    return { byId: map, byName: nameMap };
+  }, [industryCatalog]);
+
+  const resolveIndustryLabel = useCallback((value) => {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const resolved = industryNameMap.byId.get(raw);
+    if (resolved) return resolved;
+    const matchedByName = industryNameMap.byName.get(raw.toLowerCase());
+    if (matchedByName) return matchedByName;
+    return looksLikeMongoObjectId(raw) ? "" : raw;
+  }, [industryNameMap]);
 
   const normalizeHeader = (value) =>
     String(value || "")
@@ -1254,17 +1285,25 @@ function LeadsDashboard({ defaultView = "leads" }) {
     }
   }, [viewMode, activeTab, deals, deletedDeals, leads, deletedLeads]);
   const industries = useMemo(() => {
-    const fromRows = sourceRows.map((r) => r.industry).filter(Boolean);
-    const base = industryOptions.length ? industryOptions : fromRows;
-    return ["All", ...new Set(base)];
-  }, [sourceRows, industryOptions]);
+    const fromRows = sourceRows.map((r) => resolveIndustryLabel(r.industry)).filter(Boolean);
+    const base = industryOptions.length ? [...industryOptions, ...fromRows] : fromRows;
+    const seen = new Set();
+    const unique = [];
+    for (const item of base) {
+      const key = String(item || "").trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      unique.push(item);
+    }
+    return ["All", ...unique];
+  }, [sourceRows, industryOptions, resolveIndustryLabel]);
 
   const filteredRows = useMemo(() => {
     return sourceRows.filter((row) => {
       const q = search.trim().toLowerCase();
       const company = (row.company_name || "").toLowerCase();
       const contact = (row.primary_contact?.name || "").toLowerCase();
-      const industry = (row.industry || "").toLowerCase();
+      const industry = resolveIndustryLabel(row.industry).toLowerCase();
       const valueText = String(row.deal_value_estimate ?? "").toLowerCase();
       const formattedValue = formatCurrency(row.deal_value_estimate).toLowerCase();
       const lastContactText = String(row.last_contact_date || "").toLowerCase();
@@ -1281,11 +1320,11 @@ function LeadsDashboard({ defaultView = "leads" }) {
         lastContactText.includes(q) ||
         formattedLastContact.includes(q) ||
         nextAction.includes(q);
-      const matchesIndustry = industryFilter === "All" || row.industry === industryFilter;
+      const matchesIndustry = industryFilter === "All" || resolveIndustryLabel(row.industry) === industryFilter;
       const matchesStage = stageFilter === "All" || row.stage === stageFilter;
       return matchesSearch && matchesIndustry && (viewMode === "deals" ? matchesStage : true);
     });
-  }, [sourceRows, search, industryFilter, stageFilter, viewMode]);
+  }, [sourceRows, search, industryFilter, stageFilter, viewMode, resolveIndustryLabel]);
 
   // Reset pagination when data or filters change
   useEffect(() => {
@@ -1433,6 +1472,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
             {loading && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 8 : 7)}>{viewMode === "deals" ? "Loading deals..." : "Loading leads..."}</td></tr>}
             {!loading && paginatedRows.length === 0 && <tr className="crm-table-status-row"><td colSpan={viewMode === "deals" ? (activeTab === "deleted" ? 9 : 8) : (activeTab === "deleted" ? 8 : 7)}>{viewMode === "deals" ? "No deals found" : "No leads found"}</td></tr>}
             {!loading && paginatedRows.map((row) => {
+              const industryLabel = resolveIndustryLabel(row.industry);
               return (
                 <tr key={row._id}>
                   <td
@@ -1448,7 +1488,7 @@ function LeadsDashboard({ defaultView = "leads" }) {
                       <small className="contact-subtext">{row.primary_contact?.email || row.primary_contact?.phone || "-"}</small>
                     </td>
                   )}
-                  <td data-label="Industry">{row.industry || "-"}</td>
+                  <td data-label="Industry">{industryLabel || "-"}</td>
                   <td data-label="Value">{formatCurrency(row.deal_value_estimate)}</td>
                   {viewMode === "leads" && (
                     <td data-label="Stage">

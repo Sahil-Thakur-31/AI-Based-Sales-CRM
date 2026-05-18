@@ -1,13 +1,13 @@
 import axios from "axios";
+import { getReadableErrorMessage, looksTechnicalErrorMessage } from "./utils/errorMessages";
 
 const defaultBaseUrl = "http://localhost:8080/";
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl;
 
 const API = axios.create({
-
-    baseURL : configuredBaseUrl
-
-})
+    baseURL: configuredBaseUrl,
+    withCredentials: true,
+});
 
 API.interceptors.request.use(req =>{
     const token = localStorage.getItem("token");
@@ -26,6 +26,24 @@ API.interceptors.response.use(
                 window.location.href = "/login";
             }
         }
+
+        const readableMessage = getReadableErrorMessage(
+            error,
+            "Something went wrong. Please try again."
+        );
+        error.userMessage = readableMessage;
+
+        if (error?.response) {
+            if (!error.response.data || typeof error.response.data !== "object") {
+                error.response.data = { message: readableMessage };
+            } else if (
+                typeof error.response.data.message !== "string" ||
+                looksTechnicalErrorMessage(error.response.data.message)
+            ) {
+                error.response.data.message = readableMessage;
+            }
+        }
+
         return Promise.reject(error);
     }
 );
