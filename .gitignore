@@ -32,7 +32,13 @@ dist/
 Thumbs.db
 
 # Runtime uploads and local OCR artifacts
-backend/uploads/
+backend/uploads/*
+!backend/uploads/profile_picture/
+!backend/uploads/profile_picture/**
+!backend/uploads/organization_logo/
+!backend/uploads/organization_logo/**
+backend/uploads/profile_picture/.gitkeep
+backend/uploads/organization_logo/.gitkeep
 backend/ml/
 backend/.venv-expense-ocr312/
 backend/.paddlex-cache/
