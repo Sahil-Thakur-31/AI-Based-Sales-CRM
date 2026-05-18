@@ -46,7 +46,7 @@ const DEAL_METRICS = new Set([
   "inactive_deal_value",
   "list_deals",
 ]);
-const LEAD_METRICS = new Set(["lead_count", "converted_count", "non_converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
+const LEAD_METRICS = new Set(["lead_count", "list_leads", "converted_count", "non_converted_count", "uncontacted_count", "conversion_rate", "qualified_count", "deleted_leads", "inactive_leads"]);
 const EXPENSE_METRICS = new Set(["expense_total", "expense_count", "approved_total", "pending_count", "rejected_count"]);
 const CLIENT_METRICS = new Set(["top_clients_revenue", "inactive_clients"]);
 const FOLLOWUP_METRICS = new Set(["todays_followups", "overdue_followups", "pending_meetings", "completed_meetings", "followup_count"]);
@@ -449,6 +449,26 @@ function wantsAllRows(text) {
   ]);
 }
 
+function hasExplicitCountIntent(text) {
+  return containsAny(text, [
+    "total",
+    "count",
+    "number of",
+    "how many",
+  ]);
+}
+
+function hasExplicitListIntent(text) {
+  return containsAny(text, [
+    "list",
+    "show all",
+    "show leads",
+    "show users",
+    "show teams",
+    "show deals",
+  ]);
+}
+
 function hasRankingIntent(question) {
   const text = canonicalizeIntentText(question);
   return containsAny(text, [
@@ -656,8 +676,10 @@ async function buildDeterministicPlan(question) {
   }
 
   if (containsAny(lower, ["leads assigned to me", "lead assigned to me"])) {
-    return makePlan(selection, "leads", "lead_count", {
+    return makePlan(selection, "leads", "list_leads", {
       filters: { assigned_to_me: true },
+      chartType: "table",
+      limit: wantsAllRows(lower) ? 500 : 100,
     });
   }
 
@@ -695,7 +717,33 @@ async function buildDeterministicPlan(question) {
     return makePlan(selection, "leads", "lead_count");
   }
 
-  if (containsAny(lower, ["total leads", "lead count", "show leads"])) {
+  if (
+    containsAny(lower, [
+      "show all leads",
+      "list all leads",
+      "list leads",
+      "show leads",
+      "leads this month",
+      "this month leads",
+      "leads this quarter",
+      "this quarter leads",
+      "leads this year",
+      "this year leads",
+    ]) &&
+    !hasExplicitCountIntent(lower)
+  ) {
+    const plan = makePlan(selection, "leads", "list_leads", {
+      chartType: "table",
+      limit: wantsAllRows(lower) ? 500 : 100,
+    });
+    const matchedSources = await detectSourceFilter(question);
+    if (matchedSources.length === 1 && !lower.includes("by source")) {
+      plan.filters.sourceIds = [String(matchedSources[0]._id)];
+    }
+    return plan;
+  }
+
+  if (containsAny(lower, ["total leads", "lead count"])) {
     const plan = makePlan(selection, "leads", "lead_count");
     const matchedSources = await detectSourceFilter(question);
     if (matchedSources.length === 1 && !lower.includes("by source")) {
@@ -964,7 +1012,7 @@ function buildHeuristicPlan(question) {
       metric = "converted_count";
       groupBy = lower.includes("source") ? "source" : lower.includes("salesperson") ? "salesperson" : null;
     } else {
-      metric = "lead_count";
+      metric = hasExplicitCountIntent(lower) ? "lead_count" : "list_leads";
       if (lower.includes("source")) groupBy = "source";
       else if (lower.includes("salesperson") || lower.includes("rep")) groupBy = "salesperson";
       else if (lower.includes("status")) groupBy = "status";
@@ -1122,6 +1170,7 @@ Deals:
 
 Leads:
 - lead_count
+- list_leads
 - converted_count
 - non_converted_count
 - uncontacted_count
@@ -1227,9 +1276,11 @@ Rules:
 - If the user asks for users or employees, use users.
 - If the user asks for teams or targets, use teams.
 - If the user asks for clients, use clients.
+- If the user asks only for leads plus a time period like "this month leads", prefer module=leads and metric=list_leads.
+- If the user explicitly asks for total/count/number of leads, use module=leads and metric=lead_count.
 - If the user asks only for a module plus a time period, infer the default count/list metric for that module.
 - Default metrics by simple question:
-  leads -> lead_count
+  leads -> list_leads
   deals -> deal_count
   expenses -> expense_total
   followups -> followup_count
@@ -1242,7 +1293,7 @@ Rules:
   {"unsupported": true, "reason": "short reason"}
 
 Examples:
-{"question":"leads this month","module":"leads","metric":"lead_count","period":"monthly"}
+{"question":"leads this month","module":"leads","metric":"list_leads","period":"monthly"}
 {"question":"this month follows","module":"followups","metric":"followup_count","period":"monthly"}
 {"question":"show users","module":"users","metric":"user_list"}
 {"question":"teams this year","module":"teams","metric":"team_count","period":"yearly"}
@@ -1463,6 +1514,7 @@ function buildSummaryValue(metric, rows = []) {
   if (
     [
       "list_deals",
+      "list_leads",
       "biggest_deals",
       "smallest_deals",
       "delayed_deals",
@@ -1716,6 +1768,35 @@ async function runLeadsReport(plan, user) {
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
         .map((id) => new mongoose.Types.ObjectId(id)),
     };
+  }
+
+  if (plan.metric === "list_leads") {
+    const leadDocs = await Leads.find(match)
+      .select("company_name stage created_at assigned_to source")
+      .sort({ created_at: -1, updated_at: -1 })
+      .limit(plan.limit)
+      .lean();
+
+    const userLabelMap = await mapUserLabels(leadDocs.map((lead) => String(lead?.assigned_to || "")));
+    const sourceLabelMap = await mapSourceLabels(leadDocs.map((lead) => String(lead?.source || "")));
+
+    return leadDocs.map((lead) => {
+      const createdAt = lead?.created_at
+        ? new Date(lead.created_at).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : "--";
+      const stageLabel = String(lead?.stage || "").trim() || "--";
+      const sourceLabel = sourceLabelMap.get(String(lead?.source || "")) || "Unknown source";
+      const assigneeLabel = userLabelMap.get(String(lead?.assigned_to || "")) || "Unassigned";
+
+      return {
+        label: String(lead?.company_name || "").trim() || "Unnamed Lead",
+        value: `${stageLabel} | ${sourceLabel} | ${assigneeLabel} | ${createdAt}`,
+      };
+    });
   }
 
   if (plan.metric === "uncontacted_count") {
@@ -2301,6 +2382,7 @@ async function runTeamsReport(plan, user) {
     inactive_deal_value: "Inactive Deal Value",
     list_deals: "Deals List",
     lead_count: "Lead Count",
+    list_leads: "Leads List",
     converted_count: "Converted Leads",
     non_converted_count: "Non-Converted Leads",
     uncontacted_count: "Uncontacted Leads",
@@ -2366,6 +2448,13 @@ function buildColumns(plan) {
     return [
       { key: "label", label: "Deal" },
       { key: "value", label: "Stage / Value" },
+    ];
+  }
+
+  if (plan.metric === "list_leads") {
+    return [
+      { key: "label", label: "Lead" },
+      { key: "value", label: "Stage / Source / Assigned / Created" },
     ];
   }
 
@@ -2448,8 +2537,19 @@ exports.aiQuery = async (req, res) => {
         });
 
         if (geminiPlan && !geminiPlan.unsupported) {
-          rawPlan = geminiPlan;
-          provider = "gemini";
+          const shouldPreferDeterministicListPlan =
+            hasExplicitListIntent(question) &&
+            ["list_leads", "list_deals", "user_list", "team_list"].includes(deterministicPlan?.metric) &&
+            !["list_leads", "list_deals", "user_list", "team_list"].includes(geminiPlan?.metric);
+
+          if (shouldPreferDeterministicListPlan) {
+            rawPlan = deterministicPlan;
+            provider = "deterministic";
+            parserWarning = "Used deterministic parsing to preserve explicit list intent.";
+          } else {
+            rawPlan = geminiPlan;
+            provider = "gemini";
+          }
         } else if (deterministicPlan?.unsupported) {
           if (geminiPlan?.unsupported) {
             console.log("[Custom Report] Gemini unsupported:", geminiPlan.reason || "");
@@ -2492,6 +2592,9 @@ exports.aiQuery = async (req, res) => {
       });
       console.log("[Custom Report] Question:", question);
       console.log("[Custom Report] Interpreted Query:", JSON.stringify(plan, null, 2));
+      if (parserWarning) {
+        console.warn("[Custom Report] Parser notice:", parserWarning);
+      }
 
       let rows = [];
       if (plan.module === "deals") rows = await runDealsReport(plan, reportUser);
@@ -2510,11 +2613,10 @@ exports.aiQuery = async (req, res) => {
         chartType: plan.chartType,
         module: plan.module,
         metric: plan.metric,
-        groupBy: plan.groupBy,
+      groupBy: plan.groupBy,
       selection: buildPeriodSelection(plan),
       interpretedQuery: plan,
       provider,
-      parserWarning,
         summary: {
           label: metricLabel(plan.metric),
           value: typeof summaryValue === "number" ? Number(summaryValue.toFixed(2)) : summaryValue,
