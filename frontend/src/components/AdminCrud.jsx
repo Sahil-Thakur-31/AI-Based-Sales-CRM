@@ -393,7 +393,7 @@ export default function AdminCrud({
               ))}
 
 
-              <td>
+              <td className="admin-config-row-actions">
 
                 {statusTab === "deleted" ? (
                   <button

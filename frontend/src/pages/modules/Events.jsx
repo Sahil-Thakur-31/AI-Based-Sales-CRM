@@ -501,7 +501,8 @@ const EventExpo = () => {
         currentTab: viewTab,
         viewOnly: Boolean(viewOnly),
         registrationLocked: Boolean(eventItem.registrationLocked),
-        registrationData: registrationPayload
+        registrationData: registrationPayload,
+        eventStatusData: eventItem
       }
     });
     setRegistrationConfirmOpen(false);
@@ -753,14 +754,14 @@ const EventExpo = () => {
       const isAttending = Boolean(eventItem.isAttending);
       const attendedByCount = Array.isArray(eventItem.attendedBy) ? eventItem.attendedBy.length : 0;
       const registeredByCount = Array.isArray(eventItem.registeredBy) ? eventItem.registeredBy.length : 0;
+      const assignedCount = Number(eventItem.assignedCount || 0);
       const hasAnyAttendance = attendedByCount > 0;
-      const hasAnyRegistration = registeredByCount > 0 || Boolean(eventItem.isRegistered);
+      const hasAnyRegistration = registeredByCount > 0 || assignedCount > 0 || Boolean(eventItem.isRegistered);
       const explicitlyMissed = Boolean(eventItem.isMissed || String(eventItem.missedReason || "").trim());
       const markedAttending = isRestrictedUser ? isAttending : hasAnyAttendance;
-      const registrationFlag = isRestrictedUser ? Boolean(eventItem.isRegistered) : hasAnyRegistration;
-      // Show in registered tab if registered and not attended (before grace period ends)
-      // After grace period, only show if marked as attended, otherwise move to missed
-      const registeredForTab = registrationFlag && !markedAttending && !explicitlyMissed && !isBeyondRegistrationGrace;
+      const pendingInvitationFlag = Boolean(eventItem.isPendingInvitation);
+      const registrationFlag = isRestrictedUser || isManager ? Boolean(eventItem.isRegistered) : hasAnyRegistration;
+      const registeredForTab = registrationFlag && !markedAttending && !explicitlyMissed;
       const attendedForTab = markedAttending;
       // Show in missed tab after 4-day grace period if still not marked attended
       const missedForTab = explicitlyMissed || (registrationFlag && !markedAttending && isBeyondRegistrationGrace);
@@ -768,7 +769,7 @@ const EventExpo = () => {
       let matchesTab = true;
       switch (viewTab) {
         case "upcoming":
-          matchesTab = isPrepReadyUpcoming && !registrationFlag && !attendedForTab;
+          matchesTab = isPrepReadyUpcoming && !registrationFlag && !pendingInvitationFlag && !attendedForTab;
           break;
         case "registered":
           matchesTab = registeredForTab;
@@ -852,8 +853,9 @@ const EventExpo = () => {
     return dedupedEvents.filter((eventItem) => {
       const eventStart = eventItem.startDate ? new Date(eventItem.startDate) : null;
       const registeredByCount = Array.isArray(eventItem.registeredBy) ? eventItem.registeredBy.length : 0;
+      const assignedCount = Number(eventItem.assignedCount || 0);
       const attendedByCount = Array.isArray(eventItem.attendedBy) ? eventItem.attendedBy.length : 0;
-      const hasRegistration = registeredByCount > 0 || Boolean(eventItem.isRegistered);
+      const hasRegistration = registeredByCount > 0 || assignedCount > 0 || Boolean(eventItem.isRegistered);
       const hasAttendance = attendedByCount > 0 || Boolean(eventItem.isAttending);
       return Boolean(eventStart && !Number.isNaN(eventStart.getTime()) && eventStart >= prepReadyDate && !hasRegistration && !hasAttendance);
     }).length;
@@ -861,8 +863,19 @@ const EventExpo = () => {
   const upcomingCount = summary.upcomingEvents === null || summary.upcomingEvents === undefined
     ? localUpcomingCount
     : Number(summary.upcomingEvents || 0);
-  const invitationCount = upcomingCount;
   const pendingInvitationCount = pendingInvitations.length;
+  const userInvitationStats = useMemo(() => {
+    if (!isRestrictedUser) return { total: 0, accepted: 0, rejected: 0 };
+    return dedupedEvents.reduce((acc, eventItem) => {
+      const status = String(eventItem.myInvitationStatus || "").toLowerCase();
+      if (eventItem.isPendingInvitation || status === "accepted" || status === "rejected") {
+        acc.total += 1;
+        if (status === "accepted") acc.accepted += 1;
+        if (status === "rejected") acc.rejected += 1;
+      }
+      return acc;
+    }, { total: 0, accepted: 0, rejected: 0 });
+  }, [dedupedEvents, isRestrictedUser]);
   const todayFetchedCount = Number(summary.todayFetchedCount || 0);
 
   return (
@@ -873,14 +886,14 @@ const EventExpo = () => {
           <>
             <div className="event-card event-card-accent-blue">
               <h4>Total Invitations</h4>
-              <h2>{invitationCount}</h2>
-              <p>Events assigned to you</p>
+              <h2>{userInvitationStats.total}</h2>
+              <p>{userInvitationStats.accepted} accepted | {userInvitationStats.rejected} rejected | {pendingInvitationCount} pending</p>
             </div>
 
             <div className="event-card event-card-accent-green">
-              <h4>Attending</h4>
-              <h2>{attendingCount}</h2>
-              <p>{pendingInvitationCount} pending response</p>
+              <h4>Registered</h4>
+              <h2>{registeredCount}</h2>
+              <p>{attendingCount} attended | {missedCount} missed</p>
             </div>
           </>
         ) : (
@@ -1078,11 +1091,18 @@ const EventExpo = () => {
           const isPastEvent = Boolean(eventEnd && !Number.isNaN(eventEnd.getTime()) && eventEnd < startOfToday);
           const isBeyondRegistrationGrace = Boolean(eventEnd && !Number.isNaN(eventEnd.getTime()) && eventEnd < registrationGraceBoundary);
           const hasAttendance = Array.isArray(eventItem.attendedBy) && eventItem.attendedBy.length > 0;
+          const assignedCount = Number(eventItem.assignedCount || 0);
+          const acceptedCount = Number(eventItem.acceptedCount || 0);
+          const realAttendedCount = Number(eventItem.attendedCount || (Array.isArray(eventItem.attendedBy) ? eventItem.attendedBy.length : 0));
           const hasRegistration =
             (Array.isArray(eventItem.registeredBy) && eventItem.registeredBy.length > 0) ||
+            assignedCount > 0 ||
             Boolean(eventItem.isRegistered);
           const isMarkedMissed = Boolean(eventItem.isMissed || String(eventItem.missedReason || "").trim());
+          const canShowMissedParticipants = isMarkedMissed || isBeyondRegistrationGrace;
+          const visibleMissedParticipants = canShowMissedParticipants ? (eventItem.missedParticipants || []) : [];
           const scopedHasAttendance = isRestrictedUser ? isAttending : hasAttendance;
+          const isPendingInvitationCard = Boolean(eventItem.isPendingInvitation);
           const scopedHasRegistration = isRestrictedUser ? Boolean(eventItem.isRegistered) : hasRegistration;
           const registrationWebsiteUrl = String(
             eventItem.myRegistration?.websiteUrl ||
@@ -1152,6 +1172,9 @@ const EventExpo = () => {
                 <div className="event-tags">
                   <span className="platform-tag">{eventItem.source?.name || "Unknown Platform"}</span>
                   <span>{formatCount(eventItem.attendeesCount)} attendees</span>
+                  {assignedCount > 0 && <span>Should attend {assignedCount}</span>}
+                  {assignedCount > 0 && <span>Accepted {acceptedCount}</span>}
+                  {assignedCount > 0 && <span>Actually attended {realAttendedCount}</span>}
                   <span>{formatCount(eventItem.exhibitorsCount)} exhibitors</span>
                   <span>{eventItem.industry?.name || "Industry N/A"}</span>
                   {isAiSuggested && <span className="ai-tag">AI Found</span>}
@@ -1211,6 +1234,24 @@ const EventExpo = () => {
                   </div>
                 )}
 
+                {assignedCount > 0 && (
+                  <div className="event-attendance-meta">
+                    <strong>Registration:</strong>{" "}
+                    Accepted: {(eventItem.acceptedParticipants || []).map((user) => user.name || user.email).filter(Boolean).join(", ") || "None"}
+                    {" | "}
+                    Pending/Rejected: {(eventItem.pendingParticipants || []).map((user) => user.name || user.email).filter(Boolean).join(", ") || "None"}
+                  </div>
+                )}
+
+                {assignedCount > 0 && (
+                  <div className="event-attendance-meta">
+                    <strong>Attendance:</strong>{" "}
+                    Attended: {(eventItem.attendedParticipants || []).map((user) => user.name || user.email).filter(Boolean).join(", ") || "None"}
+                    {" | "}
+                    Missed: {visibleMissedParticipants.map((user) => user.name || user.email).filter(Boolean).join(", ") || "None"}
+                  </div>
+                )}
+
                 {outcomeSummaryEntries.length > 0 && (
                   <div className="event-outcome-line" title={outcomeSummaryText}>
                     <strong>Outcome:</strong>{" "}
@@ -1234,6 +1275,24 @@ const EventExpo = () => {
                 )}
 
                 <div className="event-actions">
+                  {isPendingInvitationCard && (
+                    <>
+                      <button
+                        className="accept-invitation-btn"
+                        onClick={() => acceptInvitation(eventItem)}
+                        disabled={acceptingInvitationId === eventItem._id || rejectingInvitationId === eventItem._id}
+                      >
+                        {acceptingInvitationId === eventItem._id ? "Accepting..." : "Accept Invitation"}
+                      </button>
+                      <button
+                        className="reject-invitation-btn"
+                        onClick={() => rejectInvitation(eventItem)}
+                        disabled={acceptingInvitationId === eventItem._id || rejectingInvitationId === eventItem._id}
+                      >
+                        {rejectingInvitationId === eventItem._id ? "Rejecting..." : "Reject"}
+                      </button>
+                    </>
+                  )}
                   {isAdminOrManager && isUpcomingTab && (
                     <button
                       className="primary"

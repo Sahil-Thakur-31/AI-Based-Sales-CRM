@@ -1,6 +1,7 @@
 const Industry = require("../models/industries");
 const { cleanIndustryName, findIndustryByCanonicalName } = require("../utils/industryCatalog");
 
+const looksLikeObjectId = (value) => /^[0-9a-fA-F]{24}$/.test(String(value || "").trim());
 
 /* GET ALL INDUSTRIES (exclude deleted) */
 exports.getIndustries = async (req, res) => {
@@ -27,6 +28,7 @@ exports.getIndustries = async (req, res) => {
     const deduped = [];
 
     for (const item of data) {
+      if (looksLikeObjectId(item?.name)) continue;
       const canonicalName = cleanIndustryName(item?.name || "");
       const key = canonicalName.toLowerCase();
       if (!canonicalName || seen.has(key)) continue;

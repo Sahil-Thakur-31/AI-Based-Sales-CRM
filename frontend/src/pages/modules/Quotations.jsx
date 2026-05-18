@@ -269,7 +269,7 @@ export default function Quotations() {
                           onClick={() => toggleDeal(group.sourceId)}
                         >
                           <td className="quote-number">{latest.quoteNumber}</td>
-                          <td>{latest.clientName}</td>
+                          <td className="quote-client-name" title={latest.clientName || ""}>{latest.clientName}</td>
                           {isAdmin ? (
                             <td>{latest.createdByName || "-"}</td>
                           ) : null}

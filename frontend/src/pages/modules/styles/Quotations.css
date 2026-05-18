@@ -195,6 +195,14 @@
   font-weight: 700;
 }
 
+.quote-client-name {
+  width: 220px;
+  max-width: 220px;
+  min-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .quote-grand-total {
   color: #111827;
   font-weight: 700;

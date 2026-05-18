@@ -19,6 +19,8 @@ function formatDate(value) {
 export default function ClientDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const roleName = String(localStorage.getItem("RoleName") || "").toLowerCase();
+  const canModifyClient = roleName === "admin" || roleName === "manager";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,6 +54,7 @@ export default function ClientDetails() {
   };
 
   const updateClientField = (field, value) => {
+    if (!canModifyClient) return;
     setForm((prev) => ({
       ...prev,
       client: {
@@ -62,6 +65,7 @@ export default function ClientDetails() {
   };
 
   const updateContactField = (index, field, value) => {
+    if (!canModifyClient) return;
     setForm((prev) => {
       const contacts = [...(prev.contacts || [])];
       contacts[index] = {
@@ -76,6 +80,7 @@ export default function ClientDetails() {
   };
 
   const addContact = () => {
+    if (!canModifyClient) return;
     setForm((prev) => ({
       ...prev,
       contacts: [
@@ -93,7 +98,7 @@ export default function ClientDetails() {
   };
 
   const saveClient = async () => {
-    if (!form) return;
+    if (!form || !canModifyClient) return;
 
     try {
       setSaving(true);
@@ -143,9 +148,11 @@ export default function ClientDetails() {
         <button className="clients-btn clients-btn-secondary" onClick={() => navigate("/clients")}>
           Back to Clients
         </button>
-        <button className="clients-btn clients-btn-primary" onClick={saveClient} disabled={saving || loading}>
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
+        {canModifyClient && (
+          <button className="clients-btn clients-btn-primary" onClick={saveClient} disabled={saving || loading}>
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        )}
       </div>
 
       <div className="clients-detail-card">
@@ -161,43 +168,43 @@ export default function ClientDetails() {
             <div className="clients-grid">
               <div className="clients-field">
                 <label>Name</label>
-                <input value={form.client?.name || ""} onChange={(e) => updateClientField("name", e.target.value)} />
+                <input value={form.client?.name || ""} onChange={(e) => updateClientField("name", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>Website</label>
-                <input value={form.client?.website || ""} onChange={(e) => updateClientField("website", e.target.value)} />
+                <input value={form.client?.website || ""} onChange={(e) => updateClientField("website", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>Employee Count</label>
-                <input type="number" value={form.client?.employeeCount ?? ""} onChange={(e) => updateClientField("employeeCount", e.target.value)} />
+                <input type="number" value={form.client?.employeeCount ?? ""} onChange={(e) => updateClientField("employeeCount", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>Turnover Range</label>
-                <input value={form.client?.turnoverRange || ""} onChange={(e) => updateClientField("turnoverRange", e.target.value)} />
+                <input value={form.client?.turnoverRange || ""} onChange={(e) => updateClientField("turnoverRange", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field clients-field-full">
                 <label>Address</label>
-                <input value={form.client?.Address || ""} onChange={(e) => updateClientField("Address", e.target.value)} />
+                <input value={form.client?.Address || ""} onChange={(e) => updateClientField("Address", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>GST No</label>
-                <input value={form.client?.GST_no || ""} onChange={(e) => updateClientField("GST_no", e.target.value)} />
+                <input value={form.client?.GST_no || ""} onChange={(e) => updateClientField("GST_no", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>URD</label>
-                <input value={form.client?.URD || ""} onChange={(e) => updateClientField("URD", e.target.value)} />
+                <input value={form.client?.URD || ""} onChange={(e) => updateClientField("URD", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>Industry ID</label>
-                <input value={form.client?.industry || ""} onChange={(e) => updateClientField("industry", e.target.value)} />
+                <input value={form.client?.industry || ""} onChange={(e) => updateClientField("industry", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>Source ID</label>
-                <input value={form.client?.source || ""} onChange={(e) => updateClientField("source", e.target.value)} />
+                <input value={form.client?.source || ""} onChange={(e) => updateClientField("source", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>Location ID</label>
-                <input value={form.client?.location || ""} onChange={(e) => updateClientField("location", e.target.value)} />
+                <input value={form.client?.location || ""} onChange={(e) => updateClientField("location", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
               </div>
               <div className="clients-field">
                 <label>Created At</label>
@@ -207,7 +214,7 @@ export default function ClientDetails() {
 
             <div className="clients-contacts-head">
               <h3 className="clients-section-title">Client Contacts</h3>
-              <button className="clients-btn clients-btn-secondary" onClick={addContact}>+ Add Contact</button>
+              {canModifyClient && <button className="clients-btn clients-btn-secondary" onClick={addContact}>+ Add Contact</button>}
             </div>
 
             {!form.contacts?.length ? (
@@ -219,11 +226,11 @@ export default function ClientDetails() {
                     <div className="clients-grid">
                       <div className="clients-field">
                         <label>Name</label>
-                        <input value={contact.name || ""} onChange={(e) => updateContactField(index, "name", e.target.value)} />
+                        <input value={contact.name || ""} onChange={(e) => updateContactField(index, "name", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
                       </div>
                       <div className="clients-field">
                         <label>Designation</label>
-                        <input value={contact.designation || ""} onChange={(e) => updateContactField(index, "designation", e.target.value)} />
+                        <input value={contact.designation || ""} onChange={(e) => updateContactField(index, "designation", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
                       </div>
                       <div className="clients-field">
                         <label>Phone</label>
@@ -234,6 +241,7 @@ export default function ClientDetails() {
                                 international
                                 defaultCountry="IN"
                                 value={p || ""}
+                                disabled={!canModifyClient}
                                 onChange={(val) => {
                                   setForm(prev => {
                                     const newContacts = [...(prev.contacts || [])];
@@ -245,7 +253,7 @@ export default function ClientDetails() {
                                 }}
                               />
                             </div>
-                            {Array.isArray(contact.phone) && contact.phone.length > 1 && (
+                            {canModifyClient && Array.isArray(contact.phone) && contact.phone.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -264,7 +272,7 @@ export default function ClientDetails() {
                             )}
                           </div>
                         ))}
-                        <button type="button" onClick={() => {
+                        {canModifyClient && <button type="button" onClick={() => {
                           setForm(prev => {
                             const newContacts = [...(prev.contacts || [])];
                             const newPhones = Array.isArray(newContacts[index].phone) ? [...newContacts[index].phone] : typeof newContacts[index].phone === 'string' && newContacts[index].phone ? newContacts[index].phone.split(',') : [""];
@@ -272,14 +280,14 @@ export default function ClientDetails() {
                             newContacts[index] = { ...newContacts[index], phone: newPhones };
                             return { ...prev, contacts: newContacts };
                           });
-                        }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Phone</button>
+                        }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Phone</button>}
                       </div>
                       <div className="clients-field">
                         <label>Email</label>
                         {(Array.isArray(contact.email) && contact.email.length ? contact.email : [contact.email || ""]).map((em, eIdx) => (
                           <div key={eIdx} style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: "8px", width: "100%" }}>
                             <div style={{ flexGrow: 1 }}>
-                              <input type="email" style={{ width: "100%", paddingRight: Array.isArray(contact.email) && contact.email.length > 1 ? "36px" : "12px" }} value={em || ""} onChange={(e) => {
+                              <input type="email" style={{ width: "100%", paddingRight: Array.isArray(contact.email) && contact.email.length > 1 ? "36px" : "12px" }} value={em || ""} readOnly={!canModifyClient} disabled={!canModifyClient} onChange={(e) => {
                                   setForm(prev => {
                                     const newContacts = [...(prev.contacts || [])];
                                     const newEmails = Array.isArray(newContacts[index].email) ? [...newContacts[index].email] : typeof newContacts[index].email === 'string' && newContacts[index].email ? newContacts[index].email.split(',') : [""];
@@ -290,7 +298,7 @@ export default function ClientDetails() {
                                 }} 
                               />
                             </div>
-                            {Array.isArray(contact.email) && contact.email.length > 1 && (
+                            {canModifyClient && Array.isArray(contact.email) && contact.email.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -309,7 +317,7 @@ export default function ClientDetails() {
                             )}
                           </div>
                         ))}
-                        <button type="button" onClick={() => {
+                        {canModifyClient && <button type="button" onClick={() => {
                           setForm(prev => {
                             const newContacts = [...(prev.contacts || [])];
                             const newEmails = Array.isArray(newContacts[index].email) ? [...newContacts[index].email] : typeof newContacts[index].email === 'string' && newContacts[index].email ? newContacts[index].email.split(',') : [""];
@@ -317,17 +325,18 @@ export default function ClientDetails() {
                             newContacts[index] = { ...newContacts[index], email: newEmails };
                             return { ...prev, contacts: newContacts };
                           });
-                        }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Email</button>
+                        }} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: "13px", fontWeight: "500", marginTop: "4px" }}>+ Add Email</button>}
                       </div>
                       <div className="clients-field clients-field-full">
                         <label>LinkedIn</label>
-                        <input value={contact.linkedin || ""} onChange={(e) => updateContactField(index, "linkedin", e.target.value)} />
+                        <input value={contact.linkedin || ""} onChange={(e) => updateContactField(index, "linkedin", e.target.value)} readOnly={!canModifyClient} disabled={!canModifyClient} />
                       </div>
                       <div className="clients-field clients-checkbox-field">
                         <label>
                           <input
                             type="checkbox"
                             checked={Boolean(contact.is_active)}
+                            disabled={!canModifyClient}
                             onChange={(e) => updateContactField(index, "is_active", e.target.checked)}
                           />
                           Active Contact
@@ -339,6 +348,7 @@ export default function ClientDetails() {
                             type="radio"
                             name="primary_contact_client"
                             checked={Boolean(contact.is_primary)}
+                            disabled={!canModifyClient}
                             onChange={() => {
                               setForm(prev => {
                                 const newContacts = (prev.contacts || []).map((c, i) => ({
