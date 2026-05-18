@@ -135,7 +135,7 @@ function buildGlanceMetrics(mode, metrics, activeFilter = "month") {
   const periodSubtitle = getFilterLabel(activeFilter);
   const currentSubtitle = "Current";
   const items = [
-    { label: "Total Leads", value: metrics.totalLeads, subtitle: currentSubtitle },
+    { label: "Active Leads", value: metrics.totalLeads, subtitle: currentSubtitle },
     { label: "New Leads", value: metrics.newLeads, subtitle: periodSubtitle },
     { label: "Converted", value: metrics.convertedLeads, subtitle: periodSubtitle },
     { label: "Open Deals", value: metrics.openDeals, subtitle: currentSubtitle },
@@ -535,22 +535,6 @@ export default function AIInsights() {
                 <span style={{ fontSize: 22 }}>🤖</span>
                 <span style={{ opacity: 0.86 }}>AI SUMMARY</span>
               </div>
-              {insights.plainSummary ? (
-                <div
-                  style={{
-                    background: "rgba(255, 255, 255, 0.12)",
-                    border: "1px solid rgba(191, 219, 254, 0.25)",
-                    borderRadius: 12,
-                    padding: "12px 14px",
-                    fontSize: 16,
-                    fontWeight: 800,
-                    lineHeight: 1.45,
-                    maxWidth: 980,
-                  }}
-                >
-                  Plain-language Summary: {insights.plainSummary}
-                </div>
-              ) : null}
               <div style={{ fontSize: 18, lineHeight: 1.7, maxWidth: 980 }}>{insights.summary}</div>
               <div style={{ display: "grid", gap: 4 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#bfdbfe", textTransform: "uppercase" }}>

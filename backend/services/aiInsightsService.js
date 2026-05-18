@@ -157,6 +157,7 @@ function buildUserFilter(fieldName, ids = []) {
 function buildLeadBaseMatch(scopeMatch = {}) {
   const clauses = [
     { $or: [{ is_deleted: false }, { is_deleted: { $exists: false } }] },
+    { is_active: true },
   ];
 
   if (scopeMatch && Object.keys(scopeMatch).length) {
@@ -305,7 +306,7 @@ function normalizeSeverity(value) {
 function buildKeyMetrics(scopeRole, metrics) {
   if (scopeRole === "company") {
     return [
-      { label: "Total Leads", value: formatNumber(metrics.totalLeads), trend: "neutral", note: `${formatNumber(metrics.newLeads7d)} created in 7 days` },
+      { label: "Active Leads", value: formatNumber(metrics.totalLeads), trend: "neutral", note: `${formatNumber(metrics.newLeads7d)} created in 7 days` },
       { label: "Open Deals", value: formatNumber(metrics.openDeals), trend: metrics.openDeals > 0 ? "up" : "neutral", note: `${formatCurrency(metrics.totalPipelineValue)} pipeline value` },
       { label: "Won Value", value: formatCurrency(metrics.totalWonValue), trend: metrics.wonDeals >= metrics.lostDeals ? "up" : "neutral", note: `${formatNumber(metrics.wonDeals)} won deals` },
       { label: "Overdue Follow-ups", value: formatNumber(metrics.overdueFollowups), trend: metrics.overdueFollowups > 0 ? "down" : "neutral", note: `${formatNumber(metrics.pendingFollowups)} pending total` },
@@ -316,7 +317,7 @@ function buildKeyMetrics(scopeRole, metrics) {
 
   if (scopeRole === "team") {
     return [
-      { label: "Team Leads", value: formatNumber(metrics.teamLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
+      { label: "Active Team Leads", value: formatNumber(metrics.teamLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
       { label: "Open Deals", value: formatNumber(metrics.openDeals), trend: metrics.openDeals > 0 ? "up" : "neutral", note: `${formatCurrency(metrics.totalPipelineValue)} pipeline value` },
       { label: "Won Value", value: formatCurrency(metrics.totalWonValue), trend: metrics.wonDeals >= metrics.lostDeals ? "up" : "neutral", note: `${formatNumber(metrics.wonDeals)} won deals` },
       { label: "Pending Follow-ups", value: formatNumber(metrics.pendingFollowups), trend: metrics.pendingFollowups > 0 ? "neutral" : "up", note: `${formatNumber(metrics.overdueFollowups)} overdue` },
@@ -325,7 +326,7 @@ function buildKeyMetrics(scopeRole, metrics) {
   }
 
   return [
-    { label: "My Leads", value: formatNumber(metrics.totalLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
+    { label: "My Active Leads", value: formatNumber(metrics.totalLeads), trend: metrics.newLeads7d > 0 ? "up" : "neutral", note: `${formatNumber(metrics.newLeads7d)} new this week` },
     { label: "Open Deals", value: formatNumber(metrics.openDeals), trend: metrics.openDeals > 0 ? "up" : "neutral", note: `${formatCurrency(metrics.totalPipelineValue)} open pipeline` },
     { label: "Won Value", value: formatCurrency(metrics.totalWonValue), trend: metrics.wonDeals >= metrics.lostDeals ? "up" : "neutral", note: `${formatNumber(metrics.wonDeals)} won deals` },
     { label: "Today Follow-ups", value: formatNumber(metrics.todayFollowups), trend: metrics.todayFollowups > 0 ? "neutral" : "up", note: `${formatNumber(metrics.pendingFollowups)} pending total` },
