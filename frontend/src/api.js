@@ -40,7 +40,9 @@ API.interceptors.response.use(
                 typeof error.response.data.message !== "string" ||
                 looksTechnicalErrorMessage(error.response.data.message)
             ) {
-                error.response.data.message = readableMessage;
+                error.response.data.message =
+                    error.response.data.msg ||
+                    readableMessage;
             }
         }
 

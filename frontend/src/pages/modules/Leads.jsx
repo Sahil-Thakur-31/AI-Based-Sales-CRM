@@ -874,10 +874,10 @@ function LeadsDashboard({ defaultView = "leads" }) {
       deletedDealsRes,
       industriesRes,
     ] = await Promise.allSettled([
-      API.get("/leads"),
+      API.get("/leads", { params: { include_converted: true } }),
       API.get("/deals"),
-      API.get("/leads", { params: { deleted_only: true, limit: 10 } }),
-      API.get("/deals", { params: { deleted_only: true, limit: 10 } }),
+      API.get("/leads", { params: { deleted_only: true, include_converted: true } }),
+      API.get("/deals", { params: { deleted_only: true } }),
       API.get("/industries", { params: { status: "all" } }),
     ]);
 

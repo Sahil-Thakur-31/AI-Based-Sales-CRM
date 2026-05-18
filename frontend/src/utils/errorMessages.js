@@ -119,11 +119,13 @@ export function humanizeErrorMessage(message, fallback = "Something went wrong. 
 
 export function getReadableErrorMessage(error, fallback = "Something went wrong. Please try again.") {
   const responseMessage = error?.response?.data?.message;
+  const responseMsg = error?.response?.data?.msg;
   const responseError = error?.response?.data?.error;
   const directMessage = error?.message;
 
   const rawMessage =
     (typeof responseMessage === "string" && responseMessage) ||
+    (typeof responseMsg === "string" && responseMsg) ||
     (typeof responseError === "string" && responseError) ||
     (typeof directMessage === "string" && directMessage) ||
     "";
