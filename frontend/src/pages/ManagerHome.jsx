@@ -327,7 +327,6 @@ function Dashboard({ dashboardEndpoint = "/api/manager/dashboard" }) {
 
   const labels = dashboardData.labels || {};
   const stats = Array.isArray(dashboardData.statCards) ? dashboardData.statCards : [];
-  const timelineItems = allTimelineItems.slice(0, FOLLOWUPS_VISIBLE_ITEMS);
   const normalizedInsights = (dashboardData.insights || [])
     .map(normalizeDashboardInsight)
     .slice(0, 3);

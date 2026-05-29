@@ -552,18 +552,12 @@ export default function AdminHome() {
     {
       title: "Revenue (Won)",
       value: formatINR(summary.revenueWon),
-      sub: `${summary.revenueDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
-        summary.revenueDeltaPct
-      )}% vs previous ${rangeLabel.toLowerCase()}`,
       sub: revenueWonSub,
       accent: "green",
     },
     {
       title: "Active Deals",
       value: String(summary.activeDeals),
-      sub: `${summary.activeDealsDelta >= 0 ? "↑" : "↓"} ${Math.abs(
-        summary.activeDealsDelta
-      )} added in ${rangeLabel.toLowerCase()}`,
       sub: `New Deals Created in ${rangeLabel}`,
       accent: "blue",
     },
@@ -578,9 +572,6 @@ export default function AdminHome() {
     {
       title: "Pipeline Value",
       value: formatINR(summary.pipelineValue),
-      sub: `${summary.pipelineDeltaPct >= 0 ? "↑" : "↓"} ${Math.abs(
-        summary.pipelineDeltaPct
-      )}% vs target`,
       sub: "Total Value Of Open Deals",
       accent: "purple",
     },
